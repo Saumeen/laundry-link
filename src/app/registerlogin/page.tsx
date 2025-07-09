@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from "next-auth/react";
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,7 +12,7 @@ const hasLowerCase = (str: string) => /[a-z]/.test(str);
 const hasUpperCase = (str: string) => /[A-Z]/.test(str);
 const hasMinLength = (str: string) => str.length >= 8;
 
-function AuthForm() {
+const AuthForm = () => {
   const [step, setStep] = useState<'email' | 'login' | 'register'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +39,7 @@ function AuthForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      
+
       const data = await response.json();
       return data.exists;
     } catch (error) {
@@ -50,7 +51,7 @@ function AuthForm() {
   // Handle email submission
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address');
       return;
@@ -61,7 +62,7 @@ function AuthForm() {
 
     try {
       const emailExists = await checkEmailExists(email);
-      
+
       if (emailExists) {
         setStep('login');
       } else {
@@ -91,10 +92,10 @@ function AuthForm() {
         const data = await response.json();
         localStorage.setItem('customer', JSON.stringify(data.customer));
         localStorage.setItem('isLoggedIn', 'true');
-        
+
         // Trigger a custom event to update the header
         window.dispatchEvent(new Event('authStateChanged'));
-        
+
         router.push('/customer/dashboard');
       } else {
         const data = await response.json();
@@ -110,7 +111,7 @@ function AuthForm() {
   // Handle registration
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       setError('Please enter your full name');
       return;
@@ -128,9 +129,9 @@ function AuthForm() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          password, 
+        body: JSON.stringify({
+          email,
+          password,
           firstName: name.split(' ')[0],
           lastName: name.split(' ').slice(1).join(' ') || name.split(' ')[0]
         }),
@@ -140,10 +141,10 @@ function AuthForm() {
         const data = await response.json();
         localStorage.setItem('customer', JSON.stringify(data.customer));
         localStorage.setItem('isLoggedIn', 'true');
-        
+
         // Trigger a custom event to update the header
         window.dispatchEvent(new Event('authStateChanged'));
-        
+
         router.push('/customer/dashboard');
       } else {
         const data = await response.json();
@@ -168,7 +169,7 @@ function AuthForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          
+
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-blue-600 mb-2">Laundry Link</h1>
@@ -180,7 +181,7 @@ function AuthForm() {
             )}
             {step === 'login' && (
               <>
-                <button 
+                <button
                   onClick={goBack}
                   className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
                 >
@@ -195,7 +196,7 @@ function AuthForm() {
             )}
             {step === 'register' && (
               <>
-                <button 
+                <button
                   onClick={goBack}
                   className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
                 >
@@ -250,8 +251,26 @@ function AuthForm() {
               </div>
 
               <div className="text-center text-sm text-gray-500 mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="font-medium text-blue-700">🚀 Coming Soon!</p>
-                <p>Google, Apple, and Facebook login options will be available soon.</p>
+                <div className="flex flex-row space-x-2 justify-center">
+                  <button
+                    onClick={() => signIn("google")}
+                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
+                  >
+                    <img src="/images/auth/google-logo.svg" alt="Google" className="w-5 h-5 mr-2" />
+                  </button>
+                  <button
+                    onClick={() => signIn("facebook")}
+                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
+                  >
+                    <img src="/images/auth/facebook-logo.svg" alt="Facebook" className="w-5 h-5 mr-2" />
+                  </button>
+                  <button
+                    onClick={() => signIn("apple")}
+                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
+                  >
+                    <img src="/images/auth/apple-logo.svg" alt="Apple" className="w-5 h-5 mr-2" />
+                  </button>
+                </div>
               </div>
             </form>
           )}
