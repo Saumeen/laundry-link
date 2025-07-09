@@ -1,0 +1,10 @@
+/* Google Font import for M PLUS Rounded 1c */
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap');
+
+/* Custom CSS for Laundry Link brand name */
+.brand-name {
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  font-weight: 700;
+}
+
+/* Rest of the website keeps its original font */

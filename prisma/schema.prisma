@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  firstName       String
+  lastName        String
+  phone           String?
+  password        String?
+  isActive        Boolean   @default(false)
+  activationToken String?   @unique
+  walletBalance   Float     @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  addresses       Address[]
+  orders          Order[]
+}
+
+model Address {
+  id           Int      @id @default(autoincrement())
+  customerId   Int
+  label        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  area         String?
+  building     String?
+  floor        String?
+  apartment    String?
+  landmark     String?
+  contactNumber String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  address      String?
+  locationType String?  @default("flat")
+  latitude     Float?
+  longitude    Float?
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders       Order[]
+}
+
+model Order {
+  id                  Int           @id @default(autoincrement())
+  orderNumber         String        @unique
+  customerId          Int
+  addressId           Int?
+  status              String        @default("Order Placed")
+  items               String[]
+  totalAmount         Float
+  pickupTime          DateTime
+  serviceType         String
+  specialInstructions String?
+  customerFirstName   String
+  customerLastName    String
+  customerEmail       String
+  customerPhone       String
+  customerAddress     String
+  invoiceTotal        Float?
+  minimumOrderApplied Boolean       @default(false)
+  paymentStatus       String        @default("Pending")
+  paymentMethod       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  invoiceItems        InvoiceItem[]
+  address             Address?      @relation(fields: [addressId], references: [id])
+  customer            Customer      @relation(fields: [customerId], references: [id])
+}
+
+model InvoiceItem {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  itemType     String
+  serviceType  String
+  quantity     Int
+  pricePerItem Float
+  totalPrice   Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model playing_with_neon {
+  id    Int    @id @default(autoincrement())
+  name  String
+  value Float? @db.Real
+}
