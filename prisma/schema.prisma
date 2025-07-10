@@ -22,6 +22,8 @@ model Customer {
   updatedAt       DateTime  @updatedAt
   addresses       Address[]
   orders          Order[]
+
+  @@map("customers")
 }
 
 model Address {
@@ -46,6 +48,8 @@ model Address {
   longitude    Float?
   customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   orders       Order[]
+
+  @@map("addresses")
 }
 
 model Order {
@@ -57,6 +61,7 @@ model Order {
   items               String[]
   totalAmount         Float
   pickupTime          DateTime
+  deliveryTime        DateTime
   serviceType         String
   specialInstructions String?
   customerFirstName   String
@@ -73,6 +78,8 @@ model Order {
   invoiceItems        InvoiceItem[]
   address             Address?      @relation(fields: [addressId], references: [id])
   customer            Customer      @relation(fields: [customerId], references: [id])
+
+  @@map("orders")
 }
 
 model InvoiceItem {
@@ -86,12 +93,8 @@ model InvoiceItem {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-}
 
-model playing_with_neon {
-  id    Int    @id @default(autoincrement())
-  name  String
-  value Float? @db.Real
+  @@map("invoice_items")
 }
 
 // NextAuth.js models for Prisma Adapter
@@ -103,6 +106,8 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+
+  @@map("auth_users")
 }
 
 model Account {
@@ -121,6 +126,8 @@ model Account {
   user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+
+  @@map("auth_accounts")
 }
 
 model Session {
@@ -129,6 +136,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_sessions")
 }
 
 model VerificationToken {
@@ -137,4 +146,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+
+  @@map("auth_verification_tokens")
 }

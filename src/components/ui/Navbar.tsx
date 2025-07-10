@@ -4,58 +4,30 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { signOut } from "next-auth/react";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [customer, setCustomer] = useState<any>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const router = useRouter();
+  const {isAuthenticated,customer }= useAuth()
+
 
   // Check authentication status
   useEffect(() => {
-    const checkAuthStatus = () => {
-      const customerData = localStorage.getItem('customer');
-      const loginStatus = localStorage.getItem('isLoggedIn');
-      
-      if (customerData && loginStatus === 'true') {
-        setIsLoggedIn(true);
-        setCustomer(JSON.parse(customerData));
-      } else {
-        setIsLoggedIn(false);
-        setCustomer(null);
-      }
-    };
-
-    // Check on component mount
-    checkAuthStatus();
-
+    
     // Listen for auth state changes
     const handleAuthChange = () => {
-      checkAuthStatus();
+    //  checkAuthStatus();
     };
 
-    window.addEventListener('authStateChanged', handleAuthChange);
-    window.addEventListener('storage', handleAuthChange);
-
-    return () => {
-      window.removeEventListener('authStateChanged', handleAuthChange);
-      window.removeEventListener('storage', handleAuthChange);
-    };
   }, []);
 
   // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem('customer');
-    localStorage.removeItem('isLoggedIn');
-    setIsLoggedIn(false);
-    setCustomer(null);
-    setShowDropdown(false);
-    setIsMenuOpen(false);
-    
-    // Trigger auth state change event
-    window.dispatchEvent(new Event('authStateChanged'));
-    
+  const handleLogout = () => {  
+    signOut();
+  
     // Redirect to home
     router.push('/');
   };
@@ -81,7 +53,7 @@ export default function Navbar() {
           </div>
 
           <div className="hidden sm:flex items-center space-x-4">
-            {isLoggedIn && customer ? (
+            {isAuthenticated && customer ? (
               // Logged in - Show My Account dropdown
               <div className="relative">
                 <button
@@ -204,7 +176,7 @@ export default function Navbar() {
           <Link href="/schedule" className="block py-2 text-gray-700 hover:text-blue-700" onClick={() => setIsMenuOpen(false)}>Schedule Pickup</Link>
           <Link href="/tracking" className="block py-2 text-gray-700 hover:text-blue-700" onClick={() => setIsMenuOpen(false)}>Track Order</Link>
 
-          {isLoggedIn && customer ? (
+          {isAuthenticated && customer ? (
             <>
               <div className="border-t pt-2 mt-2">
                 <p className="py-2 text-sm text-gray-600">👤 {customerName}</p>

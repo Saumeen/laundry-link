@@ -4,6 +4,19 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
+interface LoginResponse {
+  customer: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    walletBalance: number;
+  };
+  message?: string;
+  error?: string;
+}
+
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,7 +26,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const message = searchParams.get('message');
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -26,12 +39,17 @@ function LoginForm() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as LoginResponse;
         // Store customer info in localStorage or session
         localStorage.setItem('customer', JSON.stringify(data.customer));
+        localStorage.setItem('isLoggedIn', 'true');
+        
+        // Trigger auth state change event
+        window.dispatchEvent(new Event('authStateChanged'));
+        
         router.push('/customer/dashboard');
       } else {
-        const data = await response.json();
+        const data = await response.json() as LoginResponse;
         setError(data.error || 'Login failed');
       }
     } catch (error) {
