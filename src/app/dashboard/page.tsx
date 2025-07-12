@@ -369,7 +369,7 @@ export default function CustomerDashboard() {
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center">
             <Image 
-              src="/images/laundry_link_logo.png" 
+                              src="/images/toplogo.png" 
               alt="Laundry Link Logo" 
               width={50} 
               height={50} 

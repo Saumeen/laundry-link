@@ -11,7 +11,7 @@ export default function Footer() {
           <div className="md:col-span-1">
             <div className="flex items-center">
               <Image 
-                src="/images/laundry_link_logo.png" 
+                src="/images/toplogo.png" 
                 alt="Laundry Link Logo" 
                 width={60} 
                 height={60} 

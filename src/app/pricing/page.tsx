@@ -40,12 +40,17 @@ interface PricingData {
 
 async function getPricingData(): Promise<PricingData> {
   try {
-    const response = await fetch('/api/pricing', {
-      cache: 'no-store'
+    // Use absolute URL for server-side rendering
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/pricing`, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch pricing data');
+      throw new Error(`Failed to fetch pricing data: ${response.status}`);
     }
     
     const result = await response.json() as { success: boolean; data: PricingData };
@@ -70,7 +75,28 @@ async function getPricingData(): Promise<PricingData> {
 }
 
 export default async function PricingPage() {
-  const pricingData = await getPricingData();
+  let pricingData: PricingData;
+  
+  try {
+    pricingData = await getPricingData();
+  } catch (error) {
+    console.error('Failed to load pricing data, using fallback:', error);
+    // Use fallback data if API fails
+    pricingData = {
+      header: {
+        id: 1,
+        title: 'Laundry Link',
+        subtitle: 'NORMAL SERVICE (24HRS)',
+        subtitleAr: 'الخدمة العادية (٢٤ ساعة)',
+        priceListTitle: 'PRICE LIST',
+        priceListTitleAr: 'قائمة الأسعار',
+        contactInfo: 'TEL: +973 33440841',
+        isActive: true
+      },
+      categories: []
+    };
+  }
+  
   const { header, categories } = pricingData;
 
   return (
