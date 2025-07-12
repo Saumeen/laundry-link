@@ -3,106 +3,54 @@
 import { useState } from "react";
 import Link from "next/link";
 import MainLayout from "@/components/layouts/main-layout";
+import { useServices } from "@/hooks/useServices";
 
 export default function Services() {
   const [activeTab, setActiveTab] = useState("all");
+  const { services, loading, error } = useServices();
   
-  const services = [
-    {
-      id: 1,
-      name: "Wash & Fold",
-      category: "regular",
-      description: "Our standard laundry service includes washing, drying, and folding your clothes with premium detergents and fabric softeners.",
-      price: "BD 1.000",
-      unit: "per kg",
-      turnaround: "24 hours",
-      features: [
-        "Sorted by color and fabric type",
-        "Washed at appropriate temperatures",
-        "Folded and packaged neatly",
-        "Stain treatment included"
-      ]
-    },
-    {
-      id: 2,
-      name: "Dry Cleaning",
-      category: "premium",
-      description: "Professional dry cleaning service for delicate garments, suits, dresses, and other items that require special care.",
-      price: "BD 0.900",
-      unit: "per item",
-      turnaround: "48 hours",
-      features: [
-        "Gentle cleaning process",
-        "Preserves fabric quality",
-        "Pressed and hung",
-        "Individually packaged"
-      ]
-    },
-    {
-      id: 3,
-      name: "Ironing",
-      category: "regular",
-      description: "Professional ironing service to keep your clothes looking crisp and wrinkle-free.",
-      price: "BD 0.300",
-      unit: "per item",
-      turnaround: "24 hours",
-      features: [
-        "Pressed to perfection",
-        "Hung on hangers",
-        "Attention to detail",
-        "Folded upon request"
-      ]
-    },
-    {
-      id: 4,
-      name: "Express Service",
-      category: "premium",
-      description: "Same-day turnaround for urgent laundry needs. Perfect for last-minute events or emergencies.",
-      price: "BD 1.500",
-      unit: "per kg",
-      turnaround: "8 hours",
-      features: [
-        "Priority processing",
-        "Same-day service",
-        "Available 7 days a week",
-        "Pickup and delivery included"
-      ]
-    },
-    {
-      id: 5,
-      name: "Bedding & Linens",
-      category: "regular",
-      description: "Specialized cleaning for bedsheets, duvet covers, pillowcases, towels, and other household linens.",
-      price: "BD 1.350",
-      unit: "per item",
-      turnaround: "24 hours",
-      features: [
-        "Deep cleaning",
-        "Sanitizing wash",
-        "Proper folding",
-        "Fresh scent"
-      ]
-    },
-    {
-      id: 6,
-      name: "Stain Removal",
-      category: "premium",
-      description: "Expert stain removal service for tough stains on clothing, linens, and other fabrics.",
-      price: "BD 2.000",
-      unit: "per item",
-      turnaround: "48 hours",
-      features: [
-        "Pre-treatment process",
-        "Specialized solutions",
-        "Gentle on fabrics",
-        "Multiple stain types"
-      ]
-    }
-  ];
-
+  // Filter services based on pricing type
   const filteredServices = activeTab === "all" 
     ? services 
-    : services.filter(service => service.category === activeTab);
+    : services.filter(service => {
+        if (activeTab === "regular") {
+          return service.pricingType === 'BY_WEIGHT';
+        } else if (activeTab === "premium") {
+          return service.pricingType === 'BY_PIECE';
+        }
+        return true;
+      });
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading services...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-600">Error loading services: {error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -139,7 +87,7 @@ export default function Services() {
               }`}
               onClick={() => setActiveTab("regular")}
             >
-              Regular Services
+              By Weight (KG)
             </button>
             <button
               type="button"
@@ -150,7 +98,7 @@ export default function Services() {
               }`}
               onClick={() => setActiveTab("premium")}
             >
-              Premium Services
+              By Piece
             </button>
           </div>
         </div>
@@ -160,34 +108,44 @@ export default function Services() {
           {filteredServices.map((service) => (
             <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
               <div className="p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {service.name}
-                </h3>
+                <div className="flex items-center mb-3">
+                  <span className="text-3xl mr-3">{service.icon}</span>
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {service.displayName}
+                  </h3>
+                </div>
                 <div className="flex items-center mb-4">
                   <span className="text-blue-600 font-bold text-xl">
-                    {service.price}
-                  </span>
-                  <span className="text-gray-500 ml-1">
-                    {service.unit}
+                    Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'}
                   </span>
                   <span className="ml-auto bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                    {service.turnaround}
+                    {service.pricingUnit}
                   </span>
                 </div>
                 <p className="text-gray-600 mb-4">
                   {service.description}
                 </p>
                 <div className="border-t border-gray-200 pt-4 mt-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Includes:</h4>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Service Details:</h4>
                   <ul className="space-y-1">
-                    {service.features.map((feature, index) => (
-                      <li key={index} className="flex items-start">
-                        <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="text-sm text-gray-600">{feature}</span>
-                      </li>
-                    ))}
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-600">Professional cleaning process</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-600">Quality assurance</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-600">Convenient pickup & delivery</span>
+                    </li>
                   </ul>
                 </div>
                 <div className="mt-6">

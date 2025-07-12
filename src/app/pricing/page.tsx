@@ -1,26 +1,106 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import MainLayout from '@/components/layouts/main-layout';
 
-export default function PricingPage() {
+// Define types for the API response
+interface PricingItem {
+  id: number;
+  name: string;
+  displayName: string;
+  price: number;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+interface PricingCategory {
+  id: number;
+  name: string;
+  displayName: string;
+  description?: string;
+  sortOrder: number;
+  isActive: boolean;
+  items: PricingItem[];
+}
+
+interface PricingHeader {
+  id: number;
+  title: string;
+  subtitle?: string;
+  subtitleAr?: string;
+  priceListTitle?: string;
+  priceListTitleAr?: string;
+  contactInfo?: string;
+  isActive: boolean;
+}
+
+interface PricingData {
+  header: PricingHeader;
+  categories: PricingCategory[];
+}
+
+async function getPricingData(): Promise<PricingData> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/pricing`, {
+      cache: 'no-store'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch pricing data');
+    }
+    
+    const result = await response.json() as { success: boolean; data: PricingData };
+    return result.data;
+  } catch (error) {
+    console.error('Error fetching pricing data:', error);
+    // Return fallback data if API fails
+    return {
+      header: {
+        id: 1,
+        title: 'Laundry Link',
+        subtitle: 'NORMAL SERVICE (24HRS)',
+        subtitleAr: 'الخدمة العادية (٢٤ ساعة)',
+        priceListTitle: 'PRICE LIST',
+        priceListTitleAr: 'قائمة الأسعار',
+        contactInfo: 'TEL: +973 33440841',
+        isActive: true
+      },
+      categories: []
+    };
+  }
+}
+
+export default async function PricingPage() {
+  const pricingData = await getPricingData();
+  const { header, categories } = pricingData;
+
   return (
-    <div className="bg-white py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <MainLayout>
+      <div className="bg-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h1 className="text-3xl font-extrabold text-blue-600 sm:text-4xl brand-name">
-            Laundry Link
+            {header.title}
           </h1>
-          <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            NORMAL SERVICE (24HRS)
-          </p>
-          <p className="mt-1 max-w-2xl mx-auto text-lg text-gray-500 sm:mt-2 mb-8">
-            الخدمة العادية (٢٤ ساعة)
-          </p>
-          <h2 className="text-3xl font-extrabold text-blue-600 sm:text-4xl mb-8 brand-name">
-            PRICE LIST
-          </h2>
-          <p className="text-2xl text-blue-600 mb-12">
-            قائمة الأسعار
-          </p>
+          {header.subtitle && (
+            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
+              {header.subtitle}
+            </p>
+          )}
+          {header.subtitleAr && (
+            <p className="mt-1 max-w-2xl mx-auto text-lg text-gray-500 sm:mt-2 mb-8">
+              {header.subtitleAr}
+            </p>
+          )}
+          {header.priceListTitle && (
+            <h2 className="text-3xl font-extrabold text-blue-600 sm:text-4xl mb-8 brand-name">
+              {header.priceListTitle}
+            </h2>
+          )}
+          {header.priceListTitleAr && (
+            <p className="text-2xl text-blue-600 mb-12">
+              {header.priceListTitleAr}
+            </p>
+          )}
         </div>
 
         {/* Full price list image for mobile */}
@@ -36,258 +116,82 @@ export default function PricingPage() {
 
         {/* Detailed price tables for desktop */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-2 gap-8 mb-12">
-            {/* IRON / PRESS */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                IRON / PRESS
+          {categories.length > 0 && (
+            <>
+              {/* First row - IRON/PRESS and WASH AND IRON */}
+              <div className="grid grid-cols-2 gap-8 mb-12">
+                {categories.slice(0, 2).map((category) => (
+                  <div key={category.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
+                      {category.name}
+                    </div>
+                    <div className="p-6">
+                      <table className="min-w-full">
+                        <tbody>
+                          {category.items.map((item, index) => (
+                            <tr key={item.id} className={index === category.items.length - 1 ? '' : 'border-b'}>
+                              <td className="py-3 text-left text-blue-800 font-medium">{item.displayName}</td>
+                              <td className="py-3 text-right text-blue-800 font-medium">BD {item.price.toFixed(3)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="p-6">
-                <table className="min-w-full">
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">SHIRT / TSHIRT</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.300</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">THAWB</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.400</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">GHUTRA / SHMAGH</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.300</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">PANTS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.300</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-left text-blue-800 font-medium">ABAYA</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.700</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* WASH AND IRON */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                WASH AND IRON
+              {/* Second row - BEDDINGS and DRY CLEAN */}
+              <div className="grid grid-cols-2 gap-8 mb-12">
+                {categories.slice(2, 4).map((category) => (
+                  <div key={category.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
+                      {category.name}
+                    </div>
+                    <div className="p-6">
+                      <table className="min-w-full">
+                        <tbody>
+                          {category.items.map((item, index) => (
+                            <tr key={item.id} className={index === category.items.length - 1 ? '' : 'border-b'}>
+                              <td className="py-3 text-left text-blue-800 font-medium">{item.displayName}</td>
+                              <td className="py-3 text-right text-blue-800 font-medium">BD {item.price.toFixed(3)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="p-6">
-                <table className="min-w-full">
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">SHIRT / TSHIRT</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.600</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">THAWB</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.800</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">GHUTRA / SHMAGH</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">PANTS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.600</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">ABAYA</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.500</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-left text-blue-800 font-medium">SHORTS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.500</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-8 mb-12">
-            {/* BEDDINGS */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                BEDDINGS
-              </div>
-              <div className="p-6">
-                <table className="min-w-full">
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">BLANKET(S)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">BLANKET (D)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.300</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">BLANKET (K)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.900</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">BED SHEET(S)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.350</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">BED SHEET(B)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.750</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">PILLOW CASE</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DUVET (S)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.750</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DUVET (D)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.550</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DUVET (K)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 3.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DUVET CASE (S)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DUVET CASE (K/D)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">PILLOW (S)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.000</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">PILLOW(B)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.000</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">CARPET PER M2</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.300</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-left text-blue-800 font-medium">CURTAINS PER M2</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.950</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* DRY CLEAN */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                DRY CLEAN
-              </div>
-              <div className="p-6">
-                <table className="min-w-full">
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">SHIRT / TSHIRT</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.900</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">THAWB</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.300</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">GHUTRA / SHMAGH</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.750</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">PANTS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.900</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">ABAYA</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.000</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">SHORTS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.800</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">JACKET NORMAL</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 1.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">WINTER JACKET</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 3.000</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">JACKET LEATHER</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 4.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DRESS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.000</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">DELICATE DRESS</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 5.000</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">TOWELS (S)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.300</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">TOWELS (M)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.500</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">TOWELS (L)</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.900</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">SKIRT</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.800</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-3 text-left text-blue-800 font-medium">GALABIYAH</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 2.000</td>
-                    </tr>
-                    <tr>
-                      <td className="py-3 text-left text-blue-800 font-medium">SCARF/ HIJAB</td>
-                      <td className="py-3 text-right text-blue-800 font-medium">BD 0.900</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* WASH AND FOLD */}
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-md mx-auto">
-            <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-              WASH AND FOLD
-            </div>
-            <div className="p-6">
-              <table className="min-w-full">
-                <tbody>
-                  <tr className="border-b">
-                    <td className="py-3 text-left text-blue-800 font-medium">MIX WASH /KG</td>
-                    <td className="py-3 text-right text-blue-800 font-medium">BD 1.000</td>
-                  </tr>
-                  <tr>
-                    <td className="py-3 text-left text-blue-800 font-medium">SEPARATE WASH /KG</td>
-                    <td className="py-3 text-right text-blue-800 font-medium">BD 1.500</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+              {/* Third row - WASH AND FOLD (centered) */}
+              {categories.length > 4 && (
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-md mx-auto">
+                  <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
+                    {categories[4].name}
+                  </div>
+                  <div className="p-6">
+                    <table className="min-w-full">
+                      <tbody>
+                        {categories[4].items.map((item, index) => (
+                          <tr key={item.id} className={index === categories[4].items.length - 1 ? '' : 'border-b'}>
+                            <td className="py-3 text-left text-blue-800 font-medium">{item.displayName}</td>
+                            <td className="py-3 text-right text-blue-800 font-medium">BD {item.price.toFixed(3)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="mt-12 text-center">
-          <p className="text-2xl text-blue-800 font-bold">TEL: +973 33440841</p>
+          {header.contactInfo && (
+            <p className="text-2xl text-blue-800 font-bold">{header.contactInfo}</p>
+          )}
           <div className="mt-6">
             <Link 
               href="/schedule" 
@@ -299,5 +203,6 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+    </MainLayout>
   );
 }

@@ -1,6 +1,7 @@
 // src/app/api/customer/addresses/[addressId]/default/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
 export async function PUT(
   req: Request,
@@ -8,17 +9,8 @@ export async function PUT(
 ) {
   try {
     const { addressId } = params;
-    const { searchParams } = new URL(req.url);
-    const customerEmail = searchParams.get('email');
-
-    if (!customerEmail) {
-      return NextResponse.json(
-        { error: "Customer email is required" },
-        { status: 400 }
-      );
-    }
-
     const addressIdInt = parseInt(addressId);
+    
     if (isNaN(addressIdInt)) {
       return NextResponse.json(
         { error: "Invalid address ID" },
@@ -26,17 +18,8 @@ export async function PUT(
       );
     }
 
-    // Find customer
-    const customer = await prisma.customer.findUnique({
-      where: { email: customerEmail }
-    });
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: "Customer not found" },
-        { status: 404 }
-      );
-    }
+    // Get authenticated customer
+    const customer = await requireAuthenticatedCustomer();
 
     // Verify address belongs to customer
     const targetAddress = await prisma.address.findFirst({
@@ -78,6 +61,11 @@ export async function PUT(
 
   } catch (error) {
     console.error("Error setting default address:", error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to set default address" },
       { status: 500 }

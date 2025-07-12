@@ -79,7 +79,7 @@ export default function AdminPanel() {
   const fetchOrders = async () => {
     try {
       const response = await fetch('/api/admin/orders-detailed');
-      const data = await response.json();
+      const data = await response.json() as Order[];
       setOrders(data);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -189,7 +189,7 @@ export default function AdminPanel() {
         });
         // Refresh selected order
         const updatedOrders = await fetch('/api/admin/orders-detailed');
-        const ordersData = await updatedOrders.json();
+        const ordersData = await updatedOrders.json() as Order[];
         const updatedOrder = ordersData.find((o: Order) => o.id === selectedOrder.id);
         if (updatedOrder) {
           setSelectedOrder(updatedOrder);
@@ -208,7 +208,7 @@ export default function AdminPanel() {
       // Fetch detailed order information including customer and addresses
       const response = await fetch(`/api/admin/order-details/${order.id}`);
       if (response.ok) {
-        const detailedOrder = await response.json();
+        const detailedOrder = await response.json() as Order;
         setSelectedOrder(detailedOrder);
         setProcessingData({
           totalPieces: detailedOrder.totalPieces?.toString() || '',

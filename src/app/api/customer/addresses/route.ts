@@ -1,37 +1,31 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const customerEmail = searchParams.get('email');
-    
-    if (!customerEmail) {
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
-    }
+    // Get authenticated customer
+    const customer = await requireAuthenticatedCustomer();
 
-    const customer = await prisma.customer.findUnique({
-      where: { email: customerEmail },
-      include: {
-        addresses: {
-          orderBy: [
-            { isDefault: 'desc' },
-            { createdAt: 'desc' }
-          ]
-        }
-      }
+    const addresses = await prisma.address.findMany({
+      where: { customerId: customer.id },
+      orderBy: [
+        { isDefault: 'desc' },
+        { createdAt: 'desc' }
+      ]
     });
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
-    }
-
     return NextResponse.json({ 
-      addresses: customer.addresses 
+      addresses 
     });
 
   } catch (error) {
     console.error("Error fetching addresses:", error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to fetch addresses" },
       { status: 500 }
@@ -41,28 +35,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const customerEmail = searchParams.get('email');
-    const body = await req.json();
-
-    if (!customerEmail) {
-      return NextResponse.json(
-        { error: "Customer email is required" },
-        { status: 400 }
-      );
-    }
-
-    // Find customer
-    const customer = await prisma.customer.findUnique({
-      where: { email: customerEmail }
-    });
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: "Customer not found" },
-        { status: 404 }
-      );
-    }
+    // Get authenticated customer
+    const customer = await requireAuthenticatedCustomer();
+    const body = await req.json() as any;
 
     // Validate required fields
     const { label, locationType, contactNumber } = body;
@@ -85,70 +60,78 @@ export async function POST(req: Request) {
     let addressLine1 = '';
     let city = 'Bahrain'; // Default city
 
-    switch (locationType) {
-      case 'hotel':
-        if (!body.hotelName?.trim() || !body.roomNumber?.trim()) {
+    // Check if this is a Google address (has googleAddress field)
+    if (body.googleAddress?.trim()) {
+      // Use Google address as the primary address
+      addressLine1 = body.googleAddress.trim();
+      city = body.city || 'Bahrain';
+    } else {
+      // Fall back to location-specific address formatting
+      switch (locationType) {
+        case 'hotel':
+          if (!body.hotelName?.trim() || !body.roomNumber?.trim()) {
+            return NextResponse.json(
+              { error: "Hotel name and room number are required" },
+              { status: 400 }
+            );
+          }
+          addressLine1 = `${body.hotelName}, Room ${body.roomNumber}`;
+          if (body.collectionMethod) {
+            addressLine1 += ` (${body.collectionMethod})`;
+          }
+          break;
+
+        case 'home':
+          if (!body.house?.trim() || !body.road?.trim()) {
+            return NextResponse.json(
+              { error: "House and road are required" },
+              { status: 400 }
+            );
+          }
+          addressLine1 = `${body.house}, ${body.road}`;
+          if (body.block?.trim()) {
+            addressLine1 += `, Block ${body.block}`;
+          }
+          break;
+
+        case 'flat':
+          if (!body.building?.trim() || !body.road?.trim()) {
+            return NextResponse.json(
+              { error: "Building and road are required" },
+              { status: 400 }
+            );
+          }
+          addressLine1 = `${body.building}, ${body.road}`;
+          if (body.block?.trim()) {
+            addressLine1 += `, Block ${body.block}`;
+          }
+          if (body.flatNumber?.trim()) {
+            addressLine1 += `, Flat ${body.flatNumber}`;
+          }
+          break;
+
+        case 'office':
+          if (!body.building?.trim() || !body.road?.trim()) {
+            return NextResponse.json(
+              { error: "Building and road are required" },
+              { status: 400 }
+            );
+          }
+          addressLine1 = `${body.building}, ${body.road}`;
+          if (body.block?.trim()) {
+            addressLine1 += `, Block ${body.block}`;
+          }
+          if (body.officeNumber?.trim()) {
+            addressLine1 += `, Office ${body.officeNumber}`;
+          }
+          break;
+
+        default:
           return NextResponse.json(
-            { error: "Hotel name and room number are required" },
+            { error: "Invalid location type" },
             { status: 400 }
           );
-        }
-        addressLine1 = `${body.hotelName}, Room ${body.roomNumber}`;
-        if (body.collectionMethod) {
-          addressLine1 += ` (${body.collectionMethod})`;
-        }
-        break;
-
-      case 'home':
-        if (!body.house?.trim() || !body.road?.trim()) {
-          return NextResponse.json(
-            { error: "House and road are required" },
-            { status: 400 }
-          );
-        }
-        addressLine1 = `${body.house}, ${body.road}`;
-        if (body.block?.trim()) {
-          addressLine1 += `, Block ${body.block}`;
-        }
-        break;
-
-      case 'flat':
-        if (!body.building?.trim() || !body.road?.trim()) {
-          return NextResponse.json(
-            { error: "Building and road are required" },
-            { status: 400 }
-          );
-        }
-        addressLine1 = `${body.building}, ${body.road}`;
-        if (body.block?.trim()) {
-          addressLine1 += `, Block ${body.block}`;
-        }
-        if (body.flatNumber?.trim()) {
-          addressLine1 += `, Flat ${body.flatNumber}`;
-        }
-        break;
-
-      case 'office':
-        if (!body.building?.trim() || !body.road?.trim()) {
-          return NextResponse.json(
-            { error: "Building and road are required" },
-            { status: 400 }
-          );
-        }
-        addressLine1 = `${body.building}, ${body.road}`;
-        if (body.block?.trim()) {
-          addressLine1 += `, Block ${body.block}`;
-        }
-        if (body.officeNumber?.trim()) {
-          addressLine1 += `, Office ${body.officeNumber}`;
-        }
-        break;
-
-      default:
-        return NextResponse.json(
-          { error: "Invalid location type" },
-          { status: 400 }
-        );
+      }
     }
 
     // Check if this is the first address (make it default)
@@ -172,6 +155,8 @@ export async function POST(req: Request) {
         building: body.building?.trim() || body.hotelName?.trim() || null,
         floor: body.flatNumber?.trim() || body.roomNumber?.trim() || null,
         apartment: body.officeNumber?.trim() || null,
+        latitude: body.latitude || null,
+        longitude: body.longitude || null,
         isDefault: isFirstAddress,
       }
     });
@@ -184,6 +169,11 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error("Error creating address:", error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to create address" },
       { status: 500 }

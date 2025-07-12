@@ -91,7 +91,7 @@ function DashboardContent() {
       setCustomer(oauthCustomer);
       
       // Fetch fresh customer data from database for OAuth users
-      fetchCustomerData(oauthCustomer.email);
+      fetchCustomerData();
       return;
     }
 
@@ -106,7 +106,7 @@ function DashboardContent() {
       }
 
       // Fetch fresh customer data from database
-      fetchCustomerData(authCustomer.email);
+      fetchCustomerData();
       return;
     }
 
@@ -125,18 +125,18 @@ function DashboardContent() {
       }
 
       // Fetch fresh customer data from database
-      fetchCustomerData(parsedCustomer.email);
+      fetchCustomerData();
     } else {
       router.push('/registerlogin');
     }
   }, [isAuthenticated, authCustomer, isNextAuthUser, authLoading, session, sessionStatus, router, searchParams]);
 
-  const fetchCustomerData = async (email: string) => {
+  const fetchCustomerData = async () => {
     try {
       // Fetch fresh customer data from database
-      const customerResponse = await fetch(`/api/customer/profile?email=${encodeURIComponent(email)}`);
+      const customerResponse = await fetch('/api/customer/profile');
       if (customerResponse.ok) {
-        const customerData = await customerResponse.json();
+        const customerData = await customerResponse.json() as CustomerResponse;
         if (customerData && typeof customerData === 'object' && 'customer' in customerData && customerData.customer) {
           setCustomer(customerData.customer as Customer);
           
@@ -151,8 +151,8 @@ function DashboardContent() {
 
       // Fetch orders and addresses
       await Promise.all([
-        fetchOrders(email),
-        fetchAddresses(email)
+        fetchOrders(),
+        fetchAddresses()
       ]);
     } catch (error) {
       console.error('Error fetching customer data:', error);
@@ -162,19 +162,19 @@ function DashboardContent() {
       
       // Still try to fetch orders and addresses
       await Promise.all([
-        fetchOrders(email),
-        fetchAddresses(email)
+        fetchOrders(),
+        fetchAddresses()
       ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchOrders = async (email: string) => {
+  const fetchOrders = async () => {
     try {
-      const response = await fetch(`/api/customer/orders?email=${encodeURIComponent(email)}`);
+      const response = await fetch('/api/customer/orders');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as OrdersResponse;
         if (data && typeof data === 'object' && 'orders' in data && Array.isArray(data.orders)) {
           setOrders(data.orders);
         }
@@ -184,11 +184,11 @@ function DashboardContent() {
     }
   };
 
-  const fetchAddresses = async (email: string) => {
+  const fetchAddresses = async () => {
     try {
-      const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(email)}`);
+      const response = await fetch('/api/customer/addresses');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as AddressesResponse;
         if (data && typeof data === 'object' && 'addresses' in data && Array.isArray(data.addresses)) {
           setAddresses(data.addresses);
         }

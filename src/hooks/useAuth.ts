@@ -40,12 +40,12 @@ export function useAuth(): AuthState {
       setAuthState({
         isAuthenticated: true,
         customer: {
-          id: 0,
+          id: session.customerId || 0,
           email: session.user.email || '',
           firstName: session.user.name?.split(' ')[0] || '',
           lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
           isActive: true,
-          walletBalance: 0,
+          walletBalance: session.walletBalance || 0,
         },
         isLoading: false,
         isNextAuthUser: true,

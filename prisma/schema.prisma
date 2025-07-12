@@ -8,6 +8,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // SUPER_ADMIN, OPERATION_MANAGER, DRIVER, FACILITY_TEAM
+  description String?
+  permissions String[] // Array of permission strings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  staff       Staff[]
+
+  @@map("roles")
+}
+
+model Staff {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  firstName     String
+  lastName      String
+  phone         String?
+  password      String
+  roleId        Int
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  profileImage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  role          Role      @relation(fields: [roleId], references: [id])
+  orderUpdates  OrderUpdate[]
+  driverAssignments DriverAssignment[]
+  createdOrders Order[]   @relation("CreatedByStaff")
+
+  @@map("staff")
+}
+
+// ===== CUSTOMER SYSTEM =====
 model Customer {
   id              Int       @id @default(autoincrement())
   email           String    @unique
@@ -20,6 +56,8 @@ model Customer {
   walletBalance   Float     @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  
+  // Relations
   addresses       Address[]
   orders          Order[]
 
@@ -46,12 +84,15 @@ model Address {
   locationType String?  @default("flat")
   latitude     Float?
   longitude    Float?
+  
+  // Relations
   customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   orders       Order[]
 
   @@map("addresses")
 }
 
+// ===== ORDER SYSTEM =====
 model Order {
   id                  Int           @id @default(autoincrement())
   orderNumber         String        @unique
@@ -73,13 +114,53 @@ model Order {
   minimumOrderApplied Boolean       @default(false)
   paymentStatus       String        @default("Pending")
   paymentMethod       String?
+  createdByStaffId    Int?          // Track which staff member created the order
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
+  
+  // Relations
   invoiceItems        InvoiceItem[]
   address             Address?      @relation(fields: [addressId], references: [id])
   customer            Customer      @relation(fields: [customerId], references: [id])
+  orderUpdates        OrderUpdate[]
+  driverAssignments   DriverAssignment[]
+  createdByStaff      Staff?        @relation("CreatedByStaff", fields: [createdByStaffId], references: [id])
 
   @@map("orders")
+}
+
+model OrderUpdate {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  staffId   Int?
+  status    String
+  notes     String?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  staff     Staff?   @relation(fields: [staffId], references: [id])
+
+  @@map("order_updates")
+}
+
+model DriverAssignment {
+  id              Int      @id @default(autoincrement())
+  orderId         Int
+  driverId        Int
+  assignmentType  String   // 'pickup' or 'delivery'
+  status          String   @default("assigned") // 'assigned', 'in_progress', 'completed', 'cancelled'
+  estimatedTime   DateTime?
+  actualTime      DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver          Staff    @relation(fields: [driverId], references: [id])
+
+  @@map("driver_assignments")
 }
 
 model InvoiceItem {
@@ -92,18 +173,22 @@ model InvoiceItem {
   totalPrice   Float
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  
+  // Relations
   order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("invoice_items")
 }
 
-// NextAuth.js models for Prisma Adapter
+// ===== NEXT AUTH MODELS =====
 model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  
+  // Relations
   accounts      Account[]
   sessions      Session[]
 
@@ -123,6 +208,8 @@ model Account {
   scope              String?
   id_token           String?
   session_state      String?
+  
+  // Relations
   user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
@@ -135,6 +222,8 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  
+  // Relations
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("auth_sessions")
@@ -149,3 +238,83 @@ model VerificationToken {
 
   @@map("auth_verification_tokens")
 }
+
+// ===== PRICING SYSTEM =====
+model PricingCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // e.g., "IRON / PRESS", "WASH AND IRON", "DRY CLEAN", "BEDDINGS", "WASH AND FOLD"
+  displayName String   // e.g., "Iron / Press", "Wash & Iron", "Dry Clean", "Beddings", "Wash & Fold"
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  items       PricingItem[]
+
+  @@map("pricing_categories")
+}
+
+model PricingItem {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int
+  name        String   // e.g., "SHIRT / TSHIRT", "THAWB", "ABAYA"
+  displayName String   // e.g., "Shirt / T-shirt", "Thawb", "Abaya"
+  price       Float
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  category    PricingCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_items")
+}
+
+model PricingHeader {
+  id          Int      @id @default(autoincrement())
+  title       String   // e.g., "Laundry Link"
+  subtitle    String?  // e.g., "NORMAL SERVICE (24HRS)"
+  subtitleAr  String?  // Arabic subtitle
+  priceListTitle String? // e.g., "PRICE LIST"
+  priceListTitleAr String? // Arabic price list title
+  contactInfo String?  // e.g., "TEL: +973 33440841"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pricing_headers")
+}
+
+// ===== ENUMS =====
+enum PricingType {
+  BY_WEIGHT
+  BY_PIECE
+}
+
+enum PricingUnit {
+  KG
+  PIECE
+}
+
+// ===== SERVICE SYSTEM =====
+model Service {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique // e.g., "wash", "wash-iron", "dry-clean", "duvet-bulky", "carpet-cleaning"
+  displayName String      // e.g., "Wash", "Wash & Iron", "Dry Clean", "Duvet & Bulky Items", "Carpet Cleaning"
+  description String      // e.g., "Professional washing service"
+  pricingType PricingType // BY_WEIGHT or BY_PIECE
+  pricingUnit PricingUnit // KG or PIECE
+  icon        String      // emoji icon
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("services")
+}
+
+

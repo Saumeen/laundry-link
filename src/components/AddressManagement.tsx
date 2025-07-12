@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
+import GoogleMapsAutocomplete from './GoogleMapsAutocomplete';
 
 interface Address {
   id: number;
@@ -19,17 +22,26 @@ interface Address {
 }
 
 export default function AddressManagement() {
+  const { data: session, status } = useSession();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [customerEmail, setCustomerEmail] = useState<string>('');
   const [message, setMessage] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  
+  // Google Maps autocomplete state
+  const [selectedAddress, setSelectedAddress] = useState<GeocodingResult | null>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
   
   // Form data
   const [formData, setFormData] = useState({
-    label: '',
+    googleAddress: '',
     locationType: 'home',
+    // Address components from Google Maps
+    city: '',
+    area: '',
+    building: '',
     // Hotel fields
     hotelName: '',
     roomNumber: '',
@@ -40,7 +52,6 @@ export default function AddressManagement() {
     block: '',
     homeCollectionMethod: 'directly',
     // Flat fields
-    building: '',
     flatNumber: '',
     // Office fields
     officeNumber: '',
@@ -49,31 +60,24 @@ export default function AddressManagement() {
     email: '',
   });
 
-  // Get customer email from localStorage
+  // Fetch addresses when component mounts or session changes
   useEffect(() => {
-    const customerData = localStorage.getItem('customer');
-    if (customerData) {
-      const customer = JSON.parse(customerData);
-      setCustomerEmail(customer.email);
-      setFormData(prev => ({ ...prev, email: customer.email }));
-    }
-  }, []);
-
-  // Fetch addresses when component mounts or customer email changes
-  useEffect(() => {
-    if (customerEmail) {
+    if (session?.user?.email) {
+      setFormData(prev => ({ ...prev, email: session.user!.email || '' }));
       fetchAddresses();
     }
-  }, [customerEmail]);
+  }, [session]);
+
+
 
   const fetchAddresses = async () => {
-    if (!customerEmail) return;
+    if (!session?.user?.email) return;
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(customerEmail)}`);
+      const response = await fetch('/api/customer/addresses');
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { addresses?: Address[] };
         setAddresses(data.addresses || []);
       } else {
         setMessage('❌ Failed to load addresses');
@@ -85,29 +89,89 @@ export default function AddressManagement() {
     }
   };
 
+
+
+  // Handle address selection from new Google Maps component
+  const handleNewAddressSelect = async (suggestion: any) => {
+    try {
+      setAddressLoading(true);
+      const geocodingResult = await googleMapsService.geocodePlaceId(suggestion.place_id);
+      
+      if (geocodingResult) {
+        setSelectedAddress(geocodingResult);
+        setFormData(prev => ({
+          ...prev,
+          googleAddress: suggestion.description,
+          // Extract and populate address components from geocoding result
+          city: geocodingResult.city || '',
+          area: geocodingResult.area || '',
+          building: geocodingResult.building || '',
+          // Clear other location-specific fields to avoid conflicts
+          hotelName: '',
+          roomNumber: '',
+          house: '',
+          road: '',
+          block: '',
+          flatNumber: '',
+          officeNumber: '',
+        }));
+        
+        // Clear the googleAddress error when a valid address is selected
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.googleAddress;
+          return newErrors;
+        });
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+    } finally {
+      setAddressLoading(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear the error for this field when user starts typing
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
   const resetForm = () => {
     setFormData({
-      label: '',
+      googleAddress: '',
       locationType: 'home',
+      // Address components from Google Maps
+      city: '',
+      area: '',
+      building: '',
+      // Hotel fields
       hotelName: '',
       roomNumber: '',
       collectionMethod: 'reception',
+      // Home fields
       house: '',
       road: '',
       block: '',
       homeCollectionMethod: 'directly',
-      building: '',
+      // Flat fields
       flatNumber: '',
+      // Office fields
       officeNumber: '',
+      // Contact number (required for all addresses)
       contactNumber: '',
-      email: customerEmail,
+      email: session?.user?.email || '',
     });
+    setSelectedAddress(null);
     setMessage('');
+    setErrors({});
     setEditingId(null);
   };
 
@@ -118,21 +182,29 @@ export default function AddressManagement() {
     // Parse the address back to form fields based on location type
     const addressParts = address.addressLine1?.split(', ') || [];
     
-    let parsedData = {
-      label: address.label,
+    let parsedData: any = {
+      googleAddress: address.addressLine1 || '',
       locationType: address.locationType || 'home',
+      // Address components from Google Maps
+      city: address.city || '',
+      area: address.area || '',
+      building: address.building || '',
+      // Hotel fields
       hotelName: '',
       roomNumber: '',
       collectionMethod: 'reception',
+      // Home fields
       house: '',
       road: address.area || '',
       block: '',
       homeCollectionMethod: 'directly',
-      building: address.building || '',
+      // Flat fields
       flatNumber: address.floor || '',
+      // Office fields
       officeNumber: address.apartment || '',
+      // Contact number (required for all addresses)
       contactNumber: '', // Will be populated from existing data if available
-      email: customerEmail,
+      email: session?.user?.email || '',
     };
 
     // Try to parse based on location type
@@ -163,44 +235,58 @@ export default function AddressManagement() {
   };
 
   const handleSave = async () => {
+    // Clear previous errors
+    setErrors({});
+    
     // Validation
-    let isValid = true;
-    let errorMsg = '';
+    const newErrors: {[key: string]: string} = {};
 
-    if (!formData.label.trim()) {
-      isValid = false;
-      errorMsg = 'Label is required';
-    } else if (!formData.contactNumber.trim()) {
-      isValid = false;
-      errorMsg = 'Contact number is required';
-    } else if (formData.locationType === 'hotel') {
-      if (!formData.hotelName.trim() || !formData.roomNumber.trim()) {
-        isValid = false;
-        errorMsg = 'Hotel name and room number are required';
+    if (!formData.googleAddress.trim()) {
+      newErrors.googleAddress = 'Address is required';
+    }
+    
+    if (!formData.contactNumber.trim()) {
+      newErrors.contactNumber = 'Contact number is required';
+    }
+    
+    // Only validate location-specific fields if they are filled in
+    // This allows users to use either Google address OR manual entry
+    if (formData.locationType === 'hotel' && (formData.hotelName.trim() || formData.roomNumber.trim())) {
+      if (!formData.hotelName.trim()) {
+        newErrors.hotelName = 'Hotel name is required';
       }
-    } else if (formData.locationType === 'home') {
-      if (!formData.house.trim() || !formData.road.trim()) {
-        isValid = false;
-        errorMsg = 'House and road are required';
+      if (!formData.roomNumber.trim()) {
+        newErrors.roomNumber = 'Room number is required';
       }
-    } else if (formData.locationType === 'flat') {
-      if (!formData.building.trim() || !formData.road.trim()) {
-        isValid = false;
-        errorMsg = 'Building and road are required';
+    } else if (formData.locationType === 'home' && (formData.house.trim() || formData.road.trim())) {
+      if (!formData.house.trim()) {
+        newErrors.house = 'House is required';
       }
-    } else if (formData.locationType === 'office') {
-      if (!formData.building.trim() || !formData.road.trim()) {
-        isValid = false;
-        errorMsg = 'Building and road are required';
+      if (!formData.road.trim()) {
+        newErrors.road = 'Road is required';
+      }
+    } else if (formData.locationType === 'flat' && (formData.building.trim() || formData.road.trim())) {
+      if (!formData.building.trim()) {
+        newErrors.building = 'Building is required';
+      }
+      if (!formData.road.trim()) {
+        newErrors.road = 'Road is required';
+      }
+    } else if (formData.locationType === 'office' && (formData.building.trim() || formData.road.trim())) {
+      if (!formData.building.trim()) {
+        newErrors.building = 'Building is required';
+      }
+      if (!formData.road.trim()) {
+        newErrors.road = 'Road is required';
       }
     }
 
-    if (!isValid) {
-      setMessage(`❌ ${errorMsg}`);
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
-    if (!customerEmail) {
+    if (!session?.user?.email) {
       setMessage('❌ Please log in again');
       return;
     }
@@ -208,16 +294,25 @@ export default function AddressManagement() {
     setSaving(true);
 
     try {
+      // Prepare address data with Google Maps information
+      const addressData = {
+        ...formData,
+        label: formData.googleAddress, // Use Google address as label
+        latitude: selectedAddress?.latitude,
+        longitude: selectedAddress?.longitude,
+        formattedAddress: selectedAddress?.formatted_address,
+      };
+
       const url = editingId 
-        ? `/api/customer/addresses/${editingId}?email=${encodeURIComponent(customerEmail)}`
-        : `/api/customer/addresses?email=${encodeURIComponent(customerEmail)}`;
+        ? `/api/customer/addresses/${editingId}`
+        : `/api/customer/addresses`;
       
       const method = editingId ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(addressData),
       });
 
       if (response.ok) {
@@ -225,7 +320,7 @@ export default function AddressManagement() {
         resetForm();
         await fetchAddresses();
       } else {
-        const data = await response.json();
+        const data = await response.json() as { error?: string };
         setMessage(`❌ ${data.error || 'Failed to save address'}`);
       }
     } catch (error) {
@@ -238,7 +333,7 @@ export default function AddressManagement() {
   // Set default address
   const handleSetDefault = async (addressId: number) => {
     try {
-      const response = await fetch(`/api/customer/addresses/${addressId}/default?email=${encodeURIComponent(customerEmail)}`, {
+      const response = await fetch(`/api/customer/addresses/${addressId}/default`, {
         method: 'PUT',
       });
 
@@ -258,7 +353,7 @@ export default function AddressManagement() {
     if (!confirm('Delete this address?')) return;
 
     try {
-      const response = await fetch(`/api/customer/addresses/${addressId}?email=${encodeURIComponent(customerEmail)}`, {
+      const response = await fetch(`/api/customer/addresses/${addressId}`, {
         method: 'DELETE',
       });
 
@@ -293,7 +388,7 @@ export default function AddressManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hotel Name *
+                  Hotel Name (Optional)
                 </label>
                 <input
                   type="text"
@@ -301,12 +396,19 @@ export default function AddressManagement() {
                   value={formData.hotelName}
                   onChange={handleInputChange}
                   placeholder="Hotel name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.hotelName ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.hotelName && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.hotelName}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Room Number *
+                  Room Number (Optional)
                 </label>
                 <input
                   type="text"
@@ -314,8 +416,15 @@ export default function AddressManagement() {
                   value={formData.roomNumber}
                   onChange={handleInputChange}
                   placeholder="Room number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.roomNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.roomNumber && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.roomNumber}
+                  </p>
+                )}
               </div>
             </div>
             <div>
@@ -342,7 +451,7 @@ export default function AddressManagement() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  House *
+                  House (Optional)
                 </label>
                 <input
                   type="text"
@@ -350,8 +459,15 @@ export default function AddressManagement() {
                   value={formData.house}
                   onChange={handleInputChange}
                   placeholder="House number/name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.house ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.house && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.house}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -363,8 +479,15 @@ export default function AddressManagement() {
                   value={formData.road}
                   onChange={handleInputChange}
                   placeholder="Road name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.road ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.road && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.road}
+                  </p>
+                )}
               </div>
             </div>
             <div>
@@ -424,8 +547,15 @@ export default function AddressManagement() {
                   value={formData.building}
                   onChange={handleInputChange}
                   placeholder="Building number or name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.building ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.building && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.building}
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -439,8 +569,15 @@ export default function AddressManagement() {
                   value={formData.road}
                   onChange={handleInputChange}
                   placeholder="Road name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.road ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.road && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.road}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -486,8 +623,15 @@ export default function AddressManagement() {
                   value={formData.building}
                   onChange={handleInputChange}
                   placeholder="Building number or name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.building ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.building && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.building}
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -501,8 +645,15 @@ export default function AddressManagement() {
                   value={formData.road}
                   onChange={handleInputChange}
                   placeholder="Road name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.road ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.road && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.road}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -526,10 +677,21 @@ export default function AddressManagement() {
     }
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-500 mb-4">Please log in to manage your addresses</p>
+        <a href="/registerlogin" className="text-blue-600 hover:text-blue-800">
+          Go to Login
+        </a>
       </div>
     );
   }
@@ -552,19 +714,46 @@ export default function AddressManagement() {
         </h3>
         
         <div className="space-y-4">
-          {/* Label */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Address Label *
+          {/* Google Address Autocomplete */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Address *
             </label>
-            <input
-              type="text"
-              name="label"
-              value={formData.label}
-              onChange={handleInputChange}
-              placeholder="e.g., Home, Office, Hotel"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            
+            <GoogleMapsAutocomplete
+              value={formData.googleAddress}
+              onChange={(value) => setFormData(prev => ({ ...prev, googleAddress: value }))}
+              onAddressSelect={handleNewAddressSelect}
+              placeholder="Start typing your address..."
+              className={`w-full ${errors.googleAddress ? 'border-red-500' : ''}`}
             />
+            
+            {errors.googleAddress && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.googleAddress}
+              </p>
+            )}
+            
+            <p className="mt-1 text-xs text-gray-500">
+              Select your address from Google Maps suggestions. This will be used as the address.
+            </p>
+            {addressLoading && (
+              <div className="mt-2 text-sm text-gray-500">
+                Loading suggestions...
+              </div>
+            )}
+            {selectedAddress && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                <div className="text-sm text-green-700">
+                  <strong>Selected Address:</strong> {selectedAddress.formatted_address}
+                </div>
+                {selectedAddress.latitude && selectedAddress.longitude && (
+                  <div className="text-xs text-green-600 mt-1">
+                    Coordinates: {selectedAddress.latitude.toFixed(6)}, {selectedAddress.longitude.toFixed(6)}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Location Type */}
@@ -583,6 +772,9 @@ export default function AddressManagement() {
               <option value="flat">Flat/Apartment</option>
               <option value="office">Office</option>
             </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Choose your location type and optionally fill in additional details below (optional when using Google address).
+            </p>
           </div>
 
           {/* Location-specific form */}
@@ -599,8 +791,15 @@ export default function AddressManagement() {
               value={formData.contactNumber}
               onChange={handleInputChange}
               placeholder="Enter your contact number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.contactNumber ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
+            {errors.contactNumber && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.contactNumber}
+              </p>
+            )}
           </div>
         </div>
 
@@ -711,4 +910,5 @@ export default function AddressManagement() {
     </div>
   );
 }
+
 
