@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
-    const services = await prisma.Service.findMany({
+    const services = await prisma.service.findMany({
       where: {
         isActive: true
       },
