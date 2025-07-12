@@ -4,6 +4,7 @@ import { useState, Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from "next-auth/react";
 import { useAuth } from '@/hooks/useAuth';
+import SocialLoginButton from '@/components/ui/SocialLoginButton';
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -271,30 +272,24 @@ const AuthForm = () => {
               <div className="text-center text-sm text-gray-500 mt-4 p-4 bg-blue-50 rounded-lg">
                 <p className="mb-3 text-gray-700">Or continue with</p>
                 <div className="flex flex-row space-x-2 justify-center">
-                  <button
-                    type="button"
+                  <SocialLoginButton
+                    provider="google"
                     onClick={() => signIn("google", { callbackUrl: '/customer/dashboard' })}
-                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
                   >
-                    <img src="/images/auth/google-logo.svg" alt="Google" className="w-5 h-5 mr-2" />
                     Google
-                  </button>
-                  <button
-                    type="button"
+                  </SocialLoginButton>
+                  <SocialLoginButton
+                    provider="facebook"
                     onClick={() => signIn("facebook", { callbackUrl: '/customer/dashboard' })}
-                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
                   >
-                    <img src="/images/auth/facebook-logo.svg" alt="Facebook" className="w-5 h-5 mr-2" />
                     Facebook
-                  </button>
-                  <button
-                    type="button"
+                  </SocialLoginButton>
+                  <SocialLoginButton
+                    provider="apple"
                     onClick={() => signIn("apple", { callbackUrl: '/customer/dashboard' })}
-                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
                   >
-                    <img src="/images/auth/apple-logo.svg" alt="Apple" className="w-5 h-5 mr-2" />
                     Apple
-                  </button>
+                  </SocialLoginButton>
                 </div>
               </div>
             </form>

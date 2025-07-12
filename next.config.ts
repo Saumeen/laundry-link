@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@next/font'],
   },
+  // Configure image optimization
+  images: {
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
   // Configure headers for SVG files
   async headers() {
     return [

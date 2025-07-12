@@ -40,7 +40,15 @@ export default function Navbar() {
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center">
-              <Image src="/images/toplogo.png" alt="Laundry Link Logo" width={130} height={35} className="object-contain" />
+              <Image 
+                src="/images/toplogo.png" 
+                alt="Laundry Link Logo" 
+                width={130} 
+                height={35} 
+                className="object-contain"
+                priority
+                unoptimized
+              />
             </Link>
 
             <div className="hidden sm:flex space-x-6">
