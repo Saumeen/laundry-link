@@ -2,6 +2,9 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useAuth } from '@/hooks/useAuth';
+import MainLayout from '@/components/layouts/main-layout';
 
 // Import the address management component
 import AddressManagement from '@/components/AddressManagement';
@@ -41,6 +44,18 @@ interface Address {
   contactNumber?: string;
 }
 
+interface CustomerResponse {
+  customer: Customer;
+}
+
+interface OrdersResponse {
+  orders: Order[];
+}
+
+interface AddressesResponse {
+  addresses: Address[];
+}
+
 function DashboardContent() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -49,28 +64,72 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState('overview');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
+  const { isAuthenticated, customer: authCustomer, isLoading: authLoading, isNextAuthUser } = useAuth();
 
   useEffect(() => {
-    // Check if user is logged in
-    const customerData = localStorage.getItem('customer');
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    // Wait for authentication to be determined
+    if (authLoading || sessionStatus === 'loading') {
+      return;
+    }
 
-    if (!customerData || isLoggedIn !== 'true') {
+    // Check if user is authenticated
+    if (!isAuthenticated && !session?.user) {
       router.push('/registerlogin');
       return;
     }
 
-    const parsedCustomer = JSON.parse(customerData);
-    
-    // Check for tab parameter
-    const tab = searchParams.get('tab');
-    if (tab) {
-      setActiveTab(tab);
+    // Handle NextAuth users (OAuth)
+    if (session?.user && isNextAuthUser) {
+      const oauthCustomer: Customer = {
+        id: session.customerId || 0,
+        email: session.user.email || '',
+        firstName: session.user.name?.split(' ')[0] || '',
+        lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
+        walletBalance: session.walletBalance || 0,
+      };
+      setCustomer(oauthCustomer);
+      
+      // Fetch fresh customer data from database for OAuth users
+      fetchCustomerData(oauthCustomer.email);
+      return;
     }
 
-    // Fetch fresh customer data from database
-    fetchCustomerData(parsedCustomer.email);
-  }, [router, searchParams]);
+    // Handle localStorage users (regular login)
+    if (authCustomer && !isNextAuthUser) {
+      setCustomer(authCustomer);
+      
+      // Check for tab parameter
+      const tab = searchParams.get('tab');
+      if (tab) {
+        setActiveTab(tab);
+      }
+
+      // Fetch fresh customer data from database
+      fetchCustomerData(authCustomer.email);
+      return;
+    }
+
+    // Fallback: check localStorage directly
+    const customerData = localStorage.getItem('customer');
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    
+    if (customerData && isLoggedIn === 'true') {
+      const parsedCustomer = JSON.parse(customerData);
+      setCustomer(parsedCustomer);
+      
+      // Check for tab parameter
+      const tab = searchParams.get('tab');
+      if (tab) {
+        setActiveTab(tab);
+      }
+
+      // Fetch fresh customer data from database
+      fetchCustomerData(parsedCustomer.email);
+    } else {
+      router.push('/registerlogin');
+    }
+  }, [isAuthenticated, authCustomer, isNextAuthUser, authLoading, session, sessionStatus, router, searchParams]);
 
   const fetchCustomerData = async (email: string) => {
     try {
@@ -78,10 +137,12 @@ function DashboardContent() {
       const customerResponse = await fetch(`/api/customer/profile?email=${encodeURIComponent(email)}`);
       if (customerResponse.ok) {
         const customerData = await customerResponse.json();
-        setCustomer(customerData.customer);
-        
-        // Update localStorage with fresh data
-        localStorage.setItem('customer', JSON.stringify(customerData.customer));
+        if (customerData && typeof customerData === 'object' && 'customer' in customerData && customerData.customer) {
+          setCustomer(customerData.customer as Customer);
+          
+          // Update localStorage with fresh data
+          localStorage.setItem('customer', JSON.stringify(customerData.customer));
+        }
       } else {
         // Fallback to localStorage data if API fails
         const localCustomer = JSON.parse(localStorage.getItem('customer') || '{}');
@@ -114,7 +175,9 @@ function DashboardContent() {
       const response = await fetch(`/api/customer/orders?email=${encodeURIComponent(email)}`);
       if (response.ok) {
         const data = await response.json();
-        setOrders(data.orders || []);
+        if (data && typeof data === 'object' && 'orders' in data && Array.isArray(data.orders)) {
+          setOrders(data.orders);
+        }
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -126,7 +189,9 @@ function DashboardContent() {
       const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(email)}`);
       if (response.ok) {
         const data = await response.json();
-        setAddresses(data.addresses || []);
+        if (data && typeof data === 'object' && 'addresses' in data && Array.isArray(data.addresses)) {
+          setAddresses(data.addresses);
+        }
       }
     } catch (error) {
       console.error('Error fetching addresses:', error);
@@ -166,7 +231,7 @@ function DashboardContent() {
     const defaultAddr = addresses.find(addr => addr.isDefault);
     if (!defaultAddr) return 'No default address set';
     
-    let formatted = defaultAddr.addressLine1 || defaultAddr.address || '';
+    let formatted = defaultAddr.addressLine1 || '';
     if (defaultAddr.addressLine2) formatted += `, ${defaultAddr.addressLine2}`;
     if (defaultAddr.city) formatted += `, ${defaultAddr.city}`;
     return formatted || 'Address not available';
@@ -174,7 +239,7 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -185,8 +250,8 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
@@ -473,9 +538,11 @@ function DashboardContent() {
 
 export default function CustomerDashboard() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <DashboardContent />
-    </Suspense>
+    <MainLayout>
+      <Suspense fallback={<div>Loading...</div>}>
+        <DashboardContent />
+      </Suspense>
+    </MainLayout>
   );
 }
 

@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const { email } = await req.json() as {email:string};
 
     if (!email) {
       return NextResponse.json(

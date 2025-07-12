@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn, useSession } from "next-auth/react";
+import { useAuth } from '@/hooks/useAuth';
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -11,7 +13,7 @@ const hasLowerCase = (str: string) => /[a-z]/.test(str);
 const hasUpperCase = (str: string) => /[A-Z]/.test(str);
 const hasMinLength = (str: string) => str.length >= 8;
 
-function AuthForm() {
+const AuthForm = () => {
   const [step, setStep] = useState<'email' | 'login' | 'register'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,16 +21,35 @@ function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const hasRedirected = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
+  const { isAuthenticated, customer, isLoading: authLoading } = useAuth();
 
   // Check for error from URL params
-  useState(() => {
+  useEffect(() => {
     const urlError = searchParams.get('error');
     if (urlError) {
       setError(urlError);
     }
-  });
+  }, [searchParams]);
+
+  // Simple redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && !hasRedirected.current && (isAuthenticated || session?.user)) {
+      hasRedirected.current = true;
+      router.replace('/customer/dashboard');
+    }
+  }, [isAuthenticated, session, authLoading, router]);
+
+  // Handle OAuth success
+  useEffect(() => {
+    if (session?.user && !isAuthenticated && !hasRedirected.current) {
+      hasRedirected.current = true;
+      router.replace('/customer/dashboard');
+    }
+  }, [session, router, isAuthenticated]);
 
   // Check if email exists in the system
   const checkEmailExists = async (email: string) => {
@@ -38,8 +59,8 @@ function AuthForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      
-      const data = await response.json();
+
+      const data = await response.json() as { exists: boolean };
       return data.exists;
     } catch (error) {
       console.error('Error checking email:', error);
@@ -50,7 +71,7 @@ function AuthForm() {
   // Handle email submission
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!emailRegex.test(email)) {
       setError('Please enter a valid email address');
       return;
@@ -61,7 +82,7 @@ function AuthForm() {
 
     try {
       const emailExists = await checkEmailExists(email);
-      
+
       if (emailExists) {
         setStep('login');
       } else {
@@ -78,30 +99,22 @@ function AuthForm() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn("credentials", {
+        redirect: false,
+        username: email,
+        password,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('customer', JSON.stringify(data.customer));
-        localStorage.setItem('isLoggedIn', 'true');
-        
-        // Trigger a custom event to update the header
-        window.dispatchEvent(new Event('authStateChanged'));
-        
-        router.push('/customer/dashboard');
+      if (result?.ok) {
+        router.push("/customer/dashboard");
       } else {
-        const data = await response.json();
-        setError(data.error || 'Login failed');
+        setError(result?.error || "Login failed");
       }
     } catch (error) {
-      setError('Login failed. Please try again.');
+      setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -110,47 +123,35 @@ function AuthForm() {
   // Handle registration
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
-      setError('Please enter your full name');
+      setError("Please enter your full name");
       return;
     }
 
     if (!hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password)) {
-      setError('Password must meet all requirements');
+      setError("Password must meet all requirements");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          password, 
-          firstName: name.split(' ')[0],
-          lastName: name.split(' ').slice(1).join(' ') || name.split(' ')[0]
-        }),
+      const result = await signIn("credentials", {
+        redirect: false,
+        username: email,
+          password,
+        name,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('customer', JSON.stringify(data.customer));
-        localStorage.setItem('isLoggedIn', 'true');
-        
-        // Trigger a custom event to update the header
-        window.dispatchEvent(new Event('authStateChanged'));
-        
-        router.push('/customer/dashboard');
+      if (result?.ok) {
+        router.push("/customer/dashboard");
       } else {
-        const data = await response.json();
-        setError(data.error || 'Registration failed');
+        setError(result?.error || "Registration failed");
       }
     } catch (error) {
-      setError('Registration failed. Please try again.');
+      setError("Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -164,11 +165,27 @@ function AuthForm() {
     setError('');
   };
 
+  // Show loading if auth is still loading
+  if (authLoading || status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Checking authentication...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="bg-white rounded-2xl shadow-lg p-8">
-          
+
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-blue-600 mb-2">Laundry Link</h1>
@@ -180,7 +197,7 @@ function AuthForm() {
             )}
             {step === 'login' && (
               <>
-                <button 
+                <button
                   onClick={goBack}
                   className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
                 >
@@ -195,7 +212,7 @@ function AuthForm() {
             )}
             {step === 'register' && (
               <>
-                <button 
+                <button
                   onClick={goBack}
                   className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
                 >
@@ -250,8 +267,33 @@ function AuthForm() {
               </div>
 
               <div className="text-center text-sm text-gray-500 mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="font-medium text-blue-700">🚀 Coming Soon!</p>
-                <p>Google, Apple, and Facebook login options will be available soon.</p>
+                <p className="mb-3 text-gray-700">Or continue with</p>
+                <div className="flex flex-row space-x-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => signIn("google", { callbackUrl: '/customer/dashboard' })}
+                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
+                  >
+                    <img src="/images/auth/google-logo.svg" alt="Google" className="w-5 h-5 mr-2" />
+                    Google
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => signIn("facebook", { callbackUrl: '/customer/dashboard' })}
+                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
+                  >
+                    <img src="/images/auth/facebook-logo.svg" alt="Facebook" className="w-5 h-5 mr-2" />
+                    Facebook
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => signIn("apple", { callbackUrl: '/customer/dashboard' })}
+                    className="w-full bg-white border border-gray-300 rounded-lg py-2 flex items-center justify-center hover:bg-gray-100"
+                  >
+                    <img src="/images/auth/apple-logo.svg" alt="Apple" className="w-5 h-5 mr-2" />
+                    Apple
+                  </button>
+                </div>
               </div>
             </form>
           )}
