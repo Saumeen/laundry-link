@@ -7,7 +7,11 @@ export interface Service {
   description: string;
   pricingType: 'BY_WEIGHT' | 'BY_PIECE';
   pricingUnit: 'KG' | 'PIECE';
-  icon: string;
+  price: number;
+  unit: string;
+  turnaround: string;
+  category: string;
+  features: string[];
   sortOrder: number;
 }
 
@@ -28,7 +32,7 @@ export function useServices() {
         }
         
         const data = await response.json();
-        setServices(data);
+        setServices(data as Service[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {

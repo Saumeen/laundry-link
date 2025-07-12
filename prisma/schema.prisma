@@ -303,12 +303,16 @@ enum PricingUnit {
 // ===== SERVICE SYSTEM =====
 model Service {
   id          Int         @id @default(autoincrement())
-  name        String      @unique // e.g., "wash", "wash-iron", "dry-clean", "duvet-bulky", "carpet-cleaning"
-  displayName String      // e.g., "Wash", "Wash & Iron", "Dry Clean", "Duvet & Bulky Items", "Carpet Cleaning"
+  name        String      @unique // e.g., "wash-fold", "dry-cleaning", "ironing", "express-service", "bedding-linens", "stain-removal"
+  displayName String      // e.g., "Wash & Fold", "Dry Cleaning", "Ironing", "Express Service", "Bedding & Linens", "Stain Removal"
   description String      // e.g., "Professional washing service"
   pricingType PricingType // BY_WEIGHT or BY_PIECE
   pricingUnit PricingUnit // KG or PIECE
-  icon        String      // emoji icon
+  price       Float       // Price in BD
+  unit        String      // e.g., "per kg", "per item"
+  turnaround  String      // e.g., "24 hours", "48 hours", "8 hours"
+  category    String      // e.g., "regular", "premium"
+  features    String[]    // Array of features
   isActive    Boolean     @default(true)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())

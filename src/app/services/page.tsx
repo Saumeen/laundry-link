@@ -9,14 +9,14 @@ export default function Services() {
   const [activeTab, setActiveTab] = useState("all");
   const { services, loading, error } = useServices();
   
-  // Filter services based on pricing type
+  // Filter services based on category
   const filteredServices = activeTab === "all" 
     ? services 
     : services.filter(service => {
         if (activeTab === "regular") {
-          return service.pricingType === 'BY_WEIGHT';
+          return service.category === 'regular';
         } else if (activeTab === "premium") {
-          return service.pricingType === 'BY_PIECE';
+          return service.category === 'premium';
         }
         return true;
       });
@@ -87,7 +87,7 @@ export default function Services() {
               }`}
               onClick={() => setActiveTab("regular")}
             >
-              By Weight (KG)
+              Regular Services
             </button>
             <button
               type="button"
@@ -98,7 +98,7 @@ export default function Services() {
               }`}
               onClick={() => setActiveTab("premium")}
             >
-              By Piece
+              Premium Services
             </button>
           </div>
         </div>
@@ -109,17 +109,17 @@ export default function Services() {
             <div key={service.id} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
               <div className="p-6">
                 <div className="flex items-center mb-3">
-                  <span className="text-3xl mr-3">{service.icon}</span>
                   <h3 className="text-xl font-semibold text-gray-900">
                     {service.displayName}
                   </h3>
                 </div>
-                <div className="flex items-center mb-4">
-                  <span className="text-blue-600 font-bold text-xl">
-                    Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'}
-                  </span>
-                  <span className="ml-auto bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                    {service.pricingUnit}
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="font-bold text-lg text-gray-900">BD {service.price?.toFixed(3)}</span>
+                    <span className="ml-1 text-gray-700 font-medium">{service.unit}</span>
+                  </div>
+                  <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+                    {service.turnaround}
                   </span>
                 </div>
                 <p className="text-gray-600 mb-4">

@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
         description: true,
         pricingType: true,
         pricingUnit: true,
-        icon: true,
+        price: true,
+        unit: true,
+        turnaround: true,
+        category: true,
+        features: true,
         sortOrder: true
       }
     });

@@ -22,6 +22,7 @@ const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({ provider, onClick
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
     >
