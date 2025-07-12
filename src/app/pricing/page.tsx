@@ -40,7 +40,7 @@ interface PricingData {
 
 async function getPricingData(): Promise<PricingData> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/pricing`, {
+    const response = await fetch('/api/pricing', {
       cache: 'no-store'
     });
     
