@@ -102,20 +102,21 @@ const AuthForm = () => {
     setError("");
 
     try {
-      const result = await signIn("credentials", {
+      const result = await signIn("customer-credentials", {
         redirect: false,
         username: email,
         password,
       });
 
       if (result?.ok) {
-        router.push("/customer/dashboard");
+        // The redirect will be handled by the useEffect that watches session changes
+        setLoading(false);
       } else {
         setError(result?.error || "Login failed");
+        setLoading(false);
       }
     } catch (error) {
       setError("Login failed. Please try again.");
-    } finally {
       setLoading(false);
     }
   };
@@ -138,7 +139,7 @@ const AuthForm = () => {
     setError("");
 
     try {
-      const result = await signIn("credentials", {
+      const result = await signIn("customer-credentials", {
         redirect: false,
         username: email,
           password,
@@ -146,13 +147,14 @@ const AuthForm = () => {
       });
 
       if (result?.ok) {
-        router.push("/customer/dashboard");
+        // The redirect will be handled by the useEffect that watches session changes
+        setLoading(false);
       } else {
         setError(result?.error || "Registration failed");
+        setLoading(false);
       }
     } catch (error) {
       setError("Registration failed. Please try again.");
-    } finally {
       setLoading(false);
     }
   };

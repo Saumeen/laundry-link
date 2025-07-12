@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { emailService } from "@/lib/emailService";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
@@ -392,15 +393,11 @@ async function handleGuestCustomerOrder(body: any) {
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const customerEmail = searchParams.get('email');
-    
-    if (!customerEmail) {
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
-    }
+    // Get authenticated customer
+    const authenticatedCustomer = await requireAuthenticatedCustomer();
 
     const customer = await prisma.customer.findUnique({
-      where: { email: customerEmail },
+      where: { id: authenticatedCustomer.id },
       include: {
         orders: {
           include: {
@@ -422,6 +419,11 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error("Error fetching orders:", error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to fetch orders" },
       { status: 500 }

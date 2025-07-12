@@ -4,23 +4,101 @@ import { useState, useEffect, Suspense } from "react";
 import MainLayout from "@/components/layouts/main-layout";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useServices } from "@/hooks/useServices";
+import { useSession } from "next-auth/react";
+
+// Type definitions
+interface Address {
+  id: string | number;
+  label: string;
+  address?: string;
+  addressLine1?: string;
+  contactNumber?: string;
+  isDefault?: boolean;
+  locationType?: string;
+  hotelName?: string;
+  roomNumber?: string;
+  collectionMethod?: string;
+  house?: string;
+  road?: string;
+  block?: string;
+  homeCollectionMethod?: string;
+  building?: string;
+  flatNumber?: string;
+  officeNumber?: string;
+}
+
+interface CustomerData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
+
+interface Service {
+  id: string | number;
+  name: string;
+  displayName: string;
+  description: string;
+  icon: string;
+  pricingType: string;
+  pricingUnit: string;
+}
+
+interface ApiAddressesResponse {
+  addresses: Address[];
+}
+
+interface ApiOrderResponse {
+  orderNumber: string;
+  error?: string;
+}
+
+// Add FormData type
+interface FormData {
+  selectedAddressId: string;
+  firstName: string;
+  lastName: string;
+  locationType: string;
+  hotelName: string;
+  roomNumber: string;
+  collectionMethod: string;
+  house: string;
+  road: string;
+  block: string;
+  homeCollectionMethod: string;
+  building: string;
+  flatNumber: string;
+  officeNumber: string;
+  contactNumber: string;
+  email: string;
+  addressLabel: string;
+  pickupDate: string;
+  pickupTime: string;
+  deliveryDate: string;
+  deliveryTime: string;
+  services: string[];
+  specialInstructions: string;
+}
 
 function ScheduleContent() {
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [customerData, setCustomerData] = useState(null);
+  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [addresses, setAddresses] = useState([]);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [showAddNewAddress, setShowAddNewAddress] = useState(false);
+  // Explicitly type services as Service[]
+  const { services, loading: servicesLoading } = useServices() as { services: Service[]; loading: boolean };
   
   // Guest customer flow state (original 4-page flow)
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   
-  const [formData, setFormData] = useState({
-    // Logged-in customer: Address selection
+  const [formData, setFormData] = useState<FormData>({
     selectedAddressId: "",
     
     // Guest customer: Address collection (Page 1)
@@ -58,161 +136,67 @@ function ScheduleContent() {
     specialInstructions: "",
   });
 
-  // Enhanced login detection - check multiple storage methods
+  // Type guard for custom session.user fields
+  function isCustomUser(user: any): user is { firstName: string; lastName: string; phone: string; email: string } {
+    return (
+      typeof user?.firstName === "string" &&
+      typeof user?.lastName === "string" &&
+      typeof user?.phone === "string" &&
+      typeof user?.email === "string"
+    );
+  }
+
+  // Replace login detection with NextAuth session
   useEffect(() => {
-    const checkLoginStatus = () => {
-      try {
-        // Method 1: Check localStorage for customerData
-        let userData = localStorage.getItem('customerData');
-        if (userData) {
-          try {
-            const customer = JSON.parse(userData);
-            if (customer && customer.email) {
-              setIsLoggedIn(true);
-              setCustomerData(customer);
-              setShowLoginPrompt(false);
-              fetchCustomerAddresses(customer.email);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.log("Error parsing customerData from localStorage");
-          }
-        }
-
-        // Method 2: Check localStorage for customer
-        userData = localStorage.getItem('customer');
-        if (userData) {
-          try {
-            const customer = JSON.parse(userData);
-            if (customer && customer.email) {
-              setIsLoggedIn(true);
-              setCustomerData(customer);
-              setShowLoginPrompt(false);
-              fetchCustomerAddresses(customer.email);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.log("Error parsing customer from localStorage");
-          }
-        }
-
-        // Method 3: Check sessionStorage
-        userData = sessionStorage.getItem('customerData') || sessionStorage.getItem('customer');
-        if (userData) {
-          try {
-            const customer = JSON.parse(userData);
-            if (customer && customer.email) {
-              setIsLoggedIn(true);
-              setCustomerData(customer);
-              setShowLoginPrompt(false);
-              fetchCustomerAddresses(customer.email);
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.log("Error parsing customer from sessionStorage");
-          }
-        }
-
-        // Method 4: Check for any customer-related keys in localStorage
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.includes('customer') || key.includes('user') || key.includes('auth'))) {
-            try {
-              const data = localStorage.getItem(key);
-              if (data) {
-                const parsed = JSON.parse(data);
-                if (parsed && (parsed.email || parsed.customerEmail)) {
-                  setIsLoggedIn(true);
-                  setCustomerData(parsed);
-                  setShowLoginPrompt(false);
-                  fetchCustomerAddresses(parsed.email || parsed.customerEmail);
-                  setIsLoading(false);
-                  return;
-                }
-              }
-            } catch (e) {
-              // Continue checking other keys
-            }
-          }
-        }
-
-        // Method 5: Check cookies
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-          const [name, value] = cookie.trim().split('=');
-          if (name && (name.includes('customer') || name.includes('user') || name.includes('auth')) && value) {
-            try {
-              const decoded = decodeURIComponent(value);
-              const parsed = JSON.parse(decoded);
-              if (parsed && (parsed.email || parsed.customerEmail)) {
-                setIsLoggedIn(true);
-                setCustomerData(parsed);
-                setShowLoginPrompt(false);
-                fetchCustomerAddresses(parsed.email || parsed.customerEmail);
-                setIsLoading(false);
-                return;
-              }
-            } catch (e) {
-              // Continue checking other cookies
-            }
-          }
-        }
-
-        // Method 6: Try to validate session with API
-        fetch('/api/customer/validate-session', {
-          method: 'GET',
-          credentials: 'include'
-        })
-        .then(response => response.json())
-        .then(result => {
-          if (result.success && result.customer) {
-            setIsLoggedIn(true);
-            setCustomerData(result.customer);
-            setShowLoginPrompt(false);
-            fetchCustomerAddresses(result.customer.email);
-          } else {
-            setShowLoginPrompt(true);
-          }
-          setIsLoading(false);
-        })
-        .catch(() => {
-          setShowLoginPrompt(true);
-          setIsLoading(false);
-        });
-
-      } catch (error) {
-        console.error("Error checking login status:", error);
-        setShowLoginPrompt(true);
-        setIsLoading(false);
+    if (status === "loading") {
+      setIsLoading(true);
+      return;
+    }
+    if (session && session.user) {
+      // Use type guard and fallback values
+      let firstName = "";
+      let lastName = "";
+      let phone = "";
+      let email = "";
+      if (isCustomUser(session.user)) {
+        firstName = session.user.firstName;
+        lastName = session.user.lastName;
+        phone = session.user.phone;
+        email = session.user.email;
+      } else {
+        // fallback to name/email if not extended
+        firstName = session.user.name ?? "";
+        lastName = "";
+        phone = "";
+        email = session.user.email ?? "";
       }
-    };
-
-    checkLoginStatus();
-
-    // Also listen for storage changes (in case user logs in in another tab)
-    const handleStorageChange = () => {
-      checkLoginStatus();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+      setIsLoggedIn(true);
+      setCustomerData({
+        firstName,
+        lastName,
+        email,
+        phone,
+      });
+      setShowLoginPrompt(false);
+      fetchCustomerAddresses(email);
+      setIsLoading(false);
+    } else {
+      setIsLoggedIn(false);
+      setCustomerData(null);
+      setShowLoginPrompt(true);
+      setIsLoading(false);
+    }
+  }, [session, status]);
 
   // Fetch customer addresses for logged-in users
-  const fetchCustomerAddresses = async (email) => {
+  const fetchCustomerAddresses = async (email: string) => {
     try {
       const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(email)}`);
-      const result = await response.json();
+      const result: ApiAddressesResponse = await response.json();
       if (response.ok) {
         setAddresses(result.addresses || []);
         // Auto-select default address if available
-        const defaultAddress = result.addresses?.find(addr => addr.isDefault);
+        const defaultAddress = result.addresses?.find((addr: Address) => addr.isDefault);
         if (defaultAddress) {
           setFormData(prev => ({ ...prev, selectedAddressId: defaultAddress.id.toString() }));
         }
@@ -256,50 +240,15 @@ function ScheduleContent() {
     { id: "office", name: "Office", icon: "🏢" }
   ];
 
-  const services = [
-    { 
-      id: "wash", 
-      name: "Wash", 
-      description: "By weight",
-      price: "From BD 2.500/kg",
-      icon: "🧺"
-    },
-    { 
-      id: "wash_iron", 
-      name: "Wash & Iron", 
-      description: "By piece",
-      price: "From BD 0.600/piece",
-      icon: "👔"
-    },
-    { 
-      id: "dry_clean", 
-      name: "Dry Clean", 
-      description: "By piece",
-      price: "From BD 2.500/piece",
-      icon: "🧥"
-    },
-    { 
-      id: "duvet_bulky", 
-      name: "Duvet & Bulky Items", 
-      description: "By piece",
-      price: "From BD 5.000/piece",
-      icon: "🛏️"
-    },
-    { 
-      id: "carpet", 
-      name: "Carpet Cleaning", 
-      description: "By square meter",
-      price: "From BD 3.000/sqm",
-      icon: "🪟"
-    }
-  ];
+
 
   const timeSlots = [
     "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", 
     "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"
   ];
 
-  const handleChange = (e) => {
+  // Fix all event handler types
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -307,11 +256,12 @@ function ScheduleContent() {
     }));
   };
 
-  const handleServiceToggle = (serviceId) => {
+  // Fix handleServiceToggle to use string[]
+  const handleServiceToggle = (serviceId: string) => {
     setFormData(prev => ({
       ...prev,
       services: prev.services.includes(serviceId)
-        ? prev.services.filter(id => id !== serviceId)
+        ? prev.services.filter((id: string) => id !== serviceId)
         : [...prev.services, serviceId]
     }));
   };
@@ -385,40 +335,46 @@ function ScheduleContent() {
         officeNumber: formData.officeNumber,
       };
 
-      const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(customerData.email)}`, {
+      const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(customerData?.email || '')}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addressData),
       });
 
-      const result = await response.json();
+      const result: { address: { id: string | number } } | { error: string } = await response.json();
       if (response.ok) {
         // Refresh addresses list
-        await fetchCustomerAddresses(customerData.email);
-        // Select the new address
-        setFormData(prev => ({ ...prev, selectedAddressId: result.address.id.toString() }));
-        // Hide add new address form
-        setShowAddNewAddress(false);
-        // Clear new address fields
-        setFormData(prev => ({
-          ...prev,
-          locationType: "",
-          hotelName: "",
-          roomNumber: "",
-          collectionMethod: "",
-          house: "",
-          road: "",
-          block: "",
-          homeCollectionMethod: "",
-          building: "",
-          flatNumber: "",
-          officeNumber: "",
-          contactNumber: "",
-          addressLabel: "",
-        }));
-        alert("Address added successfully!");
+        await fetchCustomerAddresses(customerData?.email || '');
+        // Only set selectedAddressId if result has address
+        if ('address' in result) {
+          setFormData(prev => ({ ...prev, selectedAddressId: result.address.id.toString() }));
+          // Hide add new address form
+          setShowAddNewAddress(false);
+          // Clear new address fields
+          setFormData(prev => ({
+            ...prev,
+            locationType: "",
+            hotelName: "",
+            roomNumber: "",
+            collectionMethod: "",
+            house: "",
+            road: "",
+            block: "",
+            homeCollectionMethod: "",
+            building: "",
+            flatNumber: "",
+            officeNumber: "",
+            contactNumber: "",
+            addressLabel: "",
+          }));
+          alert("Address added successfully!");
+        }
       } else {
-        alert(result.error || "Failed to add address");
+        if ('error' in result) {
+          alert(result.error);
+        } else {
+          alert("Failed to add address");
+        }
       }
     } catch (error) {
       alert("Error adding address. Please try again.");
@@ -452,10 +408,10 @@ function ScheduleContent() {
       debugger
       const orderData = {
         // Customer info (auto-filled from logged-in user)
-        firstName: customerData.firstName,
-        lastName: customerData.lastName,
-        email: customerData.email,
-        phone: customerData.phone,
+        firstName: customerData?.firstName,
+        lastName: customerData?.lastName,
+        email: customerData?.email,
+        phone: customerData?.phone,
         
         // Address info
         addressId: formData.selectedAddressId,
@@ -483,11 +439,11 @@ function ScheduleContent() {
         body: JSON.stringify(orderData),
       });
 
-      const result = await response.json();
+      const result: ApiOrderResponse = await response.json();
 
       if (response.ok) {
         // Redirect to success page
-        window.location.href = `/order-success?orderNumber=${result.orderNumber}&email=${encodeURIComponent(customerData.email)}`;
+        window.location.href = `/order-success?orderNumber=${result.orderNumber}&email=${encodeURIComponent(customerData?.email || '')}`;
       } else {
         setSubmitError(result.error || "Failed to submit order");
       }
@@ -547,7 +503,7 @@ function ScheduleContent() {
         body: JSON.stringify(orderData),
       });
 
-      const result = await response.json();
+      const result: ApiOrderResponse = await response.json();
 
       if (response.ok) {
         // Redirect to success page
@@ -962,36 +918,45 @@ function ScheduleContent() {
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">3. Choose Services</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {services.map((service) => (
-                  <div
-                    key={service.id}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      formData.services.includes(service.id)
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 hover:border-blue-300"
-                    }`}
-                    onClick={() => handleServiceToggle(service.id)}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="text-2xl">{service.icon}</div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{service.name}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{service.description}</p>
-                        <p className="text-sm text-blue-600 mt-1 font-medium">{service.price}</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          checked={formData.services.includes(service.id)}
-                          onChange={() => handleServiceToggle(service.id)}
-                          className="w-5 h-5 text-blue-600"
-                        />
+              {servicesLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading services...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {services.map((service) => (
+                    <div
+                      key={service.id}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        formData.services.includes(service.name)
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-300 hover:border-blue-300"
+                      }`}
+                      onClick={() => handleServiceToggle(service.name)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="text-2xl">{service.icon}</div>
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900">{service.displayName}</h3>
+                          <p className="text-sm text-gray-600 mt-1">{service.description}</p>
+                          <p className="text-sm text-blue-600 mt-1 font-medium">
+                            Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'} ({service.pricingUnit})
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={formData.services.includes(service.name)}
+                            onChange={() => handleServiceToggle(service.name)}
+                            className="w-5 h-5 text-blue-600"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Step 4: Confirmation */}
@@ -1498,36 +1463,45 @@ function ScheduleContent() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Step 3: Service Selection</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services.map((service) => (
-                <div
-                  key={service.id}
-                  className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                    formData.services.includes(service.id)
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300 hover:border-blue-300"
-                  }`}
-                  onClick={() => handleServiceToggle(service.id)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="text-2xl">{service.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{service.name}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{service.description}</p>
-                      <p className="text-sm text-blue-600 mt-1 font-medium">{service.price}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={formData.services.includes(service.id)}
-                        onChange={() => handleServiceToggle(service.id)}
-                        className="w-5 h-5 text-blue-600"
-                      />
+            {servicesLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading services...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      formData.services.includes(service.name)
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-300"
+                    }`}
+                    onClick={() => handleServiceToggle(service.name)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="text-2xl">{service.icon}</div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{service.displayName}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{service.description}</p>
+                        <p className="text-sm text-blue-600 mt-1 font-medium">
+                          Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'} ({service.pricingUnit})
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.services.includes(service.name)}
+                          onChange={() => handleServiceToggle(service.name)}
+                          className="w-5 h-5 text-blue-600"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Special Instructions in Step 3 */}
             <div>

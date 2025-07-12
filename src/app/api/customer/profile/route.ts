@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
+    // Get authenticated customer
+    const authenticatedCustomer = await requireAuthenticatedCustomer();
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-    }
-
-    // Find customer by email
+    // Find customer by ID (more secure than email)
     const customer = await prisma.customer.findUnique({
-      where: { email },
+      where: { id: authenticatedCustomer.id },
       select: {
         id: true,
         email: true,
@@ -38,8 +35,77 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error('Error fetching customer profile:', error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
     return NextResponse.json({ 
       error: 'Failed to fetch customer profile' 
+    }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    // Get authenticated customer
+    const authenticatedCustomer = await requireAuthenticatedCustomer();
+    const body = await request.json() as { firstName?: string; lastName?: string; phone?: string };
+
+    // Validate required fields
+    const { firstName, lastName, phone } = body;
+    
+    if (!firstName?.trim()) {
+      return NextResponse.json(
+        { error: "First name is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!lastName?.trim()) {
+      return NextResponse.json(
+        { error: "Last name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Update customer profile
+    const updatedCustomer = await prisma.customer.update({
+      where: { id: authenticatedCustomer.id },
+      data: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone?.trim() || null,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        walletBalance: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      customer: updatedCustomer,
+      message: "Profile updated successfully"
+    });
+
+  } catch (error) {
+    console.error('Error updating customer profile:', error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
+    return NextResponse.json({ 
+      error: 'Failed to update customer profile' 
     }, { status: 500 });
   } finally {
     await prisma.$disconnect();

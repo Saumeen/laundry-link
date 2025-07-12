@@ -6,6 +6,7 @@ import AppleProvider from "next-auth/providers/apple";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { UserRole } from "@/types/global";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -23,14 +24,22 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.APPLE_CLIENT_SECRET!,
     }),
     CredentialsProvider({
-      name: "credentials",
+      id: "customer-credentials",
+      name: "customer-credentials",
       credentials: {
         username: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
         password: { label: "Password", type: "password" },
         name: { label: "Full Name", type: "text", placeholder: "John Smith" }
       },
       async authorize(credentials, req) {
+        console.log("Customer credentials provider called with:", { 
+          email: credentials?.username,
+          hasPassword: !!credentials?.password,
+          hasName: !!credentials?.name
+        });
+
         if (!credentials?.username || !credentials?.password) {
+          console.log("Customer credentials provider: Missing credentials");
           return null;
         }
 
@@ -39,19 +48,34 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.username }
         });
 
+        console.log("Customer credentials provider: Found user:", {
+          found: !!user,
+          isActive: user?.isActive,
+          hasPassword: !!user?.password
+        });
+
         if (user) {
           // User exists, check password
-          if (!user.password) return null;
+          if (!user.password) {
+            console.log("Customer credentials provider: User exists but no password");
+            return null;
+          }
           const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) return null;
-          return {
+          
+          const result = {
             id: user.id.toString(),
             name: `${user.firstName} ${user.lastName}`,
-            email: user.email
+            email: user.email,
+            userType: "customer" as const
           };
+          return result;
         } else {
           // User does not exist, create new user
-          if (!credentials.name) return null;
+          if (!credentials.name) {
+            console.log("Customer credentials provider: No name provided for new user");
+            return null;
+          }
           const [firstName, ...lastNameArr] = credentials.name.split(" ");
           const lastName = lastNameArr.join(" ");
           const hashedPassword = await bcrypt.hash(credentials.password, 10);
@@ -67,11 +91,68 @@ export const authOptions: NextAuthOptions = {
             }
           });
 
-          return {
+          const result = {
             id: user.id.toString(),
             name: `${user.firstName} ${user.lastName}`,
-            email: user.email 
+            email: user.email,
+            userType: "customer" as const
           };
+          return result;
+        }
+      }
+    }),
+    CredentialsProvider({
+      id: "admin-credentials",
+      name: "admin-credentials",
+      credentials: {
+        username: { label: "Email", type: "text", placeholder: "admin@example.com" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials, req) {
+
+        if (!credentials?.username || !credentials?.password) {
+          return null;
+        }
+
+        try {
+          // Find admin user by email
+          const staff = await prisma.staff.findUnique({
+            where: { email: credentials.username },
+            include: {
+              role: true
+            }
+          });
+
+          if (!staff || !staff.isActive) {
+            return null;
+          }
+
+          // Verify password
+          const isValidPassword = await bcrypt.compare(credentials.password, staff.password);
+
+          if (!isValidPassword) {
+            return null;
+          }
+
+          // Update last login time
+          await prisma.staff.update({
+            where: { id: staff.id },
+            data: { lastLoginAt: new Date() }
+          });
+
+          const user = {
+            id: staff.id.toString(),
+            name: `${staff.firstName} ${staff.lastName}`,
+            email: staff.email,
+            userType: "admin" as const,
+            role: staff.role.name as UserRole,
+            isActive: staff.isActive
+          };
+
+          return user;
+        } catch (error) {
+          console.error("Admin credentials provider error:", error);
+          return null;
         }
       }
     })
@@ -110,17 +191,30 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, account }) {
-      if (account?.provider === "credentials"||account?.provider === "google" || account?.provider === "facebook" || account?.provider === "apple") {
-        try {
-          // Get or create customer record
-          let customer = await prisma.customer.findUnique({
-            where: { email: token.email! }
-          });
+      
+      if (user) {
+        // Add user type and role to token
+        token.userType = user.userType;
+        if (user.userType === "admin") {
+          token.role = user.role;
+          token.isActive = user.isActive;
+          token.adminId = user.id ? parseInt(user.id) : undefined;
+        }
+      }
 
-          if (customer) {
-            // Add customer data to token
-            token.customerId = customer.id;
-            token.walletBalance = customer.walletBalance;
+      if (account?.provider === "customer-credentials" || account?.provider === "admin-credentials" || account?.provider === "google" || account?.provider === "facebook" || account?.provider === "apple") {
+        try {
+          if (token.userType === "customer") {
+            // Get or create customer record
+            let customer = await prisma.customer.findUnique({
+              where: { email: token.email! }
+            });
+
+            if (customer) {
+              // Add customer data to token
+              token.customerId = customer.id;
+              token.walletBalance = customer.walletBalance;
+            }
           }
         } catch (error) {
           console.error('Error updating JWT token:', error);
@@ -129,12 +223,25 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token.customerId) {
+      
+      // Add user type and role to session
+      session.userType = token.userType as "admin" | "customer";
+      
+      if (token.userType === "admin") {
+        session.role = token.role as UserRole;
+        session.isActive = token.isActive as boolean;
+        session.adminId = token.adminId as number;
+      } else if (token.userType === "customer") {
         session.customerId = token.customerId as number;
         session.walletBalance = token.walletBalance as number;
       }
+      
       return session;
     }
+  },
+  pages: {
+    signIn: '/registerlogin',
+    error: '/registerlogin',
   },
   debug: process.env.NODE_ENV === "development",
 };

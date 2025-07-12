@@ -4,14 +4,46 @@ import { useState, useEffect, Suspense } from "react";
 import MainLayout from "@/components/layouts/main-layout";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useServices, Service } from "@/hooks/useServices";
+
+interface FormData {
+  // Step 1: Location
+  locationType: string;
+  hotelName: string;
+  roomNumber: string;
+  collectionMethod: string;
+  house: string;
+  road: string;
+  block: string;
+  homeCollectionMethod: string;
+  building: string;
+  flatNumber: string;
+  officeNumber: string;
+  contactNumber: string;
+  
+  // Step 2: Time
+  pickupDate: string;
+  pickupTime: string;
+  
+  // Step 3: Services
+  services: string[];
+  
+  // Step 4: Customer Details
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  specialInstructions: string;
+}
 
 function GuestScheduleContent() {
   const searchParams = useSearchParams();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const { services, loading: servicesLoading } = useServices();
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     // Step 1: Location
     locationType: "",
     hotelName: "",
@@ -81,59 +113,21 @@ function GuestScheduleContent() {
     "20:00", "20:30", "21:00", "21:30", "22:00"
   ];
 
-  const services = [
-    {
-      id: "wash",
-      name: "Wash",
-      description: "Professional washing service",
-      pricing: "By weight (KG)",
-      icon: "🧺"
-    },
-    {
-      id: "wash-iron",
-      name: "Wash & Iron",
-      description: "Washing and ironing service",
-      pricing: "By piece",
-      icon: "👔"
-    },
-    {
-      id: "dry-clean",
-      name: "Dry Clean",
-      description: "Professional dry cleaning",
-      pricing: "By piece",
-      icon: "🧥"
-    },
-    {
-      id: "duvet-bulky",
-      name: "Duvet & Bulky Items",
-      description: "Large items cleaning",
-      pricing: "By piece",
-      icon: "🛏️"
-    },
-    {
-      id: "carpet-cleaning",
-      name: "Carpet Cleaning",
-      description: "Professional carpet cleaning",
-      pricing: "By square meter",
-      icon: "🏠"
-    }
-  ];
-
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleServiceToggle = (serviceId) => {
+  const handleServiceToggle = (serviceId: string) => {
     setFormData(prev => ({
       ...prev,
       services: prev.services.includes(serviceId)
-        ? prev.services.filter(id => id !== serviceId)
+        ? prev.services.filter((id: string) => id !== serviceId)
         : [...prev.services, serviceId]
     }));
   };
 
-  const validateStep = (step) => {
+  const validateStep = (step: number) => {
     switch (step) {
       case 1:
         if (!formData.locationType) return "Please select a location type";
@@ -242,7 +236,7 @@ function GuestScheduleContent() {
         body: JSON.stringify(orderData),
       });
 
-      const result = await response.json();
+      const result = await response.json() as { orderNumber?: string; error?: string };
 
       if (response.ok) {
         // Redirect to success page
@@ -519,36 +513,45 @@ function GuestScheduleContent() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Step 3: Choose Services</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services.map((service) => (
-                <div
-                  key={service.id}
-                  className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                    formData.services.includes(service.id)
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300 hover:border-blue-300"
-                  }`}
-                  onClick={() => handleServiceToggle(service.id)}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="text-2xl">{service.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">{service.name}</h3>
-                      <p className="text-sm text-gray-600 mt-1">{service.description}</p>
-                      <p className="text-sm text-blue-600 mt-1 font-medium">{service.pricing}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={formData.services.includes(service.id)}
-                        onChange={() => handleServiceToggle(service.id)}
-                        className="w-5 h-5 text-blue-600"
-                      />
+            {servicesLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading services...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      formData.services.includes(service.name)
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 hover:border-blue-300"
+                    }`}
+                    onClick={() => handleServiceToggle(service.name)}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="text-2xl">{service.icon}</div>
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900">{service.displayName}</h3>
+                        <p className="text-sm text-gray-600 mt-1">{service.description}</p>
+                        <p className="text-sm text-blue-600 mt-1 font-medium">
+                          Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'} ({service.pricingUnit})
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={formData.services.includes(service.name)}
+                          onChange={() => handleServiceToggle(service.name)}
+                          className="w-5 h-5 text-blue-600"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
 

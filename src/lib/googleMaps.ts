@@ -1,4 +1,4 @@
-// Google Maps API service for address autocomplete and geocoding
+// Google Maps API service using @react-google-maps/api library
 
 export interface GoogleMapsAddress {
   place_id: string;
@@ -19,26 +19,63 @@ export interface GeocodingResult {
   latitude?: number;
   longitude?: number;
   formatted_address: string;
+  locationType?: string;
 }
 
 class GoogleMapsService {
   private apiKey: string;
-  private autocompleteService: google.maps.places.AutocompleteService | null = null;
-  private geocoder: google.maps.Geocoder | null = null;
+  private autocompleteService: any = null;
+  private geocoder: any = null;
+  private isInitialized = false;
 
   constructor() {
     this.apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-    
-    if (typeof window !== 'undefined' && window.google) {
-      this.autocompleteService = new google.maps.places.AutocompleteService();
-      this.geocoder = new google.maps.Geocoder();
-    }
   }
 
-  // Load Google Maps script
-  async loadGoogleMapsScript(): Promise<void> {
-    if (typeof window === 'undefined' || window.google?.maps) {
+  // Initialize Google Maps services
+  private async initialize(): Promise<void> {
+    if (this.isInitialized) {
       return;
+    }
+
+    if (typeof window === 'undefined') {
+      throw new Error('Google Maps can only be used in browser environment');
+    }
+
+    // Check if Google Maps is already loaded
+    if (window.google?.maps?.places?.AutocompleteService) {
+      this.autocompleteService = new window.google.maps.places.AutocompleteService();
+      this.geocoder = new window.google.maps.Geocoder();
+      this.isInitialized = true;
+      return;
+    }
+
+    // If not loaded, we need to load it manually (fallback for non-React components)
+    await this.loadGoogleMapsScript();
+  }
+
+  // Load Google Maps script (fallback method)
+  private async loadGoogleMapsScript(): Promise<void> {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    // Check if script is already being loaded
+    if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+      // Wait for existing script to load
+      return new Promise((resolve) => {
+        const checkGoogleMaps = () => {
+          if (window.google?.maps?.places?.AutocompleteService) {
+            this.autocompleteService = new window.google.maps.places.AutocompleteService();
+            this.geocoder = new window.google.maps.Geocoder();
+            this.isInitialized = true;
+            resolve();
+          } else {
+            setTimeout(checkGoogleMaps, 100);
+          }
+        };
+        checkGoogleMaps();
+      });
     }
 
     return new Promise((resolve, reject) => {
@@ -48,8 +85,9 @@ class GoogleMapsService {
       script.defer = true;
       
       script.onload = () => {
-        this.autocompleteService = new google.maps.places.AutocompleteService();
-        this.geocoder = new google.maps.Geocoder();
+        this.autocompleteService = new window.google.maps.places.AutocompleteService();
+        this.geocoder = new window.google.maps.Geocoder();
+        this.isInitialized = true;
         resolve();
       };
       
@@ -63,26 +101,39 @@ class GoogleMapsService {
 
   // Get address suggestions for autocomplete
   async getAddressSuggestions(input: string): Promise<GoogleMapsAddress[]> {
-    if (!this.autocompleteService) {
-      await this.loadGoogleMapsScript();
-    }
-
+    await this.initialize();
+    
     return new Promise((resolve, reject) => {
       if (!this.autocompleteService) {
         reject(new Error('Autocomplete service not available'));
         return;
       }
 
+      const request = {
+        input,
+        componentRestrictions: { country: 'BH' }, // Restrict to Bahrain
+        types: ['geocode'] // Use 'geocode' instead of 'address' to avoid type conflicts
+      };
+      
+      console.log('Google Maps API request:', request);
+      
       this.autocompleteService.getPlacePredictions(
-        {
-          input,
-          componentRestrictions: { country: 'BH' }, // Restrict to Bahrain
-          types: ['address', 'establishment']
-        },
-        (predictions, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-            resolve(predictions as GoogleMapsAddress[]);
+        request,
+        (predictions: any, status: any) => {
+          console.log('Google Maps API response status:', status);
+          if (status === 'OK' && predictions) {
+            console.log('Google Maps API predictions count:', predictions.length);
+            const formattedPredictions: GoogleMapsAddress[] = predictions.map((prediction: any) => ({
+              place_id: prediction.place_id,
+              description: prediction.description,
+              structured_formatting: {
+                main_text: prediction.structured_formatting.main_text,
+                secondary_text: prediction.structured_formatting.secondary_text
+              }
+            }));
+            resolve(formattedPredictions);
           } else {
+            console.warn('Google Maps API error status:', status);
             resolve([]);
           }
         }
@@ -92,9 +143,7 @@ class GoogleMapsService {
 
   // Geocode a place ID to get detailed address information
   async geocodePlaceId(placeId: string): Promise<GeocodingResult | null> {
-    if (!this.geocoder) {
-      await this.loadGoogleMapsScript();
-    }
+    await this.initialize();
 
     return new Promise((resolve, reject) => {
       if (!this.geocoder) {
@@ -104,8 +153,8 @@ class GoogleMapsService {
 
       this.geocoder.geocode(
         { placeId },
-        (results, status) => {
-          if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+        (results: any, status: any) => {
+          if (status === 'OK' && results && results[0]) {
             const result = results[0];
             const addressComponents = result.address_components;
             
@@ -115,7 +164,6 @@ class GoogleMapsService {
             const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
             const locality = this.getAddressComponent(addressComponents, 'locality');
             const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
-            const country = this.getAddressComponent(addressComponents, 'country');
             
             // Determine location type based on address components
             let locationType = 'flat';
@@ -136,7 +184,8 @@ class GoogleMapsService {
               apartment: '',
               latitude: result.geometry.location.lat(),
               longitude: result.geometry.location.lng(),
-              formatted_address: result.formatted_address
+              formatted_address: result.formatted_address,
+              locationType: locationType
             };
 
             resolve(geocodingResult);
@@ -149,21 +198,19 @@ class GoogleMapsService {
   }
 
   // Helper method to get address component by type
-  private getAddressComponent(components: google.maps.GeocoderAddressComponent[], type: string): string {
-    const component = components.find(comp => comp.types.includes(type));
+  private getAddressComponent(components: any[], type: string): string {
+    const component = components.find((comp: any) => comp.types.includes(type));
     return component ? component.long_name : '';
   }
 
   // Helper method to check if address component exists
-  private hasAddressComponent(components: google.maps.GeocoderAddressComponent[], type: string): boolean {
-    return components.some(comp => comp.types.includes(type));
+  private hasAddressComponent(components: any[], type: string): boolean {
+    return components.some((comp: any) => comp.types.includes(type));
   }
 
   // Reverse geocoding from coordinates
   async reverseGeocode(lat: number, lng: number): Promise<GeocodingResult | null> {
-    if (!this.geocoder) {
-      await this.loadGoogleMapsScript();
-    }
+    await this.initialize();
 
     return new Promise((resolve, reject) => {
       if (!this.geocoder) {
@@ -173,8 +220,8 @@ class GoogleMapsService {
 
       this.geocoder.geocode(
         { location: { lat, lng } },
-        (results, status) => {
-          if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+        (results: any, status: any) => {
+          if (status === 'OK' && results && results[0]) {
             const result = results[0];
             const addressComponents = result.address_components;
             
@@ -183,6 +230,16 @@ class GoogleMapsService {
             const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
             const locality = this.getAddressComponent(addressComponents, 'locality');
             const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
+
+            // Determine location type based on address components
+            let locationType = 'flat';
+            if (this.hasAddressComponent(addressComponents, 'establishment')) {
+              locationType = 'hotel';
+            } else if (this.hasAddressComponent(addressComponents, 'premise')) {
+              locationType = 'office';
+            } else if (this.hasAddressComponent(addressComponents, 'street_number')) {
+              locationType = 'home';
+            }
 
             const geocodingResult: GeocodingResult = {
               address: `${streetNumber || ''} ${route || ''}`.trim(),
@@ -193,7 +250,8 @@ class GoogleMapsService {
               apartment: '',
               latitude: lat,
               longitude: lng,
-              formatted_address: result.formatted_address
+              formatted_address: result.formatted_address,
+              locationType: locationType
             };
 
             resolve(geocodingResult);
