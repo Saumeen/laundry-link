@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma generate && next build && npx prisma db push",
+    "build": "npx prisma generate && next build && npx prisma migrate deploy",
     "start": "next start",
     "lint": "next lint",
     "db:migrate": "npx prisma migrate dev",
