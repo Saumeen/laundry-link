@@ -12,6 +12,7 @@ interface UpdateOrderRequest {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    serviceType?: string;
     notes?: string;
   }>;
 }
@@ -99,7 +100,7 @@ export async function PUT(
             },
             data: {
               itemType: item.itemType,
-              serviceType: item.itemType, // Using itemType as serviceType
+              serviceType: item.serviceType || item.itemType, // Use serviceType or itemType as fallback
               quantity: item.quantity,
               pricePerItem: item.unitPrice,
               totalPrice: item.totalPrice,
@@ -115,7 +116,7 @@ export async function PUT(
             data: {
               orderId: orderIdNum,
               itemType: item.itemType,
-              serviceType: item.itemType, // Using itemType as serviceType
+              serviceType: item.serviceType || item.itemType, // Use serviceType or itemType as fallback
               quantity: item.quantity,
               pricePerItem: item.unitPrice,
               totalPrice: item.totalPrice,

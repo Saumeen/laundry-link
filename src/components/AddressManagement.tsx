@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import AddressSelector from './AddressSelector';
 import { customerApi, parseJsonResponse } from '@/lib/api';
-import PhoneVerification from './PhoneVerification';
 
 interface Address {
   id: number;

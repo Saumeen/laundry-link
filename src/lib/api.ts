@@ -110,7 +110,5 @@ export const customerApi = {
   addPaymentMethod: (data: any) => authenticatedPost('/api/payment-methods', data),
   deletePaymentMethod: (id: string | number) => authenticatedDelete(`/api/payment-methods/${id}`),
   
-  // Phone verification
-  checkPhoneVerification: (phoneNumber: string) => authenticatedPost('/api/customer/check-phone-verification', { phoneNumber }),
-  markPhoneVerified: (phoneNumber: string) => authenticatedPost('/api/customer/mark-phone-verified', { phoneNumber }),
+
 }; 

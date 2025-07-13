@@ -9,7 +9,17 @@ export async function POST(req: Request) {
     await requireAuthenticatedAdmin();
 
     const body = await req.json();
-    const { orderId, invoiceItems } = body as { orderId: number; invoiceItems: any[] };
+    const { orderId, invoiceItems } = body as { 
+      orderId: number; 
+      invoiceItems: Array<{
+        id?: number;
+        itemType: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        serviceType?: string;
+      }>;
+    };
 
     if (!orderId || !invoiceItems || !Array.isArray(invoiceItems)) {
       return NextResponse.json(
@@ -27,7 +37,7 @@ export async function POST(req: Request) {
 
     // Separate items into existing (with ID) and new (without ID)
     const itemsToUpdate = invoiceItems.filter(item => item.id && item.id > 0);
-    const itemsToCreate = invoiceItems.filter(item => !item.id || item.id <= 0);
+    const itemsToCreate = invoiceItems.filter(item => !item.id || item.id <= 0 || item.id === undefined);
     
     // Get IDs of items that should be deleted (existing items not in the new list)
     const newItemIds = itemsToUpdate.map(item => item.id);
@@ -47,7 +57,7 @@ export async function POST(req: Request) {
     // Update existing items
     const updatedItems = [];
     for (const item of itemsToUpdate) {
-      if (item.id && item.itemType && item.quantity && item.pricePerItem !== undefined) {
+      if (item.id && item.itemType && item.quantity && item.unitPrice !== undefined) {
         const updatedItem = await prisma.invoiceItem.update({
           where: {
             id: item.id,
@@ -55,9 +65,9 @@ export async function POST(req: Request) {
           data: {
             itemType: item.itemType,
             quantity: parseInt(item.quantity.toString()),
-            pricePerItem: parseFloat(item.pricePerItem.toString()),
+            pricePerItem: parseFloat(item.unitPrice.toString()),
             totalPrice: parseFloat(item.totalPrice.toString()),
-            serviceType: item.serviceType || 'laundry', // Default service type
+            serviceType: item.serviceType || item.itemType || 'laundry', // Use serviceType or itemType as fallback
           },
         });
         updatedItems.push(updatedItem);
@@ -67,15 +77,15 @@ export async function POST(req: Request) {
     // Create new items
     const createdItems = [];
     for (const item of itemsToCreate) {
-      if (item.itemType && item.quantity && item.pricePerItem !== undefined) {
+      if (item.itemType && item.quantity && item.unitPrice !== undefined) {
         const invoiceItem = await prisma.invoiceItem.create({
           data: {
             orderId: orderId,
             itemType: item.itemType,
             quantity: parseInt(item.quantity.toString()),
-            pricePerItem: parseFloat(item.pricePerItem.toString()),
+            pricePerItem: parseFloat(item.unitPrice.toString()),
             totalPrice: parseFloat(item.totalPrice.toString()),
-            serviceType: item.serviceType || 'laundry', // Default service type
+            serviceType: item.serviceType || item.itemType || 'laundry', // Use serviceType or itemType as fallback
           },
         });
         createdItems.push(invoiceItem);

@@ -113,6 +113,7 @@ const OrderModal = memo(({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
 
 
 
@@ -126,6 +127,7 @@ const OrderModal = memo(({
       // Load drivers and assignments
       loadDrivers();
       loadDriverAssignments();
+      loadServices();
     }
   }, [order]);
 
@@ -181,6 +183,18 @@ const OrderModal = memo(({
       }
     } catch (error) {
       console.error('Error loading drivers:', error as Error);
+    }
+  }, []);
+
+  const loadServices = useCallback(async () => {
+    try {
+      const response = await fetch('/api/services');
+      if (response.ok) {
+        const data = await response.json() as Service[];
+        setServices(data);
+      }
+    } catch (error) {
+      console.error('Error loading services:', error);
     }
   }, []);
 
@@ -424,7 +438,7 @@ const OrderModal = memo(({
 
   const addInvoiceItem = useCallback(() => {
     const newItem: InvoiceItem = {
-      id: Date.now(), // Temporary ID for new items
+      id: -Date.now(), // Negative ID for new items (to distinguish from database IDs)
       itemType: '',
       quantity: 1,
       pricePerItem: 0,
@@ -446,12 +460,12 @@ const OrderModal = memo(({
     try {
       // Transform the data to match API expectations
       const transformedItems = invoiceItems.map(item => ({
-        id: item.id,
+        id: item.id > 0 ? item.id : undefined, // Only send ID for existing items
         itemType: item.itemType,
         quantity: item.quantity,
         unitPrice: item.pricePerItem, // API expects unitPrice
         totalPrice: item.totalPrice,
-        serviceType: 'laundry' // Default service type
+        serviceType: item.itemType // Use itemType as serviceType
       }));
 
       const response = await fetch(`/api/admin/add-invoice-item`, {
@@ -466,8 +480,9 @@ const OrderModal = memo(({
       });
       
       if (response.ok) {
+        const result = await response.json();
         alert('Invoice items updated successfully');
-        // Refresh the order data
+        // Refresh the order data to get updated invoice items with real IDs
         onUpdate(order.id, { refresh: true });
       } else {
         const error = await response.json() as { error?: string };
@@ -801,14 +816,28 @@ const OrderModal = memo(({
                   <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
                     {/* Item Type */}
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Item Type</label>
-                      <input
-                        type="text"
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Service Type</label>
+                      <select
                         value={item.itemType}
-                        onChange={(e) => updateInvoiceItem(index, 'itemType', e.target.value)}
-                        placeholder="e.g., Shirts, Pants, etc."
+                        onChange={(e) => {
+                          const selectedService = services.find(s => s.name === e.target.value);
+                          updateInvoiceItem(index, 'itemType', e.target.value);
+                          if (selectedService) {
+                            updateInvoiceItem(index, 'pricePerItem', selectedService.price);
+                          }
+                        }}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                        disabled={services.length === 0}
+                      >
+                        <option value="">
+                          {services.length === 0 ? 'Loading services...' : 'Select a service'}
+                        </option>
+                        {services.map((service) => (
+                          <option key={service.id} value={service.name}>
+                            {service.displayName} - BD {service.price}/{service.unit} ({service.description})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     
                     {/* Quantity */}

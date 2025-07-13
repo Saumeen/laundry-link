@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useServices } from "@/hooks/useServices";
 import { useSession } from "next-auth/react";
-import PhoneVerification from "@/components/PhoneVerification";
+
 import PhoneInput from "@/components/PhoneInput";
 import AddressSelector from "@/components/AddressSelector";
 
@@ -96,9 +96,7 @@ function ScheduleContent() {
   // Explicitly type services as Service[]
   const { services, loading: servicesLoading } = useServices() as { services: Service[]; loading: boolean };
   
-  // Phone verification state
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
-  const [pendingAddressData, setPendingAddressData] = useState<any>(null);
+
   
   // Guest customer flow state (original 4-page flow)
   const [step, setStep] = useState(1);
@@ -305,60 +303,7 @@ function ScheduleContent() {
     fetchCustomerAddresses();
   }, [fetchCustomerAddresses]);
 
-  // Handle phone verification requirement from AddressSelector
-  const handlePhoneVerificationRequired = useCallback((addressData: any) => {
-    setPendingAddressData(addressData);
-    setShowPhoneVerification(true);
-  }, []);
 
-  const handlePhoneVerificationSuccess = useCallback(async (verifiedPhoneNumber: string) => {
-    if (!pendingAddressData) return;
-
-    setShowPhoneVerification(false);
-
-    try {
-      const response = await fetch('/api/customer/addresses', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...pendingAddressData,
-          contactNumber: verifiedPhoneNumber, // Use the verified phone number
-        }),
-      });
-
-      const result: { address: { id: string | number } } | { error: string } = await response.json();
-      if (response.ok) {
-        // Refresh addresses list
-        await fetchCustomerAddresses();
-        // Only set selectedAddressId if result has address
-        if ('address' in result) {
-          setFormData(prev => ({ ...prev, selectedAddressId: result.address.id.toString() }));
-          alert("Address added successfully!");
-        }
-      } else {
-        if ('error' in result) {
-          alert(result.error);
-        } else {
-          alert("Failed to add address");
-        }
-      }
-    } catch (error) {
-      alert("Error adding address. Please try again.");
-    } finally {
-      setPendingAddressData(null);
-    }
-  }, [pendingAddressData, fetchCustomerAddresses]);
-
-  const handlePhoneVerificationError = useCallback((error: string) => {
-    alert(`Phone verification failed: ${error}`);
-    setShowPhoneVerification(false);
-    setPendingAddressData(null);
-  }, []);
-
-  const handlePhoneVerificationCancel = useCallback(() => {
-    setShowPhoneVerification(false);
-    setPendingAddressData(null);
-  }, []);
 
   // Submit order for logged-in customers
   const handleLoggedInSubmit = useCallback(async () => {
@@ -533,7 +478,6 @@ function ScheduleContent() {
                 selectedAddressId={formData.selectedAddressId}
                 onAddressSelect={handleAddressSelect}
                 onAddressCreate={handleAddressCreate}
-                onPhoneVerificationRequired={handlePhoneVerificationRequired}
                 showCreateNew={true}
                 label="Select Pickup Address"
                 required={true}
@@ -1282,16 +1226,7 @@ function ScheduleContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
-      {/* Phone Verification Modal */}
-      {showPhoneVerification && pendingAddressData && (
-        <PhoneVerification
-          phoneNumber={pendingAddressData.contactNumber}
-          onVerificationSuccess={handlePhoneVerificationSuccess}
-          onVerificationError={handlePhoneVerificationError}
-          onCancel={handlePhoneVerificationCancel}
-          allowPhoneInput={true}
-        />
-      )}
+
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-md p-6">

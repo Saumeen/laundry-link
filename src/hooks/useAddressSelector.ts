@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
-import { usePhoneVerification } from '@/lib/phoneVerification';
 import { customerApi, parseJsonResponse } from '@/lib/api';
 import googleMapsService, { GeocodingResult } from '@/lib/googleMaps';
 
@@ -43,11 +42,15 @@ interface FormData {
 }
 
 export const useAddressSelector = (
-  onAddressCreate?: (address: Address) => void,
-  onPhoneVerificationRequired?: (addressData: any) => void
+  onAddressCreate?: (address: Address) => void
 ) => {
   const { data: session, status } = useSession();
-  const { isValidPhoneNumber } = usePhoneVerification();
+  // Simple phone number validation function
+  const isValidPhoneNumber = (phone: string) => {
+    // Basic phone number validation - can be enhanced as needed
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
   
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,35 +287,14 @@ export const useAddressSelector = (
       formattedAddress: selectedAddress?.formatted_address,
     };
 
-    // Check if phone number is already verified
-    try {
-      const response = await customerApi.checkPhoneVerification(formData.contactNumber);
-      const result = await parseJsonResponse<{ isVerified: boolean; verifiedAt: string | null }>(response);
-      
-      if (result.isVerified) {
-        // Phone number is already verified, save address directly
-        await saveAddress(addressData);
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking phone verification:', error);
-      // If check fails, proceed with verification attempt
-    }
-
-    // Phone number is not verified, trigger phone verification
-    if (onPhoneVerificationRequired) {
-      onPhoneVerificationRequired(addressData);
-      return;
-    }
-
-    // Fallback: Phone number is not verified, try to save address anyway but show warning
+    // Save address directly without phone verification
     try {
       await saveAddress(addressData);
-      setMessage('✅ Address saved successfully! ⚠️ Phone number is not verified. You may need to verify it later for delivery updates.');
+      setMessage('✅ Address saved successfully!');
     } catch (error) {
       setMessage('❌ Failed to save address');
     }
-  }, [formData, selectedAddress, session?.user?.email, saveAddress, onPhoneVerificationRequired, isValidPhoneNumber]);
+  }, [formData, selectedAddress, session?.user?.email, saveAddress, isValidPhoneNumber]);
 
   // Memoized function to format address for display
   const formatAddress = useCallback((address: Address) => {
