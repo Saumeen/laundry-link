@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthenticatedAdmin, validateRoleManagement, canManageRole } from "@/lib/adminAuth";
+import { requireAuthenticatedAdmin, createAdminAuthErrorResponse, createAdminForbiddenErrorResponse, canManageRole } from "@/lib/adminAuth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { UserRole } from "@/types/global";
@@ -15,16 +15,9 @@ interface CreateStaffRequest {
 }
 
 export async function POST(req: Request) {
-  try {
-    debugger  
+  try {  
     // Check if the current user is an authenticated admin
-    const currentAdmin = await getAuthenticatedAdmin();
-    if (!currentAdmin) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const currentAdmin = await requireAuthenticatedAdmin();
 
     const { email, firstName, lastName, password, role, phone }: CreateStaffRequest = await req.json();
 
@@ -120,13 +113,17 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     // Check if the current user is an authenticated admin
-    const currentAdmin = await getAuthenticatedAdmin();
-    if (!currentAdmin) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const currentAdmin = await requireAuthenticatedAdmin();
+
+    // Parse query parameters for pagination
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const role = searchParams.get('role') || '';
+    const status = searchParams.get('status') || '';
+
+    const skip = (page - 1) * limit;
 
     // Get manageable roles for the current admin
     const manageableRoles = await prisma.role.findMany({
@@ -139,22 +136,54 @@ export async function GET(req: Request) {
       }
     });
 
-    // Get staff members that the current admin can manage
+    // Build where clause for filtering
+    const where: any = {
+      roleId: {
+        in: manageableRoles.map((role: any) => role.id)
+      }
+    };
+
+    // Add search filter
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Add role filter
+    if (role) {
+      const roleRecord = manageableRoles.find((r: any) => r.name === role);
+      if (roleRecord) {
+        where.roleId = roleRecord.id;
+      }
+    }
+
+    // Add status filter
+    if (status) {
+      where.isActive = status === 'active';
+    }
+
+    // Get total count for pagination
+    const total = await prisma.staff.count({ where });
+    const totalPages = Math.ceil(total / limit);
+
+    // Get staff members with pagination
     const staffMembers = await prisma.staff.findMany({
-      where: {
-        roleId: {
-          in: manageableRoles.map((role: any) => role.id)
-        }
-      },
+      where,
       include: {
         role: true
       },
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      skip,
+      take: limit
     });
 
     return NextResponse.json({
+      success: true,
       staff: staffMembers.map((staff: any) => ({
         id: staff.id,
         email: staff.email,
@@ -163,13 +192,20 @@ export async function GET(req: Request) {
         role: staff.role.name,
         isActive: staff.isActive,
         lastLoginAt: staff.lastLoginAt,
-        createdAt: staff.createdAt
+        createdAt: staff.createdAt,
+        phone: staff.phone
       })),
       manageableRoles: manageableRoles.map((role: any) => ({
         id: role.id,
         name: role.name,
         description: role.description
-      }))
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      }
     });
   } catch (error) {
     console.error("Error fetching staff members:", error);
@@ -183,13 +219,7 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   try {
     // Check if the current user is an authenticated admin
-    const currentAdmin = await getAuthenticatedAdmin();
-    if (!currentAdmin) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const currentAdmin = await requireAuthenticatedAdmin();
 
     // Get the staff member ID from the URL
     const url = new URL(req.url);

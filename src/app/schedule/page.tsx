@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback } from "react";
 import MainLayout from "@/components/layouts/main-layout";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useServices } from "@/hooks/useServices";
 import { useSession } from "next-auth/react";
+import PhoneVerification from "@/components/PhoneVerification";
+import PhoneInput from "@/components/PhoneInput";
+import AddressSelector from "@/components/AddressSelector";
+
 
 // Type definitions
 interface Address {
@@ -40,7 +44,7 @@ interface Service {
   name: string;
   displayName: string;
   description: string;
-  icon: string;
+  icon?: string;
   pricingType: string;
   pricingUnit: string;
 }
@@ -89,9 +93,12 @@ function ScheduleContent() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [showAddNewAddress, setShowAddNewAddress] = useState(false);
   // Explicitly type services as Service[]
   const { services, loading: servicesLoading } = useServices() as { services: Service[]; loading: boolean };
+  
+  // Phone verification state
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [pendingAddressData, setPendingAddressData] = useState<any>(null);
   
   // Guest customer flow state (original 4-page flow)
   const [step, setStep] = useState(1);
@@ -178,7 +185,7 @@ function ScheduleContent() {
         phone,
       });
       setShowLoginPrompt(false);
-      fetchCustomerAddresses(email);
+      fetchCustomerAddresses();
       setIsLoading(false);
     } else {
       setIsLoggedIn(false);
@@ -189,9 +196,9 @@ function ScheduleContent() {
   }, [session, status]);
 
   // Fetch customer addresses for logged-in users
-  const fetchCustomerAddresses = async (email: string) => {
+  const fetchCustomerAddresses = useCallback(async () => {
     try {
-      const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(email)}`);
+      const response = await fetch('/api/customer/addresses');
       const result: ApiAddressesResponse = await response.json();
       if (response.ok) {
         setAddresses(result.addresses || []);
@@ -204,7 +211,7 @@ function ScheduleContent() {
     } catch (error) {
       console.error("Error fetching addresses:", error);
     }
-  };
+  }, []);
 
   // Pre-fill time from main page if available
   useEffect(() => {
@@ -248,125 +255,84 @@ function ScheduleContent() {
   ];
 
   // Fix all event handler types
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
   // Fix handleServiceToggle to use string[]
-  const handleServiceToggle = (serviceId: string) => {
+  const handleServiceToggle = useCallback((serviceId: string) => {
     setFormData(prev => ({
       ...prev,
       services: prev.services.includes(serviceId)
         ? prev.services.filter((id: string) => id !== serviceId)
         : [...prev.services, serviceId]
     }));
-  };
+  }, []);
 
   // Guest customer navigation
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (step < 4) {
       setStep(step + 1);
     }
-  };
+  }, [step]);
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     if (step > 1) {
       setStep(step - 1);
     }
-  };
+  }, [step]);
 
-  // Add new address for logged-in customers
-  const handleAddNewAddress = async () => {
-    // Validate new address fields
-    if (!formData.locationType) {
-      alert("Please select a location type");
-      return;
-    }
-    if (!formData.contactNumber.trim()) {
-      alert("Contact number is required");
-      return;
-    }
-    if (!formData.addressLabel.trim()) {
-      alert("Address label is required");
-      return;
-    }
+  // Handle address selection
+  const handleAddressSelect = useCallback((addressId: string) => {
+    setFormData(prev => ({ ...prev, selectedAddressId: addressId }));
+  }, []);
 
-    // Validate location-specific fields
-    if (formData.locationType === "hotel") {
-      if (!formData.hotelName.trim() || !formData.roomNumber.trim()) {
-        alert("Hotel name and room number are required");
-        return;
-      }
-    } else if (formData.locationType === "home") {
-      if (!formData.house.trim() || !formData.road.trim()) {
-        alert("House and road are required");
-        return;
-      }
-    } else if (formData.locationType === "flat") {
-      if (!formData.building.trim() || !formData.road.trim()) {
-        alert("Building and road are required");
-        return;
-      }
-    } else if (formData.locationType === "office") {
-      if (!formData.building.trim() || !formData.road.trim()) {
-        alert("Building and road are required");
-        return;
-      }
-    }
+  // Get selected address for display
+  const selectedAddress = useMemo(() => 
+    addresses.find(addr => addr.id.toString() === formData.selectedAddressId),
+    [addresses, formData.selectedAddressId]
+  );
+
+  // Handle address creation from AddressSelector
+  const handleAddressCreate = useCallback((newAddress: Address) => {
+    // Select the newly created address
+    setFormData(prev => ({ ...prev, selectedAddressId: newAddress.id.toString() }));
+    // Refresh addresses list
+    fetchCustomerAddresses();
+  }, [fetchCustomerAddresses]);
+
+  // Handle phone verification requirement from AddressSelector
+  const handlePhoneVerificationRequired = useCallback((addressData: any) => {
+    setPendingAddressData(addressData);
+    setShowPhoneVerification(true);
+  }, []);
+
+  const handlePhoneVerificationSuccess = useCallback(async (verifiedPhoneNumber: string) => {
+    if (!pendingAddressData) return;
+
+    setShowPhoneVerification(false);
 
     try {
-      const addressData = {
-        label: formData.addressLabel,
-        locationType: formData.locationType,
-        contactNumber: formData.contactNumber,
-        hotelName: formData.hotelName,
-        roomNumber: formData.roomNumber,
-        collectionMethod: formData.collectionMethod,
-        house: formData.house,
-        road: formData.road,
-        block: formData.block,
-        homeCollectionMethod: formData.homeCollectionMethod,
-        building: formData.building,
-        flatNumber: formData.flatNumber,
-        officeNumber: formData.officeNumber,
-      };
-
-      const response = await fetch(`/api/customer/addresses?email=${encodeURIComponent(customerData?.email || '')}`, {
+      const response = await fetch('/api/customer/addresses', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(addressData),
+        body: JSON.stringify({
+          ...pendingAddressData,
+          contactNumber: verifiedPhoneNumber, // Use the verified phone number
+        }),
       });
 
       const result: { address: { id: string | number } } | { error: string } = await response.json();
       if (response.ok) {
         // Refresh addresses list
-        await fetchCustomerAddresses(customerData?.email || '');
+        await fetchCustomerAddresses();
         // Only set selectedAddressId if result has address
         if ('address' in result) {
           setFormData(prev => ({ ...prev, selectedAddressId: result.address.id.toString() }));
-          // Hide add new address form
-          setShowAddNewAddress(false);
-          // Clear new address fields
-          setFormData(prev => ({
-            ...prev,
-            locationType: "",
-            hotelName: "",
-            roomNumber: "",
-            collectionMethod: "",
-            house: "",
-            road: "",
-            block: "",
-            homeCollectionMethod: "",
-            building: "",
-            flatNumber: "",
-            officeNumber: "",
-            contactNumber: "",
-            addressLabel: "",
-          }));
           alert("Address added successfully!");
         }
       } else {
@@ -378,11 +344,24 @@ function ScheduleContent() {
       }
     } catch (error) {
       alert("Error adding address. Please try again.");
+    } finally {
+      setPendingAddressData(null);
     }
-  };
+  }, [pendingAddressData, fetchCustomerAddresses]);
+
+  const handlePhoneVerificationError = useCallback((error: string) => {
+    alert(`Phone verification failed: ${error}`);
+    setShowPhoneVerification(false);
+    setPendingAddressData(null);
+  }, []);
+
+  const handlePhoneVerificationCancel = useCallback(() => {
+    setShowPhoneVerification(false);
+    setPendingAddressData(null);
+  }, []);
 
   // Submit order for logged-in customers
-  const handleLoggedInSubmit = async () => {
+  const handleLoggedInSubmit = useCallback(async () => {
     if (!formData.selectedAddressId) {
       alert("Please select an address");
       return;
@@ -405,7 +384,6 @@ function ScheduleContent() {
 
     try {
       const selectedAddress = addresses.find(addr => addr.id.toString() === formData.selectedAddressId);
-      debugger
       const orderData = {
         // Customer info (auto-filled from logged-in user)
         firstName: customerData?.firstName,
@@ -416,6 +394,7 @@ function ScheduleContent() {
         // Address info
         addressId: formData.selectedAddressId,
         locationType: selectedAddress?.locationType || "",
+        contactNumber: selectedAddress?.contactNumber || customerData?.phone,
         
         // Time info
         pickupDate: formData.pickupDate,
@@ -452,10 +431,10 @@ function ScheduleContent() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [formData, customerData, addresses]);
 
   // Submit order for guest customers (original flow)
-  const handleGuestSubmit = async () => {
+  const handleGuestSubmit = useCallback(async () => {
     setIsSubmitting(true);
     setSubmitError("");
 
@@ -520,7 +499,7 @@ function ScheduleContent() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [formData]);
 
   // Show loading while checking login status
   if (isLoading) {
@@ -548,299 +527,18 @@ function ScheduleContent() {
             {/* Step 1: Address Selection */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">1. Choose Pickup Address</h2>
-              
-              {/* Existing Addresses */}
-              {addresses.length > 0 && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select from your saved addresses:
-                  </label>
-                  <div className="space-y-2">
-                    {addresses.map((address) => (
-                      <label key={address.id} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                        <input
-                          type="radio"
-                          name="selectedAddressId"
-                          value={address.id.toString()}
-                          checked={formData.selectedAddressId === address.id.toString()}
-                          onChange={handleChange}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium">{address.label}</div>
-                          <div className="text-sm text-gray-600">{address.address || address.addressLine1}</div>
-                          {address.contactNumber && (
-                            <div className="text-sm text-gray-500">Contact: {address.contactNumber}</div>
-                          )}
-                          {address.isDefault && (
-                            <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Add New Address Button */}
-              <button
-                type="button"
-                onClick={() => setShowAddNewAddress(!showAddNewAddress)}
-                className="mb-4 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors"
-              >
-                {showAddNewAddress ? "Cancel" : "+ Add New Address"}
-              </button>
-
-              {/* Add New Address Form */}
-              {showAddNewAddress && (
-                <div className="border rounded-lg p-4 bg-gray-50 space-y-4">
-                  <h3 className="font-medium text-gray-900">Add New Address</h3>
-                  
-                  {/* Address Label */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Address Label *
-                    </label>
-                    <input
-                      type="text"
-                      name="addressLabel"
-                      value={formData.addressLabel}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., Home, Office, Hotel"
-                    />
-                  </div>
-
-                  {/* Location Type Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Location Type *
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {locationTypes.map((type) => (
-                        <button
-                          key={type.id}
-                          type="button"
-                          onClick={() => setFormData(prev => ({ ...prev, locationType: type.id }))}
-                          className={`p-3 border rounded-lg text-left transition-all ${
-                            formData.locationType === type.id
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-300 hover:border-blue-300"
-                          }`}
-                        >
-                          <div className="text-lg mb-1">{type.icon}</div>
-                          <div className="text-sm font-medium">{type.name}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Location-specific fields */}
-                  {formData.locationType === "hotel" && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Name *</label>
-                          <input
-                            type="text"
-                            name="hotelName"
-                            value={formData.hotelName}
-                            onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Hotel name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Room Number *</label>
-                          <input
-                            type="text"
-                            name="roomNumber"
-                            value={formData.roomNumber}
-                            onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Room number"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Collection Method</label>
-                        <select
-                          name="collectionMethod"
-                          value={formData.collectionMethod}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select collection method</option>
-                          <option value="reception">Reception</option>
-                          <option value="concierge">Concierge</option>
-                          <option value="direct">Direct from room</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.locationType === "home" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">House *</label>
-                        <input
-                          type="text"
-                          name="house"
-                          value={formData.house}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="House number/name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Road *</label>
-                        <input
-                          type="text"
-                          name="road"
-                          value={formData.road}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Road name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Block (Optional)</label>
-                        <input
-                          type="text"
-                          name="block"
-                          value={formData.block}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Block number"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.locationType === "flat" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Building *</label>
-                        <input
-                          type="text"
-                          name="building"
-                          value={formData.building}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Building name/number"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Road *</label>
-                        <input
-                          type="text"
-                          name="road"
-                          value={formData.road}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Road name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Block (Optional)</label>
-                        <input
-                          type="text"
-                          name="block"
-                          value={formData.block}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Block number"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Flat Number</label>
-                        <input
-                          type="text"
-                          name="flatNumber"
-                          value={formData.flatNumber}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Flat number"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.locationType === "office" && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Building *</label>
-                        <input
-                          type="text"
-                          name="building"
-                          value={formData.building}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Building name/number"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Road *</label>
-                        <input
-                          type="text"
-                          name="road"
-                          value={formData.road}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Road name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Block (Optional)</label>
-                        <input
-                          type="text"
-                          name="block"
-                          value={formData.block}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Block number"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Office Number</label>
-                        <input
-                          type="text"
-                          name="officeNumber"
-                          value={formData.officeNumber}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Office number"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Contact Number */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Contact Number *
-                    </label>
-                    <input
-                      type="tel"
-                      name="contactNumber"
-                      value={formData.contactNumber}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Contact number for this address"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleAddNewAddress}
-                    className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Save Address
-                  </button>
-                </div>
-              )}
+              {/* Address Selector Component */}
+              <AddressSelector
+                selectedAddressId={formData.selectedAddressId}
+                onAddressSelect={handleAddressSelect}
+                onAddressCreate={handleAddressCreate}
+                onPhoneVerificationRequired={handlePhoneVerificationRequired}
+                showCreateNew={true}
+                label="Select Pickup Address"
+                required={true}
+                className="mt-4"
+              />
             </div>
 
             {/* Step 2: Date & Time Selection */}
@@ -974,10 +672,53 @@ function ScheduleContent() {
                     <span className="text-gray-600">Email:</span> {customerData?.email}
                   </div>
                   <div>
-                    <span className="text-gray-600">Phone:</span> {customerData?.phone}
+                    <span className="text-gray-600">Phone:</span> {selectedAddress?.contactNumber || customerData?.phone}
                   </div>
                 </div>
               </div>
+
+              {/* Address Information */}
+              {selectedAddress && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <h3 className="font-medium text-gray-900 mb-2">Pickup Address</h3>
+                  <div className="text-sm">
+                    <div className="mb-1">
+                      <span className="text-gray-600">Address:</span> {selectedAddress.label}
+                    </div>
+                    {selectedAddress.locationType && (
+                      <div className="mb-1">
+                        <span className="text-gray-600">Type:</span> {selectedAddress.locationType.charAt(0).toUpperCase() + selectedAddress.locationType.slice(1)}
+                      </div>
+                    )}
+                    {selectedAddress.contactNumber && (
+                      <div>
+                        <span className="text-gray-600">Contact:</span> {selectedAddress.contactNumber}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Services */}
+              {formData.services.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <h3 className="font-medium text-gray-900 mb-2">Selected Services</h3>
+                  <div className="space-y-2">
+                    {formData.services.map((serviceName) => {
+                      const service = services.find(s => s.name === serviceName);
+                      return (
+                        <div key={serviceName} className="flex items-center space-x-3 text-sm">
+                          <span className="text-lg">{service?.icon}</span>
+                          <div>
+                            <div className="font-medium">{service?.displayName || serviceName}</div>
+                            <div className="text-gray-600">{service?.description}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Special Instructions */}
               <div>
@@ -1150,17 +891,13 @@ function ScheduleContent() {
                     <option value="direct">Directly from you</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number *</label>
-                  <input
-                    type="tel"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Your contact number"
-                  />
-                </div>
+                <PhoneInput
+                  value={formData.contactNumber}
+                  onChange={(value) => setFormData(prev => ({ ...prev, contactNumber: value }))}
+                  placeholder="Your contact number"
+                  label="Contact Number"
+                  required
+                />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input
@@ -1225,17 +962,13 @@ function ScheduleContent() {
                     <option value="outside">Leave outside house</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number *</label>
-                  <input
-                    type="tel"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Your contact number"
-                  />
-                </div>
+                <PhoneInput
+                  value={formData.contactNumber}
+                  onChange={(value) => setFormData(prev => ({ ...prev, contactNumber: value }))}
+                  placeholder="Your contact number"
+                  label="Contact Number"
+                  required
+                />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input
@@ -1298,17 +1031,13 @@ function ScheduleContent() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number *</label>
-                  <input
-                    type="tel"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Your contact number"
-                  />
-                </div>
+                <PhoneInput
+                  value={formData.contactNumber}
+                  onChange={(value) => setFormData(prev => ({ ...prev, contactNumber: value }))}
+                  placeholder="Your contact number"
+                  label="Contact Number"
+                  required
+                />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input
@@ -1371,17 +1100,13 @@ function ScheduleContent() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number *</label>
-                  <input
-                    type="tel"
-                    name="contactNumber"
-                    value={formData.contactNumber}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Your contact number"
-                  />
-                </div>
+                <PhoneInput
+                  value={formData.contactNumber}
+                  onChange={(value) => setFormData(prev => ({ ...prev, contactNumber: value }))}
+                  placeholder="Your contact number"
+                  label="Contact Number"
+                  required
+                />
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input
@@ -1557,6 +1282,17 @@ function ScheduleContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      {/* Phone Verification Modal */}
+      {showPhoneVerification && pendingAddressData && (
+        <PhoneVerification
+          phoneNumber={pendingAddressData.contactNumber}
+          onVerificationSuccess={handlePhoneVerificationSuccess}
+          onVerificationError={handlePhoneVerificationError}
+          onCancel={handlePhoneVerificationCancel}
+          allowPhoneInput={true}
+        />
+      )}
+
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           {/* Progress Bar */}

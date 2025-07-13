@@ -1,12 +1,16 @@
 // src/app/api/admin/order-details/[orderId]/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 
 export async function GET(
   req: Request,
   { params }: { params: { orderId: string } }
 ) {
   try {
+    // Require admin authentication
+    await requireAuthenticatedAdmin();
+
     const { orderId } = params;
 
     const order = await prisma.order.findUnique({
@@ -16,6 +20,22 @@ export async function GET(
       include: {
         customer: true,
         invoiceItems: true,
+        driverAssignments: {
+          include: {
+            driver: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
       },
     });
 
@@ -27,7 +47,7 @@ export async function GET(
     }
 
     // Fetch customer addresses if customer exists
-    let addresses = [];
+    let addresses: any[] = [];
     if (order.customer) {
       addresses = await prisma.address.findMany({
         where: {
@@ -46,6 +66,11 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching order details:", error);
+    
+    if (error instanceof Error && error.message === 'Admin authentication required') {
+      return createAdminAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to fetch order details" },
       { status: 500 }

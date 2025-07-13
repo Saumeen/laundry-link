@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAdminRole, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { UserRole } from "@/types/global";
 
 export async function GET() {
   try {
+    // Require OPERATION_MANAGER role
+    await requireAdminRole("OPERATION_MANAGER");
     // Get today's date range
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -84,6 +88,11 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error fetching operation manager stats:', error);
+    
+    if (error instanceof Error && (error.message === 'Admin authentication required' || error.message.includes('Access denied'))) {
+      return createAdminAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }

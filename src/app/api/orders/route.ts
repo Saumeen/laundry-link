@@ -4,6 +4,25 @@ import { emailService } from "@/lib/emailService";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
+// Define types for better type safety
+interface ServiceNames {
+  [key: string]: string;
+}
+
+interface AddressData {
+  customerId: number;
+  label: string;
+  addressLine1: string;
+  city: string;
+  isDefault: boolean;
+  locationType: string;
+  contactNumber: string | null;
+  area?: string;
+  building?: string;
+  floor?: string;
+  apartment?: string | null;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json() as any;
@@ -74,7 +93,7 @@ async function handleLoggedInCustomerOrder(body: any) {
         customerFirstName: customer.firstName,
         customerLastName: customer.lastName,
         customerEmail: customer.email,
-        customerPhone: customer.phone || "",
+        customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
         customerAddress: address.address || address.addressLine1,
         items: Array.isArray(body.services) ? body.services : [body.services || "Standard Service"],
         paymentStatus: "Pending",
@@ -83,7 +102,7 @@ async function handleLoggedInCustomerOrder(body: any) {
 
     // Create invoice items for each service
     if (Array.isArray(body.services)) {
-      const serviceNames = {
+      const serviceNames: ServiceNames = {
         wash: "Wash (by weight)",
         wash_iron: "Wash & Iron (by piece)",
         dry_clean: "Dry Clean (by piece)",
@@ -95,7 +114,7 @@ async function handleLoggedInCustomerOrder(body: any) {
         await prisma.invoiceItem.create({
           data: {
             orderId: order.id,
-            itemType: serviceNames[serviceId] || serviceId,
+            itemType: serviceNames[serviceId as keyof ServiceNames] || serviceId,
             serviceType: serviceId,
             quantity: 1,
             pricePerItem: 0, // Will be updated after sorting
@@ -125,7 +144,7 @@ async function handleLoggedInCustomerOrder(body: any) {
       await emailService.sendOrderNotificationToAdmin(order, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
-        phone: customer.phone,
+        phone: address.contactNumber || customer.phone,
         address: address.address || address.addressLine1,
         services: body.services
       });
@@ -182,7 +201,7 @@ async function handleGuestCustomerOrder(body: any) {
 
     // Build address string based on location type
     let addressString = "";
-    let addressData = {
+    let addressData: AddressData = {
       customerId: customer.id,
       label: body.locationType.charAt(0).toUpperCase() + body.locationType.slice(1),
       addressLine1: "",
@@ -199,7 +218,6 @@ async function handleGuestCustomerOrder(body: any) {
       }
       addressData = {
         ...addressData,
-        address: addressString,
         addressLine1: addressString,
         area: body.collectionMethod,
         building: body.hotelName,
@@ -210,7 +228,6 @@ async function handleGuestCustomerOrder(body: any) {
       if (body.block) addressString += `, Block ${body.block}`;
       addressData = {
         ...addressData,
-        address: addressString,
         addressLine1: addressString,
         area: body.road,
         building: body.house,
@@ -221,7 +238,6 @@ async function handleGuestCustomerOrder(body: any) {
       if (body.flatNumber) addressString += `, Flat ${body.flatNumber}`;
       addressData = {
         ...addressData,
-        address: addressString,
         addressLine1: addressString,
         area: body.road,
         building: body.building,
@@ -233,7 +249,6 @@ async function handleGuestCustomerOrder(body: any) {
       if (body.officeNumber) addressString += `, Office ${body.officeNumber}`;
       addressData = {
         ...addressData,
-        address: addressString,
         addressLine1: addressString,
         area: body.road,
         building: body.building,
@@ -268,7 +283,7 @@ async function handleGuestCustomerOrder(body: any) {
         customerFirstName: customer.firstName,
         customerLastName: customer.lastName,
         customerEmail: customer.email,
-        customerPhone: customer.phone || "",
+        customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
         customerAddress: addressString,
         items: Array.isArray(body.services) ? body.services : [body.services || "Standard Service"],
         paymentStatus: "Pending",
@@ -277,7 +292,7 @@ async function handleGuestCustomerOrder(body: any) {
 
     // Create invoice items for each service
     if (Array.isArray(body.services)) {
-      const serviceNames = {
+      const serviceNames: ServiceNames = {
         wash: "Wash (by weight)",
         wash_iron: "Wash & Iron (by piece)",
         dry_clean: "Dry Clean (by piece)",
@@ -289,7 +304,7 @@ async function handleGuestCustomerOrder(body: any) {
         await prisma.invoiceItem.create({
           data: {
             orderId: order.id,
-            itemType: serviceNames[serviceId] || serviceId,
+            itemType: serviceNames[serviceId as keyof ServiceNames] || serviceId,
             serviceType: serviceId,
             quantity: 1,
             pricePerItem: 0, // Will be updated after sorting
@@ -301,65 +316,26 @@ async function handleGuestCustomerOrder(body: any) {
 
     // Send emails (wrapped in try-catch to not fail order creation)
     try {
-      // 1. Send email with autogenerated account and password
-      const dashboardLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://your-domain.com'}/customer/dashboard`;
-      
-      const accountEmailContent = `
-        <h2>Welcome to Laundry Link!</h2>
-        <p>Dear ${customer.firstName} ${customer.lastName},</p>
-        
-        <p>Thank you for your order! We've created an account for you to manage your laundry services.</p>
-        
-        <h3>Your Login Information:</h3>
-        <p><strong>Email:</strong> ${customer.email}</p>
-        <p><strong>Password:</strong> ${randomPassword}</p>
-        
-        <h3>What you can view in your account:</h3>
-        <ul>
-          <li>Addresses - Manage your pickup and delivery locations</li>
-          <li>Wallet - View your account balance and payment history</li>
-          <li>Orders - Track your current and past orders</li>
-          <li>Payments - View payment history and invoices</li>
-          <li>Statuses - Real-time updates on your order progress</li>
-        </ul>
-        
-        <p><a href="${dashboardLink}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Access Your Dashboard</a></p>
-        
-        <p>Best regards,<br>Laundry Link Team</p>
-      `;
-
-      await emailService.sendCustomEmail(
+      // 1. Send welcome email with credentials
+      await emailService.sendWelcomeEmailWithCredentials(
+        customer,
+        `${customer.firstName} ${customer.lastName}`,
         customer.email,
-        "Your Laundry Link Account Details",
-        accountEmailContent
+        randomPassword
       );
 
-      // 2. Send email with order confirmation
-      const orderEmailContent = `
-        <h2>Order Confirmation</h2>
-        <p>Dear ${customer.firstName} ${customer.lastName},</p>
-        
-        <p>Your order has been successfully placed!</p>
-        
-        <h3>Order Details:</h3>
-        <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-        <p><strong>Customer Name:</strong> ${customer.firstName} ${customer.lastName}</p>
-        <p><strong>Pickup Date/Time:</strong> ${pickupDateTime.toLocaleDateString()} at ${pickupDateTime.toLocaleTimeString()}</p>
-        <p><strong>Delivery Date/Time:</strong> ${deliveryDateTime.toLocaleDateString()} at ${deliveryDateTime.toLocaleTimeString()}</p>
-        
-        <p><strong>Note:</strong> Duvet, carpet, and dry clean items usually take 72 hours of processing, so the delivery timing might be different.</p>
-        
-        <p>The invoice and service value will be available to view once the items are sorted in our facility.</p>
-        
-        <p>You can contact us by WhatsApp on <strong>+97333440841</strong></p>
-        
-        <p>Best regards,<br>Laundry Link Team</p>
-      `;
-
-      await emailService.sendCustomEmail(
+      // 2. Send order confirmation email
+      await emailService.sendOrderConfirmationToCustomer(
+        order,
         customer.email,
-        `Order Confirmation - ${order.orderNumber}`,
-        orderEmailContent
+        `${customer.firstName} ${customer.lastName}`,
+        {
+          pickupDateTime,
+          deliveryDateTime,
+          services: body.services,
+          address: addressString,
+          locationType: body.locationType
+        }
       );
 
       // Send admin notification

@@ -1,36 +1,37 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import prisma from './prisma';
-import { UserRole } from '@/types/global';
-import bcrypt from 'bcryptjs';
+import { NextRequest } from "next/server";
+import prisma from "@/lib/prisma";
+import { UserRole } from "@/types/global";
 
-export interface AdminUser {
+export interface AuthenticatedAdmin {
   id: number;
   email: string;
   firstName: string;
   lastName: string;
   role: UserRole;
   isActive: boolean;
-  lastLoginAt?: Date;
 }
 
 /**
- * Get the authenticated admin user from the server session
- * This should be used in API routes and server components
+ * Get the authenticated admin from the server session
+ * This should be used in admin API routes
  */
-export async function getAuthenticatedAdmin(): Promise<AdminUser | null> {
+export async function getAuthenticatedAdmin(): Promise<AuthenticatedAdmin | null> {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email || session.userType !== "admin") {
+    if (!session?.userType || session.userType !== "admin") {
+      return null;
+    }
+
+    if (!session.adminId || !session.role) {
       return null;
     }
 
     const staff = await prisma.staff.findUnique({
-      where: { email: session.user.email },
-      include: {
-        role: true
-      }
+      where: { id: session.adminId },
+      include: { role: true }
     });
 
     if (!staff || !staff.isActive) {
@@ -44,7 +45,6 @@ export async function getAuthenticatedAdmin(): Promise<AdminUser | null> {
       lastName: staff.lastName,
       role: staff.role.name as UserRole,
       isActive: staff.isActive,
-      lastLoginAt: staff.lastLoginAt || undefined
     };
   } catch (error) {
     console.error('Error getting authenticated admin:', error);
@@ -56,7 +56,7 @@ export async function getAuthenticatedAdmin(): Promise<AdminUser | null> {
  * Validate that an admin is authenticated and return the admin data
  * Throws an error if not authenticated
  */
-export async function requireAuthenticatedAdmin(): Promise<AdminUser> {
+export async function requireAuthenticatedAdmin(): Promise<AuthenticatedAdmin> {
   const admin = await getAuthenticatedAdmin();
   
   if (!admin) {
@@ -70,14 +70,58 @@ export async function requireAuthenticatedAdmin(): Promise<AdminUser> {
  * Validate that an admin has a specific role
  * Throws an error if not authenticated or doesn't have the required role
  */
-export async function requireAdminRole(requiredRole: UserRole): Promise<AdminUser> {
+export async function requireAdminRole(requiredRole: UserRole): Promise<AuthenticatedAdmin> {
   const admin = await requireAuthenticatedAdmin();
   
   if (admin.role !== requiredRole) {
-    throw new Error('Insufficient permissions');
+    throw new Error(`Access denied. Required role: ${requiredRole}`);
   }
   
   return admin;
+}
+
+/**
+ * Validate that an admin has one of the specified roles
+ * Throws an error if not authenticated or doesn't have any of the required roles
+ */
+export async function requireAdminRoles(requiredRoles: UserRole[]): Promise<AuthenticatedAdmin> {
+  const admin = await requireAuthenticatedAdmin();
+  
+  if (!requiredRoles.includes(admin.role)) {
+    throw new Error(`Access denied. Required roles: ${requiredRoles.join(', ')}`);
+  }
+  
+  return admin;
+}
+
+/**
+ * Helper function to create error responses for admin authentication failures
+ */
+export function createAdminAuthErrorResponse(message: string = 'Admin authentication required') {
+  return new Response(
+    JSON.stringify({ error: message }),
+    {
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+}
+
+/**
+ * Helper function to create error responses for admin authorization failures
+ */
+export function createAdminForbiddenErrorResponse(message: string = 'Admin access denied') {
+  return new Response(
+    JSON.stringify({ error: message }),
+    {
+      status: 403,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
 }
 
 /**
@@ -102,101 +146,4 @@ export function canManageRole(adminRole: UserRole, targetRole: UserRole): boolea
  */
 export function getManageableRoles(adminRole: UserRole): UserRole[] {
   return ROLE_HIERARCHY[adminRole] || [];
-}
-
-/**
- * Validate that an admin can create/manage a specific role
- * Throws an error if not authorized
- */
-export function validateRoleManagement(adminRole: UserRole, targetRole: UserRole): void {
-  if (!canManageRole(adminRole, targetRole)) {
-    throw new Error(`You don't have permission to manage ${targetRole} role`);
-  }
-}
-
-export function hasPermission(userRole: UserRole, requiredPermission: string): boolean {
-  const rolePermissions: Record<UserRole, string[]> = {
-    'SUPER_ADMIN': [
-      'orders:read', 'orders:write', 'orders:delete',
-      'customers:read', 'customers:write', 'customers:delete',
-      'staff:read', 'staff:write', 'staff:delete',
-      'reports:read', 'reports:write',
-      'settings:read', 'settings:write',
-      'roles:read', 'roles:write', 'roles:delete',
-      'admin:create', 'admin:manage'
-    ],
-    'OPERATION_MANAGER': [
-      'orders:read', 'orders:write',
-      'customers:read', 'customers:write',
-      'staff:read', 'staff:write',
-      'reports:read', 'reports:write',
-      'settings:read',
-      'admin:create:limited'
-    ],
-    'DRIVER': [
-      'orders:read',
-      'driver_assignments:read', 'driver_assignments:write',
-      'customers:read'
-    ],
-    'FACILITY_TEAM': [
-      'orders:read', 'orders:write',
-      'facility_operations:read', 'facility_operations:write'
-    ]
-  };
-
-  return rolePermissions[userRole]?.includes(requiredPermission) || false;
-}
-
-export function getRoleDisplayName(role: UserRole): string {
-  const displayNames: Record<UserRole, string> = {
-    'SUPER_ADMIN': 'Super Admin',
-    'OPERATION_MANAGER': 'Operation Manager',
-    'DRIVER': 'Driver',
-    'FACILITY_TEAM': 'Facility Team'
-  };
-  return displayNames[role] || role;
-} 
-
-/**
- * Authenticate admin user with email and password
- * Returns admin user data if credentials are valid, null otherwise
- */
-export async function authenticateAdmin(email: string, password: string): Promise<AdminUser | null> {
-  try {
-    const staff = await prisma.staff.findUnique({
-      where: { email },
-      include: {
-        role: true
-      }
-    });
-
-    if (!staff || !staff.isActive) {
-      return null;
-    }
-
-    const isValidPassword = await bcrypt.compare(password, staff.password);
-    
-    if (!isValidPassword) {
-      return null;
-    }
-
-    // Update last login time
-    await prisma.staff.update({
-      where: { id: staff.id },
-      data: { lastLoginAt: new Date() }
-    });
-
-    return {
-      id: staff.id,
-      email: staff.email,
-      firstName: staff.firstName,
-      lastName: staff.lastName,
-      role: staff.role.name as UserRole,
-      isActive: staff.isActive,
-      lastLoginAt: staff.lastLoginAt || undefined
-    };
-  } catch (error) {
-    console.error('Error authenticating admin:', error);
-    return null;
-  }
 } 

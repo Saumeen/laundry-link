@@ -36,21 +36,13 @@ const AuthForm = () => {
     }
   }, [searchParams]);
 
-  // Simple redirect if already authenticated
+  // Redirect if already authenticated
   useEffect(() => {
-    if (!authLoading && !hasRedirected.current && (isAuthenticated || session?.user)) {
+    if (!authLoading && !hasRedirected.current && isAuthenticated) {
       hasRedirected.current = true;
       router.replace('/customer/dashboard');
     }
-  }, [isAuthenticated, session, authLoading, router]);
-
-  // Handle OAuth success
-  useEffect(() => {
-    if (session?.user && !isAuthenticated && !hasRedirected.current) {
-      hasRedirected.current = true;
-      router.replace('/customer/dashboard');
-    }
-  }, [session, router, isAuthenticated]);
+  }, [isAuthenticated, authLoading, router]);
 
   // Check if email exists in the system
   const checkEmailExists = async (email: string) => {

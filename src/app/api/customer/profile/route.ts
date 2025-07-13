@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 export async function GET(request: Request) {
   try {
-    // Get authenticated customer
+    // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();
 
     // Find customer by ID (more secure than email)
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    // Get authenticated customer
+    // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();
     const body = await request.json() as { firstName?: string; lastName?: string; phone?: string };
 

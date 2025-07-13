@@ -14,15 +14,7 @@ export default function Navbar() {
   const {isAuthenticated,customer }= useAuth()
 
 
-  // Check authentication status
-  useEffect(() => {
-    
-    // Listen for auth state changes
-    const handleAuthChange = () => {
-    //  checkAuthStatus();
-    };
 
-  }, []);
 
   // Handle logout
   const handleLogout = () => {  

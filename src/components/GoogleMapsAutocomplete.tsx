@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useLoadScript } from '@react-google-maps/api';
 
 interface GoogleMapsAutocompleteProps {
@@ -32,20 +32,20 @@ export default function GoogleMapsAutocomplete({
   });
 
   // Handle clicks outside suggestions dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-      }
-    };
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+      setShowSuggestions(false);
+    }
+  }, []);
 
+  useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [handleClickOutside]);
 
-  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     onChange(inputValue);
     setShowSuggestions(false);
@@ -100,9 +100,9 @@ export default function GoogleMapsAutocomplete({
       setSuggestions([]);
       setShowSuggestions(false);
     }
-  };
+  }, [isLoaded, onChange]);
 
-  const handleSuggestionClick = (suggestion: any) => {
+  const handleSuggestionClick = useCallback((suggestion: any) => {
     onChange(suggestion.description);
     setShowSuggestions(false);
     setSuggestions([]);
@@ -110,7 +110,7 @@ export default function GoogleMapsAutocomplete({
     if (onAddressSelect) {
       onAddressSelect(suggestion);
     }
-  };
+  }, [onChange, onAddressSelect]);
 
   if (loadError) {
     return (

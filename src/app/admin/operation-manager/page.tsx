@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { UserRole } from "@/types/global";
+import PageTransition from "@/components/ui/PageTransition";
 
 interface DashboardStats {
   pendingOrders: number;
@@ -77,7 +78,7 @@ export default function OperationManagerDashboard() {
       return;
     }
 
-    // Check if user has the correct role
+    // Allow both OPERATION_MANAGER and SUPER_ADMIN
     if (!session.role || (session.role !== "OPERATION_MANAGER" && session.role !== "SUPER_ADMIN")) {
       router.push("/admin/login");
       return;
@@ -86,13 +87,7 @@ export default function OperationManagerDashboard() {
     setLoading(false);
   }, [session, status, router]);
 
-  useEffect(() => {
-    if (!loading) {
-      fetchDashboardData();
-    }
-  }, [loading]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setDataLoading(true);
       const response = await fetch('/api/admin/operation-manager-stats');
@@ -107,9 +102,15 @@ export default function OperationManagerDashboard() {
     } finally {
       setDataLoading(false);
     }
-  };
+  }, []);
 
-  const fetchOrderDetails = async (orderId: number) => {
+  useEffect(() => {
+    if (!loading) {
+      fetchDashboardData();
+    }
+  }, [loading, fetchDashboardData]);
+
+  const fetchOrderDetails = useCallback(async (orderId: number) => {
     try {
       setDetailsLoading(true);
       const response = await fetch(`/api/admin/order-details/${orderId}`);
@@ -124,25 +125,25 @@ export default function OperationManagerDashboard() {
     } finally {
       setDetailsLoading(false);
     }
-  };
+  }, []);
 
-  const handleViewOrder = async (order: Order) => {
+  const handleViewOrder = useCallback(async (order: Order) => {
     setSelectedOrder(order);
     setShowModal(true);
     await fetchOrderDetails(order.id);
-  };
+  }, [fetchOrderDetails]);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setShowModal(false);
     setSelectedOrder(null);
     setOrderDetails(null);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     signOut({ callbackUrl: "/admin/login" });
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case "Order Placed":
         return "bg-blue-100 text-blue-800";
@@ -159,19 +160,19 @@ export default function OperationManagerDashboard() {
       default:
         return "bg-gray-100 text-gray-800";
     }
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString();
-  };
+  }, []);
 
-  const formatDateTime = (dateString: string) => {
+  const formatDateTime = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleString();
-  };
+  }, []);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
     return `$${amount.toFixed(2)}`;
-  };
+  }, []);
 
   // Show loading spinner while session is loading or we're checking authentication
   if (loading || status === "loading") {
@@ -188,9 +189,10 @@ export default function OperationManagerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+    <PageTransition>
+      <div className="min-h-screen bg-gray-100">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -324,18 +326,18 @@ export default function OperationManagerDashboard() {
           {/* Quick Actions */}
           <div className="bg-white shadow rounded-lg p-6 mb-8">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                onClick={() => router.replace("/admin/orders")}
+              >
                 Manage Orders
               </button>
-              <button className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                Assign Drivers
-              </button>
-              <button className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
-                View Reports
-              </button>
-              <button className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700">
-                Customer Support
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                onClick={() => router.replace("/admin/super-admin/customers")}
+              >
+                Manage Customers
               </button>
             </div>
           </div>
@@ -580,6 +582,7 @@ export default function OperationManagerDashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PageTransition>
   );
 } 

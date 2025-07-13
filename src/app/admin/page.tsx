@@ -71,6 +71,7 @@ export default function AdminPanel() {
     unitPrice: 0,
     notes: '',
   });
+  const [navigationLoading, setNavigationLoading] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -316,7 +317,11 @@ export default function AdminPanel() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
                         <button
-                          onClick={() => openOrderDetails(order)}
+                          onClick={async () => {
+                            setNavigationLoading(true);
+                            await openOrderDetails(order);
+                            setNavigationLoading(false);
+                          }}
                           className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
                         >
                           View Details
@@ -347,6 +352,12 @@ export default function AdminPanel() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {navigationLoading && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+            <span className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
           </div>
         )}
 

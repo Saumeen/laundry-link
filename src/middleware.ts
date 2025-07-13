@@ -14,7 +14,12 @@ export async function middleware(request: NextRequest) {
     path === '/admin/login' ||
     path.startsWith('/api/') ||
     path.startsWith('/_next/') ||
-    path.startsWith('/favicon.ico')
+    path.startsWith('/favicon.ico') ||
+    path.startsWith('/pricing') ||
+    path.startsWith('/services') ||
+    path.startsWith('/schedule') ||
+    path.startsWith('/tracking') ||
+    path.startsWith('/faq')
 
   // Check if the path is public
   if (isPublicPath) {
@@ -28,7 +33,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // For customer routes, check for NextAuth session
+  // For customer routes, let the individual pages handle authentication
+  // since we use NextAuth for customer authentication
+  if (path.startsWith('/customer/')) {
+    return NextResponse.next()
+  }
+
+  // For other protected routes, check for NextAuth session
   const token = await getToken({ req: request })
 
   if (!token) {

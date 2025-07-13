@@ -1,9 +1,13 @@
 // src/app/api/admin/update-processing/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 
 export async function POST(req: Request) {
   try {
+    // Require admin authentication
+    await requireAuthenticatedAdmin();
+
     const { orderId, totalPieces, totalWeight, processingNotes } = await req.json();
 
     if (!orderId) {
@@ -30,6 +34,11 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Error updating processing data:", error);
+    
+    if (error instanceof Error && error.message === 'Admin authentication required') {
+      return createAdminAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to update processing data" },
       { status: 500 }

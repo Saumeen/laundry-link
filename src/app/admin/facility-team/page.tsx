@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { UserRole } from "@/types/global";
+import PageTransition from "@/components/ui/PageTransition";
 
 export default function FacilityTeamDashboard() {
   const router = useRouter();
@@ -40,9 +41,10 @@ export default function FacilityTeamDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+    <PageTransition>
+      <div className="min-h-screen bg-gray-100">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -299,6 +301,7 @@ export default function FacilityTeamDashboard() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </PageTransition>
   );
 } 
