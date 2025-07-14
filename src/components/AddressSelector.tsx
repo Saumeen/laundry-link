@@ -3,6 +3,7 @@ import { useSession } from 'next-auth/react';
 import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
 import GoogleMapsAutocomplete from './GoogleMapsAutocomplete';
 import PhoneInput from './PhoneInput';
+import EnhancedAddressForm from './EnhancedAddressForm';
 import { customerApi, parseJsonResponse } from '@/lib/api';
 
 interface Address {
@@ -335,304 +336,6 @@ export default function AddressSelector({
     return 'Address not available';
   }, []);
 
-  // Render location-specific form
-  const renderLocationForm = () => {
-    switch (formData.locationType) {
-      case 'hotel':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hotel Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="hotelName"
-                  value={formData.hotelName}
-                  onChange={handleInputChange}
-                  placeholder="Hotel name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.hotelName ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.hotelName && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.hotelName}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Room Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="roomNumber"
-                  value={formData.roomNumber}
-                  onChange={handleInputChange}
-                  placeholder="Room number"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.roomNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.roomNumber && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.roomNumber}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Collection Method *
-              </label>
-              <select
-                name="collectionMethod"
-                value={formData.collectionMethod}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="reception">From Reception</option>
-                <option value="concierge">From Concierge</option>
-                <option value="direct">Directly from Room</option>
-              </select>
-            </div>
-          </div>
-        );
-
-      case 'home':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  House (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="house"
-                  value={formData.house}
-                  onChange={handleInputChange}
-                  placeholder="House number/name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.house ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.house && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.house}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Road *
-                </label>
-                <input
-                  type="text"
-                  name="road"
-                  value={formData.road}
-                  onChange={handleInputChange}
-                  placeholder="Road name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.road ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.road && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.road}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Block
-              </label>
-              <input
-                type="text"
-                name="block"
-                value={formData.block}
-                onChange={handleInputChange}
-                placeholder="Block number (optional)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Collection Method *
-              </label>
-              <select
-                name="homeCollectionMethod"
-                value={formData.homeCollectionMethod}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="directly">Collect directly from me</option>
-                <option value="outside">I'll leave it outside</option>
-              </select>
-            </div>
-          </div>
-        );
-
-      case 'flat':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Block
-                </label>
-                <input
-                  type="text"
-                  name="block"
-                  value={formData.block}
-                  onChange={handleInputChange}
-                  placeholder="Block number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Building *
-                </label>
-                <input
-                  type="text"
-                  name="building"
-                  value={formData.building}
-                  onChange={handleInputChange}
-                  placeholder="Building number or name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.building ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.building && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.building}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Road *
-                </label>
-                <input
-                  type="text"
-                  name="road"
-                  value={formData.road}
-                  onChange={handleInputChange}
-                  placeholder="Road name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.road ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.road && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.road}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Flat Number
-                </label>
-                <input
-                  type="text"
-                  name="flatNumber"
-                  value={formData.flatNumber}
-                  onChange={handleInputChange}
-                  placeholder="Flat number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'office':
-        return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Block
-                </label>
-                <input
-                  type="text"
-                  name="block"
-                  value={formData.block}
-                  onChange={handleInputChange}
-                  placeholder="Block number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Building *
-                </label>
-                <input
-                  type="text"
-                  name="building"
-                  value={formData.building}
-                  onChange={handleInputChange}
-                  placeholder="Building number or name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.building ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.building && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.building}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Road *
-                </label>
-                <input
-                  type="text"
-                  name="road"
-                  value={formData.road}
-                  onChange={handleInputChange}
-                  placeholder="Road name"
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.road ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.road && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.road}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Office Number
-                </label>
-                <input
-                  type="text"
-                  name="officeNumber"
-                  value={formData.officeNumber}
-                  onChange={handleInputChange}
-                  placeholder="Office number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -681,104 +384,47 @@ export default function AddressSelector({
           </button>
         </div>
 
-        {/* Add New Address Form */}
-        <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-          <div className="space-y-4">
-            {/* Google Address Autocomplete */}
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Address *
-              </label>
-              
-              <GoogleMapsAutocomplete
-                value={formData.googleAddress}
-                onChange={(value) => setFormData(prev => ({ ...prev, googleAddress: value }))}
-                onAddressSelect={handleNewAddressSelect}
-                placeholder="Start typing your address..."
-                className={`w-full ${errors.googleAddress ? 'border-red-500' : ''}`}
-              />
-              
-              {errors.googleAddress && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.googleAddress}
-                </p>
-              )}
-              
-              {addressLoading && (
-                <div className="mt-2 text-sm text-gray-500">
-                  Loading suggestions...
-                </div>
-              )}
-              {selectedAddress && (
-                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="text-sm text-green-700">
-                    <strong>Selected Address:</strong> {selectedAddress.formatted_address}
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Enhanced Address Form */}
+        <EnhancedAddressForm
+          formData={formData}
+          setFormData={setFormData}
+          errors={errors}
+          setErrors={setErrors}
+          selectedAddress={selectedAddress}
+          setSelectedAddress={setSelectedAddress}
+          addressLoading={addressLoading}
+          setAddressLoading={setAddressLoading}
+          onAddressSelect={handleNewAddressSelect}
+        />
 
-            {/* Location Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Location Type *
-              </label>
-              <select
-                name="locationType"
-                value={formData.locationType}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="hotel">Hotel</option>
-                <option value="home">Home</option>
-                <option value="flat">Flat/Apartment</option>
-                <option value="office">Office</option>
-              </select>
-            </div>
-
-            {/* Location-specific form */}
-            {renderLocationForm()}
-
-            {/* Contact Number (Required for all addresses) */}
-            <PhoneInput
-              value={formData.contactNumber}
-              onChange={(value) => setFormData(prev => ({ ...prev, contactNumber: value }))}
-              placeholder="Enter your contact number"
-              label="Contact Number"
-              required
-              error={errors.contactNumber}
-            />
-          </div>
-
-          {/* Save/Cancel Buttons */}
-          <div className="mt-6 flex space-x-3">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-sm"
-            >
-              {saving ? (
-                <>
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Save Address</span>
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={goBackToSelect}
-              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+        {/* Save/Cancel Buttons */}
+        <div className="mt-6 flex space-x-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-sm"
+          >
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Save Address</span>
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={goBackToSelect}
+            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     );

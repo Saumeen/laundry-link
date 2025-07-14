@@ -112,7 +112,7 @@ class GoogleMapsService {
       const request = {
         input,
         componentRestrictions: { country: 'BH' }, // Restrict to Bahrain
-        types: ['geocode'] // Use 'geocode' instead of 'address' to avoid type conflicts
+        types: ['geocode'] // Use geocode for addresses
       };
       
       console.log('Google Maps API request:', request);
@@ -164,14 +164,21 @@ class GoogleMapsService {
             const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
             const locality = this.getAddressComponent(addressComponents, 'locality');
             const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
+            const establishment = this.getAddressComponent(addressComponents, 'establishment');
             
-            // Determine location type based on address components
+            // Determine location type based on address components and place types
             let locationType = 'flat';
-            if (this.hasAddressComponent(addressComponents, 'establishment')) {
+            
+            // Check for establishment types (hotels, businesses, etc.)
+            if (this.hasAddressComponent(addressComponents, 'establishment') || 
+                result.types?.includes('lodging') || 
+                result.types?.includes('establishment')) {
               locationType = 'hotel';
-            } else if (this.hasAddressComponent(addressComponents, 'premise')) {
+            } else if (this.hasAddressComponent(addressComponents, 'premise') || 
+                       result.types?.includes('premise')) {
               locationType = 'office';
-            } else if (this.hasAddressComponent(addressComponents, 'street_number')) {
+            } else if (this.hasAddressComponent(addressComponents, 'street_number') || 
+                       result.types?.includes('street_address')) {
               locationType = 'home';
             }
 
@@ -179,7 +186,7 @@ class GoogleMapsService {
               address: `${streetNumber || ''} ${route || ''}`.trim(),
               city: locality || administrativeArea || 'Bahrain',
               area: route || sublocality || '',
-              building: streetNumber || '',
+              building: streetNumber || establishment || '',
               floor: '',
               apartment: '',
               latitude: result.geometry.location.lat(),
@@ -208,6 +215,18 @@ class GoogleMapsService {
     return components.some((comp: any) => comp.types.includes(type));
   }
 
+  // Helper method to remove duplicate predictions based on place_id
+  private removeDuplicatePredictions(predictions: GoogleMapsAddress[]): GoogleMapsAddress[] {
+    const seen = new Set<string>();
+    return predictions.filter(prediction => {
+      if (seen.has(prediction.place_id)) {
+        return false;
+      }
+      seen.add(prediction.place_id);
+      return true;
+    });
+  }
+
   // Reverse geocoding from coordinates
   async reverseGeocode(lat: number, lng: number): Promise<GeocodingResult | null> {
     await this.initialize();
@@ -230,14 +249,21 @@ class GoogleMapsService {
             const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
             const locality = this.getAddressComponent(addressComponents, 'locality');
             const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
+            const establishment = this.getAddressComponent(addressComponents, 'establishment');
 
-            // Determine location type based on address components
+            // Determine location type based on address components and place types
             let locationType = 'flat';
-            if (this.hasAddressComponent(addressComponents, 'establishment')) {
+            
+            // Check for establishment types (hotels, businesses, etc.)
+            if (this.hasAddressComponent(addressComponents, 'establishment') || 
+                result.types?.includes('lodging') || 
+                result.types?.includes('establishment')) {
               locationType = 'hotel';
-            } else if (this.hasAddressComponent(addressComponents, 'premise')) {
+            } else if (this.hasAddressComponent(addressComponents, 'premise') || 
+                       result.types?.includes('premise')) {
               locationType = 'office';
-            } else if (this.hasAddressComponent(addressComponents, 'street_number')) {
+            } else if (this.hasAddressComponent(addressComponents, 'street_number') || 
+                       result.types?.includes('street_address')) {
               locationType = 'home';
             }
 
@@ -245,7 +271,7 @@ class GoogleMapsService {
               address: `${streetNumber || ''} ${route || ''}`.trim(),
               city: locality || administrativeArea || 'Bahrain',
               area: route || sublocality || '',
-              building: streetNumber || '',
+              building: streetNumber || establishment || '',
               floor: '',
               apartment: '',
               latitude: lat,

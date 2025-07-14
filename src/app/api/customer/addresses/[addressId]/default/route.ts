@@ -8,7 +8,7 @@ export async function PUT(
   { params }: { params: { addressId: string } }
 ) {
   try {
-    const { addressId } = params;
+    const { addressId } =  params;
     const addressIdInt = parseInt(addressId);
     
     if (isNaN(addressIdInt)) {
