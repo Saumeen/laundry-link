@@ -112,7 +112,7 @@ class GoogleMapsService {
       const request = {
         input,
         componentRestrictions: { country: 'BH' }, // Restrict to Bahrain
-        types: ['geocode'] // Use geocode for addresses
+        types: ['address'] // Use address instead of geocode
       };
       
       console.log('Google Maps API request:', request);

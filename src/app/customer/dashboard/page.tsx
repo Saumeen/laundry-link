@@ -57,48 +57,103 @@ interface AddressesResponse {
   addresses: Address[];
 }
 
-// Memoized tab configuration
+// Enhanced tab configuration with better icons and descriptions
 const TAB_CONFIG = [
-  { id: 'overview', name: 'Overview', icon: '📊' },
-  { id: 'orders', name: 'My Orders', icon: '📦' },
-  { id: 'addresses', name: 'Addresses', icon: '🏠' },
-  { id: 'wallet', name: 'Wallet', icon: '💰' },
-  { id: 'packages', name: 'Packages', icon: '📋' },
+  { 
+    id: 'overview', 
+    name: 'Overview', 
+    icon: '📊',
+    description: 'Your dashboard summary'
+  },
+  { 
+    id: 'orders', 
+    name: 'My Orders', 
+    icon: '📦',
+    description: 'Track your laundry orders'
+  },
+  { 
+    id: 'addresses', 
+    name: 'Addresses', 
+    icon: '🏠',
+    description: 'Manage delivery addresses'
+  },
+  { 
+    id: 'wallet', 
+    name: 'Wallet', 
+    icon: '💰',
+    description: 'Manage your balance'
+  },
+  { 
+    id: 'packages', 
+    name: 'Packages', 
+    icon: '📋',
+    description: 'View available packages'
+  },
 ] as const;
 
-// Memoized status color mapping
-const STATUS_COLORS = {
-  'Order Placed': 'bg-blue-100 text-blue-800',
-  'Picked Up': 'bg-yellow-100 text-yellow-800',
-  'In Process': 'bg-purple-100 text-purple-800',
-  'Ready for Delivery': 'bg-green-100 text-green-800',
-  'Delivered': 'bg-gray-100 text-gray-800',
+// Enhanced status configuration with better colors and icons
+const STATUS_CONFIG = {
+  'Order Placed': { 
+    color: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: '📝',
+    bgColor: 'bg-blue-100'
+  },
+  'Picked Up': { 
+    color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    icon: '🚚',
+    bgColor: 'bg-yellow-100'
+  },
+  'In Process': { 
+    color: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: '⚙️',
+    bgColor: 'bg-purple-100'
+  },
+  'Ready for Delivery': { 
+    color: 'bg-green-50 text-green-700 border-green-200',
+    icon: '✅',
+    bgColor: 'bg-green-100'
+  },
+  'Delivered': { 
+    color: 'bg-gray-50 text-gray-700 border-gray-200',
+    icon: '🎉',
+    bgColor: 'bg-gray-100'
+  },
 } as const;
 
-// Memoized Stats Card Component
+// Enhanced Stats Card Component with better visual design
 const StatsCard = memo(({ 
   icon, 
   title, 
   value, 
+  subtitle,
   bgColor, 
-  textColor 
+  textColor,
+  onClick
 }: {
   icon: string;
   title: string;
   value: string | number;
+  subtitle?: string;
   bgColor: string;
   textColor: string;
+  onClick?: () => void;
 }) => (
-  <div className="bg-white rounded-lg shadow p-6">
-    <div className="flex items-center">
-      <div className="flex-shrink-0">
-        <div className={`w-8 h-8 ${bgColor} rounded-full flex items-center justify-center`}>
-          <span className={`${textColor} font-semibold`}>{icon}</span>
+  <div 
+    className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200 ${onClick ? 'cursor-pointer hover:scale-105' : ''}`}
+    onClick={onClick}
+  >
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <div className="flex items-center space-x-3 mb-2">
+          <div className={`w-10 h-10 ${bgColor} rounded-lg flex items-center justify-center`}>
+            <span className="text-lg">{icon}</span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
+          </div>
         </div>
-      </div>
-      <div className="ml-4">
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        <p className="text-2xl font-semibold text-gray-900">{value}</p>
+        <p className={`text-2xl font-bold ${textColor}`}>{value}</p>
       </div>
     </div>
   </div>
@@ -106,7 +161,7 @@ const StatsCard = memo(({
 
 StatsCard.displayName = 'StatsCard';
 
-// Memoized Order Item Component
+// Enhanced Order Item Component with better visual design
 const OrderItem = memo(({ 
   order, 
   onViewOrder 
@@ -116,7 +171,6 @@ const OrderItem = memo(({
 }) => {
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -124,36 +178,52 @@ const OrderItem = memo(({
     });
   }, []);
 
-  const getStatusColor = useCallback((status: string) => {
-    return STATUS_COLORS[status as keyof typeof STATUS_COLORS] || 'bg-gray-100 text-gray-800';
+  const getStatusConfig = useCallback((status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || {
+      color: 'bg-gray-50 text-gray-700 border-gray-200',
+      icon: '❓',
+      bgColor: 'bg-gray-100'
+    };
   }, []);
+
+  const statusConfig = getStatusConfig(order.status);
 
   return (
     <div 
-      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" 
+      className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-all duration-200 cursor-pointer group"
       onClick={() => onViewOrder(order.id)}
     >
-      <div className="flex-1">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <h4 className="font-medium text-gray-900">#{order.orderNumber}</h4>
-          <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(order.status)}`}>
-            {order.status}
-          </span>
+          <div className={`w-8 h-8 ${statusConfig.bgColor} rounded-full flex items-center justify-center`}>
+            <span className="text-sm">{statusConfig.icon}</span>
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+              #{order.orderNumber}
+            </h4>
+            <p className="text-sm text-gray-500">{order.serviceType}</p>
+          </div>
         </div>
-        <p className="text-sm text-gray-600 mt-1">
-          {order.serviceType} • {formatDate(order.createdAt)}
-        </p>
+        <div className="text-right">
+          <p className="font-bold text-lg text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
+          <p className="text-xs text-gray-400">{formatDate(order.createdAt)}</p>
+        </div>
       </div>
-      <div className="text-right">
-        <p className="font-medium text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
+      
+      <div className="flex items-center justify-between">
+        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${statusConfig.color}`}>
+          {order.status}
+        </span>
         <button 
-          className="text-blue-600 hover:text-blue-800 text-sm mt-1"
+          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 group-hover:underline"
           onClick={(e) => {
             e.stopPropagation();
             onViewOrder(order.id);
           }}
         >
-          View Details →
+          <span>View Details</span>
+          <span className="group-hover:translate-x-1 transition-transform">→</span>
         </button>
       </div>
     </div>
@@ -162,7 +232,7 @@ const OrderItem = memo(({
 
 OrderItem.displayName = 'OrderItem';
 
-// Memoized Detailed Order Item Component
+// Enhanced Detailed Order Item Component
 const DetailedOrderItem = memo(({ 
   order, 
   onViewOrder 
@@ -180,45 +250,67 @@ const DetailedOrderItem = memo(({
     });
   }, []);
 
-  const getStatusColor = useCallback((status: string) => {
-    return STATUS_COLORS[status as keyof typeof STATUS_COLORS] || 'bg-gray-100 text-gray-800';
+  const getStatusConfig = useCallback((status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || {
+      color: 'bg-gray-50 text-gray-700 border-gray-200',
+      icon: '❓',
+      bgColor: 'bg-gray-100'
+    };
   }, []);
+
+  const statusConfig = getStatusConfig(order.status);
 
   return (
     <div 
-      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer" 
+      className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-all duration-200 cursor-pointer group"
       onClick={() => onViewOrder(order.id)}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <h4 className="font-medium text-gray-900">Order #{order.orderNumber}</h4>
-          <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(order.status)}`}>
-            {order.status}
-          </span>
+          <div className={`w-10 h-10 ${statusConfig.bgColor} rounded-lg flex items-center justify-center`}>
+            <span className="text-lg">{statusConfig.icon}</span>
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+              Order #{order.orderNumber}
+            </h4>
+            <p className="text-sm text-gray-500">{order.serviceType}</p>
+          </div>
         </div>
         <div className="text-right">
-          <p className="font-medium text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
+          <p className="font-bold text-xl text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
           <button 
-            className="text-blue-600 hover:text-blue-800 text-sm mt-1"
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 mt-1 group-hover:underline"
             onClick={(e) => {
               e.stopPropagation();
               onViewOrder(order.id);
             }}
           >
-            View Details →
+            <span>View Details</span>
+            <span className="group-hover:translate-x-1 transition-transform">→</span>
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-        <div>
-          <span className="font-medium">Service:</span> {order.serviceType}
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Service</p>
+          <p className="text-sm font-medium text-gray-900">{order.serviceType}</p>
         </div>
-        <div>
-          <span className="font-medium">Pickup:</span> {formatDate(order.pickupTime)}
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pickup</p>
+          <p className="text-sm font-medium text-gray-900">{formatDate(order.pickupTime)}</p>
         </div>
-        <div>
-          <span className="font-medium">Placed:</span> {formatDate(order.createdAt)}
+        <div className="bg-gray-50 rounded-lg p-3">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Placed</p>
+          <p className="text-sm font-medium text-gray-900">{formatDate(order.createdAt)}</p>
         </div>
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <span className={`px-4 py-2 text-sm font-medium rounded-full border ${statusConfig.color}`}>
+          {order.status}
+        </span>
       </div>
     </div>
   );
@@ -226,7 +318,7 @@ const DetailedOrderItem = memo(({
 
 DetailedOrderItem.displayName = 'DetailedOrderItem';
 
-// Memoized Tab Button Component
+// Enhanced Tab Button Component with better visual feedback
 const TabButton = memo(({ 
   tab, 
   isActive, 
@@ -238,18 +330,63 @@ const TabButton = memo(({
 }) => (
   <button
     onClick={() => onClick(tab.id)}
-    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+    className={`relative py-3 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
       isActive
-        ? 'border-blue-500 text-blue-600'
-        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+        ? 'bg-blue-50 text-blue-700 border-2 border-blue-200 shadow-sm'
+        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border-2 border-transparent'
     }`}
   >
-    <span className="mr-2">{tab.icon}</span>
-    {tab.name}
+    <div className="flex items-center space-x-2">
+      <span className="text-lg">{tab.icon}</span>
+      <div className="text-left">
+        <div className="font-semibold">{tab.name}</div>
+        <div className={`text-xs ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+          {tab.description}
+        </div>
+      </div>
+    </div>
   </button>
 ));
 
 TabButton.displayName = 'TabButton';
+
+// Quick Action Button Component
+const QuickActionButton = memo(({ 
+  icon, 
+  title, 
+  subtitle, 
+  onClick, 
+  color = 'blue' 
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+  color?: 'blue' | 'green' | 'purple';
+}) => {
+  const colorClasses = {
+    blue: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
+    green: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
+    purple: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full p-4 rounded-xl border-2 transition-all duration-200 hover:scale-105 ${colorClasses[color]}`}
+    >
+      <div className="flex items-center space-x-3">
+        <div className="text-2xl">{icon}</div>
+        <div className="text-left">
+          <div className="font-semibold">{title}</div>
+          <div className="text-sm opacity-80">{subtitle}</div>
+        </div>
+      </div>
+    </button>
+  );
+});
+
+QuickActionButton.displayName = 'QuickActionButton';
 
 function DashboardContent() {
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -268,10 +405,7 @@ function DashboardContent() {
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      month: 'long'
     });
   }, []);
 
@@ -281,10 +415,6 @@ function DashboardContent() {
       year: 'numeric',
       month: 'long'
     });
-  }, []);
-
-  const getStatusColor = useCallback((status: string) => {
-    return STATUS_COLORS[status as keyof typeof STATUS_COLORS] || 'bg-gray-100 text-gray-800';
   }, []);
 
   const getDefaultAddress = useCallback(() => {
@@ -319,10 +449,17 @@ function DashboardContent() {
     setActiveTab('orders');
   }, []);
 
+  const handleAddFunds = useCallback(() => {
+    // TODO: Implement add funds functionality
+    console.log('Add funds clicked');
+  }, []);
+
+  const handleManageAddresses = useCallback(() => {
+    setActiveTab('addresses');
+  }, []);
+
   // Memoized data calculations
   const statsData = useMemo(() => {
-    // Note: These stats are based on the 3 most recently updated orders we fetched
-    // For accurate stats, the API should return total counts
     const activeOrders = orders.filter(order => !['Delivered', 'Cancelled'].includes(order.status)).length;
     const completedOrders = orders.filter(order => order.status === 'Delivered').length;
     
@@ -331,29 +468,34 @@ function DashboardContent() {
         icon: '💰',
         title: 'Wallet Balance',
         value: `${customer?.walletBalance.toFixed(3) || '0.000'} BD`,
-        bgColor: 'bg-blue-100',
-        textColor: 'text-blue-600'
+        subtitle: 'Available funds',
+        bgColor: 'bg-gradient-to-br from-blue-100 to-blue-200',
+        textColor: 'text-blue-700',
+        onClick: () => setActiveTab('wallet')
       },
       {
         icon: '📦',
-        title: 'Recent Orders',
+        title: 'Total Orders',
         value: orders.length,
-        bgColor: 'bg-green-100',
-        textColor: 'text-green-600'
+        subtitle: 'All time',
+        bgColor: 'bg-gradient-to-br from-green-100 to-green-200',
+        textColor: 'text-green-700'
       },
       {
         icon: '⏳',
         title: 'Active Orders',
         value: activeOrders,
-        bgColor: 'bg-yellow-100',
-        textColor: 'text-yellow-600'
+        subtitle: 'In progress',
+        bgColor: 'bg-gradient-to-br from-yellow-100 to-yellow-200',
+        textColor: 'text-yellow-700'
       },
       {
         icon: '✅',
-        title: 'Completed Orders',
+        title: 'Completed',
         value: completedOrders,
-        bgColor: 'bg-purple-100',
-        textColor: 'text-purple-600'
+        subtitle: 'Successfully delivered',
+        bgColor: 'bg-gradient-to-br from-purple-100 to-purple-200',
+        textColor: 'text-purple-700'
       }
     ];
   }, [customer?.walletBalance, orders]);
@@ -363,8 +505,6 @@ function DashboardContent() {
   }, [orders]);
 
   const hasMoreOrders = useMemo(() => {
-    // Since we're only fetching 3 orders, we'll always show "View All Orders"
-    // This could be improved by adding a total count from the API
     return orders.length === 3;
   }, [orders.length]);
 
@@ -390,7 +530,6 @@ function DashboardContent() {
     }
 
     // If authenticated but no authCustomer yet, wait a bit more
-    // This handles the case where session is authenticated but customer data is still loading
     if (isAuthenticated && !authCustomer) {
       console.log('Authenticated but no customer data yet, waiting...');
       return;
@@ -416,9 +555,9 @@ function DashboardContent() {
   // Separate useEffect to handle URL parameter changes
   useEffect(() => {
     const tab = searchParams.get('tab');
-    console.log('URL tab parameter:', tab); // Debug log
+    console.log('URL tab parameter:', tab);
     if (tab && ['overview', 'orders', 'addresses', 'wallet', 'packages'].includes(tab)) {
-      console.log('Setting active tab to:', tab); // Debug log
+      console.log('Setting active tab to:', tab);
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -476,8 +615,11 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -487,19 +629,55 @@ function DashboardContent() {
   }
 
   return (
-    <div className="bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Enhanced Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {customer.firstName}!
-          </h1>
-          <p className="text-gray-600">Manage your orders, addresses, and account settings</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                <span className="text-2xl text-white font-bold">
+                  {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Welcome back, {customer.firstName}! 👋
+                </h1>
+                <p className="text-gray-600">Here's what's happening with your laundry today</p>
+              </div>
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <QuickActionButton
+                icon="📦"
+                title="New Order"
+                subtitle="Schedule laundry pickup"
+                onClick={handleScheduleOrder}
+                color="blue"
+              />
+              <QuickActionButton
+                icon="🏠"
+                title="Manage Addresses"
+                subtitle="Update delivery locations"
+                onClick={handleManageAddresses}
+                color="green"
+              />
+              <QuickActionButton
+                icon="💰"
+                title="Add Funds"
+                subtitle="Top up your wallet"
+                onClick={handleAddFunds}
+                color="purple"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-8">
-          <nav className="-mb-px flex space-x-8">
+        {/* Enhanced Tab Navigation */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+          <nav className="flex flex-wrap gap-3">
             {TAB_CONFIG.map((tab) => (
               <TabButton
                 key={tab.id}
@@ -512,41 +690,10 @@ function DashboardContent() {
         </div>
 
         {/* Tab Content */}
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Overview Tab */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Your Information Section */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">Name</label>
-                      <p className="text-lg text-gray-900">{customer.firstName} {customer.lastName}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">Email</label>
-                      <p className="text-lg text-gray-900">{customer.email}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">Contact Number</label>
-                      <p className="text-lg text-gray-900">{customer.phone || 'Not provided'}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">Member Since</label>
-                      <p className="text-lg text-gray-900">{formatMemberSince(customer.createdAt)}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">Default Address</label>
-                      <p className="text-lg text-gray-900">{getDefaultAddress()}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
+            <div className="space-y-8">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {statsData.map((stat, index) => (
@@ -555,30 +702,73 @@ function DashboardContent() {
                     icon={stat.icon}
                     title={stat.title}
                     value={stat.value}
+                    subtitle={stat.subtitle}
                     bgColor={stat.bgColor}
                     textColor={stat.textColor}
+                    onClick={stat.onClick}
                   />
                 ))}
               </div>
 
-              {/* Recent Orders */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h3 className="text-lg font-medium text-gray-900">Recent Orders</h3>
+              {/* Customer Information Card */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                  <span className="mr-3">👤</span>
+                  Your Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-500 mb-2">Full Name</label>
+                      <p className="text-lg font-semibold text-gray-900">{customer.firstName} {customer.lastName}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-500 mb-2">Email Address</label>
+                      <p className="text-lg font-semibold text-gray-900">{customer.email}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-500 mb-2">Contact Number</label>
+                      <p className="text-lg font-semibold text-gray-900">{customer.phone || 'Not provided'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-500 mb-2">Member Since</label>
+                      <p className="text-lg font-semibold text-gray-900">{formatMemberSince(customer.createdAt)}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-500 mb-2">Default Address</label>
+                      <p className="text-lg font-semibold text-gray-900">{getDefaultAddress()}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-6">
+              </div>
+
+              {/* Recent Orders */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+                <div className="px-8 py-6 border-b border-gray-100">
+                  <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <span className="mr-3">📦</span>
+                    Recent Orders
+                  </h3>
+                </div>
+                <div className="p-8">
                   {orders.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No orders yet</p>
+                    <div className="text-center py-12">
+                      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">📦</span>
+                      </div>
+                      <h4 className="text-xl font-semibold text-gray-900 mb-2">No orders yet</h4>
+                      <p className="text-gray-600 mb-6">Ready to get started? Place your first order!</p>
                       <button
                         onClick={handleScheduleOrder}
-                        className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                       >
                         Place Your First Order
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {recentOrders.map((order) => (
                         <OrderItem
                           key={order.id}
@@ -589,9 +779,9 @@ function DashboardContent() {
                       {hasMoreOrders && (
                         <button
                           onClick={handleViewAllOrders}
-                          className="w-full text-center py-2 text-blue-600 hover:text-blue-800 font-medium"
+                          className="w-full text-center py-4 text-blue-600 hover:text-blue-800 font-semibold bg-blue-50 rounded-xl hover:bg-blue-100 transition-all duration-200"
                         >
-                          View All Orders
+                          View All Orders →
                         </button>
                       )}
                     </div>
@@ -603,23 +793,30 @@ function DashboardContent() {
 
           {/* Orders Tab */}
           {activeTab === 'orders' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">My Orders</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+              <div className="px-8 py-6 border-b border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <span className="mr-3">📦</span>
+                  My Orders
+                </h3>
               </div>
-              <div className="p-6">
+              <div className="p-8">
                 {orders.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No orders yet</p>
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-3xl">📦</span>
+                    </div>
+                    <h4 className="text-xl font-semibold text-gray-900 mb-2">No orders yet</h4>
+                    <p className="text-gray-600 mb-6">Ready to get started? Place your first order!</p>
                     <button
                       onClick={handleScheduleOrder}
-                      className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
                       Place Your First Order
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {orders.map((order) => (
                       <DetailedOrderItem
                         key={order.id}
@@ -635,27 +832,33 @@ function DashboardContent() {
 
           {/* Addresses Tab */}
           {activeTab === 'addresses' && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
               <AddressManagement />
             </div>
           )}
 
           {/* Wallet Tab */}
           {activeTab === 'wallet' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Wallet</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+              <div className="px-8 py-6 border-b border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <span className="mr-3">💰</span>
+                  Wallet
+                </h3>
               </div>
-              <div className="p-6">
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">💰</span>
+              <div className="p-8">
+                <div className="text-center py-12">
+                  <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-4xl">💰</span>
                   </div>
-                  <h4 className="text-2xl font-bold text-gray-900 mb-2">
+                  <h4 className="text-3xl font-bold text-gray-900 mb-2">
                     {customer.walletBalance.toFixed(3)} BD
                   </h4>
-                  <p className="text-gray-600">Current Balance</p>
-                  <button className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
+                  <p className="text-gray-600 mb-8 text-lg">Current Balance</p>
+                  <button 
+                    onClick={handleAddFunds}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
                     Add Funds
                   </button>
                 </div>
@@ -665,13 +868,20 @@ function DashboardContent() {
 
           {/* Packages Tab */}
           {activeTab === 'packages' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-medium text-gray-900">Packages</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+              <div className="px-8 py-6 border-b border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <span className="mr-3">📋</span>
+                  Packages
+                </h3>
               </div>
-              <div className="p-6">
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No packages available</p>
+              <div className="p-8">
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">📋</span>
+                  </div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">No packages available</h4>
+                  <p className="text-gray-600">Check back later for special offers and packages!</p>
                 </div>
               </div>
             </div>
@@ -696,7 +906,14 @@ MemoizedDashboardContent.displayName = 'DashboardContent';
 export default function CustomerDashboard() {
   return (
     <MainLayout>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+          </div>
+        </div>
+      }>
         <MemoizedDashboardContent />
       </Suspense>
     </MainLayout>
