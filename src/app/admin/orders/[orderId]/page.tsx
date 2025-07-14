@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { UserRole, DriverAssignment } from "@/types/global";
 import { calculateInvoiceItemTotal } from "@/lib/calculations";
+import { useToast, ToastProvider } from "@/components/ui/Toast";
+import ConfirmationModal from "@/components/ui/ConfirmationModal";
 import Link from "next/link";
 
 interface Order {
@@ -132,10 +134,12 @@ const TabButton = ({
   </button>
 );
 
-export default function OrderEditPage() {
+function OrderEditPageContent() {
   const router = useRouter();
   const params = useParams();
   const { data: session, status } = useSession();
+  
+  // Remove useToast from here since it will be used in child components
   
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -473,6 +477,7 @@ function OrderOverviewTab({ order, onRefresh }: { order: Order; onRefresh: () =>
 
 // Edit Tab Component
 function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void }) {
+  const { showToast } = useToast();
   const [status, setStatus] = useState(order.status);
   const [pickupTime, setPickupTime] = useState(order.pickupTime ? new Date(order.pickupTime).toISOString().slice(0, 16) : '');
   const [deliveryTime, setDeliveryTime] = useState(order.deliveryTime ? new Date(order.deliveryTime).toISOString().slice(0, 16) : '');
@@ -501,7 +506,7 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
 
       if (response.ok) {
         onUpdate();
-        alert('Order updated successfully');
+        showToast('Order updated successfully', 'success');
       } else {
         const errorData = await response.json() as ErrorResponse;
         setError(errorData.error || 'Failed to update order');
@@ -605,10 +610,17 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
 
 // Driver Assignments Tab Component
 function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+  const { showToast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [driverAssignments, setDriverAssignments] = useState<DriverAssignment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [pickupAssignmentLoading, setPickupAssignmentLoading] = useState(false);
+  const [deliveryAssignmentLoading, setDeliveryAssignmentLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+  
+  // Confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [assignmentToDelete, setAssignmentToDelete] = useState<number | null>(null);
 
   // Form states for new assignments
   const [selectedPickupDriver, setSelectedPickupDriver] = useState<number | ''>('');
@@ -618,9 +630,28 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
   const [pickupNotes, setPickupNotes] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
 
+  // Edit states
+  const [editingAssignment, setEditingAssignment] = useState<number | null>(null);
+  const [editDriverId, setEditDriverId] = useState<number | ''>('');
+  const [editEstimatedTime, setEditEstimatedTime] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editTimeError, setEditTimeError] = useState<string>('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Validation states
+  const [pickupTimeError, setPickupTimeError] = useState<string>('');
+  const [deliveryTimeError, setDeliveryTimeError] = useState<string>('');
+
   useEffect(() => {
-    loadDrivers();
-    loadDriverAssignments();
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([loadDrivers(), loadDriverAssignments()]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [order.id]);
 
   const loadDrivers = async () => {
@@ -663,17 +694,106 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     }
   };
 
+  // Date validation function
+  const validateDateTime = (dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
+    if (!dateTimeString) return '';
+    
+    const selectedDate = new Date(dateTimeString);
+    const now = new Date();
+    
+    // Check if date is in the past
+    if (selectedDate < now) {
+      return `${assignmentType === 'pickup' ? 'Pickup' : 'Delivery'} time cannot be in the past`;
+    }
+    
+    // For delivery, ensure it's after pickup time if pickup time is set
+    if (assignmentType === 'delivery' && pickupEstimatedTime) {
+      const pickupDate = new Date(pickupEstimatedTime);
+      if (selectedDate <= pickupDate) {
+        return 'Delivery time must be after pickup time';
+      }
+    }
+    
+    // For pickup, ensure delivery time is after pickup if delivery time is set
+    if (assignmentType === 'pickup' && deliveryEstimatedTime) {
+      const deliveryDate = new Date(deliveryEstimatedTime);
+      if (selectedDate >= deliveryDate) {
+        return 'Pickup time must be before delivery time';
+      }
+    }
+    
+    return '';
+  };
+
+  // Edit validation function
+  const validateEditDateTime = (dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
+    if (!dateTimeString) return '';
+    
+    const selectedDate = new Date(dateTimeString);
+    const now = new Date();
+    
+    // Check if date is in the past
+    if (selectedDate < now) {
+      return `${assignmentType === 'pickup' ? 'Pickup' : 'Delivery'} time cannot be in the past`;
+    }
+    
+    // For delivery, ensure it's after pickup time if pickup time is set
+    if (assignmentType === 'delivery') {
+      const pickupAssignment = driverAssignments.find(a => a.assignmentType === 'pickup' && a.id !== editingAssignment);
+      if (pickupAssignment?.estimatedTime) {
+        const pickupDate = new Date(pickupAssignment.estimatedTime);
+        if (selectedDate <= pickupDate) {
+          return 'Delivery time must be after pickup time';
+        }
+      }
+    }
+    
+    // For pickup, ensure delivery time is after pickup if delivery time is set
+    if (assignmentType === 'pickup') {
+      const deliveryAssignment = driverAssignments.find(a => a.assignmentType === 'delivery' && a.id !== editingAssignment);
+      if (deliveryAssignment?.estimatedTime) {
+        const deliveryDate = new Date(deliveryAssignment.estimatedTime);
+        if (selectedDate >= deliveryDate) {
+          return 'Pickup time must be before delivery time';
+        }
+      }
+    }
+    
+    return '';
+  };
+
   const assignDriver = async (assignmentType: 'pickup' | 'delivery') => {
     const driverId = assignmentType === 'pickup' ? selectedPickupDriver : selectedDeliveryDriver;
     const estimatedTime = assignmentType === 'pickup' ? pickupEstimatedTime : deliveryEstimatedTime;
     const notes = assignmentType === 'pickup' ? pickupNotes : deliveryNotes;
     
     if (!driverId) {
-      alert(`Please select a driver for ${assignmentType}`);
+      showToast(`Please select a driver for ${assignmentType}`, 'error');
       return;
     }
+
+    // Validate date time
+    const timeError = validateDateTime(estimatedTime, assignmentType);
+    if (timeError) {
+      if (assignmentType === 'pickup') {
+        setPickupTimeError(timeError);
+      } else {
+        setDeliveryTimeError(timeError);
+      }
+      return;
+    }
+
+    // Clear any previous errors
+    setPickupTimeError('');
+    setDeliveryTimeError('');
     
-    setAssignmentLoading(true);
+    // Set the appropriate loading state
+    if (assignmentType === 'pickup') {
+      setPickupAssignmentLoading(true);
+    } else {
+      setDeliveryAssignmentLoading(true);
+    }
+
     try {
       const response = await fetch('/api/admin/driver-assignments', {
         method: 'POST',
@@ -690,19 +810,134 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       });
       
       if (response.ok) {
+        setLoading(true);
         await loadDriverAssignments();
-        alert(`Driver assigned for ${assignmentType} successfully`);
+        showToast(`Driver assigned for ${assignmentType} successfully`, 'success');
       } else {
         const error = await response.json() as ErrorResponse;
-        alert(error.error || `Failed to assign driver for ${assignmentType}`);
+        showToast(error.error || `Failed to assign driver for ${assignmentType}`, 'error');
       }
     } catch (error) {
       console.error('Error assigning driver:', error);
-      alert(`Failed to assign driver for ${assignmentType}`);
+      showToast(`Failed to assign driver for ${assignmentType}`, 'error');
     } finally {
-      setAssignmentLoading(false);
+      // Clear the appropriate loading state
+      if (assignmentType === 'pickup') {
+        setPickupAssignmentLoading(false);
+      } else {
+        setDeliveryAssignmentLoading(false);
+      }
+      setLoading(false);
     }
   };
+
+  const startEditing = (assignment: DriverAssignment) => {
+    setEditingAssignment(assignment.id);
+    setEditDriverId(assignment.driverId);
+    setEditEstimatedTime(assignment.estimatedTime ? new Date(assignment.estimatedTime).toISOString().slice(0, 16) : '');
+    setEditNotes(assignment.notes || '');
+    setEditTimeError('');
+  };
+
+  const cancelEditing = () => {
+    setEditingAssignment(null);
+    setEditDriverId('');
+    setEditEstimatedTime('');
+    setEditNotes('');
+    setEditTimeError('');
+  };
+
+  const updateAssignment = async () => {
+    if (!editingAssignment || !editDriverId) {
+      showToast('Please select a driver', 'error');
+      return;
+    }
+
+    const assignment = driverAssignments.find(a => a.id === editingAssignment);
+    if (!assignment) return;
+
+    // Validate date time
+    const timeError = validateEditDateTime(editEstimatedTime, assignment.assignmentType);
+    if (timeError) {
+      setEditTimeError(timeError);
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      const response = await fetch(`/api/admin/driver-assignments?id=${editingAssignment}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estimatedTime: editEstimatedTime || undefined,
+          notes: editNotes || undefined,
+        }),
+      });
+      
+      if (response.ok) {
+        await loadDriverAssignments();
+        cancelEditing();
+        showToast('Assignment updated successfully', 'success');
+      } else {
+        const error = await response.json() as ErrorResponse;
+        showToast(error.error || 'Failed to update assignment', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating assignment:', error);
+      showToast('Failed to update assignment', 'error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (assignmentId: number) => {
+    setAssignmentToDelete(assignmentId);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!assignmentToDelete) return;
+
+    setDeleteLoading(assignmentToDelete);
+    try {
+      const response = await fetch(`/api/admin/driver-assignments?id=${assignmentToDelete}&action=delete`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        await loadDriverAssignments();
+        showToast('Assignment deleted successfully', 'success');
+      } else {
+        const error = await response.json() as ErrorResponse;
+        showToast(error.error || 'Failed to delete assignment', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting assignment:', error);
+      showToast('Failed to delete assignment', 'error');
+    } finally {
+      setDeleteLoading(null);
+      setAssignmentToDelete(null);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setAssignmentToDelete(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-gray-900">Driver Assignments</h3>
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -715,33 +950,173 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
           <div className="space-y-3">
             {driverAssignments.map((assignment) => {
               const driver = drivers.find(d => d.id === assignment.driverId);
-              return (
-                <div key={assignment.id} className="flex items-center justify-between bg-white p-3 rounded border">
-                  <div>
-                    <div className="font-medium">
-                      {assignment.assignmentType.charAt(0).toUpperCase() + assignment.assignmentType.slice(1)} Driver
+              const isEditing = editingAssignment === assignment.id;
+              
+              if (isEditing) {
+                return (
+                  <div key={assignment.id} className="bg-white p-4 rounded border border-blue-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h5 className="font-medium text-gray-900">
+                        Edit {assignment.assignmentType.charAt(0).toUpperCase() + assignment.assignmentType.slice(1)} Assignment
+                      </h5>
+                      <button
+                        onClick={cancelEditing}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {driver ? `${driver.firstName} ${driver.lastName}` : 'Unknown Driver'}
-                    </div>
-                    {assignment.estimatedTime && (
-                      <div className="text-sm text-gray-500">
-                        Estimated: {new Date(assignment.estimatedTime).toLocaleString()}
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
+                        <select
+                          value={editDriverId}
+                          onChange={(e) => setEditDriverId(e.target.value ? parseInt(e.target.value) : '')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select driver</option>
+                          {drivers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.firstName} {d.lastName}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
-                    {assignment.notes && (
-                      <div className="text-sm text-gray-500">Notes: {assignment.notes}</div>
-                    )}
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
+                        <input
+                          type="datetime-local"
+                          value={editEstimatedTime}
+                          onChange={(e) => {
+                            setEditEstimatedTime(e.target.value);
+                            setEditTimeError('');
+                          }}
+                          min={new Date().toISOString().slice(0, 16)}
+                          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            editTimeError ? 'border-red-300' : 'border-gray-300'
+                          }`}
+                        />
+                        {editTimeError && (
+                          <p className="text-red-600 text-sm mt-1">{editTimeError}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                        <textarea
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Any special instructions..."
+                        />
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={updateAssignment}
+                          disabled={editLoading || !editDriverId}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {editLoading ? 'Updating...' : 'Update Assignment'}
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm">
-                    <span className={`px-2 py-1 rounded-full ${
-                      assignment.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
-                      assignment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                      assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {assignment.status.replace('_', ' ')}
-                    </span>
+                );
+              }
+              
+              return (
+                <div key={assignment.id} className="bg-white p-4 rounded border shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          assignment.assignmentType === 'pickup' ? 'bg-blue-500' : 'bg-green-500'
+                        }`}></div>
+                        <h5 className="font-medium text-gray-900">
+                          {assignment.assignmentType.charAt(0).toUpperCase() + assignment.assignmentType.slice(1)} Driver
+                        </h5>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          assignment.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
+                          assignment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                          assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {assignment.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-sm text-gray-700">
+                            {driver ? `${driver.firstName} ${driver.lastName}` : 'Unknown Driver'}
+                          </span>
+                        </div>
+                        
+                        {assignment.estimatedTime && (
+                          <div className="flex items-center space-x-2">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-sm text-gray-600">
+                              Estimated: {new Date(assignment.estimatedTime).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {assignment.notes && (
+                          <div className="flex items-start space-x-2">
+                            <svg className="w-4 h-4 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span className="text-sm text-gray-600">{assignment.notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex space-x-2 ml-4">
+                      <button
+                        onClick={() => startEditing(assignment)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        title="Edit assignment"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(assignment.id)}
+                        disabled={deleteLoading === assignment.id}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                        title="Delete assignment"
+                      >
+                        {deleteLoading === assignment.id ? (
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -751,103 +1126,178 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       )}
 
       {/* New Assignment Forms */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Pickup Assignment */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-4">Assign Pickup Driver</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
-              <select
-                value={selectedPickupDriver}
-                onChange={(e) => setSelectedPickupDriver(e.target.value ? parseInt(e.target.value) : '')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select driver</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.firstName} {driver.lastName}
-                  </option>
-                ))}
-              </select>
+      {(() => {
+        const hasPickupAssignment = driverAssignments.some(a => a.assignmentType === 'pickup');
+        const hasDeliveryAssignment = driverAssignments.some(a => a.assignmentType === 'delivery');
+        
+        // If both assignments exist, show a message
+        if (hasPickupAssignment && hasDeliveryAssignment) {
+          return (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-green-800 font-medium">All driver assignments are complete!</span>
+              </div>
+              <p className="text-green-700 text-sm mt-1">
+                Both pickup and delivery drivers have been assigned. You can edit or delete assignments above if needed.
+              </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
-              <input
-                type="datetime-local"
-                value={pickupEstimatedTime}
-                onChange={(e) => setPickupEstimatedTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          );
+        }
+        
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-lg font-medium text-gray-900">Add New Assignments</h4>
+              <div className="text-sm text-gray-500">
+                {hasPickupAssignment && hasDeliveryAssignment ? 'All assigned' : 
+                 hasPickupAssignment ? 'Pickup assigned' : 
+                 hasDeliveryAssignment ? 'Delivery assigned' : 'No assignments yet'}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea
-                value={pickupNotes}
-                onChange={(e) => setPickupNotes(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Any special instructions..."
-              />
-            </div>
-            <button
-              onClick={() => assignDriver('pickup')}
-              disabled={assignmentLoading || !selectedPickupDriver}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {assignmentLoading ? 'Assigning...' : 'Assign Pickup Driver'}
-            </button>
-          </div>
-        </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Pickup Assignment */}
+              {!hasPickupAssignment && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <h4 className="font-medium text-gray-900">Assign Pickup Driver</h4>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
+                      <select
+                        value={selectedPickupDriver}
+                        onChange={(e) => setSelectedPickupDriver(e.target.value ? parseInt(e.target.value) : '')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select driver</option>
+                        {drivers.map((driver) => (
+                          <option key={driver.id} value={driver.id}>
+                            {driver.firstName} {driver.lastName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
+                      <input
+                        type="datetime-local"
+                        value={pickupEstimatedTime}
+                        onChange={(e) => {
+                          setPickupEstimatedTime(e.target.value);
+                          setPickupTimeError(''); // Clear error when user changes the value
+                        }}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          pickupTimeError ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                      />
+                      {pickupTimeError && (
+                        <p className="text-red-600 text-sm mt-1">{pickupTimeError}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <textarea
+                        value={pickupNotes}
+                        onChange={(e) => setPickupNotes(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Any special instructions..."
+                      />
+                    </div>
+                    <button
+                      onClick={() => assignDriver('pickup')}
+                      disabled={pickupAssignmentLoading || !selectedPickupDriver}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {pickupAssignmentLoading ? 'Assigning...' : 'Assign Pickup Driver'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
-        {/* Delivery Assignment */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-4">Assign Delivery Driver</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
-              <select
-                value={selectedDeliveryDriver}
-                onChange={(e) => setSelectedDeliveryDriver(e.target.value ? parseInt(e.target.value) : '')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select driver</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.firstName} {driver.lastName}
-                  </option>
-                ))}
-              </select>
+              {/* Delivery Assignment */}
+              {!hasDeliveryAssignment && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <h4 className="font-medium text-gray-900">Assign Delivery Driver</h4>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
+                      <select
+                        value={selectedDeliveryDriver}
+                        onChange={(e) => setSelectedDeliveryDriver(e.target.value ? parseInt(e.target.value) : '')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select driver</option>
+                        {drivers.map((driver) => (
+                          <option key={driver.id} value={driver.id}>
+                            {driver.firstName} {driver.lastName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
+                      <input
+                        type="datetime-local"
+                        value={deliveryEstimatedTime}
+                        onChange={(e) => {
+                          setDeliveryEstimatedTime(e.target.value);
+                          setDeliveryTimeError(''); // Clear error when user changes the value
+                        }}
+                        min={pickupEstimatedTime || new Date().toISOString().slice(0, 16)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          deliveryTimeError ? 'border-red-300' : 'border-gray-300'
+                        }`}
+                      />
+                      {deliveryTimeError && (
+                        <p className="text-red-600 text-sm mt-1">{deliveryTimeError}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <textarea
+                        value={deliveryNotes}
+                        onChange={(e) => setDeliveryNotes(e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Any special instructions..."
+                      />
+                    </div>
+                    <button
+                      onClick={() => assignDriver('delivery')}
+                      disabled={deliveryAssignmentLoading || !selectedDeliveryDriver}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {deliveryAssignmentLoading ? 'Assigning...' : 'Assign Delivery Driver'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time</label>
-              <input
-                type="datetime-local"
-                value={deliveryEstimatedTime}
-                onChange={(e) => setDeliveryEstimatedTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea
-                value={deliveryNotes}
-                onChange={(e) => setDeliveryNotes(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Any special instructions..."
-              />
-            </div>
-            <button
-              onClick={() => assignDriver('delivery')}
-              disabled={assignmentLoading || !selectedDeliveryDriver}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {assignmentLoading ? 'Assigning...' : 'Assign Delivery Driver'}
-            </button>
           </div>
-        </div>
-      </div>
+        );
+      })()}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteCancel}
+        title="Delete Assignment"
+        message="Are you sure you want to delete this driver assignment? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+      />
     </div>
   );
 }
@@ -984,5 +1434,13 @@ function InvoiceItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => 
         </div>
       )}
     </div>
+  );
+} 
+
+export default function OrderEditPage() {
+  return (
+    <ToastProvider>
+      <OrderEditPageContent />
+    </ToastProvider>
   );
 } 
