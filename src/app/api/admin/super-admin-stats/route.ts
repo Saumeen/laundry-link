@@ -64,7 +64,7 @@ export async function GET() {
       activeDrivers
     });
   } catch (error) {
-    console.error('Error fetching super admin stats:', error);
+    console.error('Error fetching super admin stats:', error || 'Unknown error');
     
     if (error instanceof Error && (error.message === 'Admin authentication required' || error.message.includes('Access denied'))) {
       return createAdminAuthErrorResponse();

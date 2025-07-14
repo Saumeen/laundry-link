@@ -171,7 +171,7 @@ export default function OperationManagerDashboard() {
   }, []);
 
   const formatCurrency = useCallback((amount: number) => {
-    return `$${amount.toFixed(2)}`;
+    return `BD ${amount?.toFixed(2) || 0.00}`;
   }, []);
 
   // Show loading spinner while session is loading or we're checking authentication
@@ -342,83 +342,7 @@ export default function OperationManagerDashboard() {
             </div>
           </div>
 
-          {/* Recent Orders */}
-          <div className="bg-white shadow rounded-lg p-6 mb-8">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Recent Orders</h2>
-            {dataLoading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-16 bg-gray-200 rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                {dashboardData?.recentOrders && dashboardData.recentOrders.length > 0 ? (
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Order #
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Customer
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {dashboardData.recentOrders.map((order) => (
-                        <tr key={order.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {order.orderNumber}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {order.customerFirstName} {order.customerLastName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatCurrency(order.totalAmount)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {formatDate(order.createdAt)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button 
-                              onClick={() => handleViewOrder(order)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No orders found</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+
         </div>
       </main>
 

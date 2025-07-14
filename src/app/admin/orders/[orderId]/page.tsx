@@ -58,6 +58,7 @@ interface InvoiceItem {
   orderServiceMappingId: number;
   quantity: number;
   pricePerItem: number;
+  notes?: string;
   orderServiceMapping?: {
     service: {
       displayName: string;
@@ -99,6 +100,10 @@ interface DriversResponse {
 
 interface DriverAssignmentsResponse {
   assignments: DriverAssignment[];
+}
+
+interface InvoiceItemsResponse {
+  invoiceItems: InvoiceItem[];
 }
 
 type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'invoice';
@@ -654,7 +659,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     loadData();
   }, [order.id]);
 
-  const loadDrivers = async () => {
+  const loadDrivers = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/drivers');
       if (response.ok) {
@@ -664,9 +669,9 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     } catch (error) {
       console.error('Error loading drivers:', error);
     }
-  };
+  }, []);
 
-  const loadDriverAssignments = async () => {
+  const loadDriverAssignments = useCallback(async () => {
     try {
       const response = await fetch(`/api/admin/driver-assignments?orderId=${order.id}`);
       if (response.ok) {
@@ -692,10 +697,10 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     } catch (error) {
       console.error('Error loading driver assignments:', error);
     }
-  };
+  }, [order.id]);
 
   // Date validation function
-  const validateDateTime = (dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
+  const validateDateTime = useCallback((dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
     if (!dateTimeString) return '';
     
     const selectedDate = new Date(dateTimeString);
@@ -723,10 +728,10 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     }
     
     return '';
-  };
+  }, [pickupEstimatedTime, deliveryEstimatedTime]);
 
   // Edit validation function
-  const validateEditDateTime = (dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
+  const validateEditDateTime = useCallback((dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
     if (!dateTimeString) return '';
     
     const selectedDate = new Date(dateTimeString);
@@ -760,9 +765,9 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     }
     
     return '';
-  };
+  }, [driverAssignments, editingAssignment]);
 
-  const assignDriver = async (assignmentType: 'pickup' | 'delivery') => {
+  const assignDriver = useCallback(async (assignmentType: 'pickup' | 'delivery') => {
     const driverId = assignmentType === 'pickup' ? selectedPickupDriver : selectedDeliveryDriver;
     const estimatedTime = assignmentType === 'pickup' ? pickupEstimatedTime : deliveryEstimatedTime;
     const notes = assignmentType === 'pickup' ? pickupNotes : deliveryNotes;
@@ -810,7 +815,6 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       });
       
       if (response.ok) {
-        setLoading(true);
         await loadDriverAssignments();
         showToast(`Driver assigned for ${assignmentType} successfully`, 'success');
       } else {
@@ -827,27 +831,26 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       } else {
         setDeliveryAssignmentLoading(false);
       }
-      setLoading(false);
     }
-  };
+  }, [selectedPickupDriver, selectedDeliveryDriver, pickupEstimatedTime, deliveryEstimatedTime, pickupNotes, deliveryNotes, validateDateTime, order.id, loadDriverAssignments, showToast]);
 
-  const startEditing = (assignment: DriverAssignment) => {
+  const startEditing = useCallback((assignment: DriverAssignment) => {
     setEditingAssignment(assignment.id);
     setEditDriverId(assignment.driverId);
     setEditEstimatedTime(assignment.estimatedTime ? new Date(assignment.estimatedTime).toISOString().slice(0, 16) : '');
     setEditNotes(assignment.notes || '');
     setEditTimeError('');
-  };
+  }, []);
 
-  const cancelEditing = () => {
+  const cancelEditing = useCallback(() => {
     setEditingAssignment(null);
     setEditDriverId('');
     setEditEstimatedTime('');
     setEditNotes('');
     setEditTimeError('');
-  };
+  }, []);
 
-  const updateAssignment = async () => {
+  const updateAssignment = useCallback(async () => {
     if (!editingAssignment || !editDriverId) {
       showToast('Please select a driver', 'error');
       return;
@@ -890,14 +893,14 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     } finally {
       setEditLoading(false);
     }
-  };
+  }, [editingAssignment, editDriverId, driverAssignments, validateEditDateTime, editEstimatedTime, editNotes, loadDriverAssignments, cancelEditing, showToast]);
 
-  const handleDeleteClick = (assignmentId: number) => {
+  const handleDeleteClick = useCallback((assignmentId: number) => {
     setAssignmentToDelete(assignmentId);
     setShowDeleteModal(true);
-  };
+  }, []);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!assignmentToDelete) return;
 
     setDeleteLoading(assignmentToDelete);
@@ -921,12 +924,12 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       setAssignmentToDelete(null);
       setShowDeleteModal(false);
     }
-  };
+  }, [assignmentToDelete, loadDriverAssignments, showToast]);
 
-  const handleDeleteCancel = () => {
+  const handleDeleteCancel = useCallback(() => {
     setShowDeleteModal(false);
     setAssignmentToDelete(null);
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -1374,56 +1377,574 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
 
 // Invoice Items Tab Component
 function InvoiceItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>(order.invoiceItems || []);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+  
+  // Form states for new invoice item
+  const [newInvoiceItem, setNewInvoiceItem] = useState({
+    orderServiceMappingId: '',
+    quantity: 1,
+    pricePerItem: 0,
+    notes: '',
+  });
+  
+  // Form states for editing
+  const [editInvoiceItem, setEditInvoiceItem] = useState({
+    orderServiceMappingId: '',
+    quantity: 1,
+    pricePerItem: 0,
+    notes: '',
+  });
+
+  // Validation states
+  const [errors, setErrors] = useState<{
+    orderServiceMappingId?: string;
+    quantity?: string;
+    pricePerItem?: string;
+    notes?: string;
+  }>({});
+
+  // Confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+
+  // Reset form when order changes
+  useEffect(() => {
+    setInvoiceItems(order.invoiceItems || []);
+  }, [order.invoiceItems]);
+
+  const validateForm = (data: typeof newInvoiceItem) => {
+    const newErrors: typeof errors = {};
+    
+    if (!data.orderServiceMappingId) {
+      newErrors.orderServiceMappingId = 'Please select a service';
+    }
+    
+    if (!data.quantity || data.quantity <= 0) {
+      newErrors.quantity = 'Quantity must be greater than 0';
+    }
+    
+    if (!data.pricePerItem || data.pricePerItem <= 0) {
+      newErrors.pricePerItem = 'Price per item must be greater than 0';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const resetNewForm = () => {
+    setNewInvoiceItem({
+      orderServiceMappingId: '',
+      quantity: 1,
+      pricePerItem: 0,
+      notes: '',
+    });
+    setErrors({});
+  };
+
+  const resetEditForm = () => {
+    setEditInvoiceItem({
+      orderServiceMappingId: '',
+      quantity: 1,
+      pricePerItem: 0,
+      notes: '',
+    });
+    setErrors({});
+  };
+
+  const handleAddInvoiceItem = async () => {
+    if (!validateForm(newInvoiceItem)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Prepare all invoice items: existing ones plus the new one
+      const allInvoiceItems = [
+        ...invoiceItems.map(item => ({
+          id: item.id,
+          orderServiceMappingId: item.orderServiceMappingId,
+          quantity: item.quantity,
+          pricePerItem: item.pricePerItem,
+          notes: item.notes,
+        })),
+        {
+          orderServiceMappingId: parseInt(newInvoiceItem.orderServiceMappingId),
+          quantity: newInvoiceItem.quantity,
+          pricePerItem: newInvoiceItem.pricePerItem,
+          notes: newInvoiceItem.notes,
+        }
+      ];
+
+      const response = await fetch('/api/admin/add-invoice-item', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          invoiceItems: allInvoiceItems,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json() as InvoiceItemsResponse;
+        setInvoiceItems(data.invoiceItems);
+        resetNewForm();
+        setShowAddForm(false);
+        onRefresh(); // Refresh the order data
+        showToast('Invoice item added successfully', 'success');
+      } else {
+        const errorData = await response.json() as ErrorResponse;
+        showToast(errorData.error || 'Failed to add invoice item', 'error');
+      }
+    } catch (error) {
+      console.error('Error adding invoice item:', error);
+      showToast('Failed to add invoice item', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEditing = (item: InvoiceItem) => {
+    setEditingItem(item.id);
+    setEditInvoiceItem({
+      orderServiceMappingId: item.orderServiceMappingId.toString(),
+      quantity: item.quantity,
+      pricePerItem: item.pricePerItem,
+      notes: item.notes || '',
+    });
+    setErrors({});
+  };
+
+  const cancelEditing = () => {
+    setEditingItem(null);
+    resetEditForm();
+  };
+
+  const handleUpdateInvoiceItem = async () => {
+    if (!editingItem || !validateForm(editInvoiceItem)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/add-invoice-item', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          invoiceItems: [{
+            id: editingItem,
+            orderServiceMappingId: parseInt(editInvoiceItem.orderServiceMappingId),
+            quantity: editInvoiceItem.quantity,
+            pricePerItem: editInvoiceItem.pricePerItem,
+          }],
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json() as InvoiceItemsResponse;
+        setInvoiceItems(data.invoiceItems);
+        cancelEditing();
+        onRefresh(); // Refresh the order data
+        showToast('Invoice item updated successfully', 'success');
+      } else {
+        const errorData = await response.json() as ErrorResponse;
+        showToast(errorData.error || 'Failed to update invoice item', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating invoice item:', error);
+      showToast('Failed to update invoice item', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteClick = (itemId: number) => {
+    setItemToDelete(itemId);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return;
+
+    setDeleteLoading(itemToDelete);
+    try {
+      // Get current invoice items excluding the one to delete
+      const itemsToKeep = invoiceItems.filter(item => item.id !== itemToDelete);
+      
+      const response = await fetch('/api/admin/add-invoice-item', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          invoiceItems: itemsToKeep.map(item => ({
+            id: item.id,
+            orderServiceMappingId: item.orderServiceMappingId,
+            quantity: item.quantity,
+            pricePerItem: item.pricePerItem,
+            notes: item.notes,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json() as InvoiceItemsResponse;
+        setInvoiceItems(data.invoiceItems);
+        onRefresh(); // Refresh the order data
+        showToast('Invoice item deleted successfully', 'success');
+      } else {
+        const errorData = await response.json() as ErrorResponse;
+        showToast(errorData.error || 'Failed to delete invoice item', 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting invoice item:', error);
+      showToast('Failed to delete invoice item', 'error');
+    } finally {
+      setDeleteLoading(null);
+      setItemToDelete(null);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+  };
+
+  // Get service name for display
+  const getServiceName = (orderServiceMappingId: number) => {
+    const mapping = order.orderServiceMappings?.find(m => m.id === orderServiceMappingId);
+    return mapping?.service.displayName || 'Unknown Service';
+  };
+
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Invoice Items</h3>
-      
-      {order.invoiceItems && order.invoiceItems.length > 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Service
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price/Item
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {order.invoiceItems.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {item.orderServiceMapping?.service.displayName || 'Unknown Service'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <div className="text-sm text-gray-900">
-                      {item.quantity}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm text-gray-900">
-                      {item.pricePerItem.toFixed(3)} BD
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm font-medium text-gray-900">
-                      {calculateInvoiceItemTotal(item).toFixed(3)} BD
-                    </div>
-                  </td>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Invoice Items</h3>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span>{showAddForm ? 'Cancel' : 'Add Invoice Item'}</span>
+        </button>
+      </div>
+
+      {/* Add New Invoice Item Form */}
+      {showAddForm && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 mb-4">Add New Invoice Item</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
+              <select
+                value={newInvoiceItem.orderServiceMappingId}
+                onChange={(e) => {
+                  setNewInvoiceItem({ ...newInvoiceItem, orderServiceMappingId: e.target.value });
+                  setErrors({ ...errors, orderServiceMappingId: undefined });
+                }}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.orderServiceMappingId ? 'border-red-300' : 'border-gray-300'
+                }`}
+              >
+                <option value="">Select Service</option>
+                {order.orderServiceMappings?.map((mapping) => (
+                  <option key={mapping.id} value={mapping.id}>
+                    {mapping.service.displayName} - {mapping.price.toFixed(3)} BD
+                  </option>
+                ))}
+              </select>
+              {errors.orderServiceMappingId && (
+                <p className="text-red-600 text-sm mt-1">{errors.orderServiceMappingId}</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+              <input
+                type="number"
+                min="1"
+                value={newInvoiceItem.quantity}
+                onChange={(e) => {
+                  setNewInvoiceItem({ ...newInvoiceItem, quantity: parseInt(e.target.value) || 1 });
+                  setErrors({ ...errors, quantity: undefined });
+                }}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.quantity ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.quantity && (
+                <p className="text-red-600 text-sm mt-1">{errors.quantity}</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Price per Item (BD)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={newInvoiceItem.pricePerItem}
+                onChange={(e) => {
+                  setNewInvoiceItem({ ...newInvoiceItem, pricePerItem: parseFloat(e.target.value) || 0 });
+                  setErrors({ ...errors, pricePerItem: undefined });
+                }}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.pricePerItem ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.pricePerItem && (
+                <p className="text-red-600 text-sm mt-1">{errors.pricePerItem}</p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <input
+                type="text"
+                value={newInvoiceItem.notes}
+                onChange={(e) => {
+                  setNewInvoiceItem({ ...newInvoiceItem, notes: e.target.value });
+                  setErrors({ ...errors, notes: undefined });
+                }}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.notes ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {errors.notes && (
+                <p className="text-red-600 text-sm mt-1">{errors.notes}</p>
+              )}
+            </div>
+            
+            <div className="flex items-end">
+              <button
+                onClick={handleAddInvoiceItem}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? 'Adding...' : 'Add Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Items Table */}
+      {invoiceItems && invoiceItems.length > 0 ? (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
+                    Service
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                    Qty
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Price/Item
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
+                    Notes
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                    Total
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {invoiceItems.map((item) => {
+                  const isEditing = editingItem === item.id;
+                  
+                  if (isEditing) {
+                    return (
+                      <tr key={item.id} className="bg-blue-50 hover:bg-blue-100 transition-colors">
+                        <td className="px-4 py-4">
+                          <select
+                            value={editInvoiceItem.orderServiceMappingId}
+                            onChange={(e) => {
+                              setEditInvoiceItem({ ...editInvoiceItem, orderServiceMappingId: e.target.value });
+                              setErrors({ ...errors, orderServiceMappingId: undefined });
+                            }}
+                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
+                              errors.orderServiceMappingId ? 'border-red-300' : 'border-gray-300'
+                            }`}
+                          >
+                            <option value="">Select Service</option>
+                            {order.orderServiceMappings?.map((mapping) => (
+                              <option key={mapping.id} value={mapping.id}>
+                                {mapping.service.displayName} - {mapping.price.toFixed(3)} BD
+                              </option>
+                            ))}
+                          </select>
+                          {errors.orderServiceMappingId && (
+                            <p className="text-red-600 text-xs mt-1">{errors.orderServiceMappingId}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <input
+                            type="number"
+                            min="1"
+                            value={editInvoiceItem.quantity}
+                            onChange={(e) => {
+                              setEditInvoiceItem({ ...editInvoiceItem, quantity: parseInt(e.target.value) || 1 });
+                              setErrors({ ...errors, quantity: undefined });
+                            }}
+                            className={`w-16 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center ${
+                              errors.quantity ? 'border-red-300' : 'border-gray-300'
+                            }`}
+                          />
+                          {errors.quantity && (
+                            <p className="text-red-600 text-xs mt-1">{errors.quantity}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0.001"
+                            value={editInvoiceItem.pricePerItem}
+                            onChange={(e) => {
+                              setEditInvoiceItem({ ...editInvoiceItem, pricePerItem: parseFloat(e.target.value) || 0 });
+                              setErrors({ ...errors, pricePerItem: undefined });
+                            }}
+                            className={`w-20 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right ${
+                              errors.pricePerItem ? 'border-red-300' : 'border-gray-300'
+                            }`}
+                          />
+                          {errors.pricePerItem && (
+                            <p className="text-red-600 text-xs mt-1">{errors.pricePerItem}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <input
+                            type="text"
+                            value={editInvoiceItem.notes}
+                            onChange={(e) => {
+                              setEditInvoiceItem({ ...editInvoiceItem, notes: e.target.value });
+                              setErrors({ ...errors, notes: undefined });
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            placeholder="Optional notes..."
+                          />
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                          <div className="text-sm font-medium text-gray-900">
+                            {(editInvoiceItem.quantity * editInvoiceItem.pricePerItem).toFixed(3)} BD
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-center">
+                          <div className="flex space-x-1 justify-center">
+                            <button
+                              onClick={handleUpdateInvoiceItem}
+                              disabled={loading}
+                              className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                              {loading ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {getServiceName(item.orderServiceMappingId)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="text-sm text-gray-900 font-medium">
+                          {item.quantity}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="text-sm text-gray-900">
+                          {item.pricePerItem.toFixed(3)} BD
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-600 max-w-xs">
+                          {item.notes ? (
+                            <div className="group relative">
+                              <div className="truncate cursor-help" title={item.notes}>
+                                {item.notes}
+                              </div>
+                              <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 max-w-xs break-words">
+                                {item.notes}
+                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 italic">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="text-sm font-semibold text-gray-900">
+                          {calculateInvoiceItemTotal(item).toFixed(3)} BD
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex space-x-1 justify-center">
+                          <button
+                            onClick={() => startEditing(item)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                            title="Edit item"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(item.id)}
+                            disabled={deleteLoading === item.id}
+                            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50"
+                            title="Delete item"
+                          >
+                            {deleteLoading === item.id ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8">
@@ -1433,6 +1954,18 @@ function InvoiceItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => 
           </p>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteCancel}
+        title="Delete Invoice Item"
+        message="Are you sure you want to delete this invoice item? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+      />
     </div>
   );
 } 

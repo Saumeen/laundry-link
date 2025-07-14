@@ -112,6 +112,7 @@ model Order {
   minimumOrderApplied Boolean       @default(false)
   paymentStatus       String        @default("Pending")
   paymentMethod       String?
+  notes               String?       // General order notes
   createdByStaffId    Int?          // Track which staff member created the order
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
@@ -184,6 +185,7 @@ model InvoiceItem {
   orderServiceMappingId Int
   quantity              Int
   pricePerItem          Float
+  notes                 String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   

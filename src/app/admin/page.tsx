@@ -194,6 +194,7 @@ export default function AdminPanel() {
             orderServiceMappingId: newInvoiceItem.orderServiceMappingId,
             quantity: newInvoiceItem.quantity,
             pricePerItem: newInvoiceItem.unitPrice,
+            notes: newInvoiceItem.notes,
           }],
         }),
       });
@@ -526,6 +527,7 @@ export default function AdminPanel() {
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -536,6 +538,7 @@ export default function AdminPanel() {
                                 <td className="px-3 py-2 text-sm text-gray-900">{item.pricePerItem.toFixed(3)} BD</td>
                                 <td className="px-3 py-2 text-sm text-gray-900">{item.total?.toFixed(3) || (item.quantity * item.pricePerItem).toFixed(3)} BD</td>
                                 <td className="px-3 py-2 text-sm text-gray-900">{item.notes || '-'}</td>
+                                
                               </tr>
                             ))}
                           </tbody>
@@ -577,7 +580,7 @@ export default function AdminPanel() {
                       <div>
                         <input
                           type="number"
-                          step="0.001"
+                          step="0.1"
                           value={newInvoiceItem.unitPrice}
                           onChange={(e) => setNewInvoiceItem({...newInvoiceItem, unitPrice: parseFloat(e.target.value) || 0})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"

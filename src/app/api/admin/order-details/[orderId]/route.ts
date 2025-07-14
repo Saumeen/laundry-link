@@ -134,7 +134,7 @@ export async function GET(
         pricePerItem: item.pricePerItem,
         total: item.quantity * item.pricePerItem,
         service: mapping.service,
-        notes: undefined, // Add if you have notes field
+        notes: item.notes,
       }))
     );
 

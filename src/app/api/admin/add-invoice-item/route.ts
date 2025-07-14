@@ -9,6 +9,7 @@ interface InvoiceItemRequest {
   orderServiceMappingId: number;
   quantity: number;
   pricePerItem: number;
+  notes?: string;
 }
 
 interface AddInvoiceItemRequest {
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
           orderServiceMappingId: item.orderServiceMappingId,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
+          notes: item.notes,
         },
         include: {
           orderServiceMapping: {
@@ -139,6 +141,7 @@ export async function POST(req: Request) {
           orderServiceMappingId: item.orderServiceMappingId,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
+          notes: item.notes,
         },
         include: {
           orderServiceMapping: {
@@ -185,6 +188,7 @@ export async function POST(req: Request) {
         orderServiceMappingId: item.orderServiceMappingId,
         quantity: item.quantity,
         pricePerItem: item.pricePerItem,
+        notes: item.notes,
         total: calculateInvoiceItemTotal(item),
         service: item.orderServiceMapping.service,
       })),

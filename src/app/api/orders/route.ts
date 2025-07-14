@@ -112,7 +112,7 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
             console.error(`Service not found for ID: ${serviceId}`);
           }
         } catch (serviceError) {
-          console.error(`Error creating service mapping for service ID ${serviceId}:`, serviceError);
+          console.error(`Error creating service mapping for service ID ${serviceId}:`, serviceError || 'Unknown error');
           throw serviceError;
         }
       }
@@ -143,7 +143,7 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
         services: body.services
       });
     } catch (emailError) {
-      console.error("Email sending failed:", emailError);
+      console.error("Email sending failed:", emailError || 'Unknown error');
       // Continue with order creation even if emails fail
     }
 
@@ -154,7 +154,7 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
     });
 
   } catch (error) {
-    console.error("Error creating logged-in customer order:", error);
+    console.error("Error creating logged-in customer order:", error || 'Unknown error');
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -335,7 +335,7 @@ async function handleGuestCustomerOrder(body: any) {
         services: body.services
       });
     } catch (emailError) {
-      console.error("Email sending failed:", emailError);
+      console.error("Email sending failed:", emailError || 'Unknown error');
       // Continue with order creation even if emails fail
     }
 
@@ -346,7 +346,7 @@ async function handleGuestCustomerOrder(body: any) {
     });
 
   } catch (error) {
-    console.error("Error creating guest customer order:", error);
+    console.error("Error creating guest customer order:", error || 'Unknown error');
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -388,7 +388,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(order);
   } catch (error) {
-    console.error("Error fetching order:", error);
+    console.error("Error fetching order:", error || 'Unknown error');
     return NextResponse.json(
       { error: "Failed to fetch order" },
       { status: 500 }

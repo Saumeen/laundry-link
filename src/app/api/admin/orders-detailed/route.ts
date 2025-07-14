@@ -99,7 +99,7 @@ export async function GET(req: Request) {
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    console.error('Error fetching detailed orders:', error);
+    console.error('Error fetching detailed orders:', error || 'Unknown error');
     if (error instanceof Error && error.message === 'Admin authentication required') {
       return createAdminAuthErrorResponse();
     }

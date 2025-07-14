@@ -143,7 +143,7 @@ async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
         services: body.services
       });
     } catch (emailError) {
-      console.error("Email sending failed:", emailError);
+      console.error("Email sending failed:", emailError || 'Unknown error');
       // Continue with order creation even if emails fail
     }
 
@@ -154,7 +154,7 @@ async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
     });
 
   } catch (error) {
-    console.error("Error creating logged-in customer order:", error);
+    console.error("Error creating logged-in customer order:", error || 'Unknown error');
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -246,7 +246,7 @@ export async function GET(req: Request) {
       orders: transformedOrders 
     });
   } catch (error) {
-    console.error("Error fetching orders:", error);
+    console.error("Error fetching orders:", error || 'Unknown error');
     
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

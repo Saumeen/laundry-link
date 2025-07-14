@@ -199,27 +199,37 @@ export const authOptions: NextAuthOptions = {
           token.role = user.role;
           token.isActive = user.isActive;
           token.adminId = user.id ? parseInt(user.id) : undefined;
+        } else if (user.userType === "customer" && user.id) {
+          // For customer credentials, the user.id is the customer ID
+          token.customerId = parseInt(user.id);
         }
       }
 
-      if (account?.provider === "customer-credentials" || account?.provider === "admin-credentials" || account?.provider === "google" || account?.provider === "facebook" || account?.provider === "apple") {
-        try {
-          if (token.userType === "customer") {
-            // Get or create customer record
-            let customer = await prisma.customer.findUnique({
-              where: { email: token.email! }
-            });
+      // Handle OAuth users (Google, Facebook, Apple) - they don't have userType set initially
+      if (account?.provider && (account.provider === "google" || account.provider === "facebook" || account.provider === "apple")) {
+        if (!token.userType) {
+          token.userType = "customer";
+        }
+      }
 
-            if (customer) {
-              // Add customer data to token
-              token.customerId = customer.id;
-              token.walletBalance = customer.walletBalance;
-            }
+      // Only fetch customer data if we don't already have customerId
+      if (token.userType === "customer" && !token.customerId) {
+        try {
+          // Get customer record
+          let customer = await prisma.customer.findUnique({
+            where: { email: token.email! }
+          });
+
+          if (customer) {
+            // Add customer data to token
+            token.customerId = customer.id;
+            token.walletBalance = customer.walletBalance;
           }
         } catch (error) {
           console.error('Error updating JWT token:', error);
         }
       }
+      
       return token;
     },
     async session({ session, token }) {

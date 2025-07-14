@@ -48,7 +48,7 @@ export async function GET() {
 
     let avgProcessingTime = 0;
     if (completedOrders.length > 0) {
-      const totalTime = completedOrders.reduce((acc, order) => {
+      const totalTime = completedOrders.reduce((acc: number, order: { updatedAt: Date; createdAt: Date }) => {
         const processingTime = order.updatedAt.getTime() - order.createdAt.getTime();
         return acc + processingTime;
       }, 0);
@@ -73,7 +73,6 @@ export async function GET() {
       },
       include: {
         customer: true,
-        invoiceItems: true
       }
     });
 
@@ -87,7 +86,7 @@ export async function GET() {
       recentOrders
     });
   } catch (error) {
-    console.error('Error fetching operation manager stats:', error);
+    console.error('Error fetching operation manager stats:', error || 'Unknown error');
     
     if (error instanceof Error && (error.message === 'Admin authentication required' || error.message.includes('Access denied'))) {
       return createAdminAuthErrorResponse();

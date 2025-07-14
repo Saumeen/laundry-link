@@ -145,7 +145,7 @@ const OrderItem = memo(({
         </p>
       </div>
       <div className="text-right">
-        <p className="font-medium text-gray-900">{order.totalAmount.toFixed(3)} BD</p>
+        <p className="font-medium text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
         <button 
           className="text-blue-600 hover:text-blue-800 text-sm mt-1"
           onClick={(e) => {
@@ -197,7 +197,7 @@ const DetailedOrderItem = memo(({
           </span>
         </div>
         <div className="text-right">
-          <p className="font-medium text-gray-900">{order.totalAmount.toFixed(3)} BD</p>
+          <p className="font-medium text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
           <button 
             className="text-blue-600 hover:text-blue-800 text-sm mt-1"
             onClick={(e) => {
@@ -389,6 +389,13 @@ function DashboardContent() {
       return;
     }
 
+    // If authenticated but no authCustomer yet, wait a bit more
+    // This handles the case where session is authenticated but customer data is still loading
+    if (isAuthenticated && !authCustomer) {
+      console.log('Authenticated but no customer data yet, waiting...');
+      return;
+    }
+
     // Handle authenticated customers from useAuth hook
     if (authCustomer) {
       console.log('Setting customer from authCustomer:', authCustomer);
@@ -404,10 +411,6 @@ function DashboardContent() {
       fetchCustomerData();
       return;
     }
-
-    // If we get here, user is not authenticated
-    console.log('No authCustomer found, redirecting to login');
-    router.push('/registerlogin');
   }, [isAuthenticated, authCustomer, authLoading, session, sessionStatus, router, searchParams]);
 
   // Separate useEffect to handle URL parameter changes

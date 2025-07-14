@@ -50,7 +50,7 @@ export async function PUT(
     const { status, pickupTime, deliveryTime, invoiceItems }: UpdateOrderRequest = await req.json();
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;
     if (pickupTime) updateData.pickupTime = new Date(pickupTime);
     if (deliveryTime) updateData.deliveryTime = new Date(deliveryTime);
@@ -78,14 +78,14 @@ export async function PUT(
       
       // Get IDs of items that should be deleted (existing items not in the new list)
       const newItemIds = itemsToUpdate.map(item => item.id!);
-      const itemsToDelete = existingItems.filter(item => !newItemIds.includes(item.id));
+      const itemsToDelete = existingItems.filter((item: { id: number }) => !newItemIds.includes(item.id));
 
       // Delete items that are no longer needed
       if (itemsToDelete.length > 0) {
         await prisma.invoiceItem.deleteMany({
           where: {
             id: {
-              in: itemsToDelete.map(item => item.id),
+              in: itemsToDelete.map((item: { id: number }) => item.id),
             },
           },
         });
@@ -132,7 +132,7 @@ export async function PUT(
         },
       });
 
-      const newTotalAmount = newInvoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      const newTotalAmount = newInvoiceItems.reduce((sum: number, item: { totalPrice: number }) => sum + item.totalPrice, 0);
 
       // Update order with new total amount
       await prisma.order.update({
@@ -152,7 +152,6 @@ export async function PUT(
       },
       include: {
         customer: true,
-        invoiceItems: true,
       },
     });
 
@@ -161,7 +160,7 @@ export async function PUT(
       order: finalOrder,
     });
   } catch (error) {
-    console.error("Error updating order:", error);
+    console.error("Error updating order:", error || 'Unknown error');
     
     if (error instanceof Error && error.message === 'Admin authentication required') {
       return createAdminAuthErrorResponse();
