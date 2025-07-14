@@ -261,7 +261,7 @@ function ScheduleContent() {
     }));
   }, []);
 
-  // Fix handleServiceToggle to use string[]
+  // Fix handleServiceToggle to use service IDs
   const handleServiceToggle = useCallback((serviceId: string) => {
     setFormData(prev => ({
       ...prev,
@@ -571,11 +571,11 @@ function ScheduleContent() {
                     <div
                       key={service.id}
                       className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        formData.services.includes(service.name)
+                        formData.services.includes(service.id.toString())
                           ? "border-blue-500 bg-blue-50"
                           : "border-gray-300 hover:border-blue-300"
                       }`}
-                      onClick={() => handleServiceToggle(service.name)}
+                      onClick={() => handleServiceToggle(service.id.toString())}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="text-2xl">{service.icon}</div>
@@ -589,8 +589,8 @@ function ScheduleContent() {
                         <div className="flex-shrink-0">
                           <input
                             type="checkbox"
-                            checked={formData.services.includes(service.name)}
-                            onChange={() => handleServiceToggle(service.name)}
+                            checked={formData.services.includes(service.id.toString())}
+                            onChange={() => handleServiceToggle(service.id.toString())}
                             className="w-5 h-5 text-blue-600"
                           />
                         </div>
@@ -648,13 +648,13 @@ function ScheduleContent() {
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <h3 className="font-medium text-gray-900 mb-2">Selected Services</h3>
                   <div className="space-y-2">
-                    {formData.services.map((serviceName) => {
-                      const service = services.find(s => s.name === serviceName);
+                    {formData.services.map((serviceId) => {
+                      const service = services.find(s => s.id.toString() === serviceId);
                       return (
-                        <div key={serviceName} className="flex items-center space-x-3 text-sm">
+                        <div key={serviceId} className="flex items-center space-x-3 text-sm">
                           <span className="text-lg">{service?.icon}</span>
                           <div>
-                            <div className="font-medium">{service?.displayName || serviceName}</div>
+                            <div className="font-medium">{service?.displayName || serviceId}</div>
                             <div className="text-gray-600">{service?.description}</div>
                           </div>
                         </div>
@@ -1143,11 +1143,11 @@ function ScheduleContent() {
                   <div
                     key={service.id}
                     className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      formData.services.includes(service.name)
+                      formData.services.includes(service.id.toString())
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-300 hover:border-blue-300"
                     }`}
-                    onClick={() => handleServiceToggle(service.name)}
+                    onClick={() => handleServiceToggle(service.id.toString())}
                   >
                     <div className="flex items-start space-x-3">
                       <div className="text-2xl">{service.icon}</div>
@@ -1161,8 +1161,8 @@ function ScheduleContent() {
                       <div className="flex-shrink-0">
                         <input
                           type="checkbox"
-                          checked={formData.services.includes(service.name)}
-                          onChange={() => handleServiceToggle(service.name)}
+                          checked={formData.services.includes(service.id.toString())}
+                          onChange={() => handleServiceToggle(service.id.toString())}
                           className="w-5 h-5 text-blue-600"
                         />
                       </div>
@@ -1203,7 +1203,10 @@ function ScheduleContent() {
                 <div><span className="text-gray-600">Contact:</span> {formData.contactNumber}</div>
                 <div><span className="text-gray-600">Pickup:</span> {formData.pickupDate} at {formData.pickupTime}</div>
                 <div><span className="text-gray-600">Delivery:</span> {formData.deliveryDate} at {formData.deliveryTime}</div>
-                <div><span className="text-gray-600">Services:</span> {formData.services.join(", ")}</div>
+                <div><span className="text-gray-600">Services:</span> {formData.services.map(serviceId => {
+                  const service = services.find(s => s.id.toString() === serviceId);
+                  return service?.displayName || serviceId;
+                }).join(", ")}</div>
                 {formData.specialInstructions && (
                   <div><span className="text-gray-600">Instructions:</span> {formData.specialInstructions}</div>
                 )}

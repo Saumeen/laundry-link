@@ -2,13 +2,27 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { SERVICE_TYPES } from "@/lib/pricing";
 
+interface GenerateInvoiceRequest {
+  orderId: string | number;
+}
+
 export async function POST(req: Request) {
   try {
-    const { orderId } = await req.json();
+    const { orderId } = await req.json() as GenerateInvoiceRequest;
 
     const order = await prisma.order.findUnique({
-      where: { id: parseInt(orderId) },
-      include: { invoiceItems: true },
+      where: { id: parseInt(orderId.toString()) },
+      include: { 
+        invoiceItems: {
+          include: {
+            orderServiceMapping: {
+              include: {
+                service: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!order || !order.invoiceItems?.length) {
@@ -24,9 +38,9 @@ export async function POST(req: Request) {
   }
 }
 
-function generateInvoiceHTML(order: any) {
+function generateInvoiceHTML(order: NonNullable<Awaited<ReturnType<typeof prisma.order.findUnique>>>) {
   const serviceLabel = (value: string) => SERVICE_TYPES.find(s => s.value === value)?.label || value;
-  const subtotal = order.invoiceItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
+  const subtotal = order.invoiceItems.reduce((sum: number, item: typeof order.invoiceItems[0]) => sum + (item.quantity * item.pricePerItem), 0);
 
   return `<!DOCTYPE html>
 <html><head><title>Invoice - ${order.orderNumber}</title>
@@ -65,12 +79,13 @@ body { font-family: Arial; margin: 20px; }
   </div>
 </div>
 <table class="items-table">
-  <thead><tr><th>Item</th><th>Service</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+  <thead><tr><th>Service</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
   <tbody>
-    ${order.invoiceItems.map((item: any) => `<tr>
-      <td>${item.itemType}</td><td>${serviceLabel(item.serviceType)}</td>
-      <td>${item.quantity}</td><td>${item.pricePerItem.toFixed(3)} BD</td>
-      <td>${item.totalPrice.toFixed(3)} BD</td></tr>`).join('')}
+    ${order.invoiceItems.map((item: typeof order.invoiceItems[0]) => `<tr>
+      <td>${item.orderServiceMapping.service.name}</td>
+      <td>${item.quantity}</td>
+      <td>${item.pricePerItem.toFixed(3)} BD</td>
+      <td>${(item.quantity * item.pricePerItem).toFixed(3)} BD</td></tr>`).join('')}
   </tbody>
 </table>
 <div class="total-section">

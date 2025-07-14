@@ -100,11 +100,8 @@ model Order {
   customerId          Int
   addressId           Int?
   status              String        @default("Order Placed")
-  items               String[]
-  totalAmount         Float
   pickupTime          DateTime
   deliveryTime        DateTime
-  serviceType         String
   specialInstructions String?
   customerFirstName   String
   customerLastName    String
@@ -120,7 +117,7 @@ model Order {
   updatedAt           DateTime      @updatedAt
   
   // Relations
-  invoiceItems        InvoiceItem[]
+  orderServiceMappings OrderServiceMapping[]
   address             Address?      @relation(fields: [addressId], references: [id])
   customer            Customer      @relation(fields: [customerId], references: [id])
   orderUpdates        OrderUpdate[]
@@ -128,6 +125,24 @@ model Order {
   createdByStaff      Staff?        @relation("CreatedByStaff", fields: [createdByStaffId], references: [id])
 
   @@map("orders")
+}
+
+model OrderServiceMapping {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  serviceId Int
+  quantity  Int      @default(1)
+  price     Float    // Price at the time of order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  service       Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  invoiceItems  InvoiceItem[]
+
+  @@unique([orderId, serviceId])
+  @@map("order_service_mappings")
 }
 
 model OrderUpdate {
@@ -165,18 +180,15 @@ model DriverAssignment {
 }
 
 model InvoiceItem {
-  id           Int      @id @default(autoincrement())
-  orderId      Int
-  itemType     String
-  serviceType  String
-  quantity     Int
-  pricePerItem Float
-  totalPrice   Float
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    Int      @id @default(autoincrement())
+  orderServiceMappingId Int
+  quantity              Int
+  pricePerItem          Float
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
   
   // Relations
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderServiceMapping   OrderServiceMapping @relation(fields: [orderServiceMappingId], references: [id], onDelete: Cascade)
 
   @@map("invoice_items")
 }
@@ -318,6 +330,9 @@ model Service {
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  // Relations
+  orderServiceMappings OrderServiceMapping[]
 
   @@map("services")
 }

@@ -40,7 +40,20 @@ export async function GET(req: Request) {
     const orders = await prisma.order.findMany({
       include: {
         customer: true,
-        invoiceItems: true,
+        orderServiceMappings: {
+          include: {
+            service: true,
+            invoiceItems: {
+              include: {
+                orderServiceMapping: {
+                  include: {
+                    service: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         driverAssignments: {
           include: {
             driver: {
@@ -58,8 +71,28 @@ export async function GET(req: Request) {
       take: pageSize,
     });
 
+    // Transform orders to include invoice items with service information
+    const transformedOrders = orders.map((order: typeof orders[0]) => {
+      const transformedInvoiceItems = order.orderServiceMappings.flatMap((mapping: typeof order.orderServiceMappings[0]) => 
+        mapping.invoiceItems.map((item: typeof mapping.invoiceItems[0]) => ({
+          id: item.id,
+          orderServiceMappingId: item.orderServiceMappingId,
+          quantity: item.quantity,
+          pricePerItem: item.pricePerItem,
+          total: item.quantity * item.pricePerItem,
+          service: mapping.service,
+          notes: undefined,
+        }))
+      );
+
+      return {
+        ...order,
+        invoiceItems: transformedInvoiceItems,
+      };
+    });
+
     return NextResponse.json({
-      orders,
+      orders: transformedOrders,
       total,
       page,
       pageSize,

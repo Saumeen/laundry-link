@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { emailService } from "@/lib/emailService";
-import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
 
-// Define types for better type safety
 interface ServiceNames {
   [key: string]: string;
 }
@@ -85,8 +84,6 @@ async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
         orderNumber: orderNumber,
         customerId: customer.id,
         addressId: address.id,
-        serviceType: Array.isArray(body.services) ? body.services.join(", ") : body.services || "Standard Service",
-        totalAmount: 0, // Will be calculated after items are sorted
         pickupTime: pickupDateTime,
         deliveryTime: deliveryDateTime,
         specialInstructions: body.specialInstructions || "",
@@ -96,32 +93,28 @@ async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
         customerEmail: customer.email,
         customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
         customerAddress: address.address || address.addressLine1,
-        items: Array.isArray(body.services) ? body.services : [body.services || "Standard Service"],
         paymentStatus: "Pending",
       },
     });
 
-    // Create invoice items for each service
+    // Create order service mappings for each service
     if (Array.isArray(body.services)) {
-      const serviceNames: ServiceNames = {
-        wash: "Wash (by weight)",
-        wash_iron: "Wash & Iron (by piece)",
-        dry_clean: "Dry Clean (by piece)",
-        duvet_bulky: "Duvet & Bulky Items (by piece)",
-        carpet: "Carpet Cleaning (by square meter)"
-      };
-
       for (const serviceId of body.services) {
-        await prisma.invoiceItem.create({
-          data: {
-            orderId: order.id,
-            itemType: serviceNames[serviceId] || serviceId,
-            serviceType: serviceId,
-            quantity: 1,
-            pricePerItem: 0, // Will be updated after sorting
-            totalPrice: 0,
-          }
+        // Get service details to get the price
+        const service = await prisma.service.findUnique({
+          where: { id: parseInt(serviceId) }
         });
+
+        if (service) {
+          await prisma.orderServiceMapping.create({
+            data: {
+              orderId: order.id,
+              serviceId: service.id,
+              quantity: 1,
+              price: service.price,
+            }
+          });
+        }
       }
     }
 
@@ -145,7 +138,7 @@ async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
       await emailService.sendOrderNotificationToAdmin(order, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
-        phone: address.contactNumber || customer.phone,
+        phone: customer.phone,
         address: address.address || address.addressLine1,
         services: body.services
       });
@@ -203,7 +196,20 @@ export async function GET(req: Request) {
         orders: {
           include: {
             address: true,
-            invoiceItems: true,
+            orderServiceMappings: {
+              include: {
+                service: true,
+                invoiceItems: {
+                  include: {
+                    orderServiceMapping: {
+                      include: {
+                        service: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           orderBy,
           ...(take && { take })
@@ -215,9 +221,29 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
+    // Transform orders to include invoice items with service information
+    const transformedOrders = customer.orders.map((order: typeof customer.orders[0]) => {
+      const transformedInvoiceItems = order.orderServiceMappings.flatMap((mapping: typeof order.orderServiceMappings[0]) => 
+        mapping.invoiceItems.map((item: typeof mapping.invoiceItems[0]) => ({
+          id: item.id,
+          orderServiceMappingId: item.orderServiceMappingId,
+          quantity: item.quantity,
+          pricePerItem: item.pricePerItem,
+          total: item.quantity * item.pricePerItem,
+          service: mapping.service,
+          notes: undefined,
+        }))
+      );
+
+      return {
+        ...order,
+        invoiceItems: transformedInvoiceItems,
+      };
+    });
+
     return NextResponse.json({ 
       success: true,
-      orders: customer.orders 
+      orders: transformedOrders 
     });
   } catch (error) {
     console.error("Error fetching orders:", error);

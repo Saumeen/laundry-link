@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { calculateInvoiceItemTotal } from "@/lib/calculations";
 
 interface InvoiceItem {
   id: number;
@@ -8,7 +9,6 @@ interface InvoiceItem {
   serviceType: string;
   quantity: number;
   pricePerItem: number;
-  totalPrice: number;
 }
 
 interface Address {
@@ -34,7 +34,6 @@ interface OrderDetails {
   id: number;
   orderNumber: string;
   status: string;
-  totalAmount: number;
   pickupTime: string;
   serviceType: string;
   createdAt: string;
@@ -267,7 +266,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           <td className="py-3 text-gray-900">{getServiceTypeLabel(item.serviceType)}</td>
                           <td className="py-3 text-center text-gray-900">{item.quantity}</td>
                           <td className="py-3 text-right text-gray-900">{item.pricePerItem.toFixed(3)} BD</td>
-                          <td className="py-3 text-right font-medium text-gray-900">{item.totalPrice.toFixed(3)} BD</td>
+                          <td className="py-3 text-right font-medium text-gray-900">{calculateInvoiceItemTotal(item).toFixed(3)} BD</td>
                         </tr>
                       ))}
                     </tbody>
@@ -288,7 +287,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-medium">{(orderDetails.invoiceTotal - (orderDetails.minimumOrderApplied ? 4 : 0)).toFixed(3)} BD</span>
+                    <span className="font-medium">{orderDetails.invoiceItems.reduce((sum, item) => sum + calculateInvoiceItemTotal(item), 0).toFixed(3)} BD</span>
                   </div>
                   {orderDetails.minimumOrderApplied && (
                     <div className="flex justify-between text-sm text-yellow-700">
@@ -298,7 +297,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                   )}
                   <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
                     <span>Total Amount:</span>
-                    <span>{orderDetails?.invoiceTotal?.toFixed(3)} BD</span>
+                    <span>{orderDetails.invoiceItems.reduce((sum, item) => sum + calculateInvoiceItemTotal(item), 0).toFixed(3)} BD</span>
                   </div>
                 </div>
               </div>

@@ -26,22 +26,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Get the token to check authentication and user type
+  const token = await getToken({ req: request })
+
   // Check for admin routes
   if (path.startsWith('/admin/') && path !== '/admin/login') {
-    // For admin routes, we'll let the individual pages handle authentication
-    // since we're using NextAuth for admin auth
+    // Admin routes require admin authentication
+    if (!token || token.userType !== 'admin') {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
     return NextResponse.next()
   }
 
-  // For customer routes, let the individual pages handle authentication
-  // since we use NextAuth for customer authentication
+  // Check for customer routes
   if (path.startsWith('/customer/')) {
+    // Customer routes require customer authentication
+    if (!token || token.userType !== 'customer') {
+      return NextResponse.redirect(new URL('/registerlogin', request.url))
+    }
     return NextResponse.next()
   }
 
   // For other protected routes, check for NextAuth session
-  const token = await getToken({ req: request })
-
   if (!token) {
     // Redirect to login if no valid session
     return NextResponse.redirect(new URL('/registerlogin', request.url))

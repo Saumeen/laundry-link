@@ -28,11 +28,27 @@ interface Address {
 
 interface InvoiceItem {
   id: number;
-  itemType: string;
+  orderServiceMappingId: number;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  pricePerItem: number;
+  total?: number;
+  service?: {
+    id: number;
+    name: string;
+  };
   notes?: string;
+}
+
+interface OrderServiceMapping {
+  id: number;
+  serviceId: number;
+  quantity: number;
+  price: number;
+  service: {
+    id: number;
+    name: string;
+    description?: string;
+  };
 }
 
 interface Order {
@@ -50,6 +66,7 @@ interface Order {
   customer?: Customer;
   addresses?: Address[];
   invoiceItems?: InvoiceItem[];
+  orderServiceMappings?: OrderServiceMapping[];
   processingNotes?: string;
   totalWeight?: number;
   totalPieces?: number;
@@ -66,7 +83,7 @@ export default function AdminPanel() {
     processingNotes: '',
   });
   const [newInvoiceItem, setNewInvoiceItem] = useState({
-    itemType: '',
+    orderServiceMappingId: 0,
     quantity: 1,
     unitPrice: 0,
     notes: '',
@@ -155,14 +172,17 @@ export default function AdminPanel() {
   };
 
   const addInvoiceItem = async () => {
-    if (!selectedOrder || !newInvoiceItem.itemType || newInvoiceItem.quantity <= 0) {
+    if (!selectedOrder || !newInvoiceItem.orderServiceMappingId || newInvoiceItem.quantity <= 0) {
       alert('Please fill in all required fields.');
       return;
     }
 
+    if (!selectedOrder.orderServiceMappings || selectedOrder.orderServiceMappings.length === 0) {
+      alert('No services available for this order.');
+      return;
+    }
+
     try {
-      const totalPrice = newInvoiceItem.quantity * newInvoiceItem.unitPrice;
-      
       const response = await fetch('/api/admin/add-invoice-item', {
         method: 'POST',
         headers: {
@@ -170,11 +190,11 @@ export default function AdminPanel() {
         },
         body: JSON.stringify({
           orderId: selectedOrder.id,
-          itemType: newInvoiceItem.itemType,
-          quantity: newInvoiceItem.quantity,
-          unitPrice: newInvoiceItem.unitPrice,
-          totalPrice: totalPrice,
-          notes: newInvoiceItem.notes,
+          invoiceItems: [{
+            orderServiceMappingId: newInvoiceItem.orderServiceMappingId,
+            quantity: newInvoiceItem.quantity,
+            pricePerItem: newInvoiceItem.unitPrice,
+          }],
         }),
       });
 
@@ -183,7 +203,7 @@ export default function AdminPanel() {
         fetchOrders();
         // Reset form
         setNewInvoiceItem({
-          itemType: '',
+          orderServiceMappingId: 0,
           quantity: 1,
           unitPrice: 0,
           notes: '',
@@ -302,7 +322,7 @@ export default function AdminPanel() {
                         {order.customer ? `${order.customer.firstName} ${order.customer.lastName}` : `Customer ID: ${order.customerId}`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.serviceType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {order.orderServiceMappings?.map(mapping => mapping.service.name).join(', ') || 'No services'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {order.totalAmount} BHD
@@ -397,7 +417,7 @@ export default function AdminPanel() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="text-lg font-semibold text-gray-800 mb-3">Order Information</h4>
                   <div className="space-y-2">
-                    <p><span className="font-medium">Service Type:</span> {selectedOrder.serviceType.replace(/_/g, ' ')}</p>
+                    <p><span className="font-medium">Services:</span> {selectedOrder.orderServiceMappings?.map(mapping => `${mapping.service.name} (${mapping.quantity})`).join(', ') || 'No services'}</p>
                     <p><span className="font-medium">Total Amount:</span> {selectedOrder.totalAmount} BD</p>
                     <p><span className="font-medium">Payment Status:</span> {selectedOrder.paymentStatus}</p>
                     <p><span className="font-medium">Pickup Time:</span> {new Date(selectedOrder.pickupTime).toLocaleString()}</p>
@@ -501,7 +521,7 @@ export default function AdminPanel() {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item Type</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
                               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -511,10 +531,10 @@ export default function AdminPanel() {
                           <tbody className="bg-white divide-y divide-gray-200">
                             {selectedOrder.invoiceItems.map((item) => (
                               <tr key={item.id}>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.itemType}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{item.service?.name || 'Unknown Service'}</td>
                                 <td className="px-3 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.unitPrice.toFixed(3)} BD</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.totalPrice.toFixed(3)} BD</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{item.pricePerItem.toFixed(3)} BD</td>
+                                <td className="px-3 py-2 text-sm text-gray-900">{item.total?.toFixed(3) || (item.quantity * item.pricePerItem).toFixed(3)} BD</td>
                                 <td className="px-3 py-2 text-sm text-gray-900">{item.notes || '-'}</td>
                               </tr>
                             ))}
@@ -531,13 +551,18 @@ export default function AdminPanel() {
                     <h5 className="font-medium text-gray-800 mb-3">Add New Invoice Item</h5>
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                       <div>
-                        <input
-                          type="text"
-                          value={newInvoiceItem.itemType}
-                          onChange={(e) => setNewInvoiceItem({...newInvoiceItem, itemType: e.target.value})}
+                        <select
+                          value={newInvoiceItem.orderServiceMappingId}
+                          onChange={(e) => setNewInvoiceItem({...newInvoiceItem, orderServiceMappingId: parseInt(e.target.value) || 0})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          placeholder="Item type (e.g., Shirt, Pants)"
-                        />
+                        >
+                          <option value={0}>Select Service</option>
+                          {selectedOrder.orderServiceMappings?.map((mapping) => (
+                            <option key={mapping.id} value={mapping.id}>
+                              {mapping.service.name} - {mapping?.price?.toFixed(3)} BD
+                            </option>
+                          )) || <option value={0} disabled>No services available</option>}
+                        </select>
                       </div>
                       <div>
                         <input

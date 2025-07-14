@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { emailService } from "@/lib/emailService";
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
-
-// Define types for better type safety
-interface ServiceNames {
-  [key: string]: string;
-}
+import crypto from "crypto";
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
 
 interface AddressData {
   customerId: number;
@@ -24,17 +20,26 @@ interface AddressData {
 }
 
 export async function POST(req: Request) {
+  let customer = null;
+  let isAuthenticated = false;
+  let body;
   try {
-    const body = await req.json() as any;
+    body = await req.json();
+    try {
+      customer = await requireAuthenticatedCustomer();
+      isAuthenticated = true;
+    } catch (authError) {
+      isAuthenticated = false;
+    }
 
-    // Check if this is a logged-in customer order
-    if (body.isLoggedInCustomer) {
-      return await handleLoggedInCustomerOrder(body);
+    if (isAuthenticated && customer) {
+      // Authenticated customer order
+      return await handleLoggedInCustomerOrder(body, customer);
     } else {
+      // Guest order
       return await handleGuestCustomerOrder(body);
     }
   } catch (error) {
-    console.error("Error creating order:", error);
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -42,20 +47,8 @@ export async function POST(req: Request) {
   }
 }
 
-async function handleLoggedInCustomerOrder(body: any) {
+async function handleLoggedInCustomerOrder(body: any, customer: { id: number; email: string; firstName: string; lastName: string; isActive: boolean; walletBalance: number; }) {
   try {
-    // Find the customer by email
-    const customer = await prisma.customer.findUnique({
-      where: { email: body.email }
-    });
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: "Customer not found" },
-        { status: 404 }
-      );
-    }
-
     // Get the selected address
     const address = await prisma.address.findFirst({
       where: {
@@ -84,8 +77,6 @@ async function handleLoggedInCustomerOrder(body: any) {
         orderNumber: orderNumber,
         customerId: customer.id,
         addressId: address.id,
-        serviceType: Array.isArray(body.services) ? body.services.join(", ") : body.services || "Standard Service",
-        totalAmount: 0, // Will be calculated after items are sorted
         pickupTime: pickupDateTime,
         deliveryTime: deliveryDateTime,
         specialInstructions: body.specialInstructions || "",
@@ -93,34 +84,37 @@ async function handleLoggedInCustomerOrder(body: any) {
         customerFirstName: customer.firstName,
         customerLastName: customer.lastName,
         customerEmail: customer.email,
-        customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
+        customerPhone: address.contactNumber || body.contactNumber || "",
         customerAddress: address.address || address.addressLine1,
-        items: Array.isArray(body.services) ? body.services : [body.services || "Standard Service"],
         paymentStatus: "Pending",
       },
     });
 
-    // Create invoice items for each service
+    // Create order service mappings for each service
     if (Array.isArray(body.services)) {
-      const serviceNames: ServiceNames = {
-        wash: "Wash (by weight)",
-        wash_iron: "Wash & Iron (by piece)",
-        dry_clean: "Dry Clean (by piece)",
-        duvet_bulky: "Duvet & Bulky Items (by piece)",
-        carpet: "Carpet Cleaning (by square meter)"
-      };
-
       for (const serviceId of body.services) {
-        await prisma.invoiceItem.create({
-          data: {
-            orderId: order.id,
-            itemType: serviceNames[serviceId as keyof ServiceNames] || serviceId,
-            serviceType: serviceId,
-            quantity: 1,
-            pricePerItem: 0, // Will be updated after sorting
-            totalPrice: 0,
+        try {
+          // Get service details to get the price
+          const service = await prisma.service.findUnique({
+            where: { id: parseInt(serviceId) }
+          });
+
+          if (service) {
+            await prisma.orderServiceMapping.create({
+              data: {
+                orderId: order.id,
+                serviceId: service.id,
+                quantity: 1,
+                price: service.price,
+              }
+            });
+          } else {
+            console.error(`Service not found for ID: ${serviceId}`);
           }
-        });
+        } catch (serviceError) {
+          console.error(`Error creating service mapping for service ID ${serviceId}:`, serviceError);
+          throw serviceError;
+        }
       }
     }
 
@@ -144,7 +138,7 @@ async function handleLoggedInCustomerOrder(body: any) {
       await emailService.sendOrderNotificationToAdmin(order, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
-        phone: address.contactNumber || customer.phone,
+        phone: address.contactNumber || body.contactNumber || "",
         address: address.address || address.addressLine1,
         services: body.services
       });
@@ -274,8 +268,6 @@ async function handleGuestCustomerOrder(body: any) {
         orderNumber: orderNumber,
         customerId: customer.id,
         addressId: address.id,
-        serviceType: Array.isArray(body.services) ? body.services.join(", ") : body.services || "Standard Service",
-        totalAmount: 0, // Will be calculated after items are sorted
         pickupTime: pickupDateTime,
         deliveryTime: deliveryDateTime,
         specialInstructions: body.specialInstructions || "",
@@ -285,32 +277,28 @@ async function handleGuestCustomerOrder(body: any) {
         customerEmail: customer.email,
         customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
         customerAddress: addressString,
-        items: Array.isArray(body.services) ? body.services : [body.services || "Standard Service"],
         paymentStatus: "Pending",
       },
     });
 
-    // Create invoice items for each service
+    // Create order service mappings for each service
     if (Array.isArray(body.services)) {
-      const serviceNames: ServiceNames = {
-        wash: "Wash (by weight)",
-        wash_iron: "Wash & Iron (by piece)",
-        dry_clean: "Dry Clean (by piece)",
-        duvet_bulky: "Duvet & Bulky Items (by piece)",
-        carpet: "Carpet Cleaning (by square meter)"
-      };
-
       for (const serviceId of body.services) {
-        await prisma.invoiceItem.create({
-          data: {
-            orderId: order.id,
-            itemType: serviceNames[serviceId as keyof ServiceNames] || serviceId,
-            serviceType: serviceId,
-            quantity: 1,
-            pricePerItem: 0, // Will be updated after sorting
-            totalPrice: 0,
-          }
+        // Get service details to get the price
+        const service = await prisma.service.findUnique({
+          where: { id: parseInt(serviceId) }
         });
+
+        if (service) {
+          await prisma.orderServiceMapping.create({
+            data: {
+              orderId: order.id,
+              serviceId: service.id,
+              quantity: 1,
+              price: service.price,
+            }
+          });
+        }
       }
     }
 
@@ -342,7 +330,7 @@ async function handleGuestCustomerOrder(body: any) {
       await emailService.sendOrderNotificationToAdmin(order, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
-        phone: customer.phone,
+        phone: address.contactNumber || body.contactNumber || "",
         address: addressString,
         services: body.services
       });
@@ -369,37 +357,40 @@ async function handleGuestCustomerOrder(body: any) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const customerEmail = searchParams.get('email');
-    
-    if (!customerEmail) {
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
+    const orderNumber = searchParams.get('orderNumber');
+
+    if (!orderNumber) {
+      return NextResponse.json(
+        { error: "Order number is required" },
+        { status: 400 }
+      );
     }
 
-    const customer = await prisma.customer.findUnique({
-      where: { email: customerEmail },
+    const order = await prisma.order.findUnique({
+      where: { orderNumber },
       include: {
-        orders: {
+        customer: true,
+        address: true,
+        orderServiceMappings: {
           include: {
-            address: true,
-            invoiceItems: true,
+            service: true,
           },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+        },
+      },
     });
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ 
-      success: true,
-      orders: customer.orders 
-    });
+    return NextResponse.json(order);
   } catch (error) {
-    console.error("Error fetching orders:", error);
+    console.error("Error fetching order:", error);
     return NextResponse.json(
-      { error: "Failed to fetch orders" },
+      { error: "Failed to fetch order" },
       { status: 500 }
     );
   }
