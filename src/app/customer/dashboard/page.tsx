@@ -9,6 +9,9 @@ import MainLayout from '@/components/layouts/main-layout';
 // Import the address management component
 import DashboardAddressManagement from '@/components/DashboardAddressManagement';
 import OrderDetailsModal from '@/components/OrderDetailsModal';
+import MobileBottomNav from '@/components/MobileBottomNav';
+import FAB from '@/components/FAB';
+import Toast from '@/components/Toast';
 
 interface Customer {
   id: number;
@@ -396,6 +399,7 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' }>({ message: '' });
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
@@ -456,6 +460,12 @@ function DashboardContent() {
 
   const handleManageAddresses = useCallback(() => {
     setActiveTab('addresses');
+  }, []);
+
+  // FAB handler for addresses
+  const handleAddAddress = useCallback(() => {
+    setActiveTab('addresses');
+    // Optionally trigger add address modal in DashboardAddressManagement
   }, []);
 
   // Memoized data calculations
@@ -629,27 +639,26 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Enhanced Header */}
-        <div className="mb-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-6">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <span className="text-2xl text-white font-bold">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 pb-20 md:pb-0">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 md:py-8">
+        {/* Header */}
+        <div className="mb-4 md:mb-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-8 mb-4 md:mb-6">
+            <div className="flex items-center space-x-3 md:space-x-4 mb-3 md:mb-4">
+              <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                <span className="text-xl md:text-2xl text-white font-bold">
                   {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
                 </span>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">
+                <h1 className="text-xl md:text-3xl font-bold text-gray-900">
                   Welcome back, {customer.firstName}! 👋
                 </h1>
-                <p className="text-gray-600">Here's what's happening with your laundry today</p>
+                <p className="text-gray-600 text-sm md:text-base">Here's what's happening with your laundry today</p>
               </div>
             </div>
-            
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Quick Actions - horizontal scroll on mobile */}
+            <div className="flex space-x-3 overflow-x-auto md:grid md:grid-cols-3 md:gap-4 scrollbar-hide">
               <QuickActionButton
                 icon="📦"
                 title="New Order"
@@ -675,8 +684,8 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Enhanced Tab Navigation */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+        {/* Tab Navigation - hide on mobile, use MobileBottomNav instead */}
+        <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
           <nav className="flex flex-wrap gap-3">
             {TAB_CONFIG.map((tab) => (
               <TabButton
@@ -888,13 +897,15 @@ function DashboardContent() {
           )}
         </div>
       </div>
-
-      {/* Order Details Modal */}
-      <OrderDetailsModal
-        isOpen={isOrderModalOpen}
-        onClose={handleCloseOrderModal}
-        orderId={selectedOrderId}
-      />
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {/* FAB for Add Address (only on addresses tab, mobile only) */}
+      {activeTab === 'addresses' && (
+        <FAB onClick={handleAddAddress} icon={<span>+</span>} label="Add Address" />
+      )}
+      {/* Toast for feedback */}
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '' })} />
+      {/* Order Details Modal, etc. */}
     </div>
   );
 }
