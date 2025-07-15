@@ -25,7 +25,7 @@ interface Order {
   id: number;
   orderNumber: string;
   status: string;
-  totalAmount: number;
+  invoiceTotal: number;
   pickupTime: string;
   serviceType: string;
   createdAt: string;
@@ -207,7 +207,7 @@ const OrderItem = memo(({
           </div>
         </div>
         <div className="text-right">
-          <p className="font-bold text-lg text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
+          <p className="font-bold text-lg text-gray-900">{order?.invoiceTotal?.toFixed(3)} BD</p>
           <p className="text-xs text-gray-400">{formatDate(order.createdAt)}</p>
         </div>
       </div>
@@ -279,7 +279,7 @@ const DetailedOrderItem = memo(({
           </div>
         </div>
         <div className="text-right">
-          <p className="font-bold text-xl text-gray-900">{order?.totalAmount?.toFixed(3)} BD</p>
+          <p className="font-bold text-xl text-gray-900">{order?.invoiceTotal?.toFixed(3)} BD</p>
           <button 
             className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 mt-1 group-hover:underline"
             onClick={(e) => {

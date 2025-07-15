@@ -23,7 +23,7 @@ export default function AccountOrdersPage() {
             <li key={order.id} className="mb-4 p-4 border rounded">
               <p>Order Number: <strong>{order.orderNumber}</strong></p>
               <p>Status: {order.status}</p>
-              <p>Total: {order.totalAmount} BHD</p>
+              <p>Total: {order.invoiceTotal} BHD</p>
               <p>Pickup Time: {order.pickupTime}</p>
             </li>
           ))}

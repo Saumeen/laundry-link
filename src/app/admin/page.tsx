@@ -57,7 +57,7 @@ interface Order {
   customerId: number;
   status: string;
   items: string[];
-  totalAmount: number;
+  invoiceTotal: number;
   pickupTime: string;
   serviceType: string;
   specialInstructions: string;
@@ -326,7 +326,7 @@ export default function AdminPanel() {
                         {order.orderServiceMappings?.map(mapping => mapping.service.name).join(', ') || 'No services'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.totalAmount} BHD
+                        {order.invoiceTotal} BHD
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(order.pickupTime).toLocaleString()}
@@ -419,7 +419,7 @@ export default function AdminPanel() {
                   <h4 className="text-lg font-semibold text-gray-800 mb-3">Order Information</h4>
                   <div className="space-y-2">
                     <p><span className="font-medium">Services:</span> {selectedOrder.orderServiceMappings?.map(mapping => `${mapping.service.name} (${mapping.quantity})`).join(', ') || 'No services'}</p>
-                    <p><span className="font-medium">Total Amount:</span> {selectedOrder.totalAmount} BD</p>
+                    <p><span className="font-medium">Total Amount:</span> {selectedOrder.invoiceTotal} BD</p>
                     <p><span className="font-medium">Payment Status:</span> {selectedOrder.paymentStatus}</p>
                     <p><span className="font-medium">Pickup Time:</span> {new Date(selectedOrder.pickupTime).toLocaleString()}</p>
                     <p><span className="font-medium">Created:</span> {new Date(selectedOrder.createdAt).toLocaleString()}</p>

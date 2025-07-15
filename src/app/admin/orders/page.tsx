@@ -44,7 +44,7 @@ export default function OrdersManagement() {
   const [loading, setLoading] = useState(true);
   const [sorting, setSorting] = useState(false);
   const [orderStatusUpdatingId, setOrderStatusUpdatingId] = useState<number | null>(null);
-  const [sortField, setSortField] = useState<'orderNumber' | 'customerName' | 'status' | 'totalAmount' | 'createdAt'>('createdAt');
+  const [sortField, setSortField] = useState<'orderNumber' | 'customerName' | 'status' | 'invoiceTotal' | 'createdAt'>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Determine the correct back URL based on user role
@@ -258,9 +258,9 @@ export default function OrdersManagement() {
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('totalAmount')}
+                      onClick={() => handleSort('invoiceTotal')}
                     >
-                      Total {renderSortIcon('totalAmount')}
+                      Total {renderSortIcon('invoiceTotal')}
                     </th>
                     <th 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"

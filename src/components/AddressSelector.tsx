@@ -245,55 +245,61 @@ export default function AddressSelector({
   const handleSave = useCallback(async () => {
     // Validate required fields
     const newErrors: {[key: string]: string} = {};
-    
-    if (!formData.googleAddress.trim()) {
-      newErrors.googleAddress = 'Address is required';
-    }
-    
+
+    // Always require contact number
     if (!formData.contactNumber.trim()) {
       newErrors.contactNumber = 'Contact number is required';
     } else if (!isValidPhoneNumber(formData.contactNumber)) {
       newErrors.contactNumber = 'Please enter a valid phone number';
     }
-    
-    // Location-specific validations
-    if (formData.locationType === 'hotel') {
-      if (!formData.hotelName.trim()) {
-        newErrors.hotelName = 'Hotel name is required';
+
+    // If Google address is selected (and geocoded), all other fields are optional
+    if (formData.googleAddress.trim() && selectedAddress) {
+      // No further validation needed
+    } else {
+      // Require googleAddress
+      if (!formData.googleAddress.trim()) {
+        newErrors.googleAddress = 'Address is required';
       }
-      if (!formData.roomNumber.trim()) {
-        newErrors.roomNumber = 'Room number is required';
-      }
-    } else if (formData.locationType === 'home') {
-      if (!formData.house.trim()) {
-        newErrors.house = 'House number is required';
-      }
-      if (!formData.road.trim()) {
-        newErrors.road = 'Road name is required';
-      }
-    } else if (formData.locationType === 'flat') {
-      if (!formData.building.trim()) {
-        newErrors.building = 'Building name is required';
-      }
-      if (!formData.flatNumber.trim()) {
-        newErrors.flatNumber = 'Flat number is required';
-      }
-    } else if (formData.locationType === 'office') {
-      if (!formData.building.trim()) {
-        newErrors.building = 'Building name is required';
-      }
-      if (!formData.officeNumber.trim()) {
-        newErrors.officeNumber = 'Office number is required';
+      // Location-specific validations
+      if (formData.locationType === 'hotel') {
+        if (!formData.hotelName.trim()) {
+          newErrors.hotelName = 'Hotel name is required';
+        }
+        if (!formData.roomNumber.trim()) {
+          newErrors.roomNumber = 'Room number is required';
+        }
+      } else if (formData.locationType === 'home') {
+        if (!formData.house.trim()) {
+          newErrors.house = 'House number is required';
+        }
+        if (!formData.road.trim()) {
+          newErrors.road = 'Road name is required';
+        }
+      } else if (formData.locationType === 'flat') {
+        if (!formData.building.trim()) {
+          newErrors.building = 'Building name is required';
+        }
+        if (!formData.flatNumber.trim()) {
+          newErrors.flatNumber = 'Flat number is required';
+        }
+      } else if (formData.locationType === 'office') {
+        if (!formData.building.trim()) {
+          newErrors.building = 'Building name is required';
+        }
+        if (!formData.officeNumber.trim()) {
+          newErrors.officeNumber = 'Office number is required';
+        }
       }
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-    
+
     setSaving(true);
-    
+
     try {
       // Prepare address data for API
       const addressData = {
@@ -329,7 +335,6 @@ export default function AddressSelector({
           longitude: selectedAddress.longitude,
         }),
       };
-      
       await saveAddress(addressData);
     } catch (error) {
       console.error('Error in handleSave:', error);

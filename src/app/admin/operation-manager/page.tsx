@@ -19,7 +19,7 @@ interface Order {
   customerFirstName: string;
   customerLastName: string;
   status: string;
-  totalAmount: number;
+  invoiceTotal: number;
   createdAt: string;
   customer: {
     firstName: string;
@@ -40,7 +40,6 @@ interface Order {
   paymentStatus: string;
   paymentMethod?: string;
   items: string[];
-  invoiceTotal?: number;
   minimumOrderApplied: boolean;
 }
 
@@ -480,7 +479,7 @@ export default function OperationManagerDashboard() {
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-medium text-gray-900">Total Amount:</span>
-                      <span className="text-xl font-bold text-blue-600">{formatCurrency(orderDetails.totalAmount)}</span>
+                      <span className="text-xl font-bold text-blue-600">{formatCurrency(orderDetails.invoiceTotal)}</span>
                     </div>
                     {orderDetails.minimumOrderApplied && (
                       <p className="text-sm text-gray-600 mt-1">* Minimum order applied</p>
