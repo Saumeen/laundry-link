@@ -9,7 +9,7 @@ export default function AddressesPage() {
   useEffect(() => {
     fetch("/api/addresses")
       .then((res) => res.json())
-      .then((data) => setAddresses(data));
+      .then((data: any) => setAddresses(data));
   }, []);
 
   const addAddress = async () => {

@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { customerApi } from '../lib/api';
+import { parseJsonResponse } from '../lib/api';
 import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
-import GoogleMapsAutocomplete from './GoogleMapsAutocomplete';
-import PhoneInput from './PhoneInput';
-import EnhancedAddressForm from './EnhancedAddressForm';
-import { customerApi, parseJsonResponse } from '@/lib/api';
+import EnhancedAddressForm, { FormData } from './EnhancedAddressForm';
 
 interface Address {
   id: number;
@@ -67,8 +66,8 @@ export default function AddressSelector({
   
 
   
-  // Form data
-  const [formData, setFormData] = useState({
+  // Form data with proper typing
+  const [formData, setFormData] = useState<FormData>({
     googleAddress: '',
     locationType: 'home',
     // Address components from Google Maps
@@ -90,13 +89,11 @@ export default function AddressSelector({
     officeNumber: '',
     // Contact number (required for all addresses)
     contactNumber: '',
-    email: '',
   });
 
   // Fetch addresses when component mounts or session changes
   useEffect(() => {
     if (session?.user?.email) {
-      setFormData(prev => ({ ...prev, email: session.user!.email || '' }));
       fetchAddresses();
     }
   }, [session]);
@@ -192,12 +189,11 @@ export default function AddressSelector({
       officeNumber: '',
       // Contact number (required for all addresses)
       contactNumber: '',
-      email: session?.user?.email || '',
     });
     setSelectedAddress(null);
     setMessage('');
     setErrors({});
-  }, [session?.user?.email]);
+  }, []);
 
   // Show create form
   const showCreateForm = useCallback(() => {
@@ -238,20 +234,18 @@ export default function AddressSelector({
       await fetchAddresses();
       
       setMessage('✅ Address saved successfully!');
-      resetForm();
       setCurrentView('select');
+      resetForm();
     } catch (error) {
-      setMessage('❌ Failed to save address');
+      console.error('Error saving address:', error);
+      setMessage('❌ Failed to save address. Please try again.');
     }
   }, [onAddressCreate, onAddressSelect, fetchAddresses, resetForm]);
 
   const handleSave = useCallback(async () => {
-    // Clear previous errors
-    setErrors({});
-    
-    // Validation
+    // Validate required fields
     const newErrors: {[key: string]: string} = {};
-
+    
     if (!formData.googleAddress.trim()) {
       newErrors.googleAddress = 'Address is required';
     }
@@ -262,68 +256,88 @@ export default function AddressSelector({
       newErrors.contactNumber = 'Please enter a valid phone number';
     }
     
-    // Only validate location-specific fields if they are filled in
-    if (formData.locationType === 'hotel' && (formData.hotelName.trim() || formData.roomNumber.trim())) {
+    // Location-specific validations
+    if (formData.locationType === 'hotel') {
       if (!formData.hotelName.trim()) {
         newErrors.hotelName = 'Hotel name is required';
       }
       if (!formData.roomNumber.trim()) {
         newErrors.roomNumber = 'Room number is required';
       }
-    } else if (formData.locationType === 'home' && (formData.house.trim() || formData.road.trim())) {
+    } else if (formData.locationType === 'home') {
       if (!formData.house.trim()) {
-        newErrors.house = 'House is required';
+        newErrors.house = 'House number is required';
       }
       if (!formData.road.trim()) {
-        newErrors.road = 'Road is required';
+        newErrors.road = 'Road name is required';
       }
-    } else if (formData.locationType === 'flat' && (formData.building.trim() || formData.road.trim())) {
+    } else if (formData.locationType === 'flat') {
       if (!formData.building.trim()) {
-        newErrors.building = 'Building is required';
+        newErrors.building = 'Building name is required';
       }
-      if (!formData.road.trim()) {
-        newErrors.road = 'Road is required';
+      if (!formData.flatNumber.trim()) {
+        newErrors.flatNumber = 'Flat number is required';
       }
-    } else if (formData.locationType === 'office' && (formData.building.trim() || formData.road.trim())) {
+    } else if (formData.locationType === 'office') {
       if (!formData.building.trim()) {
-        newErrors.building = 'Building is required';
+        newErrors.building = 'Building name is required';
       }
-      if (!formData.road.trim()) {
-        newErrors.road = 'Road is required';
+      if (!formData.officeNumber.trim()) {
+        newErrors.officeNumber = 'Office number is required';
       }
     }
-
+    
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
-
-    if (!session?.user?.email) {
-      setMessage('❌ Please log in again');
-      return;
-    }
-
-    // Prepare address data with Google Maps information
-    const addressData = {
-      ...formData,
-      label: formData.googleAddress, // Use Google address as label
-      latitude: selectedAddress?.latitude,
-      longitude: selectedAddress?.longitude,
-      formattedAddress: selectedAddress?.formatted_address,
-    };
-
-    // Save address directly without phone verification
+    
+    setSaving(true);
+    
     try {
+      // Prepare address data for API
+      const addressData = {
+        label: formData.googleAddress,
+        addressLine1: formData.googleAddress,
+        city: formData.city,
+        area: formData.area,
+        building: formData.building,
+        locationType: formData.locationType,
+        contactNumber: formData.contactNumber,
+        email: session?.user?.email || '',
+        // Location-specific data
+        ...(formData.locationType === 'hotel' && {
+          hotelName: formData.hotelName,
+          roomNumber: formData.roomNumber,
+          collectionMethod: formData.collectionMethod,
+        }),
+        ...(formData.locationType === 'home' && {
+          house: formData.house,
+          road: formData.road,
+          block: formData.block,
+          homeCollectionMethod: formData.homeCollectionMethod,
+        }),
+        ...(formData.locationType === 'flat' && {
+          flatNumber: formData.flatNumber,
+        }),
+        ...(formData.locationType === 'office' && {
+          officeNumber: formData.officeNumber,
+        }),
+        // GPS coordinates if available
+        ...(selectedAddress?.latitude && selectedAddress?.longitude && {
+          latitude: selectedAddress.latitude,
+          longitude: selectedAddress.longitude,
+        }),
+      };
+      
       await saveAddress(addressData);
-      setMessage('✅ Address saved successfully!');
     } catch (error) {
-      setMessage('❌ Failed to save address');
+      console.error('Error in handleSave:', error);
+      setMessage('❌ Failed to save address. Please try again.');
+    } finally {
+      setSaving(false);
     }
-  }, [formData, selectedAddress, session?.user?.email, saveAddress]);
-
-
-
-
+  }, [formData, selectedAddress, saveAddress, isValidPhoneNumber]);
 
   // Format address for display
   const formatAddress = useCallback((address: Address) => {

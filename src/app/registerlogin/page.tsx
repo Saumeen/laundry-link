@@ -4,6 +4,7 @@ import { useState, Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from "next-auth/react";
 import { useAuth } from '@/hooks/useAuth';
+import { useLoading } from '@/contexts/LoadingContext';
 import SocialLoginButton from '@/components/ui/SocialLoginButton';
 
 // Email validation regex
@@ -13,20 +14,23 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hasLowerCase = (str: string) => /[a-z]/.test(str);
 const hasUpperCase = (str: string) => /[A-Z]/.test(str);
 const hasMinLength = (str: string) => str.length >= 8;
+const hasNumber = (str: string) => /\d/.test(str);
 
 const AuthForm = () => {
   const [step, setStep] = useState<'email' | 'login' | 'register'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const hasRedirected = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const { isAuthenticated, customer, isLoading: authLoading } = useAuth();
+  const { showLoading, hideLoading } = useLoading();
 
   // Check for error from URL params
   useEffect(() => {
@@ -40,9 +44,19 @@ const AuthForm = () => {
   useEffect(() => {
     if (!authLoading && !hasRedirected.current && isAuthenticated) {
       hasRedirected.current = true;
+      showLoading('Redirecting to dashboard...');
       router.replace('/customer/dashboard');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, authLoading, router, showLoading]);
+
+  // Show loading overlay when auth is loading
+  useEffect(() => {
+    if (authLoading || status === 'loading') {
+      showLoading('Checking authentication...');
+    } else {
+      hideLoading();
+    }
+  }, [authLoading, status, showLoading, hideLoading]);
 
   // Check if email exists in the system
   const checkEmailExists = async (email: string) => {
@@ -70,7 +84,7 @@ const AuthForm = () => {
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     setError('');
 
     try {
@@ -84,14 +98,14 @@ const AuthForm = () => {
     } catch (error) {
       setError('Something went wrong. Please try again.');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   // Handle login
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsSubmitting(true);
     setError("");
 
     try {
@@ -103,14 +117,14 @@ const AuthForm = () => {
 
       if (result?.ok) {
         // The redirect will be handled by the useEffect that watches session changes
-        setLoading(false);
+        setIsSubmitting(false);
       } else {
         setError(result?.error || "Login failed");
-        setLoading(false);
+        setIsSubmitting(false);
       }
     } catch (error) {
       setError("Login failed. Please try again.");
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -123,32 +137,32 @@ const AuthForm = () => {
       return;
     }
 
-    if (!hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password)) {
+    if (!hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password) || !hasNumber(password)) {
       setError("Password must meet all requirements");
       return;
     }
 
-    setLoading(true);
+    setIsSubmitting(true);
     setError("");
 
     try {
       const result = await signIn("customer-credentials", {
         redirect: false,
         username: email,
-          password,
+        password,
         name,
       });
 
       if (result?.ok) {
         // The redirect will be handled by the useEffect that watches session changes
-        setLoading(false);
+        setIsSubmitting(false);
       } else {
         setError(result?.error || "Registration failed");
-        setLoading(false);
+        setIsSubmitting(false);
       }
     } catch (error) {
       setError("Registration failed. Please try again.");
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -162,46 +176,42 @@ const AuthForm = () => {
 
   // Show loading if auth is still loading
   if (authLoading || status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full">
-          <div className="bg-white rounded-2xl shadow-lg p-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Checking authentication...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return null; // Let the LoadingOverlay handle the loading state
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-teal-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20 transform transition-all duration-300 hover:shadow-3xl hover:scale-[1.02]">
 
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-blue-600 mb-2">Laundry Link</h1>
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent mb-2">Laundry Link</h1>
             {step === 'email' && (
               <>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Login or Create Account</h2>
-                <p className="text-gray-600">Sign in with your email address</p>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Welcome to Laundry Link</h2>
+                <p className="text-gray-600">Enter your email to get started</p>
               </>
             )}
             {step === 'login' && (
               <>
                 <button
                   onClick={goBack}
-                  className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
+                  className="flex items-center text-gray-600 hover:text-gray-800 mb-4 transition-colors duration-200 group"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   Back
                 </button>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Welcome Back</h2>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Welcome Back!</h2>
                 <p className="text-gray-600">Enter your password to continue</p>
               </>
             )}
@@ -209,15 +219,15 @@ const AuthForm = () => {
               <>
                 <button
                   onClick={goBack}
-                  className="flex items-center text-gray-600 hover:text-gray-800 mb-4"
+                  className="flex items-center text-gray-600 hover:text-gray-800 mb-4 transition-colors duration-200 group"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   Back
                 </button>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Sign Up</h2>
-                <p className="text-gray-600">Enter your name and create a password.</p>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Create Your Account</h2>
+                <p className="text-gray-600">Let's get you set up with Laundry Link</p>
               </>
             )}
           </div>
@@ -225,64 +235,92 @@ const AuthForm = () => {
           {/* Email Step */}
           {step === 'email' && (
             <form onSubmit={handleEmailSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
                   Email Address
                 </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your email address"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                    placeholder="Enter your email address"
+                    required
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                    </svg>
+                  </div>
+                </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                  {error}
+                <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm animate-pulse">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {error}
+                  </div>
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-teal-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting || !email}
+                className="w-full bg-gradient-to-r from-blue-600 to-teal-600 text-white py-4 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
-                {loading ? 'Checking...' : 'Continue'}
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Checking...
+                  </div>
+                ) : (
+                  'Continue'
+                )}
               </button>
 
               <div className="text-center text-sm text-gray-600">
                 By proceeding, you agree to our{' '}
-                <a href="/privacy" className="text-blue-600 hover:text-blue-500">
+                <a href="/privacy" className="text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200">
                   Privacy policy and Terms & Conditions
                 </a>
               </div>
 
-              <div className="text-center text-sm text-gray-500 mt-4 p-4 bg-blue-50 rounded-lg">
-                <p className="mb-3 text-gray-700">Or continue with</p>
-                <div className="flex flex-row space-x-2 justify-center">
-                  <SocialLoginButton
-                    provider="google"
-                    onClick={() => signIn("google", { callbackUrl: '/customer/dashboard' })}
-                  >
-                    Google
-                  </SocialLoginButton>
-                  <SocialLoginButton
-                    provider="facebook"
-                    onClick={() => signIn("facebook", { callbackUrl: '/customer/dashboard' })}
-                  >
-                    Facebook
-                  </SocialLoginButton>
-                  <SocialLoginButton
-                    provider="apple"
-                    onClick={() => signIn("apple", { callbackUrl: '/customer/dashboard' })}
-                  >
-                    Apple
-                  </SocialLoginButton>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
                 </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white/80 text-gray-500 font-medium">Or continue with</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <SocialLoginButton
+                  provider="google"
+                  onClick={() => signIn("google", { callbackUrl: '/customer/dashboard' })}
+                  className="flex-1"
+                >
+                  Google
+                </SocialLoginButton>
+                <SocialLoginButton
+                  provider="facebook"
+                  onClick={() => signIn("facebook", { callbackUrl: '/customer/dashboard' })}
+                  className="flex-1"
+                >
+                  Facebook
+                </SocialLoginButton>
+                <SocialLoginButton
+                  provider="apple"
+                  onClick={() => signIn("apple", { callbackUrl: '/customer/dashboard' })}
+                  className="flex-1"
+                >
+                  Apple
+                </SocialLoginButton>
               </div>
             </form>
           )}
@@ -290,8 +328,8 @@ const AuthForm = () => {
           {/* Login Step */}
           {step === 'login' && (
             <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label htmlFor="email-display" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label htmlFor="email-display" className="block text-sm font-semibold text-gray-700">
                   Email Address
                 </label>
                 <input
@@ -299,12 +337,12 @@ const AuthForm = () => {
                   id="email-display"
                   value={email}
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl bg-gray-50/50 text-gray-600 backdrop-blur-sm"
                 />
               </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
                   Password
                 </label>
                 <div className="relative">
@@ -313,16 +351,16 @@ const AuthForm = () => {
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
+                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm pr-12"
                     placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
                   >
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {showPassword ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                       ) : (
@@ -334,21 +372,33 @@ const AuthForm = () => {
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                  {error}
+                <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm animate-pulse">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {error}
+                  </div>
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-teal-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting || !password}
+                className="w-full bg-gradient-to-r from-blue-600 to-teal-600 text-white py-4 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  'Sign In'
+                )}
               </button>
 
               <div className="text-center">
-                <a href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
+                <a href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200">
                   Forgot your password?
                 </a>
               </div>
@@ -358,8 +408,8 @@ const AuthForm = () => {
           {/* Register Step */}
           {step === 'register' && (
             <form onSubmit={handleRegister} className="space-y-6">
-              <div>
-                <label htmlFor="email-display" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label htmlFor="email-display" className="block text-sm font-semibold text-gray-700">
                   Email Address
                 </label>
                 <input
@@ -367,27 +417,27 @@ const AuthForm = () => {
                   id="email-display"
                   value={email}
                   disabled
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl bg-gray-50/50 text-gray-600 backdrop-blur-sm"
                 />
               </div>
 
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Name
+              <div className="space-y-2">
+                <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                  Full Name
                 </label>
                 <input
                   type="text"
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Please add your full name"
+                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  placeholder="Enter your full name"
                   required
                 />
               </div>
 
-              <div>
-                <label htmlFor="create-password" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-2">
+                <label htmlFor="create-password" className="block text-sm font-semibold text-gray-700">
                   Create Password
                 </label>
                 <div className="relative">
@@ -396,16 +446,16 @@ const AuthForm = () => {
                     id="create-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-12"
-                    placeholder="Enter your password"
+                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm pr-12"
+                    placeholder="Create a strong password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
                   >
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       {showPassword ? (
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                       ) : (
@@ -416,54 +466,76 @@ const AuthForm = () => {
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-3">Your password must contain:</p>
+              <div className="bg-gray-50/50 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-700">Password requirements:</p>
                 <div className="space-y-2">
                   <div className="flex items-center">
-                    <div className={`w-4 h-4 rounded-full mr-3 ${hasLowerCase(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 rounded-full mr-3 flex items-center justify-center transition-all duration-200 ${hasLowerCase(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
                       {hasLowerCase(password) && (
-                        <svg className="w-3 h-3 text-white ml-0.5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       )}
                     </div>
-                    <span className="text-sm text-gray-600">Lower case letters (password).</span>
+                    <span className={`text-sm transition-colors duration-200 ${hasLowerCase(password) ? 'text-green-700 font-medium' : 'text-gray-600'}`}>Lower case letters</span>
                   </div>
                   <div className="flex items-center">
-                    <div className={`w-4 h-4 rounded-full mr-3 ${hasUpperCase(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    <div className={`w-5 h-5 rounded-full mr-3 flex items-center justify-center transition-all duration-200 ${hasUpperCase(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
                       {hasUpperCase(password) && (
-                        <svg className="w-3 h-3 text-white ml-0.5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       )}
                     </div>
-                    <span className="text-sm text-gray-600">Upper case letters (PASSWORD).</span>
+                    <span className={`text-sm transition-colors duration-200 ${hasUpperCase(password) ? 'text-green-700 font-medium' : 'text-gray-600'}`}>Upper case letters</span>
                   </div>
                   <div className="flex items-center">
-                    <div className={`w-4 h-4 rounded-full mr-3 ${hasMinLength(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
-                      {hasMinLength(password) && (
-                        <svg className="w-3 h-3 text-white ml-0.5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <div className={`w-5 h-5 rounded-full mr-3 flex items-center justify-center transition-all duration-200 ${hasNumber(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                      {hasNumber(password) && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       )}
                     </div>
-                    <span className="text-sm text-gray-600">At least 8 characters including numbers</span>
+                    <span className={`text-sm transition-colors duration-200 ${hasNumber(password) ? 'text-green-700 font-medium' : 'text-gray-600'}`}>At least one number</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className={`w-5 h-5 rounded-full mr-3 flex items-center justify-center transition-all duration-200 ${hasMinLength(password) ? 'bg-green-500' : 'bg-gray-300'}`}>
+                      {hasMinLength(password) && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className={`text-sm transition-colors duration-200 ${hasMinLength(password) ? 'text-green-700 font-medium' : 'text-gray-600'}`}>At least 8 characters</span>
                   </div>
                 </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                  {error}
+                <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm animate-pulse">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {error}
+                  </div>
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={loading || !hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password)}
-                className="w-full bg-teal-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting || !hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password) || !hasNumber(password) || !name.trim()}
+                className="w-full bg-gradient-to-r from-blue-600 to-teal-600 text-white py-4 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
-                {loading ? 'Creating Account...' : 'Continue'}
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Creating Account...
+                  </div>
+                ) : (
+                  'Create Account'
+                )}
               </button>
             </form>
           )}
@@ -473,26 +545,7 @@ const AuthForm = () => {
   );
 }
 
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function RegisterLogin() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <AuthForm />
-    </Suspense>
-  );
+  return <AuthForm />;
 }
 

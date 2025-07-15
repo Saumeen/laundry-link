@@ -112,7 +112,7 @@ class GoogleMapsService {
       const request = {
         input,
         componentRestrictions: { country: 'BH' }, // Restrict to Bahrain
-        types: ['address'] // Use address instead of geocode
+        types: ['geocode'] // Use geocode for all address types
       };
       
       console.log('Google Maps API request:', request);
@@ -166,19 +166,13 @@ class GoogleMapsService {
             const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
             const establishment = this.getAddressComponent(addressComponents, 'establishment');
             
-            // Determine location type based on address components and place types
+            // Determine location type based on place types only (do not mix with address components)
             let locationType = 'flat';
-            
-            // Check for establishment types (hotels, businesses, etc.)
-            if (this.hasAddressComponent(addressComponents, 'establishment') || 
-                result.types?.includes('lodging') || 
-                result.types?.includes('establishment')) {
+            if (result.types?.includes('lodging') || result.types?.includes('establishment')) {
               locationType = 'hotel';
-            } else if (this.hasAddressComponent(addressComponents, 'premise') || 
-                       result.types?.includes('premise')) {
+            } else if (result.types?.includes('premise')) {
               locationType = 'office';
-            } else if (this.hasAddressComponent(addressComponents, 'street_number') || 
-                       result.types?.includes('street_address')) {
+            } else if (result.types?.includes('street_address')) {
               locationType = 'home';
             }
 
@@ -251,19 +245,13 @@ class GoogleMapsService {
             const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
             const establishment = this.getAddressComponent(addressComponents, 'establishment');
 
-            // Determine location type based on address components and place types
+            // Determine location type based on place types only (do not mix with address components)
             let locationType = 'flat';
-            
-            // Check for establishment types (hotels, businesses, etc.)
-            if (this.hasAddressComponent(addressComponents, 'establishment') || 
-                result.types?.includes('lodging') || 
-                result.types?.includes('establishment')) {
+            if (result.types?.includes('lodging') || result.types?.includes('establishment')) {
               locationType = 'hotel';
-            } else if (this.hasAddressComponent(addressComponents, 'premise') || 
-                       result.types?.includes('premise')) {
+            } else if (result.types?.includes('premise')) {
               locationType = 'office';
-            } else if (this.hasAddressComponent(addressComponents, 'street_number') || 
-                       result.types?.includes('street_address')) {
+            } else if (result.types?.includes('street_address')) {
               locationType = 'home';
             }
 

@@ -1,6 +1,6 @@
 // src/app/api/customer/addresses/[addressId]/default/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
 export async function PUT(
@@ -8,48 +8,36 @@ export async function PUT(
   { params }: { params: { addressId: string } }
 ) {
   try {
-    const { addressId } =  params;
-    const addressIdInt = parseInt(addressId);
-    
-    if (isNaN(addressIdInt)) {
-      return NextResponse.json(
-        { error: "Invalid address ID" },
-        { status: 400 }
-      );
-    }
-
     // Get authenticated customer
     const customer = await requireAuthenticatedCustomer();
+    const addressId = parseInt(params.addressId);
 
-    // Verify address belongs to customer
-    const targetAddress = await prisma.address.findFirst({
-      where: {
-        id: addressIdInt,
-        customerId: customer.id
+    // Validate address exists and belongs to customer
+    const existingAddress = await prisma.address.findFirst({
+      where: { 
+        id: addressId,
+        customerId: customer.id 
       }
     });
 
-    if (!targetAddress) {
+    if (!existingAddress) {
       return NextResponse.json(
         { error: "Address not found" },
         { status: 404 }
       );
     }
 
-    // Use transaction to ensure consistency
+    // Use a transaction to ensure data consistency
     await prisma.$transaction(async (tx) => {
-      // Remove default from all other addresses
+      // First, remove default from all addresses
       await tx.address.updateMany({
-        where: {
-          customerId: customer.id,
-          id: { not: addressIdInt }
-        },
+        where: { customerId: customer.id },
         data: { isDefault: false }
       });
 
-      // Set this address as default
+      // Then set the selected address as default
       await tx.address.update({
-        where: { id: addressIdInt },
+        where: { id: addressId },
         data: { isDefault: true }
       });
     });

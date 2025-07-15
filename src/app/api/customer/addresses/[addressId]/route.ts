@@ -1,30 +1,22 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAuthenticatedCustomer, validateResourceOwnership, createAuthErrorResponse, createForbiddenErrorResponse } from '@/lib/auth';
+import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
 export async function PUT(
-  request: Request,
+  req: Request,
   { params }: { params: { addressId: string } }
 ) {
   try {
-    const body = await request.json() as any;
-    const addressId = parseInt(params.addressId);
-
-    if (isNaN(addressId)) {
-      return NextResponse.json(
-        { error: "Invalid address ID" },
-        { status: 400 }
-      );
-    }
-
     // Get authenticated customer
     const customer = await requireAuthenticatedCustomer();
+    const body = await req.json() as any;
+    const addressId = parseInt(params.addressId);
 
-    // Find address and validate ownership
+    // Validate address exists and belongs to customer
     const existingAddress = await prisma.address.findFirst({
-      where: {
+      where: { 
         id: addressId,
-        customerId: customer.id
+        customerId: customer.id 
       }
     });
 
@@ -52,10 +44,11 @@ export async function PUT(
       );
     }
 
-    // Check if this is a Google address (has googleAddress field)
+    // Format address based on location type
     let addressLine1 = '';
     let city = 'Bahrain'; // Default city
 
+    // Check if this is a Google address (has googleAddress field)
     if (body.googleAddress?.trim()) {
       // Use Google address as the primary address
       addressLine1 = body.googleAddress.trim();
@@ -169,27 +162,19 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request,
+  req: Request,
   { params }: { params: { addressId: string } }
 ) {
   try {
-    const addressId = parseInt(params.addressId);
-
-    if (isNaN(addressId)) {
-      return NextResponse.json(
-        { error: "Invalid address ID" },
-        { status: 400 }
-      );
-    }
-
     // Get authenticated customer
     const customer = await requireAuthenticatedCustomer();
+    const addressId = parseInt(params.addressId);
 
-    // Find address and validate ownership
+    // Validate address exists and belongs to customer
     const existingAddress = await prisma.address.findFirst({
-      where: {
+      where: { 
         id: addressId,
-        customerId: customer.id
+        customerId: customer.id 
       }
     });
 
@@ -200,25 +185,18 @@ export async function DELETE(
       );
     }
 
+    // Check if this is the default address
+    if (existingAddress.isDefault) {
+      return NextResponse.json(
+        { error: "Cannot delete default address. Please set another address as default first." },
+        { status: 400 }
+      );
+    }
+
     // Delete the address
     await prisma.address.delete({
       where: { id: addressId }
     });
-
-    // If this was the default address, make another address default
-    if (existingAddress.isDefault) {
-      const nextAddress = await prisma.address.findFirst({
-        where: { customerId: customer.id },
-        orderBy: { createdAt: 'asc' }
-      });
-
-      if (nextAddress) {
-        await prisma.address.update({
-          where: { id: nextAddress.id },
-          data: { isDefault: true }
-        });
-      }
-    }
 
     return NextResponse.json({
       success: true,

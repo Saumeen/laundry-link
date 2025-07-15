@@ -149,11 +149,10 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              // Not logged in - Show Login/Register buttons
-              <>
-                <Link href="/registerlogin" className="text-gray-500 hover:text-blue-700">Login</Link>
-                <Link href="/registerlogin" className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700">Register</Link>
-              </>
+              // Not logged in - Show single Sign In button
+              <Link href="/registerlogin" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium">
+                Sign In
+              </Link>
             )}
           </div>
 
@@ -190,8 +189,7 @@ export default function Navbar() {
           ) : (
             <>
               <div className="border-t pt-2 mt-2">
-                <Link href="/registerlogin" className="block py-2 text-gray-700 hover:text-blue-700" onClick={() => setIsMenuOpen(false)}>Login</Link>
-                <Link href="/registerlogin" className="block py-2 text-blue-700 hover:text-blue-900" onClick={() => setIsMenuOpen(false)}>Register</Link>
+                <Link href="/registerlogin" className="block py-2 text-blue-700 hover:text-blue-900 font-medium" onClick={() => setIsMenuOpen(false)}>Sign In</Link>
               </div>
             </>
           )}

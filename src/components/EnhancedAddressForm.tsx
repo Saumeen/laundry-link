@@ -4,7 +4,7 @@ import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
 import PhoneInput from './PhoneInput';
 
 // Define proper types for form data
-interface FormData {
+export interface FormData {
   googleAddress: string;
   city: string;
   area: string;
@@ -241,11 +241,11 @@ export default function EnhancedAddressForm({
     try {
       const autocompleteService = new window.google.maps.places.AutocompleteService();
       
-      // Include all relevant place types for better search results
+      // Use geocode type for address search (most compatible)
       const request = {
         input: inputValue,
         componentRestrictions: { country: 'BH' },
-        types: ['geocode', 'establishment', 'address'] // Include establishments (hotels, businesses) and addresses
+        types: ['geocode'] // This includes all address types
       };
 
       console.log('Searching for:', inputValue);

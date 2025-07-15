@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layouts/main-layout';
 
 // Import the address management component
-import AddressManagement from '@/components/AddressManagement';
+import DashboardAddressManagement from '@/components/DashboardAddressManagement';
 import OrderDetailsModal from '@/components/OrderDetailsModal';
 
 interface Customer {
@@ -833,7 +833,7 @@ function DashboardContent() {
           {/* Addresses Tab */}
           {activeTab === 'addresses' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-              <AddressManagement />
+              <DashboardAddressManagement />
             </div>
           )}
 
