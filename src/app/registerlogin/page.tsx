@@ -16,7 +16,14 @@ const hasUpperCase = (str: string) => /[A-Z]/.test(str);
 const hasMinLength = (str: string) => str.length >= 8;
 const hasNumber = (str: string) => /\d/.test(str);
 
-const AuthForm = () => {
+// Component that uses search params
+const AuthFormWithSearchParams = () => {
+  const searchParams = useSearchParams();
+  
+  return <AuthForm searchParams={searchParams} />;
+};
+
+const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
   const [step, setStep] = useState<'email' | 'login' | 'register'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +34,6 @@ const AuthForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasRedirected = useRef(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const { isAuthenticated, customer, isLoading: authLoading } = useAuth();
   const { showLoading, hideLoading } = useLoading();
@@ -546,6 +552,10 @@ const AuthForm = () => {
 }
 
 export default function RegisterLogin() {
-  return <AuthForm />;
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AuthFormWithSearchParams />
+    </Suspense>
+  );
 }
 

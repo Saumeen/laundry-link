@@ -1,15 +1,14 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
-import MainLayout from '@/components/layouts/main-layout';
 import { useAuth } from '@/hooks/useAuth';
-import DashboardAddressManagement from '@/components/AddressManagement';
+import DashboardAddressManagement from '@/components/DashboardAddressManagement';
+import OrderDetailsModal from '@/components/OrderDetailsModal';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import FAB from '@/components/FAB';
-
+import Toast from '@/components/Toast';
 
 interface Customer {
   id: number;
@@ -122,7 +121,7 @@ const STATUS_CONFIG = {
 } as const;
 
 // Enhanced Stats Card Component with better visual design
-const StatsCard = memo(({ 
+const StatsCard = ({ 
   icon, 
   title, 
   value, 
@@ -158,12 +157,10 @@ const StatsCard = memo(({
       </div>
     </div>
   </div>
-));
-
-StatsCard.displayName = 'StatsCard';
+);
 
 // Enhanced Order Item Component with better visual design
-const OrderItem = memo(({ 
+const OrderItem = ({ 
   order, 
   onViewOrder 
 }: {
@@ -229,12 +226,10 @@ const OrderItem = memo(({
       </div>
     </div>
   );
-});
-
-OrderItem.displayName = 'OrderItem';
+};
 
 // Enhanced Detailed Order Item Component
-const DetailedOrderItem = memo(({ 
+const DetailedOrderItem = ({ 
   order, 
   onViewOrder 
 }: {
@@ -315,12 +310,10 @@ const DetailedOrderItem = memo(({
       </div>
     </div>
   );
-});
-
-DetailedOrderItem.displayName = 'DetailedOrderItem';
+};
 
 // Enhanced Tab Button Component with better visual feedback
-const TabButton = memo(({ 
+const TabButton = ({ 
   tab, 
   isActive, 
   onClick 
@@ -347,12 +340,10 @@ const TabButton = memo(({
       </div>
     </div>
   </button>
-));
-
-TabButton.displayName = 'TabButton';
+);
 
 // Quick Action Button Component
-const QuickActionButton = memo(({ 
+const QuickActionButton = ({ 
   icon, 
   title, 
   subtitle, 
@@ -385,11 +376,9 @@ const QuickActionButton = memo(({
       </div>
     </button>
   );
-});
+};
 
-QuickActionButton.displayName = 'QuickActionButton';
-
-function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
+export default function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -900,32 +889,14 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
       {activeTab === 'addresses' && (
         <FAB onClick={handleAddAddress} icon={<span>+</span>} label="Add Address" />
       )}
-      {/* Order Details Modal, etc. */}
+      {/* Toast for feedback */}
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '' })} />
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        isOpen={isOrderModalOpen}
+        onClose={handleCloseOrderModal}
+        orderId={selectedOrderId}
+      />
     </div>
   );
-}
-
-// Component that uses search params
-const DashboardWithSearchParams = () => {
-  const searchParams = useSearchParams();
-  
-  return <DashboardContent searchParams={searchParams} />;
-};
-
-export default function CustomerDashboard() {
-  return (
-    <MainLayout>
-      <Suspense fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Loading your dashboard...</p>
-          </div>
-        </div>
-      }>
-        <DashboardWithSearchParams />
-      </Suspense>
-    </MainLayout>
-  );
-}
-
+} 

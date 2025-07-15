@@ -3,6 +3,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { UserRole } from "@/types/global";
+import bcrypt from "bcryptjs";
 
 export interface AuthenticatedAdmin {
   id: number;
@@ -146,4 +147,44 @@ export function canManageRole(adminRole: UserRole, targetRole: UserRole): boolea
  */
 export function getManageableRoles(adminRole: UserRole): UserRole[] {
   return ROLE_HIERARCHY[adminRole] || [];
+} 
+
+/**
+ * Authenticate admin user with email and password
+ * This should be used in admin login routes
+ */
+export async function authenticateAdmin(email: string, password: string): Promise<AuthenticatedAdmin | null> {
+  try {
+    const staff = await prisma.staff.findUnique({
+      where: { email: email.toLowerCase() },
+      include: { role: true }
+    });
+
+    if (!staff || !staff.isActive) {
+      return null;
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, staff.password);
+    if (!isPasswordValid) {
+      return null;
+    }
+
+    // Update last login timestamp
+    await prisma.staff.update({
+      where: { id: staff.id },
+      data: { lastLoginAt: new Date() }
+    });
+
+    return {
+      id: staff.id,
+      email: staff.email,
+      firstName: staff.firstName,
+      lastName: staff.lastName,
+      role: staff.role.name as UserRole,
+      isActive: staff.isActive,
+    };
+  } catch (error) {
+    console.error('Error authenticating admin:', error);
+    return null;
+  }
 } 
