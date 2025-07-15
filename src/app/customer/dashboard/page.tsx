@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import DashboardAddressManagement from '@/components/AddressManagement';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import FAB from '@/components/FAB';
+import OrderDetailsModal from '@/components/OrderDetailsModal';
 
 
 interface Customer {
@@ -900,7 +901,12 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
       {activeTab === 'addresses' && (
         <FAB onClick={handleAddAddress} icon={<span>+</span>} label="Add Address" />
       )}
-      {/* Order Details Modal, etc. */}
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        isOpen={isOrderModalOpen}
+        onClose={handleCloseOrderModal}
+        orderId={selectedOrderId}
+      />
     </div>
   );
 }

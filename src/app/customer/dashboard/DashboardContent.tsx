@@ -418,8 +418,10 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
   }, [addresses]);
 
   const handleViewOrder = useCallback((orderId: number) => {
+    console.log('Opening order details for order ID:', orderId);
     setSelectedOrderId(orderId);
     setIsOrderModalOpen(true);
+    console.log('Modal state after opening:', { selectedOrderId: orderId, isOpen: true });
   }, []);
 
   const handleCloseOrderModal = useCallback(() => {

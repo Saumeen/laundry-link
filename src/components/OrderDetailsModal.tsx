@@ -1,52 +1,74 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { calculateInvoiceItemTotal } from "@/lib/calculations";
 
-interface InvoiceItem {
+interface OrderItem {
   id: number;
-  itemType: string;
-  serviceType: string;
+  serviceName: string;
   quantity: number;
-  pricePerItem: number;
-}
-
-interface Address {
-  id: number;
-  label: string;
-  addressLine1: string;
-  addressLine2?: string;
-  address?: string;
-  city: string;
-  area?: string;
-  building?: string;
-  floor?: string;
-  apartment?: string;
-  landmark?: string;
-  contactNumber?: string;
-  locationType?: string;
-  latitude?: number;
-  longitude?: number;
-  isDefault: boolean;
+  unitPrice: number;
+  totalPrice: number;
+  notes?: string;
 }
 
 interface OrderDetails {
   id: number;
   orderNumber: string;
   status: string;
-  pickupTime: string;
-  serviceType: string;
-  createdAt: string;
-  customerFirstName: string;
-  customerLastName: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerAddress: string;
-  specialInstructions?: string;
-  minimumOrderApplied: boolean;
   invoiceTotal: number;
-  invoiceItems: InvoiceItem[];
-  address?: Address;
+  pickupTime: string;
+  deliveryTime?: string;
+  createdAt: string;
+  updatedAt: string;
+  customerNotes?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  specialInstructions?: string;
+  address?: {
+    id: number;
+    label: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    area?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    contactNumber?: string;
+  };
+  pickupAddress?: {
+    id: number;
+    label: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    area?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    contactNumber?: string;
+  };
+  deliveryAddress?: {
+    id: number;
+    label: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    area?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    contactNumber?: string;
+  };
+  invoiceItems?: OrderItem[];
+  items?: OrderItem[];
+  processingDetails?: {
+    washType?: string;
+    dryType?: string;
+    specialInstructions?: string;
+    fabricType?: string;
+    stainTreatment?: string;
+  };
 }
 
 interface OrderDetailsModalProps {
@@ -55,13 +77,45 @@ interface OrderDetailsModalProps {
   orderId: number | null;
 }
 
+const STATUS_CONFIG = {
+  'Order Placed': { 
+    color: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: '📝',
+    bgColor: 'bg-blue-100'
+  },
+  'Picked Up': { 
+    color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    icon: '🚚',
+    bgColor: 'bg-yellow-100'
+  },
+  'In Process': { 
+    color: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: '⚙️',
+    bgColor: 'bg-purple-100'
+  },
+  'Ready for Delivery': { 
+    color: 'bg-green-50 text-green-700 border-green-200',
+    icon: '✅',
+    bgColor: 'bg-green-100'
+  },
+  'Delivered': { 
+    color: 'bg-gray-50 text-gray-700 border-gray-200',
+    icon: '🎉',
+    bgColor: 'bg-gray-100'
+  },
+} as const;
+
 export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDetailsModalProps) {
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  console.log('OrderDetailsModal props:', { isOpen, orderId });
+
   useEffect(() => {
+    console.log('OrderDetailsModal useEffect triggered:', { isOpen, orderId });
     if (isOpen && orderId) {
+      console.log('Fetching order details...');
       fetchOrderDetails();
     }
   }, [isOpen, orderId]);
@@ -73,17 +127,22 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
     setError(null);
     
     try {
-      const response = await fetch(`/api/customer/orders/${orderId}`);
-      if (response.ok) {
-        const data = await response.json() as { order: OrderDetails };
-        setOrderDetails(data.order);
-      } else {
-        const errorData = await response.json() as { error?: string };
-        setError(errorData.error || 'Failed to fetch order details');
+      console.log('Fetching order details for order ID:', orderId);
+      const response = await fetch(`/api/orders/${orderId}`);
+      console.log('API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        throw new Error(`Failed to fetch order details: ${response.status} ${errorText}`);
       }
-    } catch (error) {
-      console.error('Error fetching order details:', error);
-      setError('Failed to fetch order details');
+      
+      const data = await response.json() as { order: OrderDetails };
+      console.log('Order details received:', data);
+      setOrderDetails(data.order);
+    } catch (err) {
+      console.error('Error fetching order details:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load order details');
     } finally {
       setLoading(false);
     }
@@ -92,227 +151,281 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: { [key: string]: string } = {
-      'Order Placed': 'bg-blue-100 text-blue-800',
-      'Picked Up': 'bg-yellow-100 text-yellow-800',
-      'In Process': 'bg-purple-100 text-purple-800',
-      'Ready for Delivery': 'bg-green-100 text-green-800',
-      'Delivered': 'bg-gray-100 text-gray-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+  const formatAddress = (address: any) => {
+    if (!address) return 'Not specified';
+    
+    // If address is a string, return it directly
+    if (typeof address === 'string') {
+      return address;
+    }
+    
+    // If address is an object, format it
+    let formatted = address.addressLine1 || '';
+    if (address.addressLine2) formatted += `, ${address.addressLine2}`;
+    if (address.building) formatted += `, Building ${address.building}`;
+    if (address.floor) formatted += `, Floor ${address.floor}`;
+    if (address.apartment) formatted += `, Apt ${address.apartment}`;
+    if (address.area) formatted += `, ${address.area}`;
+    if (address.city) formatted += `, ${address.city}`;
+    
+    return formatted || 'Address not available';
   };
 
-  const getServiceTypeLabel = (serviceType: string) => {
-    const serviceTypes: { [key: string]: string } = {
-      'wash_and_fold': 'Wash & Fold',
-      'dry_clean': 'Dry Clean',
-      'iron_only': 'Iron Only',
-      'express': 'Express Service',
+  const getStatusConfig = (status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || {
+      color: 'bg-gray-50 text-gray-700 border-gray-200',
+      icon: '❓',
+      bgColor: 'bg-gray-100'
     };
-    return serviceTypes[serviceType] || serviceType;
   };
 
-  if (!isOpen) return null;
+  if (!orderId) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Order Details</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-          >
-            ×
-          </button>
-        </div>
+    <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
+      <div className="fixed inset-0 bg-black/30" aria-hidden="true" onClick={onClose} />
+      
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <div className="mx-auto max-w-4xl w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Order Details
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <span className="text-2xl text-gray-500">×</span>
+            </button>
+          </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          )}
-
-          {error && (
-            <div className="text-center py-8">
-              <p className="text-red-600">{error}</p>
-              <button
-                onClick={fetchOrderDetails}
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {orderDetails && !loading && (
-            <div className="space-y-6">
-              {/* Order Header */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      Order #{orderDetails.orderNumber}
-                    </h3>
-                    <p className="text-gray-600">
-                      Placed on {formatDate(orderDetails.createdAt)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(orderDetails.status)}`}>
-                      {orderDetails.status}
-                    </span>
-                    <p className="text-2xl font-bold text-gray-900 mt-2">
-                      {orderDetails?.invoiceTotal?.toFixed(3)} BD
-                    </p>
-                  </div>
-                </div>
+          {/* Content */}
+          <div className="p-6">
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent"></div>
+                <span className="ml-3 text-gray-600">Loading order details...</span>
               </div>
+            )}
 
-              {/* Order Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3">Order Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Service Type:</span>
-                      <span className="font-medium">{getServiceTypeLabel(orderDetails.serviceType)}</span>
+            {error && (
+              <div className="text-center py-12">
+                <div className="text-red-500 text-lg mb-2">⚠️</div>
+                <p className="text-red-600 font-medium">{error}</p>
+                <button
+                  onClick={fetchOrderDetails}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {orderDetails && !loading && (
+              <div className="space-y-8">
+                {/* Order Header */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">#{orderDetails?.orderNumber || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900">Order #{orderDetails?.orderNumber || 'N/A'}</h2>
+                        <p className="text-gray-600">Customer: {orderDetails?.customerPhone || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Pickup Time:</span>
-                      <span className="font-medium">{formatDate(orderDetails.pickupTime)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Status:</span>
-                      <span className="font-medium">{orderDetails.status}</span>
+                    <div className="text-right">
+                      <p className="text-3xl font-bold text-gray-900">{orderDetails?.invoiceTotal?.toFixed(3) || '0.000'} BD</p>
+                      <span className={`px-3 py-1 text-sm font-medium rounded-full border ${getStatusConfig(orderDetails?.status || '').color}`}>
+                        {orderDetails?.status || 'Unknown'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3">Customer Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Name:</span>
-                      <span className="font-medium">{orderDetails.customerFirstName} {orderDetails.customerLastName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Email:</span>
-                      <span className="font-medium">{orderDetails.customerEmail}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Phone:</span>
-                      <span className="font-medium">{orderDetails.customerPhone}</span>
-                    </div>
-                    {orderDetails.address?.contactNumber && (
+                {/* Order Information Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Order Details */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <span className="mr-2">📋</span>
+                      Order Information
+                    </h3>
+                    <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Address Phone:</span>
-                        <span className="font-medium">{orderDetails.address.contactNumber}</span>
+                        <span className="text-gray-600">Order Date:</span>
+                        <span className="font-medium">{orderDetails?.createdAt ? formatDate(orderDetails.createdAt) : 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Last Updated:</span>
+                        <span className="font-medium">{orderDetails?.updatedAt ? formatDate(orderDetails.updatedAt) : 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Customer Phone:</span>
+                        <span className="font-medium">{orderDetails?.customerPhone || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Customer Address:</span>
+                        <span className="font-medium">{orderDetails?.customerAddress || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Pickup Time:</span>
+                        <span className="font-medium">{orderDetails?.pickupTime ? formatDate(orderDetails.pickupTime) : 'N/A'}</span>
+                      </div>
+                      {orderDetails?.deliveryTime && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Delivery Time:</span>
+                          <span className="font-medium">{formatDate(orderDetails.deliveryTime)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Processing Details */}
+                  {orderDetails.processingDetails && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <span className="mr-2">⚙️</span>
+                        Processing Details
+                      </h3>
+                      <div className="space-y-3">
+                        {orderDetails?.processingDetails?.washType && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Wash Type:</span>
+                            <span className="font-medium">{orderDetails.processingDetails.washType}</span>
+                          </div>
+                        )}
+                        {orderDetails?.processingDetails?.dryType && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Dry Type:</span>
+                            <span className="font-medium">{orderDetails.processingDetails.dryType}</span>
+                          </div>
+                        )}
+                        {orderDetails?.processingDetails?.fabricType && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Fabric Type:</span>
+                            <span className="font-medium">{orderDetails.processingDetails.fabricType}</span>
+                          </div>
+                        )}
+                        {orderDetails?.processingDetails?.stainTreatment && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Stain Treatment:</span>
+                            <span className="font-medium">{orderDetails.processingDetails.stainTreatment}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Addresses */}
+                {(orderDetails?.pickupAddress || orderDetails?.deliveryAddress) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Pickup Address */}
+                    {orderDetails?.pickupAddress && (
+                      <div className="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <span className="mr-2">🚚</span>
+                          Pickup Address
+                        </h3>
+                        <div className="space-y-2">
+                          <p className="font-medium text-gray-900">{orderDetails?.pickupAddress?.label || 'N/A'}</p>
+                          <p className="text-gray-600">{formatAddress(orderDetails?.pickupAddress)}</p>
+                          {orderDetails?.pickupAddress?.contactNumber && (
+                            <p className="text-gray-600">📞 {orderDetails.pickupAddress.contactNumber}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delivery Address */}
+                    {orderDetails?.deliveryAddress && (
+                      <div className="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <span className="mr-2">🏠</span>
+                          Delivery Address
+                        </h3>
+                        <div className="space-y-2">
+                          <p className="font-medium text-gray-900">{orderDetails?.deliveryAddress?.label || 'N/A'}</p>
+                          <p className="text-gray-600">{formatAddress(orderDetails?.deliveryAddress)}</p>
+                          {orderDetails?.deliveryAddress?.contactNumber && (
+                            <p className="text-gray-600">📞 {orderDetails.deliveryAddress.contactNumber}</p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-
-              {/* Address */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-3">Delivery Address</h4>
-                {orderDetails.address ? (
-                  <div className="space-y-2">
-                    <p className="text-gray-700 font-medium">{orderDetails.address.label}</p>
-                    <p className="text-gray-700">{orderDetails.address.address || orderDetails.address.addressLine1}</p>
-                    {orderDetails.address.addressLine2 && (
-                      <p className="text-gray-700">{orderDetails.address.addressLine2}</p>
-                    )}
-                    <p className="text-gray-700">{orderDetails.address.city}</p>
-                    {orderDetails.address.contactNumber && (
-                      <p className="text-gray-600 text-sm">Contact: {orderDetails.address.contactNumber}</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-gray-700">{orderDetails.customerAddress}</p>
                 )}
-              </div>
 
-              {/* Invoice Items */}
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-4">Order Items</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 font-medium text-gray-700">Item Type</th>
-                        <th className="text-left py-2 font-medium text-gray-700">Service</th>
-                        <th className="text-center py-2 font-medium text-gray-700">Quantity</th>
-                        <th className="text-right py-2 font-medium text-gray-700">Price/Item</th>
-                        <th className="text-right py-2 font-medium text-gray-700">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orderDetails.invoiceItems.map((item) => (
-                        <tr key={item.id} className="border-b border-gray-100">
-                          <td className="py-3 text-gray-900">{item.itemType}</td>
-                          <td className="py-3 text-gray-900">{getServiceTypeLabel(item.serviceType)}</td>
-                          <td className="py-3 text-center text-gray-900">{item.quantity}</td>
-                          <td className="py-3 text-right text-gray-900">{item.pricePerItem.toFixed(3)} BD</td>
-                          <td className="py-3 text-right font-medium text-gray-900">{calculateInvoiceItemTotal(item).toFixed(3)} BD</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Special Instructions */}
-              {orderDetails.specialInstructions && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-2">Special Instructions</h4>
-                  <p className="text-gray-700">{orderDetails.specialInstructions}</p>
-                </div>
-              )}
-
-              {/* Total Summary */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-medium">{orderDetails.invoiceItems.reduce((sum, item) => sum + calculateInvoiceItemTotal(item), 0).toFixed(3)} BD</span>
+                {/* Customer Notes */}
+                {orderDetails?.customerNotes && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <span className="mr-2">📝</span>
+                      Customer Notes
+                    </h3>
+                    <p className="text-gray-700 bg-gray-50 rounded-lg p-4">{orderDetails.customerNotes}</p>
                   </div>
-                  {orderDetails.minimumOrderApplied && (
-                    <div className="flex justify-between text-sm text-yellow-700">
-                      <span>Minimum Order Fee:</span>
-                      <span className="font-medium">4.000 BD</span>
+                )}
+
+                {/* Special Instructions */}
+                {orderDetails?.processingDetails?.specialInstructions && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <span className="mr-2">⚠️</span>
+                      Special Instructions
+                    </h3>
+                    <p className="text-gray-700 bg-yellow-50 rounded-lg p-4">{orderDetails.processingDetails.specialInstructions}</p>
+                  </div>
+                )}
+
+                {/* Order Items */}
+                <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="mr-2">👕</span>
+                    Order Items
+                  </h3>
+                  <div className="space-y-4">
+                    {orderDetails?.items?.map((item, index) => (
+                      <div key={item?.id || index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{item?.serviceName || 'N/A'}</p>
+                          {item?.notes && (
+                            <p className="text-sm text-gray-600 mt-1">{item.notes}</p>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-gray-600">Qty: {item?.quantity || 0}</p>
+                          <p className="text-sm text-gray-600">@{item?.unitPrice?.toFixed(3) || '0.000'} BD</p>
+                          <p className="font-semibold text-gray-900">{item?.totalPrice?.toFixed(3) || '0.000'} BD</p>
+                        </div>
+                      </div>
+                    ))}
+                    {(!orderDetails?.items || orderDetails.items.length === 0) && (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No items found for this order</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xl font-bold text-gray-900">Total</span>
+                      <span className="text-2xl font-bold text-gray-900">{orderDetails?.invoiceTotal?.toFixed(3) || '0.000'} BD</span>
                     </div>
-                  )}
-                  <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                    <span>Total Amount:</span>
-                    <span>{orderDetails.invoiceItems.reduce((sum, item) => sum + calculateInvoiceItemTotal(item), 0).toFixed(3)} BD</span>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end p-6 border-t border-gray-200">
-          <button
-            onClick={onClose}
-            className="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700"
-          >
-            Close
-          </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
