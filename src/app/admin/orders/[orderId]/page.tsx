@@ -1652,7 +1652,14 @@ function InvoiceItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => 
               <select
                 value={newInvoiceItem.orderServiceMappingId}
                 onChange={(e) => {
-                  setNewInvoiceItem({ ...newInvoiceItem, orderServiceMappingId: e.target.value });
+                  const selectedMappingId = e.target.value;
+                  const selectedMapping = order.orderServiceMappings?.find(m => m.id.toString() === selectedMappingId);
+                  
+                  setNewInvoiceItem({ 
+                    ...newInvoiceItem, 
+                    orderServiceMappingId: selectedMappingId,
+                    pricePerItem: selectedMapping ? selectedMapping.price : 0
+                  });
                   setErrors({ ...errors, orderServiceMappingId: undefined });
                 }}
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -1779,7 +1786,14 @@ function InvoiceItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => 
                           <select
                             value={editInvoiceItem.orderServiceMappingId}
                             onChange={(e) => {
-                              setEditInvoiceItem({ ...editInvoiceItem, orderServiceMappingId: e.target.value });
+                              const selectedMappingId = e.target.value;
+                              const selectedMapping = order.orderServiceMappings?.find(m => m.id.toString() === selectedMappingId);
+                              
+                              setEditInvoiceItem({ 
+                                ...editInvoiceItem, 
+                                orderServiceMappingId: selectedMappingId,
+                                pricePerItem: selectedMapping ? selectedMapping.price : 0
+                              });
                               setErrors({ ...errors, orderServiceMappingId: undefined });
                             }}
                             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
