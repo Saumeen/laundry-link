@@ -166,7 +166,7 @@ model DriverAssignment {
   orderId         Int
   driverId        Int
   assignmentType  String   // 'pickup' or 'delivery'
-  status          String   @default("assigned") // 'assigned', 'in_progress', 'completed', 'cancelled'
+  status          String   @default("assigned") // 'assigned', 'in_progress', 'completed', 'cancelled', 'rescheduled'
   estimatedTime   DateTime?
   actualTime      DateTime?
   notes           String?
@@ -176,8 +176,25 @@ model DriverAssignment {
   // Relations
   order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   driver          Staff    @relation(fields: [driverId], references: [id])
+  photos          DriverPhoto[]
 
   @@map("driver_assignments")
+}
+
+model DriverPhoto {
+  id                  Int      @id @default(autoincrement())
+  driverAssignmentId  Int
+  photoUrl            String
+  photoType           String   // 'pickup_photo', 'delivery_photo', 'issue_photo'
+  description         String?
+  latitude            Float?
+  longitude           Float?
+  createdAt           DateTime @default(now())
+  
+  // Relations
+  driverAssignment    DriverAssignment @relation(fields: [driverAssignmentId], references: [id], onDelete: Cascade)
+
+  @@map("driver_photos")
 }
 
 model InvoiceItem {
