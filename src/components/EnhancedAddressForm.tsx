@@ -414,7 +414,7 @@ export default function EnhancedAddressForm({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Collection Method *
+                Collection Method
               </label>
               <select
                 name="collectionMethod"
@@ -454,7 +454,7 @@ export default function EnhancedAddressForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Road *
+                  Road
                 </label>
                 <input
                   type="text"
@@ -486,7 +486,7 @@ export default function EnhancedAddressForm({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Collection Method *
+                Collection Method
               </label>
               <select
                 name="homeCollectionMethod"
@@ -612,7 +612,7 @@ export default function EnhancedAddressForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Road *
+                  Road
                 </label>
                 <input
                   type="text"
@@ -851,7 +851,7 @@ export default function EnhancedAddressForm({
       <div className="bg-white rounded-lg border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-2">
           <label className="block text-sm font-medium text-gray-700">
-            Location Type *
+            Location Type
           </label>
           {selectedAddress && selectedAddress.locationType && (
             <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">

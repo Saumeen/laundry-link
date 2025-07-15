@@ -48,10 +48,10 @@ export async function PUT(
     let addressLine1 = '';
     let city = 'Bahrain'; // Default city
 
-    // Check if this is a Google address (has googleAddress field)
-    if (body.googleAddress?.trim()) {
+    // Check if this is a Google address (has googleAddress or addressLine1 field)
+    if (body.googleAddress?.trim() || body.addressLine1?.trim()) {
       // Use Google address as the primary address - all other fields are optional
-      addressLine1 = body.googleAddress.trim();
+      addressLine1 = (body.googleAddress || body.addressLine1).trim();
       city = body.city || 'Bahrain';
       // Skip all location-specific validation when Google address is provided
     } else {

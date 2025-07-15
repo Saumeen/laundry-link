@@ -253,15 +253,17 @@ export default function AddressSelector({
       newErrors.contactNumber = 'Please enter a valid phone number';
     }
 
-    // If Google address is selected (and geocoded), all other fields are optional
+    // If Google address is selected (and geocoded), only contact number is required
     if (formData.googleAddress.trim() && selectedAddress) {
-      // No further validation needed
+      // Only contact number is required when Google address is provided
+      // All other fields are optional
     } else {
-      // Require googleAddress
+      // Require googleAddress if no Google address is selected
       if (!formData.googleAddress.trim()) {
         newErrors.googleAddress = 'Address is required';
       }
-      // Location-specific validations
+      
+      // Location-specific validations only when no Google address is provided
       if (formData.locationType === 'hotel') {
         if (!formData.hotelName.trim()) {
           newErrors.hotelName = 'Hotel name is required';
@@ -304,6 +306,7 @@ export default function AddressSelector({
       // Prepare address data for API
       const addressData: any = {
         label: formData.googleAddress,
+        googleAddress: formData.googleAddress, // Add this field explicitly
         addressLine1: formData.googleAddress,
         city: formData.city,
         area: formData.area,
