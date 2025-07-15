@@ -391,7 +391,7 @@ const QuickActionButton = memo(({
 
 QuickActionButton.displayName = 'QuickActionButton';
 
-function DashboardContent() {
+function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -401,7 +401,6 @@ function DashboardContent() {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' }>({ message: '' });
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { data: session, status: sessionStatus } = useSession();
   const { isAuthenticated, customer: authCustomer, isLoading: authLoading } = useAuth();
 
@@ -910,23 +909,28 @@ function DashboardContent() {
   );
 }
 
-// Memoize the main dashboard component
-const MemoizedDashboardContent = memo(DashboardContent);
-MemoizedDashboardContent.displayName = 'DashboardContent';
+// Component that uses useSearchParams
+function DashboardWithSearchParams() {
+  const searchParams = useSearchParams();
+  
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading your dashboard...</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
 
 export default function CustomerDashboard() {
   return (
     <MainLayout>
-      <Suspense fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Loading your dashboard...</p>
-          </div>
-        </div>
-      }>
-        <MemoizedDashboardContent />
-      </Suspense>
+      <DashboardWithSearchParams />
     </MainLayout>
   );
 }
