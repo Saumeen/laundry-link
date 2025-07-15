@@ -302,7 +302,7 @@ export default function AddressSelector({
 
     try {
       // Prepare address data for API
-      const addressData = {
+      const addressData: any = {
         label: formData.googleAddress,
         addressLine1: formData.googleAddress,
         city: formData.city,
@@ -311,30 +311,31 @@ export default function AddressSelector({
         locationType: formData.locationType,
         contactNumber: formData.contactNumber,
         email: session?.user?.email || '',
-        // Location-specific data
-        ...(formData.locationType === 'hotel' && {
-          hotelName: formData.hotelName,
-          roomNumber: formData.roomNumber,
-          collectionMethod: formData.collectionMethod,
-        }),
-        ...(formData.locationType === 'home' && {
-          house: formData.house,
-          road: formData.road,
-          block: formData.block,
-          homeCollectionMethod: formData.homeCollectionMethod,
-        }),
-        ...(formData.locationType === 'flat' && {
-          flatNumber: formData.flatNumber,
-        }),
-        ...(formData.locationType === 'office' && {
-          officeNumber: formData.officeNumber,
-        }),
         // GPS coordinates if available
         ...(selectedAddress?.latitude && selectedAddress?.longitude && {
           latitude: selectedAddress.latitude,
           longitude: selectedAddress.longitude,
         }),
       };
+
+      // Add location-specific data only if Google address is not provided
+      if (!formData.googleAddress.trim() || !selectedAddress) {
+        if (formData.locationType === 'hotel') {
+          addressData.hotelName = formData.hotelName;
+          addressData.roomNumber = formData.roomNumber;
+          addressData.collectionMethod = formData.collectionMethod;
+        } else if (formData.locationType === 'home') {
+          addressData.house = formData.house;
+          addressData.road = formData.road;
+          addressData.block = formData.block;
+          addressData.homeCollectionMethod = formData.homeCollectionMethod;
+        } else if (formData.locationType === 'flat') {
+          addressData.flatNumber = formData.flatNumber;
+        } else if (formData.locationType === 'office') {
+          addressData.officeNumber = formData.officeNumber;
+        }
+      }
+
       await saveAddress(addressData);
     } catch (error) {
       console.error('Error in handleSave:', error);

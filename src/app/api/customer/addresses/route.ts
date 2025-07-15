@@ -62,9 +62,10 @@ export async function POST(req: Request) {
 
     // Check if this is a Google address (has googleAddress field)
     if (body.googleAddress?.trim()) {
-      // Use Google address as the primary address
+      // Use Google address as the primary address - all other fields are optional
       addressLine1 = body.googleAddress.trim();
       city = body.city || 'Bahrain';
+      // Skip all location-specific validation when Google address is provided
     } else {
       // Fall back to location-specific address formatting
       switch (locationType) {
@@ -95,35 +96,37 @@ export async function POST(req: Request) {
           break;
 
         case 'flat':
-          if (!body.building?.trim() || !body.road?.trim()) {
+          if (!body.building?.trim() || !body.flatNumber?.trim()) {
             return NextResponse.json(
-              { error: "Building and road are required" },
+              { error: "Building and flat number are required" },
               { status: 400 }
             );
           }
-          addressLine1 = `${body.building}, ${body.road}`;
+          addressLine1 = `${body.building}`;
+          if (body.road?.trim()) {
+            addressLine1 += `, ${body.road}`;
+          }
           if (body.block?.trim()) {
             addressLine1 += `, Block ${body.block}`;
           }
-          if (body.flatNumber?.trim()) {
-            addressLine1 += `, Flat ${body.flatNumber}`;
-          }
+          addressLine1 += `, Flat ${body.flatNumber}`;
           break;
 
         case 'office':
-          if (!body.building?.trim() || !body.road?.trim()) {
+          if (!body.building?.trim() || !body.officeNumber?.trim()) {
             return NextResponse.json(
-              { error: "Building and road are required" },
+              { error: "Building and office number are required" },
               { status: 400 }
             );
           }
-          addressLine1 = `${body.building}, ${body.road}`;
+          addressLine1 = `${body.building}`;
+          if (body.road?.trim()) {
+            addressLine1 += `, ${body.road}`;
+          }
           if (body.block?.trim()) {
             addressLine1 += `, Block ${body.block}`;
           }
-          if (body.officeNumber?.trim()) {
-            addressLine1 += `, Office ${body.officeNumber}`;
-          }
+          addressLine1 += `, Office ${body.officeNumber}`;
           break;
 
         default:
