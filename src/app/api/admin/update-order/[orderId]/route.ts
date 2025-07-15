@@ -8,11 +8,9 @@ interface UpdateOrderRequest {
   deliveryTime?: string;
   invoiceItems?: Array<{
     id?: number; // Add ID for existing items
-    itemType: string;
+    orderServiceMappingId: number;
     quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    serviceType?: string;
+    pricePerItem: number;
     notes?: string;
   }>;
 }
@@ -65,10 +63,12 @@ export async function PUT(
 
     // If invoice items are provided, update them intelligently
     if (invoiceItems && Array.isArray(invoiceItems)) {
-      // Get existing invoice items
+      // Get existing invoice items for this order
       const existingItems = await prisma.invoiceItem.findMany({
         where: {
-          orderId: orderIdNum,
+          orderServiceMapping: {
+            orderId: orderIdNum,
+          },
         },
       });
 
@@ -93,17 +93,16 @@ export async function PUT(
 
       // Update existing items
       for (const item of itemsToUpdate) {
-        if (item.id && item.itemType && item.quantity > 0) {
+        if (item.id && item.orderServiceMappingId && item.quantity > 0) {
           await prisma.invoiceItem.update({
             where: {
               id: item.id,
             },
             data: {
-              itemType: item.itemType,
-              serviceType: item.serviceType || item.itemType, // Use serviceType or itemType as fallback
+              orderServiceMappingId: item.orderServiceMappingId,
               quantity: item.quantity,
-              pricePerItem: item.unitPrice,
-              totalPrice: item.totalPrice,
+              pricePerItem: item.pricePerItem,
+              notes: item.notes,
             },
           });
         }
@@ -111,15 +110,13 @@ export async function PUT(
 
       // Create new items
       for (const item of itemsToCreate) {
-        if (item.itemType && item.quantity > 0) {
+        if (item.orderServiceMappingId && item.quantity > 0) {
           await prisma.invoiceItem.create({
             data: {
-              orderId: orderIdNum,
-              itemType: item.itemType,
-              serviceType: item.serviceType || item.itemType, // Use serviceType or itemType as fallback
+              orderServiceMappingId: item.orderServiceMappingId,
               quantity: item.quantity,
-              pricePerItem: item.unitPrice,
-              totalPrice: item.totalPrice,
+              pricePerItem: item.pricePerItem,
+              notes: item.notes,
             },
           });
         }
@@ -128,11 +125,22 @@ export async function PUT(
       // Recalculate total amount
       const newInvoiceItems = await prisma.invoiceItem.findMany({
         where: {
-          orderId: orderIdNum,
+          orderServiceMapping: {
+            orderId: orderIdNum,
+          },
+        },
+        include: {
+          orderServiceMapping: {
+            include: {
+              service: true,
+            },
+          },
         },
       });
 
-      const newTotalAmount = newInvoiceItems.reduce((sum: number, item: { totalPrice: number }) => sum + item.totalPrice, 0);
+      // Calculate total using quantity * pricePerItem for each item
+      const newTotalAmount = newInvoiceItems.reduce((sum: number, item: { quantity: number; pricePerItem: number }) => 
+        sum + (item.quantity * item.pricePerItem), 0);
 
       // Update order with new total amount
       await prisma.order.update({
@@ -140,7 +148,7 @@ export async function PUT(
           id: orderIdNum,
         },
         data: {
-          totalAmount: newTotalAmount,
+          invoiceTotal: newTotalAmount,
         },
       });
     }

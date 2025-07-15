@@ -7,7 +7,7 @@ const SORTABLE_FIELDS: Record<string, string> = {
   orderNumber: 'orderNumber',
   customerName: 'customer', // special case
   status: 'status',
-  totalAmount: 'totalAmount',
+  totalAmount: 'invoiceTotal',
   createdAt: 'createdAt',
 };
 

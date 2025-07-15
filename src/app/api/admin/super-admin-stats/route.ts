@@ -16,10 +16,10 @@ export async function GET() {
     // Get total revenue (sum of all order amounts)
     const revenueResult = await prisma.order.aggregate({
       _sum: {
-        totalAmount: true
+        invoiceTotal: true
       }
     });
-    const totalRevenue = revenueResult._sum.totalAmount || 0;
+    const totalRevenue = revenueResult._sum.invoiceTotal || 0;
 
     // Get active staff count
     const activeStaff = await prisma.staff.count({
