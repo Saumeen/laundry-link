@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import PageTransition from "@/components/ui/PageTransition";
-import { Camera, MapPin, Phone, User, Clock, CheckCircle, XCircle, AlertCircle, Calendar } from "lucide-react";
+import { Camera, MapPin, Phone, User, Clock, CheckCircle, XCircle, AlertCircle, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DriverAssignment {
   id: number;
@@ -93,6 +93,10 @@ export default function DriverDashboard() {
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     if (authLoading) return;
@@ -348,6 +352,28 @@ export default function DriverDashboard() {
     ), [assignments]
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(assignments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAssignments = assignments.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   if (authLoading || loading || statsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -598,12 +624,18 @@ export default function DriverDashboard() {
 
             {/* All Assignments */}
             <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">All Assignments</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">All Assignments</h2>
+                <div className="text-sm text-gray-500">
+                  Showing {startIndex + 1}-{Math.min(endIndex, assignments.length)} of {assignments.length} assignments
+                </div>
+              </div>
+              
               <div className="space-y-4">
                 {assignments.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No assignments found</p>
                 ) : (
-                  assignments.map((assignment) => (
+                  currentAssignments.map((assignment) => (
                     <div key={assignment.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
@@ -626,7 +658,7 @@ export default function DriverDashboard() {
                         </p>
                       </div>
                       <div className="flex space-x-2">
-                        {assignment.status !== "completed" && (
+                        {assignment.status !== "completed" && assignment.status !== "delivered" && (
                           <button
                             onClick={() => {
                               setSelectedAssignment(assignment);
@@ -649,125 +681,284 @@ export default function DriverDashboard() {
                   ))
                 )}
               </div>
+
+              {/* Pagination Controls */}
+              {assignments.length > itemsPerPage && (
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={goToPreviousPage}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    
+                    {/* Page Numbers */}
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => goToPage(pageNum)}
+                            className={`px-3 py-2 text-sm font-medium rounded-md ${
+                              currentPage === pageNum
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    <button
+                      onClick={goToNextPage}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </main>
 
         {/* Assignment Details Modal */}
         {selectedAssignment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">
-                  {selectedAssignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} Details
-                </h2>
-                <button
-                  onClick={() => setSelectedAssignment(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900">Order Information</h3>
-                  <p>Order #: {selectedAssignment.order.orderNumber}</p>
-                  <p>Type: {selectedAssignment.assignmentType}</p>
-                  <p>Status: {selectedAssignment.status}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-900">Customer Information</h3>
-                  <div className="flex items-center space-x-2">
-                    <User className="w-4 h-4" />
-                    <p>{selectedAssignment.order.customerFirstName} {selectedAssignment.order.customerLastName}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Phone className="w-4 h-4" />
-                    <p>{selectedAssignment.order.customerPhone}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-4 h-4" />
-                    <p>{selectedAssignment.order.customerAddress}</p>
-                  </div>
-                </div>
-
-                {selectedAssignment.order.specialInstructions && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Special Instructions</h3>
-                    <p className="text-gray-600">{selectedAssignment.order.specialInstructions}</p>
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="font-semibold text-gray-900">Timing</h3>
-                  <p>Estimated: {new Date(selectedAssignment.estimatedTime || selectedAssignment.order.pickupTime).toLocaleString()}</p>
-                  {selectedAssignment.actualTime && (
-                    <p>Actual: {new Date(selectedAssignment.actualTime).toLocaleString()}</p>
-                  )}
-                </div>
-
-                {selectedAssignment.photos.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Photos</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {selectedAssignment.photos.map((photo) => (
-                        <div key={photo.id} className="relative">
-                          <img
-                            src={photo.photoUrl}
-                            alt={photo.photoType}
-                            className="w-full h-32 object-cover rounded"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">{photo.photoType}</p>
-                        </div>
-                      ))}
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                      {selectedAssignment.assignmentType === "pickup" ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold">
+                        {selectedAssignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} Assignment
+                      </h2>
+                      <p className="text-blue-100">Order #{selectedAssignment.order.orderNumber}</p>
                     </div>
                   </div>
-                )}
+                  <button
+                    onClick={() => setSelectedAssignment(null)}
+                    className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Status Badge */}
+                <div className="mt-4">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedAssignment.status)}`}>
+                    {getStatusIcon(selectedAssignment.status)}
+                    <span className="ml-2 capitalize">{selectedAssignment.status.replace("_", " ")}</span>
+                  </span>
+                </div>
+              </div>
 
-                {selectedAssignment.status !== "completed" && selectedAssignment.status !== "delivered" && (
-                  <div className="border-t pt-4">
-                    <h3 className="font-semibold text-gray-900 mb-2">Update Status</h3>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add notes (optional)"
-                      className="w-full p-2 border rounded mb-2"
-                      rows={3}
-                    />
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setShowPhotoModal(true)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                      >
-                        <Camera className="w-4 h-4 inline mr-2" />
-                        Take Photo
-                      </button>
-                      <button
-                        onClick={() => updateAssignmentStatus(
-                          selectedAssignment.id,
-                          getNextStatus(selectedAssignment.status, selectedAssignment.assignmentType)
-                        )}
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                        disabled={updating === selectedAssignment.id}
-                      >
-                        {updating === selectedAssignment.id ? "Updating..." : getStatusButtonText(selectedAssignment.status, selectedAssignment.assignmentType)}
-                      </button>
-                      {selectedAssignment.assignmentType === "delivery" && (
-                        <button
-                          onClick={() => {
-                            setShowRescheduleModal(true);
-                          }}
-                          className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
-                          disabled={updating === selectedAssignment.id}
-                        >
-                          {updating === selectedAssignment.id ? "Updating..." : "Reschedule"}
-                        </button>
+              {/* Modal Content */}
+              <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
+                <div className="p-6 space-y-6">
+                  {/* Customer Information Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <User className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Customer Information</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Name</p>
+                          <p className="font-medium">{selectedAssignment.order.customerFirstName} {selectedAssignment.order.customerLastName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                          <Phone className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Phone</p>
+                          <p className="font-medium">{selectedAssignment.order.customerPhone}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-start space-x-3">
+                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mt-1">
+                        <MapPin className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-500">Address</p>
+                        <p className="font-medium">{selectedAssignment.order.customerAddress}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Timing Information Card */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Timing Information</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Estimated Time</p>
+                        <p className="font-medium">
+                          {new Date(selectedAssignment.estimatedTime || selectedAssignment.order.pickupTime).toLocaleString()}
+                        </p>
+                      </div>
+                      {selectedAssignment.actualTime && (
+                        <div>
+                          <p className="text-sm text-gray-500">Actual Time</p>
+                          <p className="font-medium text-green-600">
+                            {new Date(selectedAssignment.actualTime).toLocaleString()}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
-                )}
+
+                  {/* Special Instructions */}
+                  {selectedAssignment.order.specialInstructions && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <AlertCircle className="w-5 h-5 text-yellow-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Special Instructions</h3>
+                      </div>
+                      <p className="text-gray-700">{selectedAssignment.order.specialInstructions}</p>
+                    </div>
+                  )}
+
+                  {/* Photos Section */}
+                  {selectedAssignment.photos.length > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Camera className="w-5 h-5 text-blue-600" />
+                        <h3 className="text-lg font-semibold text-gray-900">Assignment Photos</h3>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {selectedAssignment.photos.map((photo) => (
+                          <div key={photo.id} className="relative group">
+                            <img
+                              src={photo.photoUrl}
+                              alt={photo.photoType}
+                              className="w-full h-32 object-cover rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all rounded-lg flex items-center justify-center">
+                              <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-medium bg-black bg-opacity-50 px-2 py-1 rounded">
+                                {photo.photoType.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1 text-center">
+                              {new Date(photo.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Section */}
+                  {selectedAssignment.status !== "completed" && selectedAssignment.status !== "delivered" && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <h3 className="text-lg font-semibold text-gray-900">Update Assignment</h3>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Notes (Optional)
+                          </label>
+                          <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Add any notes about this assignment..."
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                            rows={3}
+                          />
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={() => setShowPhotoModal(true)}
+                            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>Take Photo</span>
+                          </button>
+                          
+                          <button
+                            onClick={() => updateAssignmentStatus(
+                              selectedAssignment.id,
+                              getNextStatus(selectedAssignment.status, selectedAssignment.assignmentType)
+                            )}
+                            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                            disabled={updating === selectedAssignment.id}
+                          >
+                            {updating === selectedAssignment.id ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span>Updating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                <span>{getStatusButtonText(selectedAssignment.status, selectedAssignment.assignmentType)}</span>
+                              </>
+                            )}
+                          </button>
+                          
+                          {selectedAssignment.assignmentType === "delivery" && (
+                            <button
+                              onClick={() => setShowRescheduleModal(true)}
+                              className="flex items-center space-x-2 bg-yellow-600 text-white px-4 py-3 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm"
+                              disabled={updating === selectedAssignment.id}
+                            >
+                              <Calendar className="w-4 h-4" />
+                              <span>Reschedule</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -775,39 +966,72 @@ export default function DriverDashboard() {
 
         {/* Photo Modal */}
         {showPhotoModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Take Photo</h2>
-                <button
-                  onClick={() => setShowPhotoModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">Capture Photo</h2>
+                      <p className="text-blue-100 text-sm">Take a photo for this assignment</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowPhotoModal(false)}
+                    className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Modal Content */}
+              <div className="p-6">
                 {!photoData ? (
-                  <button
-                    onClick={capturePhoto}
-                    className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700"
-                  >
-                    <Camera className="w-6 h-6 inline mr-2" />
-                    Capture Photo
-                  </button>
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 rounded-lg p-6 text-center">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Camera className="w-8 h-8 text-blue-600" />
+                      </div>
+                      <p className="text-gray-600 mb-4">
+                        Click the button below to capture a photo for this assignment
+                      </p>
+                      <button
+                        onClick={capturePhoto}
+                        className="w-full bg-blue-600 text-white py-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                      >
+                        <Camera className="w-5 h-5 inline mr-2" />
+                        Capture Photo
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <div>
-                    <img
-                      src={photoData}
-                      alt="Captured"
-                      className="w-full h-64 object-cover rounded mb-4"
-                    />
-                    <div className="flex space-x-2">
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <img
+                        src={photoData}
+                        alt="Captured"
+                        className="w-full h-64 object-cover rounded-lg shadow-sm border"
+                      />
+                      <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                        ✓ Captured
+                      </div>
+                    </div>
+                    
+                    <div className="flex space-x-3">
                       <button
                         onClick={() => setPhotoData(null)}
-                        className="flex-1 bg-gray-600 text-white py-2 rounded hover:bg-gray-700"
+                        className="flex-1 bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
                       >
+                        <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
                         Retake
                       </button>
                       <button
@@ -820,10 +1044,20 @@ export default function DriverDashboard() {
                             );
                           }
                         }}
-                        className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700"
+                        className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
                         disabled={updating === selectedAssignment?.id}
                       >
-                        {updating === selectedAssignment?.id ? "Saving..." : "Save Photo"}
+                        {updating === selectedAssignment?.id ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline mr-2"></div>
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 inline mr-2" />
+                            Save Photo
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -833,116 +1067,195 @@ export default function DriverDashboard() {
           </div>
         )}
 
+        {/* Reschedule Modal */}
         {showRescheduleModal && selectedAssignment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Calendar className="w-5 h-5" /> Reschedule Assignment
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowRescheduleModal(false);
-                    setPhotoData(null);
-                    setRescheduleDate("");
-                    setRescheduleTime("");
-                    setNotes("");
-                    closeCamera();
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Date</label>
-                  <input
-                    type="date"
-                    value={rescheduleDate}
-                    onChange={e => setRescheduleDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Time</label>
-                  <input
-                    type="time"
-                    value={rescheduleTime}
-                    onChange={e => setRescheduleTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-                  <textarea
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full p-2 border rounded"
-                    rows={2}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Photo (required)</label>
-                  {!photoData ? (
-                    <button
-                      onClick={openCamera}
-                      className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 mb-2"
-                    >
-                      <Camera className="w-6 h-6 inline mr-2" />
-                      Open Camera
-                    </button>
-                  ) : (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[95vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white p-6 rounded-t-xl">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                      <Calendar className="w-5 h-5" />
+                    </div>
                     <div>
-                      <img
-                        src={photoData}
-                        alt="Captured"
-                        className="w-full h-48 object-cover rounded mb-2"
+                      <h2 className="text-xl font-bold">Reschedule Assignment</h2>
+                      <p className="text-yellow-100 text-sm">Set a new date and time for this assignment</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowRescheduleModal(false);
+                      setPhotoData(null);
+                      setRescheduleDate("");
+                      setRescheduleTime("");
+                      setNotes("");
+                      closeCamera();
+                    }}
+                    className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
+                <div className="p-6 space-y-6">
+                  {/* Date and Time Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        New Date
+                      </label>
+                      <input
+                        type="date"
+                        value={rescheduleDate}
+                        onChange={e => setRescheduleDate(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        min={new Date().toISOString().split('T')[0]}
                       />
-                      <div className="flex space-x-2">
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        New Time
+                      </label>
+                      <input
+                        type="time"
+                        value={rescheduleTime}
+                        onChange={e => setRescheduleTime(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Notes (Optional)
+                    </label>
+                    <textarea
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      placeholder="Add any additional notes about the reschedule..."
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Photo Section */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Camera className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Photo (Required)</h3>
+                    </div>
+                    
+                    {!photoData ? (
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Camera className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                          A photo is required when rescheduling an assignment
+                        </p>
                         <button
-                          onClick={closeCamera}
-                          className="flex-1 bg-gray-600 text-white py-2 rounded hover:bg-gray-700"
+                          onClick={openCamera}
+                          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
                         >
-                          Retake
+                          <Camera className="w-5 h-5 inline mr-2" />
+                          Open Camera
                         </button>
                       </div>
-                    </div>
-                  )}
-                  {/* Show live video preview if camera is open and no photo yet */}
-                  {videoElement && !photoData && (
-                    <div className="mb-2">
-                      <div className="w-full h-48 bg-black rounded flex items-center justify-center">
-                        {/* Video element will be attached here by ref */}
-                        <video
-                          ref={el => {
-                            if (el && videoElement && !el.srcObject) {
-                              el.srcObject = videoElement.srcObject;
-                              el.play();
-                            }
-                          }}
-                          className="w-full h-48 object-cover rounded"
-                          autoPlay
-                          playsInline
-                          muted
-                        />
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <img
+                            src={photoData}
+                            alt="Captured"
+                            className="w-full h-48 object-cover rounded-lg shadow-sm border"
+                          />
+                          <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            ✓ Photo Captured
+                          </div>
+                        </div>
+                        <button
+                          onClick={closeCamera}
+                          className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
+                        >
+                          <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Retake Photo
+                        </button>
                       </div>
-                      <button
-                        onClick={capturePhoto}
-                        className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 mt-2"
-                      >
-                        Capture Photo
-                      </button>
+                    )}
+
+                    {/* Live Video Preview */}
+                    {videoElement && !photoData && (
+                      <div className="mt-4">
+                        <div className="w-full h-48 bg-black rounded-lg flex items-center justify-center overflow-hidden">
+                          <video
+                            ref={el => {
+                              if (el && videoElement && !el.srcObject) {
+                                el.srcObject = videoElement.srcObject;
+                                el.play();
+                              }
+                            }}
+                            className="w-full h-48 object-cover"
+                            autoPlay
+                            playsInline
+                            muted
+                          />
+                        </div>
+                        <button
+                          onClick={capturePhoto}
+                          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium mt-3"
+                        >
+                          <Camera className="w-5 h-5 inline mr-2" />
+                          Capture Photo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleReschedule}
+                    className="w-full bg-yellow-600 text-white py-4 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm font-medium"
+                    disabled={updating === selectedAssignment.id || !rescheduleDate || !rescheduleTime || !photoData}
+                  >
+                    {updating === selectedAssignment.id ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin inline mr-2"></div>
+                        Rescheduling...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-5 h-5 inline mr-2" />
+                        Submit Reschedule
+                      </>
+                    )}
+                  </button>
+
+                  {/* Validation Messages */}
+                  {(!rescheduleDate || !rescheduleTime || !photoData) && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-sm text-red-700">
+                          Please fill in all required fields: Date, Time, and Photo
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={handleReschedule}
-                  className="w-full bg-yellow-600 text-white py-3 rounded hover:bg-yellow-700 mt-2"
-                  disabled={updating === selectedAssignment.id}
-                >
-                  {updating === selectedAssignment.id ? "Rescheduling..." : "Submit Reschedule"}
-                </button>
               </div>
             </div>
           </div>
@@ -950,4 +1263,4 @@ export default function DriverDashboard() {
       </div>
     </PageTransition>
   );
-} 
+}

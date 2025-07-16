@@ -133,6 +133,24 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validation: For delivery assignments, ensure pickup has been completed first
+    if (assignmentType === 'delivery') {
+      const pickupAssignment = await prisma.driverAssignment.findFirst({
+        where: {
+          orderId,
+          assignmentType: 'pickup',
+          status: 'completed'
+        }
+      });
+      
+      if (!pickupAssignment) {
+        return NextResponse.json(
+          { error: "Cannot create delivery assignment. Pickup must be completed first." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Create the assignment
     const assignment = await prisma.driverAssignment.create({
       data: {

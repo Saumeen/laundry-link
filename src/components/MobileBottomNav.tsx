@@ -9,8 +9,8 @@ const TABS = [
   { id: 'overview', label: 'Overview', icon: '📊' },
   { id: 'orders', label: 'Orders', icon: '📦' },
   { id: 'addresses', label: 'Addresses', icon: '🏠' },
+  { id: 'profile', label: 'Profile', icon: '👤' },
   { id: 'wallet', label: 'Wallet', icon: '💰' },
-  { id: 'packages', label: 'Packages', icon: '📋' },
 ];
 
 export default function MobileBottomNav({ activeTab, onTabChange }: MobileBottomNavProps) {
