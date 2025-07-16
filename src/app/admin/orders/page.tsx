@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { UserRole, DriverAssignment } from "@/types/global";
-import { calculateInvoiceItemTotal } from "@/lib/calculations";
+import { calculateOrderItemTotal } from "@/lib/calculations";
 
 interface Order {
   id: number;
@@ -21,11 +21,11 @@ interface Order {
     email: string;
     phone: string;
   };
-  invoiceItems: InvoiceItem[];
+  orderItems: OrderItem[];
   driverAssignments?: DriverAssignment[];
 }
 
-interface InvoiceItem {
+interface OrderItem {
   id: number;
   itemType: string;
   quantity: number;
@@ -302,7 +302,7 @@ export default function OrdersManagement() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {order.invoiceItems.reduce((sum, item) => sum + calculateInvoiceItemTotal(item), 0).toFixed(3)} BD
+                        {order.orderItems.reduce((sum, item) => sum + calculateOrderItemTotal(item), 0).toFixed(3)} BD
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(order.createdAt).toLocaleDateString()}

@@ -2,10 +2,11 @@
  * Helper functions for calculating totals and prices
  */
 
-export interface InvoiceItem {
+export interface OrderItem {
   id?: number;
   quantity: number;
   pricePerItem: number;
+  totalPrice?: number;
 }
 
 export interface OrderServiceMapping {
@@ -15,14 +16,14 @@ export interface OrderServiceMapping {
 }
 
 export interface Order {
-  invoiceItems?: InvoiceItem[];
+  orderItems?: OrderItem[];
   orderServiceMappings?: OrderServiceMapping[];
 }
 
 /**
- * Calculate total price for a single invoice item
+ * Calculate total price for a single order item
  */
-export function calculateInvoiceItemTotal(item: InvoiceItem): number {
+export function calculateOrderItemTotal(item: OrderItem): number {
   return item.quantity * item.pricePerItem;
 }
 
@@ -34,15 +35,15 @@ export function calculateServiceMappingTotal(mapping: OrderServiceMapping): numb
 }
 
 /**
- * Calculate total amount for an order from invoice items
+ * Calculate total amount for an order from order items
  */
-export function calculateOrderTotalFromInvoiceItems(order: Order): number {
-  if (!order.invoiceItems || order.invoiceItems.length === 0) {
+export function calculateOrderTotalFromOrderItems(order: Order): number {
+  if (!order.orderItems || order.orderItems.length === 0) {
     return 0;
   }
   
-  return order.invoiceItems.reduce((sum, item) => {
-    return sum + calculateInvoiceItemTotal(item);
+  return order.orderItems.reduce((sum, item) => {
+    return sum + calculateOrderItemTotal(item);
   }, 0);
 }
 
@@ -60,12 +61,12 @@ export function calculateOrderTotalFromServiceMappings(order: Order): number {
 }
 
 /**
- * Calculate total amount for an order (prefers invoice items if available)
+ * Calculate total amount for an order (prefers order items if available)
  */
 export function calculateOrderTotal(order: Order): number {
-  // Prefer invoice items if available, otherwise use service mappings
-  if (order.invoiceItems && order.invoiceItems.length > 0) {
-    return calculateOrderTotalFromInvoiceItems(order);
+  // Prefer order items if available, otherwise use service mappings
+  if (order.orderItems && order.orderItems.length > 0) {
+    return calculateOrderTotalFromOrderItems(order);
   }
   
   if (order.orderServiceMappings && order.orderServiceMappings.length > 0) {
