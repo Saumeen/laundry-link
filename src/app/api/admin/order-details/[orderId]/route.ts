@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 
 export async function GET(
-  req: Request,
+  request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
@@ -12,97 +12,55 @@ export async function GET(
     await requireAuthenticatedAdmin();
 
     const { orderId } = await params;
+    const orderIdOrNumber = orderId;  
+    const isNumeric = !isNaN(Number(orderIdOrNumber)) && orderIdOrNumber !== '';
 
-    // Check if orderId is a numeric ID or order number
-    const numericId = parseInt(orderId);
-    const isNumericId = !isNaN(numericId);
+    if (!orderIdOrNumber) {
+      return NextResponse.json(
+        { error: "Invalid order ID or order number" },
+        { status: 400 }
+      );
+    }
 
-    // Try to find order by ID first (if it's a numeric ID), then by order number
-    let order = null;
-    
-    if (isNumericId) {
-      order = await prisma.order.findUnique({
-        where: {
-          id: numericId,
-        },
+    const order = await prisma.order.findUnique({
+      where: isNumeric ? { id: parseInt(orderIdOrNumber) } : { orderNumber: orderIdOrNumber },
       include: {
         customer: true,
+        address: true,
+
         orderServiceMappings: {
           include: {
             service: true,
-            invoiceItems: {
+            orderItems: true,
+          },
+        },
+        orderProcessing: {
+          include: {
+            staff: true,
+            processingItems: {
               include: {
                 orderServiceMapping: {
                   include: {
                     service: true,
                   },
                 },
-              },
-            },
-          },
-        },
-        driverAssignments: {
-          include: {
-            driver: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
-      },
-    });
-
-  }
-
-    // If not found by ID, try by order number
-    if (!order) {
-      order = await prisma.order.findUnique({
-        where: {
-          orderNumber: orderId,
-        },
-        include: {
-          customer: true,
-          orderServiceMappings: {
-            include: {
-              service: true,
-              invoiceItems: {
-                include: {
-                  orderServiceMapping: {
-                    include: {
-                      service: true,
-                    },
+                processingItemDetails: {
+                  include: {
+                    orderItem: true,
                   },
                 },
               },
             },
-          },
-          driverAssignments: {
-            include: {
-              driver: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  phone: true,
-                },
-              },
-            },
-            orderBy: {
-              createdAt: 'desc',
-            },
+            issueReports: true,
           },
         },
-      });
-    }
+        driverAssignments: {
+          include: {
+            driver: true,
+          },
+        },
+      },
+    });
 
     if (!order) {
       return NextResponse.json(
@@ -111,49 +69,14 @@ export async function GET(
       );
     }
 
-    // Fetch customer addresses if customer exists
-    let addresses: any[] = [];
-    if (order.customer) {
-      addresses = await prisma.address.findMany({
-        where: {
-          customerId: order.customer.id,
-        },
-        orderBy: [
-          { isDefault: 'desc' },
-          { createdAt: 'desc' },
-        ],
-      });
-    }
+    return NextResponse.json({ order });
+  } catch (error) {
+    console.error("Error fetching order details:", error);
 
-    // Transform invoice items to include service information
-    const transformedInvoiceItems = order.orderServiceMappings.flatMap((mapping: any) => 
-      mapping.invoiceItems.map((item: any) => ({
-        id: item.id,
-        orderServiceMappingId: item.orderServiceMappingId,
-        quantity: item.quantity,
-        pricePerItem: item.pricePerItem,
-        total: item.quantity * item.pricePerItem,
-        service: mapping.service,
-        notes: item.notes,
-      }))
-    );
-
-    return NextResponse.json({
-      order: {
-        ...order,
-        addresses,
-        invoiceItems: transformedInvoiceItems,
-      }
-    });
-  }
- catch (error) {
-    // Simple error logging without complex error handling
-    console.error("Error fetching order details:", String(error || 'Unknown error'));
-    
     if (error instanceof Error && error.message === 'Admin authentication required') {
       return createAdminAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
       { error: "Failed to fetch order details" },
       { status: 500 }

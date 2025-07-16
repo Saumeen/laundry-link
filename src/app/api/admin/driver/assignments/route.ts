@@ -93,10 +93,40 @@ export async function POST(request: NextRequest) {
         id: assignmentId,
         driverId: admin.id,
       },
+      include: {
+        order: {
+          include: {
+            driverAssignments: {
+              where: {
+                assignmentType: 'pickup'
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!assignment) {
       return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    }
+
+    // Validation: For delivery assignments, ensure pickup has been completed first
+    if (assignment.assignmentType === 'delivery') {
+      const pickupAssignment = assignment.order.driverAssignments.find(
+        da => da.assignmentType === 'pickup'
+      );
+      
+      if (!pickupAssignment) {
+        return NextResponse.json({ 
+          error: "Cannot start delivery. Pickup assignment not found for this order." 
+        }, { status: 400 });
+      }
+      
+      if (pickupAssignment.status !== 'completed') {
+        return NextResponse.json({ 
+          error: "Cannot start delivery. Pickup must be completed first. Current pickup status: " + pickupAssignment.status 
+        }, { status: 400 });
+      }
     }
 
     // Update assignment status
