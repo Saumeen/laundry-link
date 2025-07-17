@@ -140,10 +140,9 @@ export default function SuperAdminDashboard() {
     router.push('/admin/super-admin/staff');
   }, [router]);
 
-  const handleViewReports = useCallback(() => {
-    // TODO: Implement navigation to reports
-    console.log('Navigate to reports');
-  }, []);
+  const handleNavigateToReports = () => {
+    router.push('/admin/super-admin/reports');
+  };
 
   useEffect(() => {
     if (status === "loading") {
@@ -336,7 +335,7 @@ export default function SuperAdminDashboard() {
               />
               <QuickActionButton
                 title="View Reports"
-                onClick={handleViewReports}
+                onClick={handleNavigateToReports}
                 bgColor="bg-yellow-600"
               />
             </div>

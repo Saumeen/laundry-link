@@ -6,11 +6,14 @@ interface UpdateOrderRequest {
   status?: string;
   pickupTime?: string;
   deliveryTime?: string;
-  invoiceItems?: Array<{
+  orderItems?: Array<{
     id?: number; // Add ID for existing items
     orderServiceMappingId: number;
+    itemName: string;
+    itemType: string;
     quantity: number;
     pricePerItem: number;
+    totalPrice: number;
     notes?: string;
   }>;
 }
@@ -45,7 +48,7 @@ export async function PUT(
       );
     }
     
-    const { status, pickupTime, deliveryTime, invoiceItems }: UpdateOrderRequest = await req.json();
+    const { status, pickupTime, deliveryTime, orderItems }: UpdateOrderRequest = await req.json();
 
     // Prepare update data
     const updateData: Record<string, unknown> = {};
@@ -61,10 +64,10 @@ export async function PUT(
       data: updateData,
     });
 
-    // If invoice items are provided, update them intelligently
-    if (invoiceItems && Array.isArray(invoiceItems)) {
-      // Get existing invoice items for this order
-      const existingItems = await prisma.invoiceItem.findMany({
+    // If order items are provided, update them intelligently
+    if (orderItems && Array.isArray(orderItems)) {
+      // Get existing order items for this order
+      const existingItems = await prisma.orderItem.findMany({
         where: {
           orderServiceMapping: {
             orderId: orderIdNum,
@@ -73,8 +76,8 @@ export async function PUT(
       });
 
       // Separate items into existing (with ID) and new (without ID)
-      const itemsToUpdate = invoiceItems.filter(item => item.id && item.id > 0);
-      const itemsToCreate = invoiceItems.filter(item => !item.id || item.id <= 0);
+      const itemsToUpdate = orderItems.filter(item => item.id && item.id > 0);
+      const itemsToCreate = orderItems.filter(item => !item.id || item.id <= 0);
       
       // Get IDs of items that should be deleted (existing items not in the new list)
       const newItemIds = itemsToUpdate.map(item => item.id!);
@@ -82,7 +85,7 @@ export async function PUT(
 
       // Delete items that are no longer needed
       if (itemsToDelete.length > 0) {
-        await prisma.invoiceItem.deleteMany({
+        await prisma.orderItem.deleteMany({
           where: {
             id: {
               in: itemsToDelete.map((item: { id: number }) => item.id),
@@ -94,14 +97,17 @@ export async function PUT(
       // Update existing items
       for (const item of itemsToUpdate) {
         if (item.id && item.orderServiceMappingId && item.quantity > 0) {
-          await prisma.invoiceItem.update({
+          await prisma.orderItem.update({
             where: {
               id: item.id,
             },
             data: {
               orderServiceMappingId: item.orderServiceMappingId,
+              itemName: item.itemName,
+              itemType: item.itemType,
               quantity: item.quantity,
               pricePerItem: item.pricePerItem,
+              totalPrice: item.totalPrice,
               notes: item.notes,
             },
           });
@@ -111,11 +117,14 @@ export async function PUT(
       // Create new items
       for (const item of itemsToCreate) {
         if (item.orderServiceMappingId && item.quantity > 0) {
-          await prisma.invoiceItem.create({
+          await prisma.orderItem.create({
             data: {
               orderServiceMappingId: item.orderServiceMappingId,
+              itemName: item.itemName,
+              itemType: item.itemType,
               quantity: item.quantity,
               pricePerItem: item.pricePerItem,
+              totalPrice: item.totalPrice,
               notes: item.notes,
             },
           });
@@ -123,7 +132,7 @@ export async function PUT(
       }
 
       // Recalculate total amount
-      const newInvoiceItems = await prisma.invoiceItem.findMany({
+      const newOrderItems = await prisma.orderItem.findMany({
         where: {
           orderServiceMapping: {
             orderId: orderIdNum,
@@ -138,9 +147,9 @@ export async function PUT(
         },
       });
 
-      // Calculate total using quantity * pricePerItem for each item
-      const newTotalAmount = newInvoiceItems.reduce((sum: number, item: { quantity: number; pricePerItem: number }) => 
-        sum + (item.quantity * item.pricePerItem), 0);
+      // Calculate total using totalPrice for each item
+      const newTotalAmount = newOrderItems.reduce((sum: number, item: { totalPrice: number }) => 
+        sum + item.totalPrice, 0);
 
       // Update order with new total amount
       await prisma.order.update({

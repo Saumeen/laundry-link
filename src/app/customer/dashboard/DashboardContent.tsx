@@ -418,10 +418,8 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
   }, [addresses]);
 
   const handleViewOrder = useCallback((orderId: number) => {
-    console.log('Opening order details for order ID:', orderId);
     setSelectedOrderId(orderId);
     setIsOrderModalOpen(true);
-    console.log('Modal state after opening:', { selectedOrderId: orderId, isOpen: true });
   }, []);
 
   const handleCloseOrderModal = useCallback(() => {
@@ -443,7 +441,6 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
 
   const handleAddFunds = useCallback(() => {
     // TODO: Implement add funds functionality
-    console.log('Add funds clicked');
   }, []);
 
   const handleManageAddresses = useCallback(() => {
@@ -465,7 +462,7 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
       {
         icon: '💰',
         title: 'Wallet Balance',
-        value: `${customer?.walletBalance.toFixed(3) || '0.000'} BD`,
+        value: `${customer?.walletBalance?.toFixed(3) || '0.000'} BD`,
         subtitle: 'Available funds',
         bgColor: 'bg-gradient-to-br from-blue-100 to-blue-200',
         textColor: 'text-blue-700',
@@ -507,14 +504,6 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
   }, [orders.length]);
 
   useEffect(() => {
-    console.log('Dashboard auth state:', { 
-      authLoading, 
-      sessionStatus, 
-      isAuthenticated, 
-      hasAuthCustomer: !!authCustomer,
-      sessionUser: !!session?.user 
-    });
-
     // Wait for authentication to be determined
     if (authLoading || sessionStatus === 'loading') {
       return;
@@ -522,20 +511,17 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
 
     // Check if user is authenticated
     if (!isAuthenticated) {
-      console.log('User not authenticated, redirecting to login');
       router.push('/registerlogin');
       return;
     }
 
     // If authenticated but no authCustomer yet, wait a bit more
     if (isAuthenticated && !authCustomer) {
-      console.log('Authenticated but no customer data yet, waiting...');
       return;
     }
 
     // Handle authenticated customers from useAuth hook
     if (authCustomer) {
-      console.log('Setting customer from authCustomer:', authCustomer);
       setCustomer(authCustomer);
       
       // Check for tab parameter
@@ -553,9 +539,7 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
   // Separate useEffect to handle URL parameter changes
   useEffect(() => {
     const tab = searchParams.get('tab');
-    console.log('URL tab parameter:', tab);
     if (tab && ['overview', 'orders', 'addresses', 'wallet', 'packages'].includes(tab)) {
-      console.log('Setting active tab to:', tab);
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -635,12 +619,12 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
             <div className="flex items-center space-x-3 md:space-x-4 mb-3 md:mb-4">
               <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
                 <span className="text-xl md:text-2xl text-white font-bold">
-                  {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                  {customer.firstName?.charAt(0) || 'U'}{customer.lastName?.charAt(0) || 'S'}
                 </span>
               </div>
               <div>
                 <h1 className="text-xl md:text-3xl font-bold text-gray-900">
-                  Welcome back, {customer.firstName}! 👋
+                  Welcome back, {customer.firstName || 'User'}! 👋
                 </h1>
                 <p className="text-gray-600 text-sm md:text-base">Here's what's happening with your laundry today</p>
               </div>
@@ -717,7 +701,7 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
                   <div className="space-y-6">
                     <div className="bg-gray-50 rounded-xl p-4">
                       <label className="block text-sm font-medium text-gray-500 mb-2">Full Name</label>
-                      <p className="text-lg font-semibold text-gray-900">{customer.firstName} {customer.lastName}</p>
+                      <p className="text-lg font-semibold text-gray-900">{customer.firstName || 'N/A'} {customer.lastName || ''}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-4">
                       <label className="block text-sm font-medium text-gray-500 mb-2">Email Address</label>

@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { calculateInvoiceItemTotal } from "@/lib/calculations";
+import { calculateOrderItemTotal } from "@/lib/calculations";
 
-interface InvoiceItemRequest {
+interface OrderItemRequest {
   serviceId: string | number;
+  itemName: string;
+  itemType: string;
   quantity: number;
   pricePerItem: number;
+  totalPrice: number;
+  notes?: string;
 }
 
 interface SaveInvoiceRequest {
   orderId: string | number;
-  invoiceItems: InvoiceItemRequest[];
+  orderItems: OrderItemRequest[];
   invoiceTotal?: number;
   minimumOrderApplied?: boolean;
 }
@@ -18,11 +22,11 @@ interface SaveInvoiceRequest {
 export async function POST(req: Request) {
   try {
     const body = await req.json() as SaveInvoiceRequest;
-    const { orderId, invoiceItems, invoiceTotal, minimumOrderApplied } = body;
+    const { orderId, orderItems, invoiceTotal, minimumOrderApplied } = body;
 
-    if (!orderId || !invoiceItems || invoiceItems.length === 0) {
+    if (!orderId || !orderItems || orderItems.length === 0) {
       return NextResponse.json(
-        { error: "Order ID and invoice items are required" },
+        { error: "Order ID and order items are required" },
         { status: 400 }
       );
     }
@@ -42,8 +46,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Delete existing invoice items for this order
-    await prisma.invoiceItem.deleteMany({
+    // Delete existing order items for this order
+    await prisma.orderItem.deleteMany({
       where: {
         orderServiceMapping: {
           orderId: parseInt(orderId.toString()),
@@ -51,9 +55,9 @@ export async function POST(req: Request) {
       },
     });
 
-    // Create new invoice items
+    // Create new order items
     const createdItems = await Promise.all(
-      invoiceItems.map((item: InvoiceItemRequest) => {
+      orderItems.map((item: OrderItemRequest) => {
         // Find the corresponding service mapping
         const serviceMapping = order.orderServiceMappings.find(
           (mapping: typeof order.orderServiceMappings[0]) => mapping.serviceId === parseInt(item.serviceId.toString())
@@ -63,11 +67,15 @@ export async function POST(req: Request) {
           throw new Error(`Service mapping not found for service ID ${item.serviceId}`);
         }
 
-        return prisma.invoiceItem.create({
+        return prisma.orderItem.create({
           data: {
             orderServiceMappingId: serviceMapping.id,
+            itemName: item.itemName,
+            itemType: item.itemType,
             quantity: item.quantity,
             pricePerItem: item.pricePerItem,
+            totalPrice: item.totalPrice,
+            notes: item.notes,
           },
           include: {
             orderServiceMapping: {
@@ -81,7 +89,7 @@ export async function POST(req: Request) {
     );
 
     // Calculate invoice total
-    const invoiceTotalCalculated = createdItems.reduce((sum: number, item: typeof createdItems[0]) => sum + calculateInvoiceItemTotal(item), 0);
+    const invoiceTotalCalculated = createdItems.reduce((sum: number, item: typeof createdItems[0]) => sum + calculateOrderItemTotal(item), 0);
 
     // Update order with invoice total
     const updatedOrder = await prisma.order.update({
@@ -95,7 +103,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       message: "Invoice saved successfully",
       order: updatedOrder,
-      invoiceItems: createdItems,
+      orderItems: createdItems,
     });
   } catch (error) {
     console.error("Error saving invoice:", error);

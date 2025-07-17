@@ -470,7 +470,6 @@ export default function StaffManagementPage() {
 
   const handleEditStaff = useCallback((staff: StaffMember) => {
     // TODO: Implement edit functionality
-    console.log('Edit staff:', staff);
   }, []);
 
   useEffect(() => {

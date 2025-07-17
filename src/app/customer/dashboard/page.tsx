@@ -473,7 +473,6 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
 
   const handleAddFunds = useCallback(() => {
     // TODO: Implement add funds functionality
-    console.log('Add funds clicked');
   }, []);
 
   const handleManageAddresses = useCallback(() => {
@@ -495,7 +494,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
       {
         icon: '💰',
         title: 'Wallet Balance',
-        value: `${customer?.walletBalance.toFixed(3) || '0.000'} BD`,
+        value: `${(customer?.walletBalance || 0).toFixed(3)} BD`,
         subtitle: 'Available funds',
         bgColor: 'bg-gradient-to-br from-blue-100 to-blue-200',
         textColor: 'text-blue-700',
@@ -536,83 +535,6 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
     return orders.length === 3;
   }, [orders.length]);
 
-  useEffect(() => {
-    console.log('Dashboard auth state:', { 
-      authLoading, 
-      sessionStatus, 
-      isAuthenticated, 
-      hasAuthCustomer: !!authCustomer,
-      sessionUser: !!session?.user 
-    });
-
-    // Wait for authentication to be determined
-    if (authLoading || sessionStatus === 'loading') {
-      return;
-    }
-
-    // Check if user is authenticated
-    if (!isAuthenticated) {
-      console.log('User not authenticated, redirecting to login');
-      router.push('/registerlogin');
-      return;
-    }
-
-    // If authenticated but no authCustomer yet, wait a bit more
-    if (isAuthenticated && !authCustomer) {
-      console.log('Authenticated but no customer data yet, waiting...');
-      return;
-    }
-
-    // Handle authenticated customers from useAuth hook
-    if (authCustomer) {
-      console.log('Setting customer from authCustomer:', authCustomer);
-      setCustomer(authCustomer);
-      
-      // Check for tab parameter
-      const tab = searchParams.get('tab');
-      if (tab) {
-        setActiveTab(tab);
-      }
-
-      // Fetch fresh customer data from database
-      fetchCustomerData();
-      return;
-    }
-  }, [isAuthenticated, authCustomer, authLoading, session, sessionStatus, router, searchParams]);
-
-  // Separate useEffect to handle URL parameter changes
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    console.log('URL tab parameter:', tab);
-    if (tab && ['overview', 'orders', 'addresses', 'profile', 'wallet', 'packages'].includes(tab)) {
-      console.log('Setting active tab to:', tab);
-      setActiveTab(tab);
-    }
-  }, [searchParams]);
-
-  const fetchCustomerData = useCallback(async () => {
-    try {
-      // Fetch fresh customer data from database
-      const customerResponse = await fetch('/api/customer/profile');
-      if (customerResponse.ok) {
-        const customerData = await customerResponse.json() as CustomerResponse;
-        if (customerData && typeof customerData === 'object' && 'customer' in customerData && customerData.customer) {
-          setCustomer(customerData.customer as Customer);
-        }
-      }
-
-      // Fetch orders and addresses
-      await Promise.all([
-        fetchOrders(),
-        fetchAddresses()
-      ]);
-    } catch (error) {
-      console.error('Error fetching customer data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const fetchOrders = useCallback(async () => {
     try {
       const response = await fetch('/api/customer/orders?limit=3&sort=updatedAt&order=desc');
@@ -641,6 +563,76 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
     }
   }, []);
 
+  const fetchOrdersAndAddresses = useCallback(async () => {
+    try {
+      await Promise.all([
+        fetchOrders(),
+        fetchAddresses()
+      ]);
+    } catch (error) {
+      console.error('Error fetching orders and addresses:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchOrders, fetchAddresses]);
+
+  useEffect(() => {
+    // Wait for authentication to be determined
+    if (authLoading || sessionStatus === 'loading') {
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      router.push('/registerlogin');
+      return;
+    }
+
+    // If authenticated but no authCustomer yet, wait a bit more
+    if (isAuthenticated && !authCustomer) {
+      return;
+    }
+
+    // Handle authenticated customers from useAuth hook
+    if (authCustomer) {
+      // Customer data should now be complete from useAuth
+      setCustomer(authCustomer);
+      
+      // Set default tab if none is set
+      if (!activeTab) {
+        setActiveTab('overview');
+      }
+
+      // Only fetch orders and addresses, customer data is already complete
+      fetchOrdersAndAddresses();
+    }
+  }, [authLoading, sessionStatus, isAuthenticated, authCustomer, router, activeTab, fetchOrdersAndAddresses]);
+
+  // Set loading to false if we have customer data from useAuth
+  useEffect(() => {
+    if (customer && loading) {
+      setLoading(false);
+    }
+  }, [customer, loading]);
+
+  // Timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+      }
+    }, 10000); // 10 seconds timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['overview', 'orders', 'addresses', 'wallet', 'packages'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -665,12 +657,12 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
             <div className="flex items-center space-x-3 md:space-x-4 mb-3 md:mb-4">
               <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
                 <span className="text-xl md:text-2xl text-white font-bold">
-                  {customer.firstName.charAt(0)}{customer.lastName.charAt(0)}
+                  {customer.firstName?.charAt(0) || 'U'}{customer.lastName?.charAt(0) || 'S'}
                 </span>
               </div>
               <div>
                 <h1 className="text-xl md:text-3xl font-bold text-gray-900">
-                  Welcome back, {customer.firstName}! 👋
+                  Welcome back, {customer.firstName || 'User'}! 👋
                 </h1>
                 <p className="text-gray-600 text-sm md:text-base">Here's what's happening with your laundry today</p>
               </div>
@@ -758,11 +750,11 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                   <div className="space-y-6">
                     <div className="bg-gray-50 rounded-xl p-4">
                       <label className="block text-sm font-medium text-gray-500 mb-2">Full Name</label>
-                      <p className="text-lg font-semibold text-gray-900">{customer.firstName} {customer.lastName}</p>
+                      <p className="text-lg font-semibold text-gray-900">{customer.firstName || 'N/A'} {customer.lastName || ''}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-4">
                       <label className="block text-sm font-medium text-gray-500 mb-2">Email Address</label>
-                      <p className="text-lg font-semibold text-gray-900">{customer.email}</p>
+                      <p className="text-lg font-semibold text-gray-900">{customer.email || 'Not provided'}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-4">
                       <label className="block text-sm font-medium text-gray-500 mb-2">Contact Number</label>
@@ -897,11 +889,11 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                 <div className="space-y-6">
                   <div className="bg-gray-50 rounded-xl p-4">
                     <label className="block text-sm font-medium text-gray-500 mb-2">Full Name</label>
-                    <p className="text-lg font-semibold text-gray-900">{customer.firstName} {customer.lastName}</p>
+                    <p className="text-lg font-semibold text-gray-900">{customer.firstName || 'N/A'} {customer.lastName || ''}</p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4">
                     <label className="block text-sm font-medium text-gray-500 mb-2">Email Address</label>
-                    <p className="text-lg font-semibold text-gray-900">{customer.email}</p>
+                    <p className="text-lg font-semibold text-gray-900">{customer.email || 'Not provided'}</p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4">
                     <label className="block text-sm font-medium text-gray-500 mb-2">Contact Number</label>
@@ -941,7 +933,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                     <span className="text-4xl">💰</span>
                   </div>
                   <h4 className="text-3xl font-bold text-gray-900 mb-2">
-                    {customer.walletBalance.toFixed(3)} BD
+                    {(customer.walletBalance || 0).toFixed(3)} BD
                   </h4>
                   <p className="text-gray-600 mb-8 text-lg">Current Balance</p>
                   <button 

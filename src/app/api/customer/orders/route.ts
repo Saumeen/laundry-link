@@ -199,15 +199,7 @@ export async function GET(req: Request) {
             orderServiceMappings: {
               include: {
                 service: true,
-                invoiceItems: {
-                  include: {
-                    orderServiceMapping: {
-                      include: {
-                        service: true,
-                      },
-                    },
-                  },
-                },
+                orderItems: true,
               },
             },
           },
@@ -221,23 +213,25 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    // Transform orders to include invoice items with service information
+    // Transform orders to include order items with service information
     const transformedOrders = customer.orders.map((order: typeof customer.orders[0]) => {
-      const transformedInvoiceItems = order.orderServiceMappings.flatMap((mapping: typeof order.orderServiceMappings[0]) => 
-        mapping.invoiceItems.map((item: typeof mapping.invoiceItems[0]) => ({
+      const transformedOrderItems = order.orderServiceMappings.flatMap((mapping: typeof order.orderServiceMappings[0]) => 
+        mapping.orderItems.map((item: typeof mapping.orderItems[0]) => ({
           id: item.id,
           orderServiceMappingId: item.orderServiceMappingId,
+          itemName: item.itemName,
+          itemType: item.itemType,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
-          total: item.quantity * item.pricePerItem,
+          totalPrice: item.totalPrice,
+          notes: item.notes,
           service: mapping.service,
-          notes: undefined,
         }))
       );
 
       return {
         ...order,
-        invoiceItems: transformedInvoiceItems,
+        orderItems: transformedOrderItems,
       };
     });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface Customer {
   id: number;
@@ -26,96 +26,73 @@ export function useAuth(): AuthState {
     customer: null,
     isLoading: true,
   });
+  const hasFetchedCustomer = useRef(false);
 
+  // Update loading state based on session status
   useEffect(() => {
-    console.log('useAuth effect:', { 
-      status, 
-      hasSession: !!session, 
-      sessionUser: !!session?.user,
-      sessionUserType: session?.userType,
-      sessionCustomerId: session?.customerId,
-      sessionWalletBalance: session?.walletBalance
-    });
-
     if (status === 'loading') {
-      return;
-    }
-
-    // For customer context, any authenticated user is a customer
-    if (session?.user) {
-      // If we have a session user but no customerId, try to fetch it
-      if (!session.customerId && session.userType === 'customer') {
-        console.log('Session user exists but no customerId, fetching customer data...');
-        // Set loading state while we fetch
-        setAuthState(prev => ({ ...prev, isLoading: true }));
-        
-        // Fetch customer data from API
-        fetch('/api/customer/profile')
-          .then(res => res.json())
-          .then((data) => {
-            const response = data as { customer?: Customer };
-            if (response.customer) {
-              const customer = {
-                id: response.customer.id,
-                email: response.customer.email,
-                firstName: response.customer.firstName,
-                lastName: response.customer.lastName,
-                phone: response.customer.phone,
-                isActive: response.customer.isActive,
-                walletBalance: response.customer.walletBalance,
-              };
-              
-              console.log('Fetched customer data:', customer);
-              setAuthState({
-                isAuthenticated: true,
-                customer,
-                isLoading: false,
-              });
-            } else {
-              console.log('No customer data found in API response');
-              setAuthState({
-                isAuthenticated: false,
-                customer: null,
-                isLoading: false,
-              });
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching customer data:', error);
-            setAuthState({
-              isAuthenticated: false,
-              customer: null,
-              isLoading: false,
-            });
-          });
-        return;
-      }
-      
-      const customer = {
-        id: session.customerId || 0,
-        email: session.user.email || '',
-        firstName: session.user.name?.split(' ')[0] || '',
-        lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
-        phone: undefined,
-        isActive: true,
-        walletBalance: session.walletBalance || 0,
-      };
-      
-      console.log('Setting authenticated customer from session:', customer);
-      setAuthState({
-        isAuthenticated: true,
-        customer,
-        isLoading: false,
-      });
+      setAuthState(prev => ({ ...prev, isLoading: true }));
     } else {
-      console.log('No session user, setting unauthenticated');
-      setAuthState({
-        isAuthenticated: false,
+      // Only set loading to false if we have determined authentication status
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false 
+      }));
+    }
+  }, [status]);
+
+  // Handle customer authentication
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    if (session?.userType === 'customer' && session?.customerId) {
+      // Set basic authentication state immediately
+      setAuthState(prev => ({
+        ...prev,
+        isAuthenticated: true,
+        isLoading: false
+      }));
+      
+      // Fetch complete customer data from API
+      fetchCustomerData();
+    } else if (!session?.user) {
+      setAuthState(prev => ({ 
+        ...prev, 
+        isAuthenticated: false, 
         customer: null,
-        isLoading: false,
-      });
+        isLoading: false
+      }));
+      hasFetchedCustomer.current = false;
     }
   }, [session, status]);
+
+  // Fetch customer data from API
+  const fetchCustomerData = async () => {
+    if (!session?.user?.email || session?.userType !== 'customer' || hasFetchedCustomer.current) return;
+
+    try {
+      hasFetchedCustomer.current = true;
+      const response = await fetch('/api/customer/profile');
+      if (response.ok) {
+        const customerData = await response.json() as { customer: Customer };
+        if (customerData.customer) {
+          setAuthState(prev => ({ 
+            ...prev, 
+            customer: customerData.customer 
+          }));
+        }
+      }
+    } catch (error) {
+      hasFetchedCustomer.current = false;
+    }
+  };
+
+  // Fetch additional customer data if needed (legacy - keeping for backward compatibility)
+  useEffect(() => {
+    if (session?.userType === 'customer' && session?.user?.email && !hasFetchedCustomer.current) {
+      fetchCustomerData();
+    }
+  }, [session?.user?.email, session?.userType]);
 
   return authState;
 }

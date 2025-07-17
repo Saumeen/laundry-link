@@ -109,6 +109,4 @@ export const customerApi = {
   getPaymentMethods: () => authenticatedGet('/api/payment-methods'),
   addPaymentMethod: (data: any) => authenticatedPost('/api/payment-methods', data),
   deletePaymentMethod: (id: string | number) => authenticatedDelete(`/api/payment-methods/${id}`),
-  
-
 }; 

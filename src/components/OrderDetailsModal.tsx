@@ -113,43 +113,26 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
-  console.log('OrderDetailsModal props:', { isOpen, orderId });
-
   useEffect(() => {
-    console.log('OrderDetailsModal useEffect triggered:', { isOpen, orderId });
     if (isOpen && orderId) {
-      console.log('Fetching order details...');
+      const fetchOrderDetails = async () => {
+        try {
+          const response = await fetch(`/api/customer/orders/${orderId}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            setOrderDetails(data as OrderDetails);
+          } else {
+            setError('Failed to fetch order details');
+          }
+        } catch (error) {
+          setError('Failed to fetch order details');
+        }
+      };
+
       fetchOrderDetails();
     }
   }, [isOpen, orderId]);
-
-  const fetchOrderDetails = async () => {
-    if (!orderId) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('Fetching order details for order ID:', orderId);
-      const response = await fetch(`/api/orders/${orderId}`);
-      console.log('API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API error response:', errorText);
-        throw new Error(`Failed to fetch order details: ${response.status} ${errorText}`);
-      }
-      
-      const data = await response.json() as { order: OrderDetails };
-      console.log('Order details received:', data);
-      setOrderDetails(data.order);
-    } catch (err) {
-      console.error('Error fetching order details:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load order details');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -263,7 +246,22 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                 <div className="text-red-500 text-4xl mb-4">⚠️</div>
                 <p className="text-red-600 font-medium text-lg mb-4">{error}</p>
                 <button
-                  onClick={fetchOrderDetails}
+                  onClick={() => {
+                    const fetchOrderDetails = async () => {
+                      try {
+                        const response = await fetch(`/api/customer/orders/${orderId}`);
+                        if (response.ok) {
+                          const data = await response.json();
+                          setOrderDetails(data as OrderDetails);
+                        } else {
+                          setError('Failed to fetch order details');
+                        }
+                      } catch (error) {
+                        setError('Failed to fetch order details');
+                      }
+                    };
+                    fetchOrderDetails();
+                  }}
                   className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
                 >
                   Try Again

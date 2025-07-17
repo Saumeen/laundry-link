@@ -115,14 +115,10 @@ class GoogleMapsService {
         types: ['geocode'] // Use geocode for all address types
       };
       
-      console.log('Google Maps API request:', request);
-      
       this.autocompleteService.getPlacePredictions(
         request,
         (predictions: any, status: any) => {
-          console.log('Google Maps API response status:', status);
           if (status === 'OK' && predictions) {
-            console.log('Google Maps API predictions count:', predictions.length);
             const formattedPredictions: GoogleMapsAddress[] = predictions.map((prediction: any) => ({
               place_id: prediction.place_id,
               description: prediction.description,
@@ -133,7 +129,6 @@ class GoogleMapsService {
             }));
             resolve(formattedPredictions);
           } else {
-            console.warn('Google Maps API error status:', status);
             resolve([]);
           }
         }

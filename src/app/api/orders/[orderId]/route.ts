@@ -21,7 +21,7 @@ export async function GET(
         orderServiceMappings: {
           include: {
             service: true,
-            invoiceItems: true,
+            orderItems: true,
           },
         },
       }
@@ -102,15 +102,17 @@ export async function GET(
         totalPrice: mapping.quantity * mapping.price,
         notes: mapping.service?.description || ''
       })),
-      // Show invoice items added by admin
-      invoiceItems: order.orderServiceMappings.flatMap((mapping) =>
-        mapping.invoiceItems.map((invoiceItem) => ({
-          id: invoiceItem.id,
+      // Show order items with detailed information
+      orderItems: order.orderServiceMappings.flatMap((mapping) =>
+        mapping.orderItems.map((orderItem) => ({
+          id: orderItem.id,
+          itemName: orderItem.itemName,
+          itemType: orderItem.itemType,
           serviceName: mapping.service?.displayName || mapping.service?.name || 'Unknown Service',
-          quantity: invoiceItem.quantity,
-          unitPrice: invoiceItem.pricePerItem,
-          totalPrice: invoiceItem.quantity * invoiceItem.pricePerItem,
-          notes: invoiceItem.notes || ''
+          quantity: orderItem.quantity,
+          unitPrice: orderItem.pricePerItem,
+          totalPrice: orderItem.totalPrice,
+          notes: orderItem.notes || ''
         }))
       ),
       processingDetails: null

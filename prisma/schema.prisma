@@ -62,7 +62,6 @@ model Customer {
   // Relations
   addresses       Address[]
   orders          Order[]
-  phoneVerifications PhoneVerification[]
 
   @@map("customers")
 }
@@ -468,22 +467,6 @@ model ServicePricingMapping {
 
   @@unique([serviceId, pricingItemId])
   @@map("service_pricing_mappings")
-}
-
-model PhoneVerification {
-  id          Int      @id @default(autoincrement())
-  customerId  Int
-  phoneNumber String
-  isVerified  Boolean  @default(false)
-  verifiedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  @@unique([customerId, phoneNumber])
-  @@map("phone_verifications")
 }
 
 

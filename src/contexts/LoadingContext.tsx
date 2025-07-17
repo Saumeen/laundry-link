@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import LoadingOverlay from '../components/ui/LoadingOverlay';
 
 interface LoadingContextType {
@@ -28,15 +28,15 @@ export function LoadingProvider({ children }: LoadingProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Loading...');
 
-  const showLoading = (message: string = 'Loading...') => {
+  const showLoading = useCallback((message: string = 'Loading...') => {
     setLoadingMessage(message);
     setIsLoading(true);
-  };
+  }, []);
 
-  const hideLoading = () => {
+  const hideLoading = useCallback(() => {
     setIsLoading(false);
     setLoadingMessage('Loading...');
-  };
+  }, []);
 
   const value = {
     isLoading,

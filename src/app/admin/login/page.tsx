@@ -49,15 +49,12 @@ export default function AdminLoginPage() {
         return;
       }
 
-      console.log("SignIn result:", result); // Debug log
-
       // Wait for session to be available with retries
       let session = null;
       let attempts = 0;
       const maxAttempts = 10;
       
       while (!session && attempts < maxAttempts) {
-        console.log(`Attempt ${attempts + 1} to get session...`); // Debug log
         session = await getSession();
         
         if (!session) {
@@ -66,12 +63,9 @@ export default function AdminLoginPage() {
         }
       }
 
-      console.log("Final session after login:", session); // Debug log
-
       if (session?.userType === "admin" && session?.role) {
         // Redirect based on role
         const role = session.role as UserRole;
-        console.log("Redirecting to role:", role); // Debug log
         
         switch (role) {
           case "SUPER_ADMIN":
@@ -90,11 +84,9 @@ export default function AdminLoginPage() {
             navigateWithTransition("/admin", 500);
         }
       } else {
-        console.log("Session validation failed:", { userType: session?.userType, role: session?.role }); // Debug log
         setError("Invalid admin session - please try again");
       }
     } catch (error) {
-      console.error("Login error:", error);
       setError("An error occurred during login");
     } finally {
       setLoading(false);

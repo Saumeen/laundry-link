@@ -24,7 +24,7 @@ export default function Navbar() {
     router.push('/');
   };
 
-  const customerName = customer ? `${customer.firstName} ${customer.lastName}` : '';
+  const customerName = customer ? `${customer.firstName || 'User'} ${customer.lastName || ''}`.trim() : '';
 
   return (
     <nav className="bg-white shadow-md">
@@ -73,7 +73,7 @@ export default function Navbar() {
                       <p className="font-medium text-gray-900">{customerName}</p>
                       <p className="text-sm text-gray-600">{customer.email}</p>
                       <p className="text-sm text-blue-600 font-medium">
-                        Wallet: {customer.walletBalance?.toFixed(3) || '0.000'} BD
+                        Wallet: {(customer.walletBalance || 0).toFixed(3)} BD
                       </p>
                     </div>
                     
@@ -179,7 +179,7 @@ export default function Navbar() {
             <>
               <div className="border-t pt-2 mt-2">
                 <p className="py-2 text-sm text-gray-600">👤 {customerName}</p>
-                <p className="text-xs text-blue-600 mb-2">Wallet: {customer.walletBalance?.toFixed(3) || '0.000'} BD</p>
+                <p className="text-xs text-blue-600 mb-2">Wallet: {(customer.walletBalance || 0).toFixed(3)} BD</p>
               </div>
               <Link href="/customer/dashboard" className="block py-2 text-green-700 hover:text-green-900" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
               <Link href="/customer/dashboard?tab=orders" className="block py-2 text-green-700 hover:text-green-900" onClick={() => setIsMenuOpen(false)}>My Orders</Link>

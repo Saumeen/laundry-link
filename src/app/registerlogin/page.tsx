@@ -4,8 +4,10 @@ import { useState, Suspense, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn, useSession } from "next-auth/react";
 import { useAuth } from '@/hooks/useAuth';
-import { useLoading } from '@/contexts/LoadingContext';
+import { usePhoneVerification } from '@/lib/phoneVerification';
+import PhoneVerification from '@/components/PhoneVerification';
 import SocialLoginButton from '@/components/ui/SocialLoginButton';
+import { customerApi } from '@/lib/api';
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,10 +26,11 @@ const AuthFormWithSearchParams = () => {
 };
 
 const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
-  const [step, setStep] = useState<'email' | 'login' | 'register'>('email');
+  const [step, setStep] = useState<'email' | 'login' | 'register' | 'phone-verification'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -36,7 +39,7 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { isAuthenticated, customer, isLoading: authLoading } = useAuth();
-  const { showLoading, hideLoading } = useLoading();
+  const { isValidPhoneNumber } = usePhoneVerification();
 
   // Check for error from URL params
   useEffect(() => {
@@ -50,19 +53,9 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
   useEffect(() => {
     if (!authLoading && !hasRedirected.current && isAuthenticated) {
       hasRedirected.current = true;
-      showLoading('Redirecting to dashboard...');
       router.replace('/customer/dashboard');
     }
-  }, [isAuthenticated, authLoading, router, showLoading]);
-
-  // Show loading overlay when auth is loading
-  useEffect(() => {
-    if (authLoading || status === 'loading') {
-      showLoading('Checking authentication...');
-    } else {
-      hideLoading();
-    }
-  }, [authLoading, status, showLoading, hideLoading]);
+  }, [isAuthenticated, authLoading, router]);
 
   // Check if email exists in the system
   const checkEmailExists = async (email: string) => {
@@ -143,24 +136,90 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
       return;
     }
 
+    if (!phoneNumber.trim()) {
+      setError("Please enter your phone number");
+      return;
+    }
+
+    if (!isValidPhoneNumber(phoneNumber)) {
+      setError("Please enter a valid phone number");
+      return;
+    }
+
     if (!hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password) || !hasNumber(password)) {
       setError("Password must meet all requirements");
       return;
     }
 
     setIsSubmitting(true);
-    setError("");
+    setError('');
 
     try {
+      // Check if phone number already exists
+      const phoneCheckResponse = await fetch('/api/customer/check-phone-exists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber }),
+      });
+
+      if (phoneCheckResponse.ok) {
+        const phoneCheckData = await phoneCheckResponse.json() as { exists: boolean };
+        if (phoneCheckData.exists) {
+          setError("A user with this phone number already exists. Please use a different phone number or try logging in.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // Proceed to phone verification step
+      setStep('phone-verification');
+    } catch (error) {
+      setError("Failed to verify phone number. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Go back to email step
+  const goBack = () => {
+    if (step === 'phone-verification') {
+      // Allow going back if there's an error, otherwise show message
+      if (error) {
+        setStep('register');
+        setError('');
+      } else {
+        setError('Phone verification is required to create your account. Please complete the verification process.');
+      }
+      return;
+    } else {
+      setStep('email');
+      setPassword('');
+      setName('');
+      setPhoneNumber('');
+      setError('');
+    }
+  };
+
+  // Handle phone verification success
+  const handlePhoneVerificationSuccess = async (verifiedPhoneNumber: string) => {
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      // Create the account with the verified phone number
       const result = await signIn("customer-credentials", {
         redirect: false,
         username: email,
         password,
         name,
+        phoneNumber: verifiedPhoneNumber,
       });
 
       if (result?.ok) {
-        // The redirect will be handled by the useEffect that watches session changes
+        // Let the useEffect handle the redirect automatically
+        // The session will update and trigger the redirect
         setIsSubmitting(false);
       } else {
         setError(result?.error || "Registration failed");
@@ -172,17 +231,30 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
     }
   };
 
-  // Go back to email step
-  const goBack = () => {
-    setStep('email');
-    setPassword('');
-    setName('');
+  // Handle phone verification error
+  const handlePhoneVerificationError = (error: string) => {
+    setError(error);
+    // Allow going back to registration step to change phone number
+    setStep('register');
+  };
+
+  // Handle phone verification cancel
+  const handlePhoneVerificationCancel = () => {
+    // Allow canceling and going back to registration step
+    setStep('register');
     setError('');
   };
 
   // Show loading if auth is still loading
   if (authLoading || status === 'loading') {
-    return null; // Let the LoadingOverlay handle the loading state
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-teal-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -234,6 +306,31 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
                 </button>
                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">Create Your Account</h2>
                 <p className="text-gray-600">Let's get you set up with Laundry Link</p>
+              </>
+            )}
+            {step === 'phone-verification' && (
+              <>
+                {error && (
+                  <button
+                    onClick={goBack}
+                    className="flex items-center text-gray-600 hover:text-gray-800 mb-4 transition-colors duration-200 group"
+                  >
+                    <svg className="w-5 h-5 mr-2 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Registration
+                  </button>
+                )}
+                <h2 className="text-2xl font-semibold text-gray-800 mb-2">Verify Your Phone Number</h2>
+                <p className="text-gray-600 mb-4">Phone verification is required to create your account. We'll send you a verification code to complete your registration.</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-blue-800 text-sm font-medium">Phone verification is mandatory for account creation</p>
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -443,6 +540,25 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
               </div>
 
               <div className="space-y-2">
+                <label htmlFor="phone-number" className="block text-sm font-semibold text-gray-700">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="phone-number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  placeholder="Enter your phone number"
+                  autoComplete="off"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Phone verification is required. You'll receive a verification code to complete registration.
+                </p>
+              </div>
+
+              <div className="space-y-2">
                 <label htmlFor="create-password" className="block text-sm font-semibold text-gray-700">
                   Create Password
                 </label>
@@ -531,7 +647,7 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
 
               <button
                 type="submit"
-                disabled={isSubmitting || !hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password) || !hasNumber(password) || !name.trim()}
+                disabled={isSubmitting || !hasLowerCase(password) || !hasUpperCase(password) || !hasMinLength(password) || !hasNumber(password) || !name.trim() || !phoneNumber.trim()}
                 className="w-full bg-gradient-to-r from-blue-600 to-teal-600 text-white py-4 px-4 rounded-xl font-semibold hover:from-blue-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
                 {isSubmitting ? (
@@ -544,6 +660,16 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
                 )}
               </button>
             </form>
+          )}
+
+          {/* Phone Verification Step */}
+          {step === 'phone-verification' && (
+            <PhoneVerification
+              phoneNumber={phoneNumber}
+              onVerificationSuccess={handlePhoneVerificationSuccess}
+              onVerificationError={handlePhoneVerificationError}
+              onCancel={handlePhoneVerificationCancel}
+            />
           )}
         </div>
       </div>

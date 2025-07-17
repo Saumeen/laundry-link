@@ -5,7 +5,7 @@ import { emailService } from "@/lib/emailService";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, status } = body;
+    const { orderId, status } = body as { orderId: string; status: string };
 
     if (!orderId || !status) {
       return NextResponse.json(
@@ -23,7 +23,11 @@ export async function POST(req: Request) {
         status: status,
       },
       include: {
-        invoiceItems: true,
+        orderServiceMappings: {
+          include: {
+            orderItems: true,
+          },
+        },
       },
     });
 
@@ -39,13 +43,18 @@ export async function POST(req: Request) {
     }
 
     // Special handling for "Invoice Generated" status
-    if (status === "Invoice Generated" && updatedOrder.invoiceItems && updatedOrder.invoiceItems.length > 0) {
+    const hasOrderItems = updatedOrder.orderServiceMappings.some(mapping => 
+      mapping.orderItems && mapping.orderItems.length > 0
+    );
+    
+    if (status === "Invoice Generated" && hasOrderItems) {
       try {
         // Send invoice email to customer
-        await emailService.sendInvoiceToCustomer(
+        await emailService.sendOrderConfirmationToCustomer(
           updatedOrder,
           updatedOrder.customerEmail,
-          `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`
+          `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`,
+          updatedOrder.orderServiceMappings
         );
         console.log("Invoice email sent to customer:", updatedOrder.customerEmail);
       } catch (emailError) {

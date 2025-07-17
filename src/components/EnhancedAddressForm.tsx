@@ -248,15 +248,11 @@ export default function EnhancedAddressForm({
         types: ['geocode'] // This includes all address types
       };
 
-      console.log('Searching for:', inputValue);
-
       autocompleteService.getPlacePredictions(
         request,
         (predictions: google.maps.places.AutocompletePrediction[] | null, status: google.maps.places.PlacesServiceStatus) => {
-          console.log('Search status:', status, 'Predictions:', predictions?.length || 0);
           
           if (status === 'OK' && predictions && predictions.length > 0) {
-            console.log('Found predictions:', predictions);
             setSearchSuggestions(predictions);
             setShowSearchSuggestions(true);
             // Clear any previous errors
@@ -266,7 +262,7 @@ export default function EnhancedAddressForm({
               return newErrors;
             });
           } else {
-            console.log('No predictions found or error:', status);
+            
             setSearchSuggestions([]);
             setShowSearchSuggestions(false);
             

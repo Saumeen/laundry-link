@@ -12,14 +12,19 @@ export async function GET(
     // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();
 
-    // Fetch order with invoice items and address, ensuring it belongs to the customer
+    // Fetch order with order items and address, ensuring it belongs to the customer
     const order = await prisma.order.findFirst({
       where: { 
         id: parseInt(orderId),
         customerId: authenticatedCustomer.id
       },
       include: {
-        invoiceItems: true,
+        orderServiceMappings: {
+          include: {
+            orderItems: true,
+            service: true,
+          },
+        },
         address: true,
       },
     });

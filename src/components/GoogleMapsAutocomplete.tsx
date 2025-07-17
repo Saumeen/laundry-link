@@ -70,8 +70,6 @@ export default function GoogleMapsAutocomplete({
         types: ['geocode']
       };
 
-      console.log('Making autocomplete request:', request);
-
       // Use the traditional AutocompleteService with proper error handling
       const autocompleteService = new window.google.maps.places.AutocompleteService();
       
@@ -79,7 +77,6 @@ export default function GoogleMapsAutocomplete({
         request,
         (predictions: any, status: any) => {
           setLoading(false);
-          console.log('Autocomplete response:', { status, predictionsCount: predictions?.length });
           
           if (status === 'OK' && predictions) {
             setSuggestions(predictions);

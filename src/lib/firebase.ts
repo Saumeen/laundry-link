@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, connectAuthEmulator, Auth } from "firebase/auth";
+import { getAuth, connectAuthEmulator, Auth, browserLocalPersistence, setPersistence } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -15,14 +15,7 @@ const firebaseConfig = {
 
 // Debug Firebase configuration (only in development)
 if (process.env.NODE_ENV === 'development') {
-  console.log('Firebase Config Debug:', {
-    apiKey: firebaseConfig.apiKey ? 'Set' : 'Missing',
-    authDomain: firebaseConfig.authDomain ? 'Set' : 'Missing',
-    projectId: firebaseConfig.projectId ? 'Set' : 'Missing',
-    storageBucket: firebaseConfig.storageBucket ? 'Set' : 'Missing',
-    messagingSenderId: firebaseConfig.messagingSenderId ? 'Set' : 'Missing',
-    appId: firebaseConfig.appId ? 'Set' : 'Missing',
-  });
+  // Debug configuration status without logging sensitive data
 }
 
 // Validate Firebase configuration
@@ -64,20 +57,16 @@ try {
   // Check if Firebase is already initialized
   const existingApps = getApps();
   if (existingApps.length > 0) {
-    console.log('Using existing Firebase app');
     app = getApp();
   } else {
-    console.log('Initializing new Firebase app');
     app = initializeApp(firebaseConfig);
   }
   
   auth = getAuth(app);
   
- 
+  // Enable persistence for better user experience
+  setPersistence(auth, browserLocalPersistence);
   
-  console.log('Firebase initialized successfully');
-  console.log('Firebase Auth Domain:', firebaseConfig.authDomain);
-  console.log('Firebase Project ID:', firebaseConfig.projectId);
 } catch (error) {
   console.error('Firebase initialization error:', error);
   console.error('Please check:');

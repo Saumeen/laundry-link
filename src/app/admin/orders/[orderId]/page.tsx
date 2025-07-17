@@ -51,6 +51,7 @@ interface Order {
   specialInstructions?: string;
   invoiceTotal?: number;
   minimumOrderApplied?: boolean;
+  orderProcessing?: any;
 }
 
 interface OrderItem {
@@ -83,6 +84,12 @@ interface Service {
   price: number;
   unit: string;
   description?: string;
+  pricingType?: string;
+  pricingUnit?: string;
+  turnaround?: string;
+  category?: string;
+  features?: string[];
+  sortOrder?: number;
 }
 
 interface Driver {
@@ -1330,12 +1337,121 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
 
 // Services Requested Tab Component
 function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+  const { showToast } = useToast();
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [addServiceLoading, setAddServiceLoading] = useState(false);
+  const [showAddServiceModal, setShowAddServiceModal] = useState(false);
+  const [newServiceData, setNewServiceData] = useState({
+    serviceId: 0,
+    quantity: 1,
+    price: 0
+  });
+
+  // Fetch all available services
+  useEffect(() => {
+    const fetchServices = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/services');
+        if (response.ok) {
+          const services = await response.json() as Service[];
+          setAllServices(services);
+        } else {
+          showToast('Failed to fetch services', 'error');
+        }
+      } catch (error) {
+        console.error('Error fetching services:', error);
+        showToast('Failed to fetch services', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, [showToast]);
+
+  // Get services that are already added to the order
+  const getAddedServiceIds = () => {
+    return order.orderServiceMappings?.map(mapping => mapping.serviceId) || [];
+  };
+
+  // Get services that are not yet added to the order
+  const getAvailableServices = () => {
+    const addedServiceIds = getAddedServiceIds();
+    return allServices.filter(service => !addedServiceIds.includes(service.id));
+  };
+
+  // Handle adding a new service to the order
+  const handleAddService = async () => {
+    if (!newServiceData.serviceId || newServiceData.quantity <= 0 || newServiceData.price <= 0) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+
+    setAddServiceLoading(true);
+    try {
+      const response = await fetch('/api/admin/add-order-service', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          serviceId: newServiceData.serviceId,
+          quantity: newServiceData.quantity,
+          price: newServiceData.price,
+        }),
+      });
+
+      if (response.ok) {
+        showToast('Service added to order successfully', 'success');
+        setShowAddServiceModal(false);
+        setNewServiceData({ serviceId: 0, quantity: 1, price: 0 });
+        onRefresh(); // Refresh the order data
+      } else {
+        const errorData = await response.json() as ErrorResponse;
+        showToast(errorData.error || 'Failed to add service to order', 'error');
+      }
+    } catch (error) {
+      console.error('Error adding service to order:', error);
+      showToast('Failed to add service to order', 'error');
+    } finally {
+      setAddServiceLoading(false);
+    }
+  };
+
+  // Auto-populate price when service changes
+  const handleServiceChange = (serviceId: number) => {
+    const selectedService = allServices.find(service => service.id === serviceId);
+    setNewServiceData({
+      serviceId,
+      quantity: 1,
+      price: selectedService?.price || 0
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900">Services Requested by Customer</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Order Services</h3>
+        <button
+          onClick={() => setShowAddServiceModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center space-x-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span>Add Service</span>
+        </button>
+      </div>
       
+      {/* Current Services */}
       {order.orderServiceMappings && order.orderServiceMappings.length > 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h4 className="text-sm font-medium text-gray-900">Services in Order</h4>
+          </div>
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -1354,14 +1470,22 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {order.orderServiceMappings.map((mapping) => (
                 <tr key={mapping.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {mapping.service.displayName}
+                    <div className="flex items-center space-x-2">
+                      <div className="text-sm font-medium text-gray-900">
+                        {mapping.service.displayName}
+                      </div>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Requested
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -1384,14 +1508,134 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
                       {(mapping.quantity * mapping.price).toFixed(3)} BD
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Active
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
+            <tfoot className="bg-gray-50 border-t border-gray-200">
+              <tr>
+                <td colSpan={4} className="px-6 py-3 text-right text-sm font-medium text-gray-900">
+                  Total:
+                </td>
+                <td className="px-6 py-3 text-right text-sm font-bold text-blue-600">
+                  {order.orderServiceMappings.reduce((sum, mapping) => 
+                    sum + (mapping.quantity * mapping.price), 0
+                  ).toFixed(3)} BD
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       ) : (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No services requested for this order.</p>
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">No services added to this order yet.</p>
+        </div>
+      )}
+
+      {/* Available Services */}
+      {!loading && getAvailableServices().length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h4 className="text-sm font-medium text-gray-900">Available Services to Add</h4>
+            <p className="text-xs text-gray-500 mt-1">Click "Add Service" button above to add any of these services to the order</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+            {getAvailableServices().map((service) => (
+              <div key={service.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                <div className="flex items-start justify-between mb-2">
+                  <h5 className="font-medium text-gray-900">{service.displayName}</h5>
+                  <span className="text-sm font-semibold text-blue-600">
+                    {service.price.toFixed(3)} BD
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">{service.description}</p>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>{service.unit}</span>
+                  <span>{service.turnaround}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Service Modal */}
+      {showAddServiceModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add Service to Order</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Service</label>
+                <select
+                  value={newServiceData.serviceId}
+                  onChange={(e) => handleServiceChange(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={0}>Select a service</option>
+                  {getAvailableServices().map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.displayName} - {service.price.toFixed(3)} BD
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={newServiceData.quantity}
+                  onChange={(e) => setNewServiceData({...newServiceData, quantity: parseInt(e.target.value) || 1})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price per Unit (BD)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value={newServiceData.price}
+                  onChange={(e) => setNewServiceData({...newServiceData, price: parseFloat(e.target.value) || 0})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {newServiceData.quantity > 0 && newServiceData.price > 0 && (
+                <div className="bg-blue-50 p-3 rounded-md">
+                  <div className="text-sm text-gray-600">Total Amount</div>
+                  <div className="text-lg font-bold text-blue-600">
+                    {(newServiceData.quantity * newServiceData.price).toFixed(3)} BD
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowAddServiceModal(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                disabled={addServiceLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddService}
+                disabled={addServiceLoading || !newServiceData.serviceId || newServiceData.quantity <= 0 || newServiceData.price <= 0}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {addServiceLoading ? 'Adding...' : 'Add Service'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1430,6 +1674,24 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
     pricePerItem: 0,
     notes: ''
   });
+
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editItemData, setEditItemData] = useState<OrderItem | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Processing state
+  const [processing, setProcessing] = useState(order.orderProcessing || null);
+  const [processingLoading, setProcessingLoading] = useState(false);
+  const [processingModalOpen, setProcessingModalOpen] = useState(false);
+  const [processingItemDetail, setProcessingItemDetail] = useState<any>(null);
+  const [processingForm, setProcessingForm] = useState({
+    processedQuantity: '',
+    status: 'pending',
+    processingNotes: '',
+    qualityScore: ''
+  });
+  const [markReadyLoading, setMarkReadyLoading] = useState(false);
 
   // Reset form when order changes
   useEffect(() => {
@@ -1576,6 +1838,200 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
     return mapping?.service.displayName || 'Unknown Service';
   }, [order.orderServiceMappings]);
 
+  // Edit item handlers
+  const openEditModal = (item: OrderItem) => {
+    setEditItemData(item);
+    setEditModalOpen(true);
+  };
+  const closeEditModal = () => {
+    setEditModalOpen(false);
+    setEditItemData(null);
+  };
+  const handleEditItemChange = (field: keyof OrderItem, value: any) => {
+    if (!editItemData) return;
+    setEditItemData({ ...editItemData, [field]: value });
+  };
+  const handleEditItemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editItemData) return;
+    setEditLoading(true);
+    try {
+      const response = await fetch('/api/admin/update-order-item', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderItemId: editItemData.id,
+          itemName: editItemData.itemName,
+          itemType: editItemData.itemType,
+          quantity: editItemData.quantity,
+          pricePerItem: editItemData.pricePerItem,
+          notes: editItemData.notes,
+        }),
+      });
+      if (response.ok) {
+        showToast('Order item updated successfully', 'success');
+        closeEditModal();
+        onRefresh();
+      } else {
+        const errorData: any = await response.json();
+        showToast(errorData.error || 'Failed to update order item', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to update order item', 'error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Fetch processing info on refresh
+  useEffect(() => {
+    setProcessing(order.orderProcessing || null);
+  }, [order.orderProcessing]);
+
+  // Find processing detail for an item
+  const getProcessingDetail = (itemId: number) => {
+    if (!processing?.processingItems) return null;
+    return processing.processingItems
+      .flatMap((pi: any) => pi.processingItemDetails)
+      .find((detail: any) => detail.orderItem.id === itemId);
+  };
+
+  // Status helpers
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-1" />;
+      case 'in_progress':
+        return <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-1" />;
+      case 'issue_reported':
+        return <span className="inline-block w-3 h-3 bg-red-500 rounded-full mr-1" />;
+      default:
+        return <span className="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1" />;
+    }
+  };
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'issue_reported':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+  const isAllItemsCompleted = () => {
+    if (!processing?.processingItems) return false;
+    return processing.processingItems.every((pi: any) =>
+      pi.processingItemDetails.every((detail: any) => detail.status === 'completed')
+    );
+  };
+
+  // Start processing handler
+  const handleStartProcessing = async () => {
+    setProcessingLoading(true);
+    try {
+      const response = await fetch('/api/admin/processing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          totalPieces: null,
+          totalWeight: null,
+          processingNotes: 'Processing started by admin'
+        })
+      });
+      if (response.ok) {
+        showToast('Processing started!', 'success');
+        onRefresh();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showToast((errorData as any).error || 'Failed to start processing', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to start processing', 'error');
+    } finally {
+      setProcessingLoading(false);
+    }
+  };
+
+  // Open processing modal for an item
+  const openProcessingModal = (detail: any) => {
+    setProcessingItemDetail(detail);
+    setProcessingForm({
+      processedQuantity: detail.processedQuantity?.toString() || '',
+      status: detail.status,
+      processingNotes: detail.processingNotes || '',
+      qualityScore: detail.qualityScore?.toString() || ''
+    });
+    setProcessingModalOpen(true);
+  };
+  const closeProcessingModal = () => {
+    setProcessingModalOpen(false);
+    setProcessingItemDetail(null);
+  };
+  const handleProcessingFormChange = (field: string, value: any) => {
+    setProcessingForm({ ...processingForm, [field]: value });
+  };
+  const handleProcessingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!processingItemDetail) return;
+    setProcessingLoading(true);
+    try {
+      const response = await fetch(`/api/admin/processing?orderId=${order.id}&action=updateItem`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingItemDetailId: processingItemDetail.id,
+          processedQuantity: parseInt(processingForm.processedQuantity) || 0,
+          status: processingForm.status,
+          processingNotes: processingForm.processingNotes,
+          qualityScore: processingForm.qualityScore ? parseInt(processingForm.qualityScore) : undefined,
+          updateParentStatus: true
+        })
+      });
+      if (response.ok) {
+        showToast('Item processing updated!', 'success');
+        closeProcessingModal();
+        onRefresh();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showToast((errorData as any).error || 'Failed to update item processing', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to update item processing', 'error');
+    } finally {
+      setProcessingLoading(false);
+    }
+  };
+
+  // Mark as ready for delivery
+  const handleMarkReady = async () => {
+    setMarkReadyLoading(true);
+    try {
+      const response = await fetch(`/api/admin/processing?orderId=${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingStatus: 'ready_for_delivery',
+          processingNotes: processing?.processingNotes || 'Order completed and ready for delivery'
+        })
+      });
+      if (response.ok) {
+        showToast('Order marked as ready for delivery!', 'success');
+        onRefresh();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        showToast((errorData as any).error || 'Failed to mark as ready', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to mark as ready', 'error');
+    } finally {
+      setMarkReadyLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
@@ -1656,125 +2112,238 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
           {/* Items Tab */}
           {activeTab === 'items' && (
             <div className="space-y-6">
-              {orderItems.length > 0 ? (
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                  <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                    <h3 className="text-lg font-medium text-gray-900">All Order Items</h3>
-                    <p className="text-sm text-gray-600 mt-1">Total Items: {orderItems.length}</p>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Service
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Item Name
-                          </th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Qty
-                          </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Price/Item
-                          </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Total
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Notes
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {orderItems.map((item) => (
-                          <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {getServiceName(item.orderServiceMappingId)}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {item.itemName}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 text-center">
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {item.itemType}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 text-center">
-                              <div className="text-sm text-gray-900 font-medium">
-                                {item.quantity}
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <div className="text-sm text-gray-900">
-                                {item.pricePerItem.toFixed(3)} BD
-                              </div>
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <div className="text-sm font-semibold text-gray-900">
-                                {calculateOrderItemTotal(item).toFixed(3)} BD
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="text-sm text-gray-600 max-w-xs">
-                                {item.notes ? (
-                                  <div className="group relative">
-                                    <div className="truncate cursor-help" title={item.notes}>
-                                      {item.notes}
-                                    </div>
-                                    <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 max-w-xs break-words">
-                                      {item.notes}
-                                      <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 italic">-</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-gray-50 border-t border-gray-200">
-                        <tr>
-                          <td colSpan={5} className="px-4 py-3 text-right text-sm font-medium text-gray-900">
-                            Total:
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">
-                            {orderItems.reduce((sum, item) => sum + calculateOrderItemTotal(item), 0).toFixed(3)} BD
-                          </td>
-                          <td></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Order Items Found</h3>
-                  <p className="text-gray-600 mb-4">
-                    This order doesn't have any items added yet.
-                  </p>
+              {/* Processing controls */}
+              {!processing && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+                  <span className="text-blue-800 font-medium">Processing has not started for this order.</span>
                   <button
-                    onClick={() => setActiveTab('add-item')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                    onClick={handleStartProcessing}
+                    disabled={processingLoading}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
                   >
-                    Add First Item
+                    {processingLoading ? 'Starting...' : 'Start Processing'}
                   </button>
                 </div>
               )}
+              {processing && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+                  <span className="text-green-800 font-medium">
+                    Processing Status: <span className="font-bold">{processing.processingStatus || 'In Progress'}</span>
+                  </span>
+                  {isAllItemsCompleted() && processing.processingStatus !== 'ready_for_delivery' && (
+                    <button
+                      onClick={handleMarkReady}
+                      disabled={markReadyLoading}
+                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {markReadyLoading ? 'Marking...' : 'Mark as Ready for Delivery'}
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* ... existing table ... */}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Service
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Item Name
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Type
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Qty
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Price/Item
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Processing
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {orderItems.map((item) => {
+                      const detail = getProcessingDetail(item.id);
+                      return (
+                        <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {getServiceName(item.orderServiceMappingId)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {item.itemName}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {item.itemType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <div className="text-sm text-gray-900 font-medium">
+                              {item.quantity}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <div className="text-sm text-gray-900">
+                              {item.pricePerItem.toFixed(3)} BD
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <div className="text-sm font-semibold text-gray-900">
+                              {calculateOrderItemTotal(item).toFixed(3)} BD
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-sm text-gray-600 max-w-xs">
+                              {item.notes ? (
+                                <div className="group relative">
+                                  <div className="truncate cursor-help" title={item.notes}>
+                                    {item.notes}
+                                  </div>
+                                  <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 max-w-xs break-words">
+                                    {item.notes}
+                                    <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 italic">-</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            {processing && detail ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(detail.status)}`}>{getStatusIcon(detail.status)}{detail.status.replace('_', ' ')}</span>
+                                <span className="text-xs text-gray-600">Processed: {detail.processedQuantity}/{detail.quantity}</span>
+                                {detail.qualityScore && <span className="text-xs text-green-700">Quality: {detail.qualityScore}/10</span>}
+                                <button
+                                  onClick={() => openProcessingModal(detail)}
+                                  className="text-blue-600 hover:text-blue-800 text-xs border border-blue-200 rounded px-2 py-1 mt-1"
+                                  disabled={processingLoading}
+                                >
+                                  Update
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">{processing ? 'Not started' : '-'}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => openEditModal(item)}
+                                className="text-blue-600 hover:text-blue-800 text-xs border border-blue-200 rounded px-2 py-1 ml-2"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t border-gray-200">
+                    <tr>
+                      <td colSpan={5} className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                        Total:
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">
+                        {orderItems.reduce((sum, item) => sum + calculateOrderItemTotal(item), 0).toFixed(3)} BD
+                      </td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              {/* Processing Modal */}
+              {processingModalOpen && processingItemDetail && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                    <h3 className="text-lg font-semibold mb-4">Update Item Processing</h3>
+                    <form onSubmit={handleProcessingSubmit} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Processed Quantity</label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={processingItemDetail.quantity}
+                          value={processingForm.processedQuantity}
+                          onChange={e => handleProcessingFormChange('processedQuantity', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Total: {processingItemDetail.quantity}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Status</label>
+                        <select
+                          value={processingForm.status}
+                          onChange={e => handleProcessingFormChange('status', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                          <option value="issue_reported">Issue Reported</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Processing Notes</label>
+                        <textarea
+                          value={processingForm.processingNotes}
+                          onChange={e => handleProcessingFormChange('processingNotes', e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Quality Score (1-10)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={processingForm.qualityScore}
+                          onChange={e => handleProcessingFormChange('qualityScore', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <button
+                          type="button"
+                          onClick={closeProcessingModal}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                          disabled={processingLoading}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          disabled={processingLoading}
+                        >
+                          {processingLoading ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+              {/* ... existing edit modal ... */}
             </div>
           )}
 
@@ -1825,97 +2394,116 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                 </div>
               </div>
 
-              {/* Item Details - Only show if service is selected */}
+              {/* Item Selection - Only show if service is selected */}
               {newItemData.orderServiceMappingId > 0 && (
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">2. Item Details</h4>
+                  <h4 className="text-md font-medium text-gray-900 mb-4">2. Select Item</h4>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Quantity and Price */}
+                  {!servicePricing || servicePricing.serviceId !== order.orderServiceMappings?.find(m => m.id === newItemData.orderServiceMappingId)?.service.id ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-3 text-gray-600">Loading pricing options...</span>
+                    </div>
+                  ) : (
                     <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
+                      {/* Quick Selection Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {servicePricing.categories.flatMap(category => 
+                          category.items.map(item => (
+                            <button
+                              key={item.id}
+                              onClick={() => setNewItemData({
+                                ...newItemData, 
+                                itemName: item.displayName,
+                                pricePerItem: item.price
+                              })}
+                              className={`p-3 border rounded-lg text-left transition-all duration-200 ${
+                                newItemData.itemName === item.displayName
+                                  ? 'border-green-500 bg-green-50 shadow-md'
+                                  : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                              }`}
+                            >
+                              <div className="font-medium text-gray-900">{item.displayName}</div>
+                              <div className="text-sm text-gray-500">{category.displayName}</div>
+                              <div className="text-lg font-semibold text-green-600 mt-1">
+                                BD {item.price.toFixed(2)}
+                              </div>
+                              {item.isDefault && (
+                                <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mt-1">
+                                  Default
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Custom Item Input */}
+                      <div className="border-t pt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Or enter custom item name
+                        </label>
                         <input
                           type="text"
+                          placeholder="Enter custom item name..."
                           value={newItemData.itemName}
                           onChange={(e) => setNewItemData({...newItemData, itemName: e.target.value})}
                           className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter item name..."
                         />
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setNewItemData({...newItemData, quantity: Math.max(1, newItemData.quantity - 1)})}
-                            className="w-10 h-10 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            min="1"
-                            value={newItemData.quantity}
-                            onChange={(e) => setNewItemData({...newItemData, quantity: parseInt(e.target.value) || 1})}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          <button
-                            onClick={() => setNewItemData({...newItemData, quantity: newItemData.quantity + 1})}
-                            className="w-10 h-10 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Price per Item (BD)</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={newItemData.pricePerItem}
-                            onChange={(e) => setNewItemData({...newItemData, pricePerItem: parseFloat(e.target.value) || 0})}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                          {newItemData.pricePerItem > 0 && (
-                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                              <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
-                                Set
-                              </span>
-                            </div>
-                          )}
-                        </div>
+              {/* Item Details - Only show if item is selected */}
+              {newItemData.itemName && (
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-4">3. Item Details</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setNewItemData({...newItemData, quantity: Math.max(1, newItemData.quantity - 1)})}
+                          className="w-10 h-10 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min="1"
+                          value={newItemData.quantity}
+                          onChange={(e) => setNewItemData({...newItemData, quantity: parseInt(e.target.value) || 1})}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => setNewItemData({...newItemData, quantity: newItemData.quantity + 1})}
+                          className="w-10 h-10 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
 
-                    {/* Total and Notes */}
-                    <div className="space-y-4">
-                      {/* Total Calculation */}
-                      {newItemData.quantity > 0 && newItemData.pricePerItem > 0 && (
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
-                          <div className="text-sm text-gray-600 mb-1">Total Amount</div>
-                          <div className="text-2xl font-bold text-green-600">
-                            BD {(newItemData.quantity * newItemData.pricePerItem).toFixed(2)}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {newItemData.quantity} × BD {newItemData.pricePerItem.toFixed(2)}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Notes */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Notes (optional)</label>
-                        <textarea
-                          value={newItemData.notes}
-                          onChange={(e) => setNewItemData({...newItemData, notes: e.target.value})}
-                          rows={3}
-                          placeholder="Any special instructions for this item..."
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Price per Item (BD)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={newItemData.pricePerItem}
+                          onChange={(e) => setNewItemData({...newItemData, pricePerItem: parseFloat(e.target.value) || 0})}
                           className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
+                        {newItemData.pricePerItem > 0 && (
+                          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                              Set
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1950,6 +2538,89 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
           )}
         </div>
       </div>
+
+      {/* Edit Item Modal */}
+      {editModalOpen && editItemData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Edit Order Item</h3>
+            <form onSubmit={handleEditItemSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                <input
+                  type="text"
+                  value={editItemData.itemName}
+                  onChange={e => handleEditItemChange('itemName', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
+                <select
+                  value={editItemData.itemType}
+                  onChange={e => handleEditItemChange('itemType', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="clothing">Clothing</option>
+                  <option value="bedding">Bedding & Linens</option>
+                  <option value="accessories">Accessories</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={editItemData.quantity}
+                  onChange={e => handleEditItemChange('quantity', parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price per Item (BD)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={editItemData.pricePerItem}
+                  onChange={e => handleEditItemChange('pricePerItem', parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editItemData.notes || ''}
+                  onChange={e => handleEditItemChange('notes', e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  disabled={editLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  disabled={editLoading}
+                >
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

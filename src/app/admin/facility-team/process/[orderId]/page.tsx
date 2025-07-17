@@ -51,13 +51,24 @@ interface AddOrderItemResponse {
   newTotalAmount: number;
 }
 
+interface OrderResponse {
+  order: Order;
+}
 
+interface ErrorResponse {
+  error: string;
+}
 
 interface Order {
   id: number;
   orderNumber: string;
-  customerFirstName: string;
-  customerLastName: string;
+  customer?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
   status: string;
   orderServiceMappings: OrderServiceMapping[];
   orderProcessing?: {
@@ -149,12 +160,12 @@ export default function ProcessOrderPage() {
     try {
       const response = await fetch(`/api/admin/order-details/${orderId}`);
       if (response.ok) {
-        const data = await response.json() as Order;
-        setOrder(data);
-        if (data.orderServiceMappings?.length > 0) {
+        const data = await response.json() as OrderResponse;
+        setOrder(data.order);
+        if (data.order.orderServiceMappings?.length > 0) {
           setNewItemData(prev => ({
             ...prev,
-            orderServiceMappingId: data.orderServiceMappings[0].id
+            orderServiceMappingId: data.order.orderServiceMappings[0].id
           }));
         }
       } else {
@@ -275,8 +286,8 @@ export default function ProcessOrderPage() {
           // Find the newly created processing detail
           const orderResponse = await fetch(`/api/admin/order-details/${orderId}`);
           if (orderResponse.ok) {
-            const updatedOrder = await orderResponse.json() as Order;
-            const processingDetail = updatedOrder.orderProcessing?.processingItems
+            const updatedOrderData = await orderResponse.json() as OrderResponse;
+            const processingDetail = updatedOrderData.order.orderProcessing?.processingItems
               .flatMap(pi => pi.processingItemDetails)
               .find(detail => detail.orderItem.id === result.orderItem.id);
 
@@ -413,8 +424,8 @@ export default function ProcessOrderPage() {
         showToast('Failed to refresh order data', 'error');
         return;
       }
-      const updatedOrder = await orderResponse.json() as Order;
-      const processingDetail = updatedOrder.orderProcessing?.processingItems
+      const updatedOrderData = await orderResponse.json() as OrderResponse;
+      const processingDetail = updatedOrderData.order.orderProcessing?.processingItems
         .flatMap(pi => pi.processingItemDetails)
         .find(detail => detail.orderItem.id === item.id);
 
@@ -520,7 +531,7 @@ export default function ProcessOrderPage() {
     <div className="min-h-screen bg-gray-50">
       <AdminHeader 
         title={`Process Order #${order.orderNumber}`}
-        subtitle={`Customer: ${order.customerFirstName} ${order.customerLastName}`}
+        subtitle={`Customer: ${order.customer?.firstName || 'Unknown'} ${order.customer?.lastName || 'Customer'}`}
         backUrl="/admin/facility-team"
         rightContent={
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
@@ -563,7 +574,7 @@ export default function ProcessOrderPage() {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Items ({order.orderServiceMappings.reduce((total, mapping) => total + mapping.orderItems.length, 0)})
+              Items ({order?.orderServiceMappings?.reduce((total, mapping) => total + (mapping.orderItems?.length || 0), 0) || 0})
             </button>
             <button
               onClick={() => setActiveTab('add-item')}
@@ -586,7 +597,7 @@ export default function ProcessOrderPage() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-2">Customer Information</h3>
                   <p className="text-sm text-gray-600">
-                    {order.customerFirstName} {order.customerLastName}
+                    {order.customer?.firstName || 'N/A'} {order.customer?.lastName || 'N/A'}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">

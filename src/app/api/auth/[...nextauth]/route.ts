@@ -29,17 +29,11 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         username: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
         password: { label: "Password", type: "password" },
-        name: { label: "Full Name", type: "text", placeholder: "John Smith" }
+        name: { label: "Full Name", type: "text", placeholder: "John Smith" },
+        phoneNumber: { label: "Phone Number", type: "text", placeholder: "+973 3344 0841" }
       },
       async authorize(credentials, req) {
-        console.log("Customer credentials provider called with:", { 
-          email: credentials?.username,
-          hasPassword: !!credentials?.password,
-          hasName: !!credentials?.name
-        });
-
         if (!credentials?.username || !credentials?.password) {
-          console.log("Customer credentials provider: Missing credentials");
           return null;
         }
 
@@ -48,20 +42,21 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.username }
         });
 
-        console.log("Customer credentials provider: Found user:", {
-          found: !!user,
-          isActive: user?.isActive,
-          hasPassword: !!user?.password
-        });
-
         if (user) {
           // User exists, check password
           if (!user.password) {
-            console.log("Customer credentials provider: User exists but no password");
             return null;
           }
           const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) return null;
+          
+          // Update phone number if provided and different
+          if (credentials.phoneNumber && user.phone !== credentials.phoneNumber) {
+            await prisma.customer.update({
+              where: { id: user.id },
+              data: { phone: credentials.phoneNumber }
+            });
+          }
           
           const result = {
             id: user.id.toString(),
@@ -71,25 +66,39 @@ export const authOptions: NextAuthOptions = {
           };
           return result;
         } else {
-          // User does not exist, create new user
-          if (!credentials.name) {
-            console.log("Customer credentials provider: No name provided for new user");
+          // If user doesn't exist, create new user (registration)
+          if (credentials.name && credentials.phoneNumber) {
+            // Check if phone number already exists
+            const existingPhoneUser = await prisma.customer.findFirst({
+              where: {
+                phone: credentials.phoneNumber,
+                isActive: true
+              }
+            });
+
+            if (existingPhoneUser) {
+              console.error('Phone number already exists:', credentials.phoneNumber);
+              return null;
+            }
+
+            // Hash password
+            const hashedPassword = await bcrypt.hash(credentials.password, 10);
+            
+            // Create new user
+            user = await prisma.customer.create({
+              data: {
+                email: credentials.username,
+                password: hashedPassword,
+                firstName: credentials.name.split(' ')[0] || '',
+                lastName: credentials.name.split(' ').slice(1).join(' ') || '',
+                phone: credentials.phoneNumber,
+                isActive: true,
+                walletBalance: 0
+              }
+            });
+          } else {
             return null;
           }
-          const [firstName, ...lastNameArr] = credentials.name.split(" ");
-          const lastName = lastNameArr.join(" ");
-          const hashedPassword = await bcrypt.hash(credentials.password, 10);
-
-          user = await prisma.customer.create({
-            data: {
-              email: credentials.username,
-              firstName,
-              lastName,
-              password: hashedPassword,
-              isActive: true,
-              walletBalance: 0
-            }
-          });
 
           const result = {
             id: user.id.toString(),
