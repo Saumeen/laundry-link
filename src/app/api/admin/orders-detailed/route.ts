@@ -43,15 +43,7 @@ export async function GET(req: Request) {
         orderServiceMappings: {
           include: {
             service: true,
-            invoiceItems: {
-              include: {
-                orderServiceMapping: {
-                  include: {
-                    service: true,
-                  },
-                },
-              },
-            },
+            orderItems: true,
           },
         },
         driverAssignments: {
@@ -71,23 +63,33 @@ export async function GET(req: Request) {
       take: pageSize,
     });
 
-    // Transform orders to include invoice items with service information
-    const transformedOrders = orders.map((order: typeof orders[0]) => {
-      const transformedInvoiceItems = order.orderServiceMappings.flatMap((mapping: typeof order.orderServiceMappings[0]) => 
-        mapping.invoiceItems.map((item: typeof mapping.invoiceItems[0]) => ({
+    // Transform orders to include service information
+    const transformedOrders = orders.map((order) => {
+      // Flatten all orderItems from all services into a single array
+      const orderItems = order.orderServiceMappings?.flatMap((mapping) => 
+        mapping.orderItems?.map((item) => ({
           id: item.id,
-          orderServiceMappingId: item.orderServiceMappingId,
+          itemType: item.itemType,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
-          total: item.quantity * item.pricePerItem,
-          service: mapping.service,
-          notes: undefined,
-        }))
-      );
+          totalPrice: item.totalPrice,
+          notes: item.notes,
+        })) || []
+      ) || [];
+
+      const services = order.orderServiceMappings?.map((mapping) => ({
+        id: mapping.id,
+        service: mapping.service,
+        quantity: mapping.quantity,
+        price: mapping.price,
+        total: mapping.quantity * mapping.price,
+        orderItems: mapping.orderItems,
+      })) || [];
 
       return {
         ...order,
-        invoiceItems: transformedInvoiceItems,
+        orderItems, // Add this for frontend compatibility
+        services,
       };
     });
 
@@ -99,7 +101,7 @@ export async function GET(req: Request) {
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    console.error('Error fetching detailed orders:', error || 'Unknown error');
+    console.error('Error fetching detailed orders:', error);
     if (error instanceof Error && error.message === 'Admin authentication required') {
       return createAdminAuthErrorResponse();
     }

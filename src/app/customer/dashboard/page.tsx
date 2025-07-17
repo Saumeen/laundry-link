@@ -10,6 +10,7 @@ import DashboardAddressManagement from '@/components/AddressManagement';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import FAB from '@/components/FAB';
 import OrderDetailsModal from '@/components/OrderDetailsModal';
+import ProfileEditModal from '@/components/ProfileEditModal';
 
 
 interface Customer {
@@ -78,6 +79,12 @@ const TAB_CONFIG = [
     name: 'Addresses', 
     icon: '🏠',
     description: 'Manage delivery addresses'
+  },
+  { 
+    id: 'profile', 
+    name: 'Profile', 
+    icon: '👤',
+    description: 'Manage your account'
   },
   { 
     id: 'wallet', 
@@ -398,6 +405,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' }>({ message: '' });
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
@@ -437,6 +445,18 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
   const handleCloseOrderModal = useCallback(() => {
     setIsOrderModalOpen(false);
     setSelectedOrderId(null);
+  }, []);
+
+  const handleOpenProfileModal = useCallback(() => {
+    setIsProfileModalOpen(true);
+  }, []);
+
+  const handleCloseProfileModal = useCallback(() => {
+    setIsProfileModalOpen(false);
+  }, []);
+
+  const handleProfileUpdated = useCallback((updatedCustomer: Customer) => {
+    setCustomer(updatedCustomer);
   }, []);
 
   const handleTabChange = useCallback((tabId: string) => {
@@ -564,7 +584,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
   useEffect(() => {
     const tab = searchParams.get('tab');
     console.log('URL tab parameter:', tab);
-    if (tab && ['overview', 'orders', 'addresses', 'wallet', 'packages'].includes(tab)) {
+    if (tab && ['overview', 'orders', 'addresses', 'profile', 'wallet', 'packages'].includes(tab)) {
       console.log('Setting active tab to:', tab);
       setActiveTab(tab);
     }
@@ -719,10 +739,21 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
 
               {/* Customer Information Card */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <span className="mr-3">👤</span>
-                  Your Information
-                </h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <span className="mr-3">👤</span>
+                    Your Information
+                  </h2>
+                  <button
+                    onClick={handleOpenProfileModal}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span>Edit Profile</span>
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-6">
                     <div className="bg-gray-50 rounded-xl p-4">
@@ -844,6 +875,57 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
             </div>
           )}
 
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <span className="mr-3">👤</span>
+                  Profile Information
+                </h2>
+                <button
+                  onClick={handleOpenProfileModal}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span>Edit Profile</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Full Name</label>
+                    <p className="text-lg font-semibold text-gray-900">{customer.firstName} {customer.lastName}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Email Address</label>
+                    <p className="text-lg font-semibold text-gray-900">{customer.email}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Contact Number</label>
+                    <p className="text-lg font-semibold text-gray-900">{customer.phone || 'Not provided'}</p>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Member Since</label>
+                    <p className="text-lg font-semibold text-gray-900">{formatMemberSince(customer.createdAt)}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Default Address</label>
+                    <p className="text-lg font-semibold text-gray-900">{getDefaultAddress()}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">Account Status</label>
+                    <p className="text-lg font-semibold text-green-600">Active</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Wallet Tab */}
           {activeTab === 'wallet' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
@@ -906,6 +988,14 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
         isOpen={isOrderModalOpen}
         onClose={handleCloseOrderModal}
         orderId={selectedOrderId}
+      />
+      
+      {/* Profile Edit Modal */}
+      <ProfileEditModal
+        isOpen={isProfileModalOpen}
+        onClose={handleCloseProfileModal}
+        customer={customer}
+        onProfileUpdated={handleProfileUpdated}
       />
     </div>
   );

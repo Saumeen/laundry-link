@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 
@@ -131,6 +131,24 @@ export async function POST(req: Request) {
         { error: `A ${assignmentType} assignment already exists for this order` },
         { status: 409 }
       );
+    }
+
+    // Validation: For delivery assignments, ensure pickup has been completed first
+    if (assignmentType === 'delivery') {
+      const pickupAssignment = await prisma.driverAssignment.findFirst({
+        where: {
+          orderId,
+          assignmentType: 'pickup',
+          status: 'completed'
+        }
+      });
+      
+      if (!pickupAssignment) {
+        return NextResponse.json(
+          { error: "Cannot create delivery assignment. Pickup must be completed first." },
+          { status: 400 }
+        );
+      }
     }
 
     // Create the assignment

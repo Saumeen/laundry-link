@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { UserRole, DriverAssignment } from "@/types/global";
-import { calculateInvoiceItemTotal } from "@/lib/calculations";
+
 import { useToast, ToastProvider } from "@/components/ui/Toast";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
 import Link from "next/link";
@@ -45,19 +45,22 @@ interface Order {
       price: number;
       unit: string;
     };
+    orderItems: OrderItem[];
   }>;
-  invoiceItems: InvoiceItem[];
   driverAssignments?: DriverAssignment[];
   specialInstructions?: string;
   invoiceTotal?: number;
   minimumOrderApplied?: boolean;
 }
 
-interface InvoiceItem {
+interface OrderItem {
   id: number;
   orderServiceMappingId: number;
+  itemName: string;
+  itemType: string;
   quantity: number;
   pricePerItem: number;
+  totalPrice: number;
   notes?: string;
   orderServiceMapping?: {
     service: {
@@ -65,6 +68,13 @@ interface InvoiceItem {
     };
   };
 }
+
+// Helper function to calculate order item total
+const calculateOrderItemTotal = (item: OrderItem): number => {
+  return item.quantity * item.pricePerItem;
+};
+
+
 
 interface Service {
   id: number;
@@ -102,14 +112,14 @@ interface DriverAssignmentsResponse {
   assignments: DriverAssignment[];
 }
 
-interface InvoiceItemsResponse {
-  invoiceItems: InvoiceItem[];
+interface OrderItemsResponse {
+  orderItems: OrderItem[];
 }
 
-type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'invoice';
+type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items';
 
 // Tab Button Component
-const TabButton = ({ 
+const TabButton = React.memo(({ 
   isActive, 
   onClick, 
   children, 
@@ -137,7 +147,7 @@ const TabButton = ({
       </span>
     )}
   </button>
-);
+));
 
 function OrderEditPageContent() {
   const router = useRouter();
@@ -151,8 +161,12 @@ function OrderEditPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [saving, setSaving] = useState(false);
+  const [orderId, setOrderId] = useState<string>('');
 
-  const orderId = params.orderId as string;
+  // Memoized tab click handlers
+  const handleTabClick = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+  }, []);
 
   // Determine the correct back URL based on user role
   const getBackUrl = useCallback(() => {
@@ -172,6 +186,15 @@ function OrderEditPageContent() {
         return '/admin/orders';
     }
   }, [session?.role]);
+
+  // Handle async params
+  useEffect(() => {
+    const getParams = async () => {
+      const resolvedParams = await params;
+      setOrderId(resolvedParams.orderId as string);
+    };
+    getParams();
+  }, [params]);
 
   const fetchOrder = useCallback(async () => {
     if (!orderId) return;
@@ -219,7 +242,7 @@ function OrderEditPageContent() {
     fetchOrder();
   }, [status, session, router, fetchOrder]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -227,9 +250,9 @@ function OrderEditPageContent() {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     const colors: { [key: string]: string } = {
       'Order Placed': 'bg-blue-100 text-blue-800',
       'Picked Up': 'bg-yellow-100 text-yellow-800',
@@ -238,7 +261,7 @@ function OrderEditPageContent() {
       'Delivered': 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -322,36 +345,36 @@ function OrderEditPageContent() {
             <nav className="flex space-x-8 px-6">
               <TabButton
                 isActive={activeTab === 'overview'}
-                onClick={() => setActiveTab('overview')}
+                onClick={() => handleTabClick('overview')}
               >
                 Overview
               </TabButton>
               <TabButton
                 isActive={activeTab === 'edit'}
-                onClick={() => setActiveTab('edit')}
+                onClick={() => handleTabClick('edit')}
               >
                 Edit Order
               </TabButton>
               <TabButton
                 isActive={activeTab === 'assignments'}
-                onClick={() => setActiveTab('assignments')}
+                onClick={() => handleTabClick('assignments')}
                 count={order.driverAssignments?.length || 0}
               >
                 Driver Assignments
               </TabButton>
               <TabButton
                 isActive={activeTab === 'services'}
-                onClick={() => setActiveTab('services')}
+                onClick={() => handleTabClick('services')}
                 count={order.orderServiceMappings?.length || 0}
               >
                 Services Requested
               </TabButton>
               <TabButton
-                isActive={activeTab === 'invoice'}
-                onClick={() => setActiveTab('invoice')}
-                count={order.invoiceItems?.length || 0}
+                isActive={activeTab === 'order-items'}
+                onClick={() => handleTabClick('order-items')}
+                count={order.orderServiceMappings?.reduce((total, mapping) => total + (mapping.orderItems?.length || 0), 0) || 0}
               >
-                Invoice Items
+                Order Items
               </TabButton>
             </nav>
           </div>
@@ -370,9 +393,9 @@ function OrderEditPageContent() {
             {activeTab === 'services' && (
               <ServicesRequestedTab order={order} onRefresh={fetchOrder} />
             )}
-            {activeTab === 'invoice' && (
-              <InvoiceItemsTab order={order} onRefresh={fetchOrder} />
-            )}
+                    {activeTab === 'order-items' && (
+          <OrderItemsTab order={order} onRefresh={fetchOrder} />
+        )}
           </div>
         </div>
       </div>
@@ -382,7 +405,7 @@ function OrderEditPageContent() {
 
 // Overview Tab Component
 function OrderOverviewTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -390,7 +413,7 @@ function OrderOverviewTab({ order, onRefresh }: { order: Order; onRefresh: () =>
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -490,7 +513,7 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -522,7 +545,7 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
     } finally {
       setLoading(false);
     }
-  };
+  }, [order.id, status, pickupTime, deliveryTime, specialInstructions, onUpdate, showToast]);
 
   return (
     <div className="max-w-2xl">
@@ -1375,611 +1398,558 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
   );
 }
 
-// Invoice Items Tab Component
-function InvoiceItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+// Order Items Tab Component
+function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>(order.invoiceItems || []);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<number | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'add-item'>('overview');
+  const [servicePricing, setServicePricing] = useState<{
+    serviceId: number;
+    categories: Array<{
+      id: number;
+      name: string;
+      displayName: string;
+      items: Array<{
+        id: number;
+        name: string;
+        displayName: string;
+        price: number;
+        isDefault: boolean;
+        sortOrder: number;
+      }>;
+    }>;
+  } | null>(null);
   
-  // Form states for new invoice item
-  const [newInvoiceItem, setNewInvoiceItem] = useState({
-    orderServiceMappingId: '',
+  // Form states for new order item
+  const [newItemData, setNewItemData] = useState({
+    orderServiceMappingId: 0,
+    itemName: '',
+    itemType: 'clothing',
     quantity: 1,
     pricePerItem: 0,
-    notes: '',
+    notes: ''
   });
-  
-  // Form states for editing
-  const [editInvoiceItem, setEditInvoiceItem] = useState({
-    orderServiceMappingId: '',
-    quantity: 1,
-    pricePerItem: 0,
-    notes: '',
-  });
-
-  // Validation states
-  const [errors, setErrors] = useState<{
-    orderServiceMappingId?: string;
-    quantity?: string;
-    pricePerItem?: string;
-    notes?: string;
-  }>({});
-
-  // Confirmation modal state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
   // Reset form when order changes
   useEffect(() => {
-    setInvoiceItems(order.invoiceItems || []);
-  }, [order.invoiceItems]);
-
-  const validateForm = (data: typeof newInvoiceItem) => {
-    const newErrors: typeof errors = {};
+    // Extract order items from nested structure
+    const allOrderItems = order.orderServiceMappings?.flatMap(mapping => 
+      mapping.orderItems || []
+    ) || [];
+    setOrderItems(allOrderItems);
     
-    if (!data.orderServiceMappingId) {
-      newErrors.orderServiceMappingId = 'Please select a service';
+    if (order.orderServiceMappings?.length > 0) {
+      setNewItemData(prev => ({
+        ...prev,
+        orderServiceMappingId: order.orderServiceMappings[0].id
+      }));
     }
-    
-    if (!data.quantity || data.quantity <= 0) {
-      newErrors.quantity = 'Quantity must be greater than 0';
-    }
-    
-    if (!data.pricePerItem || data.pricePerItem <= 0) {
-      newErrors.pricePerItem = 'Price per item must be greater than 0';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  }, [order.orderServiceMappings]);
 
-  const resetNewForm = () => {
-    setNewInvoiceItem({
-      orderServiceMappingId: '',
-      quantity: 1,
-      pricePerItem: 0,
-      notes: '',
-    });
-    setErrors({});
-  };
-
-  const resetEditForm = () => {
-    setEditInvoiceItem({
-      orderServiceMappingId: '',
-      quantity: 1,
-      pricePerItem: 0,
-      notes: '',
-    });
-    setErrors({});
-  };
-
-  const handleAddInvoiceItem = async () => {
-    if (!validateForm(newInvoiceItem)) {
-      return;
-    }
-
-    setLoading(true);
+  const fetchServicePricing = async (serviceId: number) => {
     try {
-      // Prepare all invoice items: existing ones plus the new one
-      const allInvoiceItems = [
-        ...invoiceItems.map(item => ({
-          id: item.id,
-          orderServiceMappingId: item.orderServiceMappingId,
-          quantity: item.quantity,
-          pricePerItem: item.pricePerItem,
-          notes: item.notes,
-        })),
-        {
-          orderServiceMappingId: parseInt(newInvoiceItem.orderServiceMappingId),
-          quantity: newInvoiceItem.quantity,
-          pricePerItem: newInvoiceItem.pricePerItem,
-          notes: newInvoiceItem.notes,
-        }
-      ];
-
-      const response = await fetch('/api/admin/add-invoice-item', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order.id,
-          invoiceItems: allInvoiceItems,
-        }),
-      });
-
+      const response = await fetch(`/api/admin/service-pricing?serviceId=${serviceId}`);
       if (response.ok) {
-        const data = await response.json() as InvoiceItemsResponse;
-        setInvoiceItems(data.invoiceItems);
-        resetNewForm();
-        setShowAddForm(false);
-        onRefresh(); // Refresh the order data
-        showToast('Invoice item added successfully', 'success');
-      } else {
-        const errorData = await response.json() as ErrorResponse;
-        showToast(errorData.error || 'Failed to add invoice item', 'error');
+        const data = await response.json() as { success: boolean; data?: any };
+        setServicePricing(data.data || null);
       }
     } catch (error) {
-      console.error('Error adding invoice item:', error);
-      showToast('Failed to add invoice item', 'error');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching service pricing:', error);
     }
   };
 
-  const startEditing = (item: InvoiceItem) => {
-    setEditingItem(item.id);
-    setEditInvoiceItem({
-      orderServiceMappingId: item.orderServiceMappingId.toString(),
-      quantity: item.quantity,
-      pricePerItem: item.pricePerItem,
-      notes: item.notes || '',
-    });
-    setErrors({});
-  };
-
-  const cancelEditing = () => {
-    setEditingItem(null);
-    resetEditForm();
-  };
-
-  const handleUpdateInvoiceItem = async () => {
-    if (!editingItem || !validateForm(editInvoiceItem)) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/admin/add-invoice-item', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order.id,
-          invoiceItems: [{
-            id: editingItem,
-            orderServiceMappingId: parseInt(editInvoiceItem.orderServiceMappingId),
-            quantity: editInvoiceItem.quantity,
-            pricePerItem: editInvoiceItem.pricePerItem,
-          }],
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json() as InvoiceItemsResponse;
-        setInvoiceItems(data.invoiceItems);
-        cancelEditing();
-        onRefresh(); // Refresh the order data
-        showToast('Invoice item updated successfully', 'success');
-      } else {
-        const errorData = await response.json() as ErrorResponse;
-        showToast(errorData.error || 'Failed to update invoice item', 'error');
+  // Reset item name when service changes and fetch service pricing
+  useEffect(() => {
+    setNewItemData(prev => ({
+      ...prev,
+      itemName: '',
+      pricePerItem: 0
+    }));
+    
+    // Fetch pricing for the selected service
+    if (newItemData.orderServiceMappingId && order) {
+      const selectedService = order.orderServiceMappings.find(
+        mapping => mapping.id === newItemData.orderServiceMappingId
+      );
+      if (selectedService) {
+        fetchServicePricing(selectedService.service.id);
       }
-    } catch (error) {
-      console.error('Error updating invoice item:', error);
-      showToast('Failed to update invoice item', 'error');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [newItemData.orderServiceMappingId, order]);
 
-  const handleDeleteClick = (itemId: number) => {
-    setItemToDelete(itemId);
-    setShowDeleteModal(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!itemToDelete) return;
-
-    setDeleteLoading(itemToDelete);
-    try {
-      // Get current invoice items excluding the one to delete
-      const itemsToKeep = invoiceItems.filter(item => item.id !== itemToDelete);
+  // Auto-populate price when service or item changes
+  useEffect(() => {
+    if (newItemData.itemName && newItemData.orderServiceMappingId && order && servicePricing) {
+      const selectedService = order.orderServiceMappings.find(
+        mapping => mapping.id === newItemData.orderServiceMappingId
+      );
       
-      const response = await fetch('/api/admin/add-invoice-item', {
+      if (selectedService) {
+        // Find the pricing item that matches the selected item name
+        const pricingItem = servicePricing.categories
+          .flatMap(category => category.items)
+          .find(item => 
+            item.displayName.toLowerCase() === newItemData.itemName.toLowerCase() ||
+            item.name.toLowerCase() === newItemData.itemName.toLowerCase()
+          );
+        
+        if (pricingItem) {
+          setNewItemData(prev => ({
+            ...prev,
+            pricePerItem: pricingItem.price
+          }));
+        } else {
+          // If no exact match found, use the service's default price
+          setNewItemData(prev => ({
+            ...prev,
+            pricePerItem: selectedService.service.price || 0
+          }));
+        }
+      }
+    }
+  }, [newItemData.itemName, newItemData.orderServiceMappingId, servicePricing, order]);
+
+  const handleAddOrderItem = async (e?: React.MouseEvent) => {
+    // Prevent default form submission if this is called from a form
+    if (e) {
+      e.preventDefault();
+    }
+    
+    // Prevent duplicate submissions
+    if (loading) {
+      return;
+    }
+    
+    if (!newItemData.itemName || !newItemData.orderServiceMappingId || newItemData.quantity <= 0) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/add-order-item', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           orderId: order.id,
-          invoiceItems: itemsToKeep.map(item => ({
-            id: item.id,
-            orderServiceMappingId: item.orderServiceMappingId,
-            quantity: item.quantity,
-            pricePerItem: item.pricePerItem,
-            notes: item.notes,
-          })),
+          orderServiceMappingId: newItemData.orderServiceMappingId,
+          itemName: newItemData.itemName,
+          itemType: newItemData.itemType,
+          quantity: newItemData.quantity,
+          pricePerItem: newItemData.pricePerItem,
+          notes: newItemData.notes,
         }),
       });
 
       if (response.ok) {
-        const data = await response.json() as InvoiceItemsResponse;
-        setInvoiceItems(data.invoiceItems);
+        const data = await response.json() as OrderItemsResponse;
+        setOrderItems(data.orderItems);
+        // Reset form
+        setNewItemData({
+          orderServiceMappingId: order.orderServiceMappings?.[0]?.id || 0,
+          itemName: '',
+          itemType: 'clothing',
+          quantity: 1,
+          pricePerItem: 0,
+          notes: ''
+        });
         onRefresh(); // Refresh the order data
-        showToast('Invoice item deleted successfully', 'success');
+        showToast('Order item added successfully', 'success');
       } else {
         const errorData = await response.json() as ErrorResponse;
-        showToast(errorData.error || 'Failed to delete invoice item', 'error');
+        showToast(errorData.error || 'Failed to add order item', 'error');
       }
     } catch (error) {
-      console.error('Error deleting invoice item:', error);
-      showToast('Failed to delete invoice item', 'error');
+      console.error('Error adding order item:', error);
+      showToast('Failed to add order item', 'error');
     } finally {
-      setDeleteLoading(null);
-      setItemToDelete(null);
-      setShowDeleteModal(false);
+      setLoading(false);
     }
-  };
-
-  const handleDeleteCancel = () => {
-    setShowDeleteModal(false);
-    setItemToDelete(null);
   };
 
   // Get service name for display
-  const getServiceName = (orderServiceMappingId: number) => {
+  const getServiceName = useCallback((orderServiceMappingId: number) => {
     const mapping = order.orderServiceMappings?.find(m => m.id === orderServiceMappingId);
     return mapping?.service.displayName || 'Unknown Service';
-  };
+  }, [order.orderServiceMappings]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">Invoice Items</h3>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          <span>{showAddForm ? 'Cancel' : 'Add Invoice Item'}</span>
-        </button>
-      </div>
-
-      {/* Add New Invoice Item Form */}
-      {showAddForm && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-4">Add New Invoice Item</h4>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
-              <select
-                value={newInvoiceItem.orderServiceMappingId}
-                onChange={(e) => {
-                  const selectedMappingId = e.target.value;
-                  const selectedMapping = order.orderServiceMappings?.find(m => m.id.toString() === selectedMappingId);
-                  
-                  setNewInvoiceItem({ 
-                    ...newInvoiceItem, 
-                    orderServiceMappingId: selectedMappingId,
-                    pricePerItem: selectedMapping ? selectedMapping.price : 0
-                  });
-                  setErrors({ ...errors, orderServiceMappingId: undefined });
-                }}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.orderServiceMappingId ? 'border-red-300' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select Service</option>
-                {order.orderServiceMappings?.map((mapping) => (
-                  <option key={mapping.id} value={mapping.id}>
-                    {mapping.service.displayName} - {mapping.price.toFixed(3)} BD
-                  </option>
-                ))}
-              </select>
-              {errors.orderServiceMappingId && (
-                <p className="text-red-600 text-sm mt-1">{errors.orderServiceMappingId}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-              <input
-                type="number"
-                min="1"
-                value={newInvoiceItem.quantity}
-                onChange={(e) => {
-                  setNewInvoiceItem({ ...newInvoiceItem, quantity: parseInt(e.target.value) || 1 });
-                  setErrors({ ...errors, quantity: undefined });
-                }}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.quantity ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
-              {errors.quantity && (
-                <p className="text-red-600 text-sm mt-1">{errors.quantity}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price per Item (BD)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0.1"
-                value={newInvoiceItem.pricePerItem}
-                onChange={(e) => {
-                  setNewInvoiceItem({ ...newInvoiceItem, pricePerItem: parseFloat(e.target.value) || 0 });
-                  setErrors({ ...errors, pricePerItem: undefined });
-                }}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.pricePerItem ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
-              {errors.pricePerItem && (
-                <p className="text-red-600 text-sm mt-1">{errors.pricePerItem}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <input
-                type="text"
-                value={newInvoiceItem.notes}
-                onChange={(e) => {
-                  setNewInvoiceItem({ ...newInvoiceItem, notes: e.target.value });
-                  setErrors({ ...errors, notes: undefined });
-                }}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.notes ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
-              {errors.notes && (
-                <p className="text-red-600 text-sm mt-1">{errors.notes}</p>
-              )}
-            </div>
-            
-            <div className="flex items-end">
-              <button
-                onClick={handleAddInvoiceItem}
-                disabled={loading}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Adding...' : 'Add Item'}
-              </button>
-            </div>
-          </div>
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8 px-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('items')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'items'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Items ({orderItems.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('add-item')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'add-item'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Add Item
+            </button>
+          </nav>
         </div>
-      )}
 
-      {/* Invoice Items Table */}
-      {invoiceItems && invoiceItems.length > 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
-                    Service
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                    Qty
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    Price/Item
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
-                    Notes
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    Total
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {invoiceItems.map((item) => {
-                  const isEditing = editingItem === item.id;
+        <div className="p-6">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-2">Order Information</h3>
+                  <p className="text-sm text-gray-600">
+                    Order #{order.orderNumber}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-gray-900 mb-2">Order Status</h3>
+                  <p className="text-sm text-gray-600">{order.status}</p>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Order Items Summary</h3>
+                <p className="text-sm text-gray-600">
+                  {orderItems.length > 0 
+                    ? `This order has ${orderItems.length} item(s) added. Use the Items tab to view details or Add Item tab to add more items.`
+                    : "No items have been added to this order yet. Use the Add Item tab to start adding items."
+                  }
+                </p>
+              </div>
+
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Instructions</h3>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Use the <strong>Items</strong> tab to view all order items</li>
+                  <li>• Use the <strong>Add Item</strong> tab to add new items to the order</li>
+                  <li>• Items are tracked across all roles for unified order management</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Items Tab */}
+          {activeTab === 'items' && (
+            <div className="space-y-6">
+              {orderItems.length > 0 ? (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <h3 className="text-lg font-medium text-gray-900">All Order Items</h3>
+                    <p className="text-sm text-gray-600 mt-1">Total Items: {orderItems.length}</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Service
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Item Name
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Qty
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Price/Item
+                          </th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Notes
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {orderItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {getServiceName(item.orderServiceMappingId)}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {item.itemName}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                {item.itemType}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <div className="text-sm text-gray-900 font-medium">
+                                {item.quantity}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <div className="text-sm text-gray-900">
+                                {item.pricePerItem.toFixed(3)} BD
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <div className="text-sm font-semibold text-gray-900">
+                                {calculateOrderItemTotal(item).toFixed(3)} BD
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="text-sm text-gray-600 max-w-xs">
+                                {item.notes ? (
+                                  <div className="group relative">
+                                    <div className="truncate cursor-help" title={item.notes}>
+                                      {item.notes}
+                                    </div>
+                                    <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 max-w-xs break-words">
+                                      {item.notes}
+                                      <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 italic">-</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t border-gray-200">
+                        <tr>
+                          <td colSpan={5} className="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                            Total:
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-bold text-blue-600">
+                            {orderItems.reduce((sum, item) => sum + calculateOrderItemTotal(item), 0).toFixed(3)} BD
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Order Items Found</h3>
+                  <p className="text-gray-600 mb-4">
+                    This order doesn't have any items added yet.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('add-item')}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Add First Item
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Add Item Tab */}
+          {activeTab === 'add-item' && (
+            <div className="space-y-6">
+              {/* Header Section */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Add New Items</h3>
+                    <p className="text-sm text-gray-600">
+                      Add individual items to this order. Select a service and choose from available pricing items.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {order.orderServiceMappings?.length || 0}
+                    </div>
+                    <div className="text-xs text-gray-500">Services Available</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Selection */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h4 className="text-md font-medium text-gray-900 mb-4">1. Select Service</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {order.orderServiceMappings?.map((mapping) => (
+                    <button
+                      key={mapping.id}
+                      onClick={() => setNewItemData({...newItemData, orderServiceMappingId: mapping.id})}
+                      className={`p-4 border-2 rounded-lg text-left transition-all duration-200 ${
+                        newItemData.orderServiceMappingId === mapping.id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="font-medium text-gray-900">{mapping.service.displayName}</div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {mapping.service.unit === 'piece' ? 'Per Item' : 'Per KG'}
+                      </div>
+                      <div className="text-sm text-blue-600 mt-1">
+                        Base Price: BD {mapping.service.price.toFixed(2)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Item Details - Only show if service is selected */}
+              {newItemData.orderServiceMappingId > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-4">2. Item Details</h4>
                   
-                  if (isEditing) {
-                    return (
-                      <tr key={item.id} className="bg-blue-50 hover:bg-blue-100 transition-colors">
-                        <td className="px-4 py-4">
-                          <select
-                            value={editInvoiceItem.orderServiceMappingId}
-                            onChange={(e) => {
-                              const selectedMappingId = e.target.value;
-                              const selectedMapping = order.orderServiceMappings?.find(m => m.id.toString() === selectedMappingId);
-                              
-                              setEditInvoiceItem({ 
-                                ...editInvoiceItem, 
-                                orderServiceMappingId: selectedMappingId,
-                                pricePerItem: selectedMapping ? selectedMapping.price : 0
-                              });
-                              setErrors({ ...errors, orderServiceMappingId: undefined });
-                            }}
-                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
-                              errors.orderServiceMappingId ? 'border-red-300' : 'border-gray-300'
-                            }`}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Quantity and Price */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
+                        <input
+                          type="text"
+                          value={newItemData.itemName}
+                          onChange={(e) => setNewItemData({...newItemData, itemName: e.target.value})}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter item name..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setNewItemData({...newItemData, quantity: Math.max(1, newItemData.quantity - 1)})}
+                            className="w-10 h-10 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50"
                           >
-                            <option value="">Select Service</option>
-                            {order.orderServiceMappings?.map((mapping) => (
-                              <option key={mapping.id} value={mapping.id}>
-                                {mapping.service.displayName} - {mapping.price.toFixed(3)} BD
-                              </option>
-                            ))}
-                          </select>
-                          {errors.orderServiceMappingId && (
-                            <p className="text-red-600 text-xs mt-1">{errors.orderServiceMappingId}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-center">
+                            -
+                          </button>
                           <input
                             type="number"
                             min="1"
-                            value={editInvoiceItem.quantity}
-                            onChange={(e) => {
-                              setEditInvoiceItem({ ...editInvoiceItem, quantity: parseInt(e.target.value) || 1 });
-                              setErrors({ ...errors, quantity: undefined });
-                            }}
-                            className={`w-16 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-center ${
-                              errors.quantity ? 'border-red-300' : 'border-gray-300'
-                            }`}
+                            value={newItemData.quantity}
+                            onChange={(e) => setNewItemData({...newItemData, quantity: parseInt(e.target.value) || 1})}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
-                          {errors.quantity && (
-                            <p className="text-red-600 text-xs mt-1">{errors.quantity}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-right">
+                          <button
+                            onClick={() => setNewItemData({...newItemData, quantity: newItemData.quantity + 1})}
+                            className="w-10 h-10 border border-gray-300 rounded-lg flex items-center justify-center hover:bg-gray-50"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Price per Item (BD)</label>
+                        <div className="relative">
                           <input
                             type="number"
-                            step="0.001"
-                            min="0.001"
-                            value={editInvoiceItem.pricePerItem}
-                            onChange={(e) => {
-                              setEditInvoiceItem({ ...editInvoiceItem, pricePerItem: parseFloat(e.target.value) || 0 });
-                              setErrors({ ...errors, pricePerItem: undefined });
-                            }}
-                            className={`w-20 px-2 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right ${
-                              errors.pricePerItem ? 'border-red-300' : 'border-gray-300'
-                            }`}
+                            step="0.01"
+                            min="0"
+                            value={newItemData.pricePerItem}
+                            onChange={(e) => setNewItemData({...newItemData, pricePerItem: parseFloat(e.target.value) || 0})}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
-                          {errors.pricePerItem && (
-                            <p className="text-red-600 text-xs mt-1">{errors.pricePerItem}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          <input
-                            type="text"
-                            value={editInvoiceItem.notes}
-                            onChange={(e) => {
-                              setEditInvoiceItem({ ...editInvoiceItem, notes: e.target.value });
-                              setErrors({ ...errors, notes: undefined });
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                            placeholder="Optional notes..."
-                          />
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="text-sm font-medium text-gray-900">
-                            {(editInvoiceItem.quantity * editInvoiceItem.pricePerItem).toFixed(3)} BD
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <div className="flex space-x-1 justify-center">
-                            <button
-                              onClick={handleUpdateInvoiceItem}
-                              disabled={loading}
-                              className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
-                            >
-                              {loading ? 'Saving...' : 'Save'}
-                            </button>
-                            <button
-                              onClick={cancelEditing}
-                              className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-                  
-                  return (
-                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {getServiceName(item.orderServiceMappingId)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <div className="text-sm text-gray-900 font-medium">
-                          {item.quantity}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="text-sm text-gray-900">
-                          {item.pricePerItem.toFixed(3)} BD
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="text-sm text-gray-600 max-w-xs">
-                          {item.notes ? (
-                            <div className="group relative">
-                              <div className="truncate cursor-help" title={item.notes}>
-                                {item.notes}
-                              </div>
-                              <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 max-w-xs break-words">
-                                {item.notes}
-                                <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                              </div>
+                          {newItemData.pricePerItem > 0 && (
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                              <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                                Set
+                              </span>
                             </div>
-                          ) : (
-                            <span className="text-gray-400 italic">-</span>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-4 text-right">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {calculateInvoiceItemTotal(item).toFixed(3)} BD
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <div className="flex space-x-1 justify-center">
-                          <button
-                            onClick={() => startEditing(item)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                            title="Edit item"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(item.id)}
-                            disabled={deleteLoading === item.id}
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50"
-                            title="Delete item"
-                          >
-                            {deleteLoading === item.id ? (
-                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No invoice items found for this order.</p>
-          <p className="text-sm text-gray-400 mt-2">
-            Invoice items are created when the order is processed and actual quantities are determined.
-          </p>
-        </div>
-      )}
+                      </div>
+                    </div>
 
-      {/* Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showDeleteModal}
-        onConfirm={handleDeleteConfirm}
-        onClose={handleDeleteCancel}
-        title="Delete Invoice Item"
-        message="Are you sure you want to delete this invoice item? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        confirmButtonClass="bg-red-600 hover:bg-red-700"
-      />
+                    {/* Total and Notes */}
+                    <div className="space-y-4">
+                      {/* Total Calculation */}
+                      {newItemData.quantity > 0 && newItemData.pricePerItem > 0 && (
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                          <div className="text-sm text-gray-600 mb-1">Total Amount</div>
+                          <div className="text-2xl font-bold text-green-600">
+                            BD {(newItemData.quantity * newItemData.pricePerItem).toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {newItemData.quantity} × BD {newItemData.pricePerItem.toFixed(2)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Notes (optional)</label>
+                        <textarea
+                          value={newItemData.notes}
+                          onChange={(e) => setNewItemData({...newItemData, notes: e.target.value})}
+                          rows={3}
+                          placeholder="Any special instructions for this item..."
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add Button */}
+              {newItemData.itemName && newItemData.quantity > 0 && newItemData.pricePerItem > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <button
+                    onClick={handleAddOrderItem}
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Adding Item...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Item to Order
+                      </div>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 } 
