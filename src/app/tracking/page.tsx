@@ -1,56 +1,245 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import MainLayout from "@/components/layouts/main-layout";
 import Link from "next/link";
 
+interface OrderItem {
+  id: number;
+  itemName: string;
+  itemType: string;
+  quantity: number;
+  pricePerItem: number;
+  totalPrice: number;
+  notes?: string;
+}
+
+interface OrderServiceMapping {
+  id: number;
+  service: {
+    id: number;
+    name: string;
+    displayName: string;
+    description: string;
+    price: number;
+  };
+  quantity: number;
+  price: number;
+  orderItems: OrderItem[];
+}
+
+interface Order {
+  id: number;
+  orderNumber: string;
+  status: string;
+  invoiceTotal: number;
+  pickupTime: string;
+  deliveryTime?: string;
+  createdAt: string;
+  updatedAt: string;
+  customerFirstName: string;
+  customerLastName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerAddress: string;
+  specialInstructions?: string;
+  paymentStatus: string;
+  orderServiceMappings: OrderServiceMapping[];
+  address?: {
+    id: number;
+    label: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    area?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    contactNumber?: string;
+  };
+}
+
+interface TimelineEvent {
+  status: string;
+  time: string;
+  completed: boolean;
+}
+
 export default function Tracking() {
   const [trackingId, setTrackingId] = useState("");
-  const [isTracking, setIsTracking] = useState(false);
-  
-  // Mock order data for demonstration
-  const mockOrder = {
-    id: "ORD12345",
-    status: "out_for_delivery",
-    customer: "John Doe",
-    pickupDate: "April 22, 2025",
-    pickupTime: "10:00 AM - 12:00 PM",
-    deliveryDate: "April 24, 2025",
-    deliveryTime: "2:00 PM - 4:00 PM",
-    items: [
-      { service: "Wash & Fold", quantity: "5 lbs", price: "$12.50" },
-      { service: "Dry Cleaning", quantity: "2 items", price: "$12.00" }
-    ],
-    total: "$24.50",
-    driver: {
-      name: "Michael Rodriguez",
-      vehicle: "White Van",
-      licensePlate: "LDY-4321",
-      eta: "15 minutes"
-    },
-    timeline: [
-      { status: "Order Placed", time: "April 22, 10:15 AM", completed: true },
-      { status: "Driver Assigned for Pickup", time: "April 22, 10:30 AM", completed: true },
-      { status: "Picked Up", time: "April 22, 11:45 AM", completed: true },
-      { status: "Processing", time: "April 22, 2:00 PM", completed: true },
-      { status: "Cleaning Complete", time: "April 23, 3:30 PM", completed: true },
-      { status: "Quality Check", time: "April 23, 4:15 PM", completed: true },
-      { status: "Driver Assigned for Delivery", time: "April 24, 1:30 PM", completed: true },
-      { status: "Out for Delivery", time: "April 24, 2:15 PM", completed: true },
-      { status: "Delivered", time: "Estimated: April 24, 3:15 PM", completed: false }
-    ]
-  };
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const handleTrack = (e) => {
+  // Redirect logged-in users to their dashboard
+  useEffect(() => {
+    if (status === "loading") return;
+    
+    if (session?.userType === "customer") {
+      router.push("/customer/dashboard?tab=orders");
+    }
+  }, [session, status, router]);
+
+  // Show loading while checking authentication
+  if (status === "loading") {
+    return (
+      <MainLayout>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Don't render anything if user is logged in (they'll be redirected)
+  if (session?.userType === "customer") {
+    return null;
+  }
+
+  const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (trackingId.trim()) {
-      setIsTracking(true);
+    if (!trackingId.trim()) return;
+
+    setLoading(true);
+    setError("");
+    setOrder(null);
+
+    try {
+      const response = await fetch(`/api/tracking/${trackingId.trim()}`);
+      
+      if (response.ok) {
+        const data = await response.json() as { order: Order };
+        setOrder(data.order);
+      } else {
+        const errorData = await response.json() as { error?: string };
+        setError(errorData.error || "Order not found");
+      }
+    } catch (error) {
+      setError("Failed to fetch order details. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusPercentage = () => {
-    const completedSteps = mockOrder.timeline.filter(step => step.completed).length;
-    return (completedSteps / mockOrder.timeline.length) * 100;
+  const getStatusPercentage = (order: Order) => {
+    const timeline = generateTimeline(order);
+    const completedSteps = timeline.filter(step => step.completed).length;
+    return (completedSteps / timeline.length) * 100;
+  };
+
+  const generateTimeline = (order: Order): TimelineEvent[] => {
+    const timeline: TimelineEvent[] = [];
+    const createdAt = new Date(order.createdAt);
+    const updatedAt = new Date(order.updatedAt);
+
+    // Order Placed
+    timeline.push({
+      status: "Order Placed",
+      time: createdAt.toLocaleString(),
+      completed: true
+    });
+
+    // Driver Assigned for Pickup
+    if (order.status !== "Order Placed") {
+      timeline.push({
+        status: "Driver Assigned for Pickup",
+        time: new Date(createdAt.getTime() + 15 * 60000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Picked Up
+    if (["Picked Up", "In Process", "Cleaning Complete", "Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+      timeline.push({
+        status: "Picked Up",
+        time: new Date(createdAt.getTime() + 90 * 60000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Processing
+    if (["In Process", "Cleaning Complete", "Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+      timeline.push({
+        status: "Processing",
+        time: new Date(createdAt.getTime() + 3 * 3600000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Cleaning Complete
+    if (["Cleaning Complete", "Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+      timeline.push({
+        status: "Cleaning Complete",
+        time: new Date(updatedAt.getTime() - 2 * 3600000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Quality Check
+    if (["Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+      timeline.push({
+        status: "Quality Check",
+        time: new Date(updatedAt.getTime() - 1.5 * 3600000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Driver Assigned for Delivery
+    if (["Out for Delivery", "Delivered"].includes(order.status)) {
+      timeline.push({
+        status: "Driver Assigned for Delivery",
+        time: new Date(updatedAt.getTime() - 1 * 3600000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Out for Delivery
+    if (order.status === "Out for Delivery") {
+      timeline.push({
+        status: "Out for Delivery",
+        time: new Date(updatedAt.getTime() - 30 * 60000).toLocaleString(),
+        completed: true
+      });
+    }
+
+    // Delivered
+    if (order.status === "Delivered") {
+      timeline.push({
+        status: "Delivered",
+        time: updatedAt.toLocaleString(),
+        completed: true
+      });
+    } else {
+      timeline.push({
+        status: "Delivered",
+        time: `Estimated: ${new Date(createdAt.getTime() + 48 * 3600000).toLocaleString()}`,
+        completed: false
+      });
+    }
+
+    return timeline;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -65,7 +254,7 @@ export default function Tracking() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {!isTracking ? (
+        {!order ? (
           <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Enter Your Order ID</h2>
             <form onSubmit={handleTrack}>
@@ -81,19 +270,26 @@ export default function Tracking() {
                   value={trackingId}
                   onChange={(e) => setTrackingId(e.target.value)}
                   required
+                  disabled={loading}
                 />
               </div>
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200"
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
               >
-                Track Order
+                {loading ? "Tracking..." : "Track Order"}
               </button>
             </form>
             <div className="mt-8 text-center">
-              <p className="text-gray-600">Don't have an order ID?</p>
-              <Link href="/login" className="text-blue-600 hover:text-blue-800 font-medium">
-                Log in to view your orders
+              <p className="text-gray-600">Have an account?</p>
+              <Link href="/registerlogin" className="text-blue-600 hover:text-blue-800 font-medium">
+                Log in to view all your orders
               </Link>
             </div>
           </div>
@@ -102,11 +298,11 @@ export default function Tracking() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-900">Order #{mockOrder.id}</h2>
-                  <p className="text-gray-600">Customer: {mockOrder.customer}</p>
+                  <h2 className="text-2xl font-semibold text-gray-900">Order #{order.orderNumber}</h2>
+                  <p className="text-gray-600">Customer: {order.customerFirstName} {order.customerLastName}</p>
                 </div>
                 <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-                  {mockOrder.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {order.status}
                 </span>
               </div>
             </div>
@@ -123,59 +319,18 @@ export default function Tracking() {
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-semibold inline-block text-blue-600">
-                      {Math.round(getStatusPercentage())}%
+                      {Math.round(getStatusPercentage(order))}%
                     </span>
                   </div>
                 </div>
                 <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
                   <div
-                    style={{ width: `${getStatusPercentage()}%` }}
+                    style={{ width: `${getStatusPercentage(order)}%` }}
                     className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-600"
                   ></div>
                 </div>
               </div>
             </div>
-
-            {/* Current Status */}
-            {mockOrder.status === "out_for_delivery" && (
-              <div className="p-6 border-b border-gray-200 bg-blue-50">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Delivery Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Driver</p>
-                    <p className="font-medium">{mockOrder.driver.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Vehicle</p>
-                    <p className="font-medium">{mockOrder.driver.vehicle} ({mockOrder.driver.licensePlate})</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Estimated Arrival</p>
-                    <p className="font-medium text-blue-600">{mockOrder.driver.eta}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Delivery Window</p>
-                    <p className="font-medium">{mockOrder.deliveryTime}</p>
-                  </div>
-                </div>
-                <div className="mt-6">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center">
-                      <div className="bg-blue-100 rounded-full p-3 mr-4">
-                        <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Driver Location</p>
-                        <p className="font-medium">Currently 2.3 miles away</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Order Details */}
             <div className="p-6 border-b border-gray-200">
@@ -183,19 +338,31 @@ export default function Tracking() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Pickup Date</p>
-                  <p className="font-medium">{mockOrder.pickupDate}</p>
+                  <p className="font-medium">{formatDate(order.pickupTime)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Pickup Time</p>
-                  <p className="font-medium">{mockOrder.pickupTime}</p>
+                  <p className="font-medium">{formatTime(order.pickupTime)}</p>
+                </div>
+                {order.deliveryTime && (
+                  <>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Delivery Date</p>
+                      <p className="font-medium">{formatDate(order.deliveryTime)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Delivery Time</p>
+                      <p className="font-medium">{formatTime(order.deliveryTime)}</p>
+                    </div>
+                  </>
+                )}
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Order Date</p>
+                  <p className="font-medium">{formatDate(order.createdAt)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Delivery Date</p>
-                  <p className="font-medium">{mockOrder.deliveryDate}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Delivery Time</p>
-                  <p className="font-medium">{mockOrder.deliveryTime}</p>
+                  <p className="text-sm text-gray-600 mb-1">Payment Status</p>
+                  <p className="font-medium">{order.paymentStatus}</p>
                 </div>
               </div>
             </div>
@@ -218,25 +385,25 @@ export default function Tracking() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {mockOrder.items.map((item, index) => (
+                  {order.orderServiceMappings.map((mapping, index) => (
                     <tr key={index}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {item.service}
+                        {mapping.service.displayName}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.quantity}
+                        {mapping.quantity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                        {item.price}
+                        {mapping.price.toFixed(3)} BD
                       </td>
                     </tr>
                   ))}
                   <tr className="bg-gray-50">
-                    <td colSpan="2" className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
+                    <td colSpan={2} className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
                       Total
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 text-right">
-                      {mockOrder.total}
+                      {order.invoiceTotal.toFixed(3)} BD
                     </td>
                   </tr>
                 </tbody>
@@ -248,10 +415,10 @@ export default function Tracking() {
               <h3 className="text-lg font-medium text-gray-900 mb-4">Order Timeline</h3>
               <div className="flow-root">
                 <ul className="-mb-8">
-                  {mockOrder.timeline.map((event, index) => (
+                  {generateTimeline(order).map((event, index) => (
                     <li key={index}>
                       <div className="relative pb-8">
-                        {index !== mockOrder.timeline.length - 1 ? (
+                        {index !== generateTimeline(order).length - 1 ? (
                           <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
                         ) : null}
                         <div className="relative flex space-x-3">
@@ -289,10 +456,14 @@ export default function Tracking() {
             {/* Actions */}
             <div className="p-6 bg-gray-50 flex justify-between">
               <button
-                onClick={() => setIsTracking(false)}
+                onClick={() => {
+                  setOrder(null);
+                  setError("");
+                  setTrackingId("");
+                }}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
-                Back to Tracking
+                Track Another Order
               </button>
               <Link
                 href="/contact"

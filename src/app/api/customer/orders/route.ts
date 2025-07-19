@@ -3,13 +3,7 @@ import prisma from "@/lib/prisma";
 import { emailService } from "@/lib/emailService";
 import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
 
-interface ServiceNames {
-  [key: string]: string;
-}
-
 interface OrderRequestBody {
-  isLoggedInCustomer: boolean;
-  email: string;
   addressId: string;
   pickupDate: string;
   pickupTime: string;
@@ -22,19 +16,28 @@ interface OrderRequestBody {
 
 export async function POST(req: Request) {
   try {
+    // Get authenticated customer using NextAuth
+    const authenticatedCustomer = await requireAuthenticatedCustomer();
+    
     const body = await req.json() as OrderRequestBody;
 
-    // Check if this is a logged-in customer order
-    if (body.isLoggedInCustomer) {
-      return await handleLoggedInCustomerOrder(body);
-    } else {
+    // Validate required fields
+    if (!body.addressId || !body.pickupDate || !body.pickupTime || 
+        !body.deliveryDate || !body.deliveryTime || !body.services || body.services.length === 0) {
       return NextResponse.json(
-        { error: "Guest orders should use /api/orders endpoint" },
+        { error: "Missing required fields: addressId, pickupDate, pickupTime, deliveryDate, deliveryTime, and services are required" },
         { status: 400 }
       );
     }
+
+    return await handleCustomerOrder(body, authenticatedCustomer);
   } catch (error) {
     console.error("Error creating order:", error);
+    
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return createAuthErrorResponse();
+    }
+    
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -42,21 +45,9 @@ export async function POST(req: Request) {
   }
 }
 
-async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
+async function handleCustomerOrder(body: OrderRequestBody, customer: any) {
   try {
-    // Find the customer by email
-    const customer = await prisma.customer.findUnique({
-      where: { email: body.email }
-    });
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: "Customer not found" },
-        { status: 404 }
-      );
-    }
-
-    // Get the selected address
+    // Get the selected address and validate ownership
     const address = await prisma.address.findFirst({
       where: {
         id: parseInt(body.addressId),
@@ -66,99 +57,142 @@ async function handleLoggedInCustomerOrder(body: OrderRequestBody) {
 
     if (!address) {
       return NextResponse.json(
-        { error: "Address not found" },
+        { error: "Address not found or access denied" },
         { status: 404 }
       );
     }
 
-    // Generate order number
-    const orderNumber = `LL${Date.now().toString().slice(-8)}`;
+    // Generate unique order number
+    const orderNumber = `LL${Date.now().toString().slice(-8)}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-    // Combine pickup date and time
+    // Parse and validate datetime
     const pickupDateTime = new Date(`${body.pickupDate}T${body.pickupTime}:00`);
     const deliveryDateTime = new Date(`${body.deliveryDate}T${body.deliveryTime}:00`);
 
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: orderNumber,
-        customerId: customer.id,
-        addressId: address.id,
-        pickupTime: pickupDateTime,
-        deliveryTime: deliveryDateTime,
-        specialInstructions: body.specialInstructions || "",
-        status: "Order Placed",
-        customerFirstName: customer.firstName,
-        customerLastName: customer.lastName,
-        customerEmail: customer.email,
-        customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
-        customerAddress: address.address || address.addressLine1,
-        paymentStatus: "Pending",
-      },
-    });
+    // Validate that delivery is after pickup
+    if (deliveryDateTime <= pickupDateTime) {
+      return NextResponse.json(
+        { error: "Delivery time must be after pickup time" },
+        { status: 400 }
+      );
+    }
 
-    // Create order service mappings for each service
-    if (Array.isArray(body.services)) {
+    // Validate that pickup is not in the past
+    const now = new Date();
+    if (pickupDateTime <= now) {
+      return NextResponse.json(
+        { error: "Pickup time cannot be in the past" },
+        { status: 400 }
+      );
+    }
+
+    // Create order with transaction for data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the order
+      const order = await tx.order.create({
+        data: {
+          orderNumber: orderNumber,
+          customerId: customer.id,
+          addressId: address.id,
+          pickupTime: pickupDateTime,
+          deliveryTime: deliveryDateTime,
+          specialInstructions: body.specialInstructions || "",
+          status: "Order Placed",
+          customerFirstName: customer.firstName,
+          customerLastName: customer.lastName,
+          customerEmail: customer.email,
+          customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
+          customerAddress: address.address || address.addressLine1,
+          paymentStatus: "Pending",
+        },
+      });
+
+      // Create order service mappings for each service
+      const serviceMappings = [];
       for (const serviceId of body.services) {
         // Get service details to get the price
-        const service = await prisma.service.findUnique({
+        const service = await tx.service.findUnique({
           where: { id: parseInt(serviceId) }
         });
 
-        if (service) {
-          await prisma.orderServiceMapping.create({
-            data: {
-              orderId: order.id,
-              serviceId: service.id,
-              quantity: 1,
-              price: service.price,
-            }
-          });
+        if (!service) {
+          throw new Error(`Service with ID ${serviceId} not found`);
         }
+
+        const mapping = await tx.orderServiceMapping.create({
+          data: {
+            orderId: order.id,
+            serviceId: service.id,
+            quantity: 1,
+            price: service.price,
+          }
+        });
+        
+        serviceMappings.push(mapping);
       }
-    }
 
-    // Send emails (wrapped in try-catch to not fail order creation)
-    try {
-      // Send order confirmation email for logged-in customer
-      await emailService.sendOrderConfirmationToCustomer(
-        order,
-        customer.email,
-        `${customer.firstName} ${customer.lastName}`,
-        {
-          pickupDateTime,
-          deliveryDateTime,
-          services: body.services,
-          address: address.address || address.addressLine1,
-          locationType: address.locationType
-        }
-      );
+      return { order, serviceMappings };
+    });
 
-      // Send admin notification
-      await emailService.sendOrderNotificationToAdmin(order, {
-        name: `${customer.firstName} ${customer.lastName}`,
-        email: customer.email,
-        phone: customer.phone,
-        address: address.address || address.addressLine1,
-        services: body.services
-      });
-    } catch (emailError) {
-      console.error("Email sending failed:", emailError || 'Unknown error');
-      // Continue with order creation even if emails fail
-    }
+    // Send emails asynchronously (don't block order creation)
+    sendOrderEmails(result.order, customer, address, body.services).catch(emailError => {
+      console.error("Email sending failed:", emailError);
+    });
 
     return NextResponse.json({
       success: true,
-      orderNumber: order.orderNumber,
-      message: "Order created successfully"
+      orderNumber: result.order.orderNumber,
+      message: "Order created successfully",
+      orderId: result.order.id
     });
 
   } catch (error) {
-    console.error("Error creating logged-in customer order:", error || 'Unknown error');
+    console.error("Error creating customer order:", error);
+    
+    if (error instanceof Error && error.message.includes('Service with ID')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
     );
+  }
+}
+
+async function sendOrderEmails(order: any, customer: any, address: any, services: string[]) {
+  try {
+    const pickupDateTime = order.pickupTime;
+    const deliveryDateTime = order.deliveryTime;
+
+    // Send order confirmation email to customer
+    await emailService.sendOrderConfirmationToCustomer(
+      order,
+      customer.email,
+      `${customer.firstName} ${customer.lastName}`,
+      {
+        pickupDateTime,
+        deliveryDateTime,
+        services,
+        address: address.address || address.addressLine1,
+        locationType: address.locationType
+      }
+    );
+
+    // Send admin notification
+    await emailService.sendOrderNotificationToAdmin(order, {
+      name: `${customer.firstName} ${customer.lastName}`,
+      email: customer.email,
+      phone: customer.phone,
+      address: address.address || address.addressLine1,
+      services
+    });
+  } catch (error) {
+    console.error("Email sending failed:", error);
+    // Don't throw - emails are not critical for order creation
   }
 }
 
@@ -172,6 +206,7 @@ export async function GET(req: Request) {
     const limit = searchParams.get('limit');
     const sort = searchParams.get('sort');
     const order = searchParams.get('order');
+    const status = searchParams.get('status');
 
     // Build orderBy object
     let orderBy: any = { createdAt: 'desc' }; // default sorting
@@ -179,21 +214,33 @@ export async function GET(req: Request) {
       orderBy = { updatedAt: order === 'asc' ? 'asc' : 'desc' };
     } else if (sort === 'createdAt') {
       orderBy = { createdAt: order === 'asc' ? 'asc' : 'desc' };
+    } else if (sort === 'pickupTime') {
+      orderBy = { pickupTime: order === 'asc' ? 'asc' : 'desc' };
     }
 
     // Build take object for limiting results
     let take: number | undefined = undefined;
     if (limit) {
       const limitNum = parseInt(limit);
-      if (!isNaN(limitNum) && limitNum > 0) {
+      if (!isNaN(limitNum) && limitNum > 0 && limitNum <= 100) { // Add reasonable upper limit
         take = limitNum;
       }
+    }
+
+    // Build where clause
+    const whereClause: any = {
+      customerId: authenticatedCustomer.id
+    };
+
+    if (status) {
+      whereClause.status = status;
     }
 
     const customer = await prisma.customer.findUnique({
       where: { id: authenticatedCustomer.id },
       include: {
         orders: {
+          where: whereClause,
           include: {
             address: true,
             orderServiceMappings: {
@@ -215,32 +262,40 @@ export async function GET(req: Request) {
 
     // Transform orders to include order items with service information
     const transformedOrders = customer.orders.map((order: typeof customer.orders[0]) => {
-      const transformedOrderItems = order.orderServiceMappings.flatMap((mapping: typeof order.orderServiceMappings[0]) => 
-        mapping.orderItems.map((item: typeof mapping.orderItems[0]) => ({
-          id: item.id,
-          orderServiceMappingId: item.orderServiceMappingId,
-          itemName: item.itemName,
-          itemType: item.itemType,
-          quantity: item.quantity,
-          pricePerItem: item.pricePerItem,
-          totalPrice: item.totalPrice,
-          notes: item.notes,
-          service: mapping.service,
-        }))
-      );
-
       return {
-        ...order,
-        orderItems: transformedOrderItems,
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        invoiceTotal: order.invoiceTotal || 0,
+        pickupTime: order.pickupTime.toISOString(),
+        deliveryTime: order.deliveryTime?.toISOString(),
+        createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString(),
+        customerFirstName: order.customerFirstName,
+        customerLastName: order.customerLastName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        customerAddress: order.customerAddress,
+        specialInstructions: order.specialInstructions,
+        paymentStatus: order.paymentStatus,
+        orderServiceMappings: order.orderServiceMappings.map(mapping => ({
+          id: mapping.id,
+          service: mapping.service,
+          quantity: mapping.quantity,
+          price: mapping.price,
+          orderItems: mapping.orderItems
+        })),
+        address: order.address
       };
     });
 
     return NextResponse.json({ 
       success: true,
-      orders: transformedOrders 
+      orders: transformedOrders,
+      total: transformedOrders.length
     });
   } catch (error) {
-    console.error("Error fetching orders:", error || 'Unknown error');
+    console.error("Error fetching orders:", error);
     
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

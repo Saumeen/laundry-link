@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { emailService } from "@/lib/emailService";
 
 // Type definitions for request body
 interface UpdateAssignmentBody {
@@ -162,6 +163,26 @@ export async function POST(request: NextRequest) {
         notes,
       },
     });
+
+    // Send email notification when driver starts pickup
+    if (assignment.assignmentType === 'pickup' && status === 'in_progress') {
+      try {
+        const driverName = `${admin.firstName} ${admin.lastName}`;
+        const customerName = `${assignment.order.customerFirstName} ${assignment.order.customerLastName}`;
+        
+        await emailService.sendDriverPickupNotification(
+          assignment.order,
+          assignment.order.customerEmail,
+          customerName,
+          driverName
+        );
+        
+        console.log(`Pickup notification email sent for order #${assignment.order.orderNumber}`);
+      } catch (emailError) {
+        console.error("Failed to send pickup notification email:", emailError);
+        // Don't fail the status update if email fails
+      }
+    }
 
     return NextResponse.json({ 
       success: true, 

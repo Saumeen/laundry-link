@@ -18,7 +18,11 @@ const PhoneVerification = ({
 }: PhoneVerificationProps) => {
   const [step, setStep] = useState<'sending' | 'verifying' | 'success'>('sending');
   const [verificationCode, setVerificationCode] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
+  const [nextRetryTime, setNextRetryTime] = useState<number | null>(null);
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     isLoading,
@@ -28,6 +32,11 @@ const PhoneVerification = ({
     verifyCode,
     clearRecaptcha
   } = usePhoneVerification();
+
+  // Calculate backoff delay: 2s, 4s, 8s
+  const getBackoffDelay = (attempt: number): number => {
+    return Math.min(2000 * Math.pow(2, attempt), 8000);
+  };
 
   // Initialize reCAPTCHA when component mounts
   const initializeRecaptchaLocal = useCallback(async () => {
@@ -43,24 +52,88 @@ const PhoneVerification = ({
     }
   }, [initializeRecaptcha, onVerificationError, phoneNumber]);
 
-  // Start verification when component mounts
-  useEffect(() => {
-    initializeRecaptchaLocal();
-  }, [initializeRecaptchaLocal]);
-
-  // Manual trigger for sending verification code
-  const handleManualTrigger = useCallback(async () => {
+  // Attempt to send verification code
+  const attemptSendCode = useCallback(async (isRetry: boolean = false) => {
     try {
       const result = await sendVerificationCode(phoneNumber);
       if (result.success) {
         setStep('verifying');
+        setIsAutoRetrying(false);
+        setRetryCount(0);
+        setNextRetryTime(null);
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+          retryTimeoutRef.current = null;
+        }
       } else {
-        onVerificationError(result.error || 'Failed to send verification code');
+        // If it's a retry and we haven't exceeded max attempts, schedule next retry
+        if (isRetry && retryCount < 2) {
+          const nextAttempt = retryCount + 1;
+          const delay = getBackoffDelay(nextAttempt);
+          setRetryCount(nextAttempt);
+          setNextRetryTime(Date.now() + delay);
+          
+          retryTimeoutRef.current = setTimeout(() => {
+            attemptSendCode(true);
+          }, delay);
+        } else if (isRetry && retryCount >= 2) {
+          // Max retries reached, stop auto-retrying
+          setIsAutoRetrying(false);
+          setNextRetryTime(null);
+        }
       }
     } catch (error) {
-      onVerificationError('Failed to send verification code');
+      if (isRetry && retryCount < 2) {
+        const nextAttempt = retryCount + 1;
+        const delay = getBackoffDelay(nextAttempt);
+        setRetryCount(nextAttempt);
+        setNextRetryTime(Date.now() + delay);
+        
+        retryTimeoutRef.current = setTimeout(() => {
+          attemptSendCode(true);
+        }, delay);
+      } else if (isRetry && retryCount >= 2) {
+        setIsAutoRetrying(false);
+        setNextRetryTime(null);
+      }
     }
-  }, [phoneNumber, sendVerificationCode, onVerificationError]);
+  }, [phoneNumber, sendVerificationCode, retryCount]);
+
+  // Start verification when component mounts
+  useEffect(() => {
+    const startVerification = async () => {
+      await initializeRecaptchaLocal();
+      setIsAutoRetrying(true);
+      setRetryCount(0);
+      // Start first attempt immediately
+      attemptSendCode(true);
+    };
+    
+    startVerification();
+
+    // Cleanup on unmount
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Manual trigger for sending verification code
+  const handleManualTrigger = useCallback(async () => {
+    // Clear any existing retry attempts
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    
+    setIsAutoRetrying(true);
+    setRetryCount(0);
+    setNextRetryTime(null);
+    
+    // Start fresh retry attempts
+    attemptSendCode(true);
+  }, [attemptSendCode]);
 
   // Handle code verification
   const handleVerifyCode = useCallback(async () => {
@@ -86,14 +159,36 @@ const PhoneVerification = ({
   const handleResendCode = useCallback(async () => {
     setVerificationCode('');
     setStep('sending');
+    setRetryCount(0);
+    setIsAutoRetrying(true);
+    setNextRetryTime(null);
+    
+    // Clear any existing retry attempts
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    
     await initializeRecaptchaLocal(); // Re-initialize reCAPTCHA for resend
-  }, [initializeRecaptchaLocal]);
+    attemptSendCode(true); // Start fresh retry attempts
+  }, [initializeRecaptchaLocal, attemptSendCode]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
     clearRecaptcha();
     onCancel();
   }, [clearRecaptcha, onCancel]);
+
+  // Format countdown timer
+  const formatCountdown = () => {
+    if (!nextRetryTime) return '';
+    const remaining = Math.max(0, Math.ceil((nextRetryTime - Date.now()) / 1000));
+    return remaining > 0 ? `${remaining}s` : '';
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -109,16 +204,35 @@ const PhoneVerification = ({
             <p className="text-gray-600 mb-4">
               Sending verification code to {phoneNumber}...
             </p>
+            
+            {isAutoRetrying && retryCount > 0 && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-500">
+                  Attempt {retryCount + 1} of 3
+                </p>
+                {nextRetryTime && (
+                  <p className="text-sm text-blue-600">
+                    Next attempt in {formatCountdown()}
+                  </p>
+                )}
+              </div>
+            )}
+            
             <p className="text-xs text-gray-500 mb-4">
-              If the verification doesn't start automatically, click the button below.
+              {isAutoRetrying ? 
+                'Automatically retrying...' : 
+                'If the verification doesn\'t start automatically, click the button below.'
+              }
             </p>
+            
             <button
               onClick={handleManualTrigger}
-              disabled={isLoading}
+              disabled={isLoading || isAutoRetrying}
               className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
             >
-              {isLoading ? 'Sending...' : 'Send Code Manually'}
+              {isLoading ? 'Sending...' : isAutoRetrying ? 'Retrying Automatically...' : 'Send Code Manually'}
             </button>
+            
             {error && (
               <div className="mb-4">
                 <p className="text-red-600 text-sm mb-2">{error}</p>

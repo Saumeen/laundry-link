@@ -26,8 +26,49 @@ interface Order {
   status: string;
   invoiceTotal: number;
   pickupTime: string;
-  serviceType: string;
+  deliveryTime?: string;
   createdAt: string;
+  updatedAt: string;
+  customerFirstName: string;
+  customerLastName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerAddress: string;
+  specialInstructions?: string;
+  paymentStatus: string;
+  orderServiceMappings?: Array<{
+    id: number;
+    service: {
+      id: number;
+      name: string;
+      displayName: string;
+      description: string;
+      price: number;
+    };
+    quantity: number;
+    price: number;
+    orderItems: Array<{
+      id: number;
+      itemName: string;
+      itemType: string;
+      quantity: number;
+      pricePerItem: number;
+      totalPrice: number;
+      notes?: string;
+    }>;
+  }>;
+  address?: {
+    id: number;
+    label: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    area?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    contactNumber?: string;
+  };
 }
 
 interface Address {
@@ -185,6 +226,9 @@ const OrderItem = ({
   }, []);
 
   const statusConfig = getStatusConfig(order.status);
+  
+  // Get the first service name for display
+  const serviceName = order.orderServiceMappings?.[0]?.service?.displayName || 'Multiple Services';
 
   return (
     <div 
@@ -200,7 +244,7 @@ const OrderItem = ({
             <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
               #{order.orderNumber}
             </h4>
-            <p className="text-sm text-gray-500">{order.serviceType}</p>
+            <p className="text-sm text-gray-500">{serviceName}</p>
           </div>
         </div>
         <div className="text-right">
@@ -255,6 +299,9 @@ const DetailedOrderItem = ({
   }, []);
 
   const statusConfig = getStatusConfig(order.status);
+  
+  // Get the first service name for display
+  const serviceName = order.orderServiceMappings?.[0]?.service?.displayName || 'Multiple Services';
 
   return (
     <div 
@@ -270,7 +317,7 @@ const DetailedOrderItem = ({
             <h4 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
               Order #{order.orderNumber}
             </h4>
-            <p className="text-sm text-gray-500">{order.serviceType}</p>
+            <p className="text-sm text-gray-500">{serviceName}</p>
           </div>
         </div>
         <div className="text-right">
@@ -291,7 +338,7 @@ const DetailedOrderItem = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Service</p>
-          <p className="text-sm font-medium text-gray-900">{order.serviceType}</p>
+          <p className="text-sm font-medium text-gray-900">{serviceName}</p>
         </div>
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Pickup</p>
@@ -458,6 +505,10 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
     const activeOrders = orders.filter(order => !['Delivered', 'Cancelled'].includes(order.status)).length;
     const completedOrders = orders.filter(order => order.status === 'Delivered').length;
     
+    console.log('Orders state in statsData:', orders);
+    console.log('Active orders:', activeOrders);
+    console.log('Completed orders:', completedOrders);
+    
     return [
       {
         icon: '💰',
@@ -570,9 +621,12 @@ export default function DashboardContent({ searchParams }: { searchParams: URLSe
   const fetchOrders = useCallback(async () => {
     try {
       const response = await fetch('/api/customer/orders?limit=3&sort=updatedAt&order=desc');
+      
       if (response.ok) {
         const data = await response.json() as OrdersResponse;
+        
         if (data && typeof data === 'object' && 'orders' in data && Array.isArray(data.orders)) {
+          console.log('Setting orders in state:', data.orders);
           setOrders(data.orders);
         }
       }

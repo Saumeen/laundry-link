@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePhoneVerification } from '@/lib/phoneVerification';
 import PhoneVerification from '@/components/PhoneVerification';
 import SocialLoginButton from '@/components/ui/SocialLoginButton';
+import PhoneInput from '@/components/PhoneInput';
 import { customerApi } from '@/lib/api';
 
 // Email validation regex
@@ -543,14 +544,11 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
                 <label htmlFor="phone-number" className="block text-sm font-semibold text-gray-700">
                   Phone Number
                 </label>
-                <input
-                  type="tel"
-                  id="phone-number"
+                <PhoneInput
                   value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm"
+                  onChange={(value) => setPhoneNumber(value)}
                   placeholder="Enter your phone number"
-                  autoComplete="off"
+                  className="w-full"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-1">

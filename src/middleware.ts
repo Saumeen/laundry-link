@@ -19,7 +19,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/services') ||
     path.startsWith('/schedule') ||
     path.startsWith('/tracking') ||
-    path.startsWith('/faq')
+    path.startsWith('/faq') ||
+    path.startsWith('/order-success/')
 
   // Check if the path is public
   if (isPublicPath) {

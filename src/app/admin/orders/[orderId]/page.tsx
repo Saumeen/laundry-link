@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -9,6 +9,40 @@ import { UserRole, DriverAssignment } from "@/types/global";
 import { useToast, ToastProvider } from "@/components/ui/Toast";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
 import Link from "next/link";
+import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
+import { parseJsonResponse } from '@/lib/api';
+import { 
+  ArrowLeft, 
+  Edit, 
+  Save, 
+  X, 
+  Plus, 
+  Trash2, 
+  Clock, 
+  MapPin, 
+  Phone, 
+  User, 
+  Package,
+  Calendar,
+  DollarSign,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Eye,
+  EyeOff,
+  Download,
+  Printer,
+  ExternalLink
+} from 'lucide-react';
+
+// Google Maps configuration
+const libraries: ("places")[] = ["places"];
+
+// Default center for Bahrain
+const defaultCenter = {
+  lat: 26.0667,
+  lng: 50.5577
+};
 
 interface Order {
   id: number;
@@ -28,9 +62,16 @@ interface Order {
     id: number;
     label: string;
     addressLine1: string;
+    addressLine2?: string;
     city: string;
+    area?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
     contactNumber?: string;
     locationType?: string;
+    latitude?: number;
+    longitude?: number;
   };
   orderServiceMappings: Array<{
     id: number;
@@ -123,7 +164,7 @@ interface OrderItemsResponse {
   orderItems: OrderItem[];
 }
 
-type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items';
+type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items' | 'invoice';
 
 // Tab Button Component
 const TabButton = React.memo(({ 
@@ -156,6 +197,392 @@ const TabButton = React.memo(({
   </button>
 ));
 
+// Invoice Tab Component
+function InvoiceTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+  const { showToast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const formatDate = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, []);
+
+  const formatDateTime = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, []);
+
+  const calculateSubtotal = useCallback(() => {
+    let subtotal = 0;
+    
+    // Add service costs
+    if (order.orderServiceMappings) {
+      order.orderServiceMappings.forEach(mapping => {
+        subtotal += mapping.quantity * mapping.price;
+      });
+    }
+    
+    // Add order items costs
+    if (order.orderServiceMappings) {
+      order.orderServiceMappings.forEach(mapping => {
+        if (mapping.orderItems) {
+          mapping.orderItems.forEach(item => {
+            subtotal += item.totalPrice;
+          });
+        }
+      });
+    }
+    
+    return subtotal;
+  }, [order]);
+
+  const handlePrintInvoice = useCallback(() => {
+    window.print();
+  }, []);
+
+  const handleDownloadPDF = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/generate-invoice-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+        }),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoice-${order.orderNumber}.pdf`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        showToast('PDF downloaded successfully!', 'success');
+      } else {
+        const errorData = await response.json() as ErrorResponse;
+        showToast(errorData.error || 'Failed to download PDF', 'error');
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      showToast('Failed to download PDF', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [order.id, order.orderNumber, showToast]);
+
+  const subtotal = calculateSubtotal();
+  const total = order.invoiceTotal || subtotal;
+
+  return (
+    <div className="space-y-6">
+      {/* Invoice Header */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex items-center space-x-4">
+            {/* Logo placeholder */}
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-xl">LL</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">INVOICE</h2>
+              <p className="text-gray-600 font-medium">Laundry Link Services</p>
+              <p className="text-sm text-gray-500">Professional Laundry & Dry Cleaning</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-semibold text-gray-900 mb-1">
+              Order #{order.orderNumber}
+            </div>
+            <div className="text-sm text-gray-600">
+              Date: {formatDate(order.createdAt)}
+            </div>
+            <div className="text-sm text-gray-600">
+              Due Date: {formatDate(order.deliveryTime)}
+            </div>
+          </div>
+        </div>
+
+        {/* Order Summary Card */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-sm text-gray-600">Order Status</div>
+              <div className="font-semibold text-gray-900">{order.status}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Total Amount</div>
+              <div className="font-bold text-lg text-blue-600">{total.toFixed(3)} BD</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Services</div>
+              <div className="font-semibold text-gray-900">{order.orderServiceMappings?.length || 0}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Items</div>
+              <div className="font-semibold text-gray-900">
+                {order.orderServiceMappings?.reduce((total, mapping) => total + (mapping.orderItems?.length || 0), 0) || 0}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Company and Customer Info */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-2">From:</h3>
+            <div className="text-gray-700">
+              <p className="font-medium">Laundry Link Services</p>
+              <p>123 Business Street</p>
+              <p>Manama, Bahrain</p>
+              <p>Phone: +973 1234 5678</p>
+              <p>Email: info@laundrylink.bh</p>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 mb-2">Bill To:</h3>
+            <div className="text-gray-700">
+              <p className="font-medium">{order.customer.firstName} {order.customer.lastName}</p>
+              <p>{order.customer.email}</p>
+              <p>{order.customer.phone}</p>
+              {order.address && (
+                <div className="mt-2">
+                  <p>{order.address.addressLine1}</p>
+                  {order.address.addressLine2 && <p>{order.address.addressLine2}</p>}
+                  <p>{order.address.city}</p>
+                  {order.address.area && <p>Area: {order.address.area}</p>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Order Details */}
+        <div className="mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Order Details:</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">Status:</span>
+              <span className="ml-2 font-medium">{order.status}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Pickup:</span>
+              <span className="ml-2 font-medium">{formatDateTime(order.pickupTime)}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">Delivery:</span>
+              <span className="ml-2 font-medium">{formatDateTime(order.deliveryTime)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Services and Items */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Services & Items</h3>
+        
+        {/* Services */}
+        {order.orderServiceMappings && order.orderServiceMappings.length > 0 && (
+          <div className="mb-6">
+            <h4 className="font-medium text-gray-800 mb-3">Services</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Service
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Unit Price
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {order.orderServiceMappings.map((mapping) => (
+                    <tr key={mapping.id}>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {mapping.service.displayName}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {mapping.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {mapping.price.toFixed(3)} BD
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {(mapping.quantity * mapping.price).toFixed(3)} BD
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Order Items */}
+        {order.orderServiceMappings && order.orderServiceMappings.some(mapping => mapping.orderItems && mapping.orderItems.length > 0) && (
+          <div className="mb-6">
+            <h4 className="font-medium text-gray-800 mb-3">Order Items</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Item
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Unit Price
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {order.orderServiceMappings.map((mapping) =>
+                    mapping.orderItems?.map((item) => (
+                      <tr key={item.id}>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {item.itemName}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 capitalize">
+                          {item.itemType}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {item.quantity}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {item.pricePerItem.toFixed(3)} BD
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          {item.totalPrice.toFixed(3)} BD
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Special Instructions */}
+        {order.specialInstructions && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h4 className="font-medium text-gray-800 mb-2">Special Instructions</h4>
+            <p className="text-gray-700 text-sm">{order.specialInstructions}</p>
+          </div>
+        )}
+
+        {/* Totals */}
+        <div className="border-t pt-4">
+          <div className="flex justify-end">
+            <div className="w-64">
+              <div className="flex justify-between py-2">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">{subtotal.toFixed(3)} BD</span>
+              </div>
+              {order.minimumOrderApplied && (
+                <div className="flex justify-between py-2 text-sm text-gray-500">
+                  <span>Minimum Order Applied:</span>
+                  <span>Yes</span>
+                </div>
+              )}
+              <div className="flex justify-between py-2 border-t border-gray-200">
+                <span className="text-lg font-semibold text-gray-900">Total:</span>
+                <span className="text-lg font-bold text-gray-900">{total.toFixed(3)} BD</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6 no-print">
+        <div className="flex flex-col sm:flex-row gap-4 justify-end">
+          <button
+            onClick={handlePrintInvoice}
+            className="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors duration-200 flex items-center justify-center"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print Invoice
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center disabled:opacity-50"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            ) : (
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            )}
+            {loading ? 'Generating...' : 'Download PDF'}
+          </button>
+        </div>
+      </div>
+
+      {/* Print Styles */}
+      <style jsx>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            background: white !important;
+          }
+          .bg-white {
+            background: white !important;
+            box-shadow: none !important;
+            border: 1px solid #e5e7eb !important;
+          }
+          .space-y-6 > * + * {
+            margin-top: 1.5rem !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function OrderEditPageContent() {
   const router = useRouter();
   const params = useParams();
@@ -174,25 +601,6 @@ function OrderEditPageContent() {
   const handleTabClick = useCallback((tab: TabType) => {
     setActiveTab(tab);
   }, []);
-
-  // Determine the correct back URL based on user role
-  const getBackUrl = useCallback(() => {
-    if (!session?.role) return '/admin/orders';
-    
-    const role = session.role as UserRole;
-    switch (role) {
-      case 'SUPER_ADMIN':
-        return '/admin/super-admin';
-      case 'OPERATION_MANAGER':
-        return '/admin/operation-manager';
-      case 'DRIVER':
-        return '/admin/driver';
-      case 'FACILITY_TEAM':
-        return '/admin/facility-team';
-      default:
-        return '/admin/orders';
-    }
-  }, [session?.role]);
 
   // Handle async params
   useEffect(() => {
@@ -270,6 +678,35 @@ function OrderEditPageContent() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   }, []);
 
+  // Calculate total for the summary card
+  const calculateTotal = useCallback(() => {
+    if (!order) return 0;
+    
+    let subtotal = 0;
+    
+    // Add service costs
+    if (order.orderServiceMappings) {
+      order.orderServiceMappings.forEach(mapping => {
+        subtotal += mapping.quantity * mapping.price;
+      });
+    }
+    
+    // Add order items costs
+    if (order.orderServiceMappings) {
+      order.orderServiceMappings.forEach(mapping => {
+        if (mapping.orderItems) {
+          mapping.orderItems.forEach(item => {
+            subtotal += item.totalPrice;
+          });
+        }
+      });
+    }
+    
+    return order.invoiceTotal || subtotal;
+  }, [order]);
+
+  const total = calculateTotal();
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -346,6 +783,30 @@ function OrderEditPageContent() {
           </div>
         </div>
 
+        {/* Order Summary Card */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-sm text-gray-600">Order Status</div>
+              <div className="font-semibold text-gray-900">{order.status}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Total Amount</div>
+              <div className="font-bold text-lg text-blue-600">{total.toFixed(3)} BD</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Services</div>
+              <div className="font-semibold text-gray-900">{order.orderServiceMappings?.length || 0}</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Items</div>
+              <div className="font-semibold text-gray-900">
+                {order.orderServiceMappings?.reduce((total, mapping) => total + (mapping.orderItems?.length || 0), 0) || 0}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Tab Navigation */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="border-b border-gray-200">
@@ -383,6 +844,12 @@ function OrderEditPageContent() {
               >
                 Order Items
               </TabButton>
+              <TabButton
+                isActive={activeTab === 'invoice'}
+                onClick={() => handleTabClick('invoice')}
+              >
+                Invoice
+              </TabButton>
             </nav>
           </div>
 
@@ -400,9 +867,12 @@ function OrderEditPageContent() {
             {activeTab === 'services' && (
               <ServicesRequestedTab order={order} onRefresh={fetchOrder} />
             )}
-                    {activeTab === 'order-items' && (
-          <OrderItemsTab order={order} onRefresh={fetchOrder} />
-        )}
+            {activeTab === 'order-items' && (
+              <OrderItemsTab order={order} onRefresh={fetchOrder} />
+            )}
+            {activeTab === 'invoice' && (
+              <InvoiceTab order={order} onRefresh={fetchOrder} />
+            )}
           </div>
         </div>
       </div>
@@ -474,9 +944,27 @@ function OrderOverviewTab({ order, onRefresh }: { order: Order; onRefresh: () =>
           <div className="space-y-2">
             <p className="text-gray-700 font-medium">{order.address.label}</p>
             <p className="text-gray-700">{order.address.addressLine1}</p>
+            {order.address.addressLine2 && (
+              <p className="text-gray-700">{order.address.addressLine2}</p>
+            )}
             <p className="text-gray-700">{order.address.city}</p>
+            {order.address.area && (
+              <p className="text-gray-600 text-sm">Area: {order.address.area}</p>
+            )}
+            {order.address.building && (
+              <p className="text-gray-600 text-sm">Building: {order.address.building}</p>
+            )}
+            {order.address.floor && (
+              <p className="text-gray-600 text-sm">Floor/Room: {order.address.floor}</p>
+            )}
+            {order.address.apartment && (
+              <p className="text-gray-600 text-sm">Apartment/Office: {order.address.apartment}</p>
+            )}
             {order.address.contactNumber && (
               <p className="text-gray-600 text-sm">Contact: {order.address.contactNumber}</p>
+            )}
+            {order.address.locationType && (
+              <p className="text-gray-600 text-sm">Type: {order.address.locationType}</p>
             )}
           </div>
         </div>
@@ -517,6 +1005,19 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
   const [pickupTime, setPickupTime] = useState(order.pickupTime ? new Date(order.pickupTime).toISOString().slice(0, 16) : '');
   const [deliveryTime, setDeliveryTime] = useState(order.deliveryTime ? new Date(order.deliveryTime).toISOString().slice(0, 16) : '');
   const [specialInstructions, setSpecialInstructions] = useState(order.specialInstructions || '');
+  
+  // Address state variables
+  const [addressLabel, setAddressLabel] = useState(order.address?.label || '');
+  const [addressLine1, setAddressLine1] = useState(order.address?.addressLine1 || '');
+  const [addressLine2, setAddressLine2] = useState(order.address?.addressLine2 || '');
+  const [city, setCity] = useState(order.address?.city || '');
+  const [area, setArea] = useState(order.address?.area || '');
+  const [building, setBuilding] = useState(order.address?.building || '');
+  const [floor, setFloor] = useState(order.address?.floor || '');
+  const [apartment, setApartment] = useState(order.address?.apartment || '');
+  const [contactNumber, setContactNumber] = useState(order.address?.contactNumber || '');
+  const [locationType, setLocationType] = useState(order.address?.locationType || 'flat');
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -536,6 +1037,17 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
           pickupTime,
           deliveryTime,
           specialInstructions,
+          // Address fields
+          addressLabel,
+          addressLine1,
+          addressLine2,
+          city,
+          area,
+          building,
+          floor,
+          apartment,
+          contactNumber,
+          locationType,
         }),
       });
 
@@ -552,10 +1064,28 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
     } finally {
       setLoading(false);
     }
-  }, [order.id, status, pickupTime, deliveryTime, specialInstructions, onUpdate, showToast]);
+  }, [
+    order.id, 
+    status, 
+    pickupTime, 
+    deliveryTime, 
+    specialInstructions,
+    addressLabel,
+    addressLine1,
+    addressLine2,
+    city,
+    area,
+    building,
+    floor,
+    apartment,
+    contactNumber,
+    locationType,
+    onUpdate, 
+    showToast
+  ]);
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-4xl">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Edit Order Details</h3>
       
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -565,61 +1095,212 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Order Status
-          </label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="Order Placed">Order Placed</option>
-            <option value="Picked Up">Picked Up</option>
-            <option value="In Process">In Process</option>
-            <option value="Ready for Delivery">Ready for Delivery</option>
-            <option value="Delivered">Delivered</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-        </div>
+        {/* Order Information Section */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 mb-4">Order Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Order Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Order Placed">Order Placed</option>
+                <option value="Picked Up">Picked Up</option>
+                <option value="In Process">In Process</option>
+                <option value="Ready for Delivery">Ready for Delivery</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Pickup Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              value={pickupTime}
-              onChange={(e) => setPickupTime(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Special Instructions
+              </label>
+              <textarea
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Any special instructions for this order..."
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Delivery Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              value={deliveryTime}
-              onChange={(e) => setDeliveryTime(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Pickup Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Delivery Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                value={deliveryTime}
+                onChange={(e) => setDeliveryTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Special Instructions
-          </label>
-          <textarea
-            value={specialInstructions}
-            onChange={(e) => setSpecialInstructions(e.target.value)}
-            rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Any special instructions for this order..."
-          />
+        {/* Address Section */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="font-medium text-gray-900 mb-4">Delivery Address</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Address Label
+              </label>
+              <input
+                type="text"
+                value={addressLabel}
+                onChange={(e) => setAddressLabel(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., Home, Office, Hotel"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location Type
+              </label>
+              <select
+                value={locationType}
+                onChange={(e) => setLocationType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="home">Home</option>
+                <option value="flat">Flat/Apartment</option>
+                <option value="office">Office</option>
+                <option value="hotel">Hotel</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Address Line 1
+              </label>
+              <input
+                type="text"
+                value={addressLine1}
+                onChange={(e) => setAddressLine1(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Street address, building name, etc."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Address Line 2
+              </label>
+              <input
+                type="text"
+                value={addressLine2}
+                onChange={(e) => setAddressLine2(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Apartment, suite, unit, etc."
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                City
+              </label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="City"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Area/Road
+              </label>
+              <input
+                type="text"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Area or road name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Building
+              </label>
+              <input
+                type="text"
+                value={building}
+                onChange={(e) => setBuilding(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Building name or number"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Floor/Room
+              </label>
+              <input
+                type="text"
+                value={floor}
+                onChange={(e) => setFloor(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Floor or room number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Apartment/Office
+              </label>
+              <input
+                type="text"
+                value={apartment}
+                onChange={(e) => setApartment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Apartment or office number"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contact Number
+              </label>
+              <input
+                type="text"
+                value={contactNumber}
+                onChange={(e) => setContactNumber(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Contact number for delivery"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end space-x-3">
@@ -676,6 +1357,34 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
   // Validation states
   const [pickupTimeError, setPickupTimeError] = useState<string>('');
   const [deliveryTimeError, setDeliveryTimeError] = useState<string>('');
+  const [pickupTimeWarning, setPickupTimeWarning] = useState<string>('');
+
+  // Google Maps state
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries,
+  });
+
+  // Get pickup location coordinates
+  const getPickupLocation = useMemo(() => {
+    if (order.address?.latitude && order.address?.longitude) {
+      return {
+        lat: order.address.latitude,
+        lng: order.address.longitude
+      };
+    }
+    return defaultCenter;
+  }, [order.address]);
+
+  // Generate Google Maps link for pickup location
+  const getGoogleMapsLink = useCallback(() => {
+    if (order.address?.latitude && order.address?.longitude) {
+      return `https://www.google.com/maps?q=${order.address.latitude},${order.address.longitude}`;
+    }
+    // Fallback to address search if no coordinates
+    const address = order.address?.addressLine1 || '';
+    return `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
+  }, [order.address]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -688,6 +1397,32 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     };
     loadData();
   }, [order.id]);
+
+  // Check pickup time against customer's requested time
+  const checkPickupTimeWarning = useCallback((assignedTime: string) => {
+    if (!assignedTime || !order.pickupTime) return '';
+    
+    const assignedDate = new Date(assignedTime);
+    const requestedDate = new Date(order.pickupTime);
+    
+    // Check if the assigned time is different from the requested time
+    const timeDifference = Math.abs(assignedDate.getTime() - requestedDate.getTime());
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+    
+    if (hoursDifference > 1) { // More than 1 hour difference
+      const requestedTimeStr = requestedDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      return `Warning: Customer requested pickup at ${requestedTimeStr}. Please confirm this change with the customer.`;
+    }
+    
+    return '';
+  }, [order.pickupTime]);
 
   const loadDrivers = useCallback(async () => {
     try {
@@ -716,6 +1451,15 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
           setSelectedPickupDriver(pickupAssignment.driverId);
           setPickupEstimatedTime(pickupAssignment.estimatedTime ? new Date(pickupAssignment.estimatedTime).toISOString().slice(0, 16) : '');
           setPickupNotes(pickupAssignment.notes || '');
+          
+          // Check for warning if existing pickup time differs from customer's requested time
+          if (pickupAssignment.estimatedTime) {
+            const estimatedTimeStr = typeof pickupAssignment.estimatedTime === 'string' 
+              ? pickupAssignment.estimatedTime 
+              : pickupAssignment.estimatedTime.toISOString();
+            const warning = checkPickupTimeWarning(estimatedTimeStr);
+            setPickupTimeWarning(warning);
+          }
         }
         
         if (deliveryAssignment) {
@@ -727,7 +1471,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     } catch (error) {
       console.error('Error loading driver assignments:', error);
     }
-  }, [order.id]);
+  }, [order.id, checkPickupTimeWarning]);
 
   // Date validation function
   const validateDateTime = useCallback((dateTimeString: string, assignmentType: 'pickup' | 'delivery'): string => {
@@ -821,6 +1565,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     // Clear any previous errors
     setPickupTimeError('');
     setDeliveryTimeError('');
+    setPickupTimeWarning(''); // Clear warning when assigning
     
     // Set the appropriate loading state
     if (assignmentType === 'pickup') {
@@ -1119,6 +1864,47 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                             <span className="text-sm text-gray-600">{assignment.notes}</span>
                           </div>
                         )}
+                        
+                        {/* Location Map for existing assignments */}
+                        {isLoaded && !loadError && (
+                          <div className="mt-3">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <MapPin className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm font-medium text-gray-700">Location</span>
+                            </div>
+                            <div className="relative w-full h-32 border border-gray-200 rounded-lg overflow-hidden">
+                              <GoogleMap
+                                mapContainerClassName="w-full h-full"
+                                center={getPickupLocation}
+                                zoom={order.address?.latitude && order.address?.longitude ? 15 : 12}
+                                options={{
+                                  zoomControl: false,
+                                  streetViewControl: false,
+                                  mapTypeControl: false,
+                                  fullscreenControl: false,
+                                }}
+                              >
+                                {order.address?.latitude && order.address?.longitude && (
+                                  <Marker position={getPickupLocation} />
+                                )}
+                              </GoogleMap>
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <div className="text-xs text-gray-500 truncate flex-1">
+                                {order.address?.addressLine1 || 'Address not available'}
+                              </div>
+                              <a
+                                href={getGoogleMapsLink()}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-xs ml-2"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span>Open</span>
+                              </a>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
@@ -1223,6 +2009,9 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                         onChange={(e) => {
                           setPickupEstimatedTime(e.target.value);
                           setPickupTimeError(''); // Clear error when user changes the value
+                          // Check for warning when time changes
+                          const warning = checkPickupTimeWarning(e.target.value);
+                          setPickupTimeWarning(warning);
                         }}
                         min={new Date().toISOString().slice(0, 16)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -1231,6 +2020,11 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                       />
                       {pickupTimeError && (
                         <p className="text-red-600 text-sm mt-1">{pickupTimeError}</p>
+                      )}
+                      {pickupTimeWarning && (
+                        <p className="text-amber-600 text-sm mt-1 bg-amber-50 p-2 rounded border border-amber-200">
+                          ⚠️ {pickupTimeWarning}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -1243,6 +2037,67 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                         placeholder="Any special instructions..."
                       />
                     </div>
+                    
+                    {/* Pickup Location Map */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Pickup Location
+                        <span className="text-xs text-gray-500 ml-1">
+                          {order.address?.latitude && order.address?.longitude ? '(Exact coordinates)' : '(Address search)'}
+                        </span>
+                      </label>
+                      
+                      {loadError && (
+                        <div className="text-red-600 text-sm mb-2">
+                          Error loading map. Please check your Google Maps API key.
+                        </div>
+                      )}
+                      
+                      {!isLoaded ? (
+                        <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                            <p className="text-sm text-gray-600">Loading map...</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="relative w-full h-48 border border-gray-300 rounded-lg overflow-hidden">
+                            <GoogleMap
+                              mapContainerClassName="w-full h-full"
+                              center={getPickupLocation}
+                              zoom={order.address?.latitude && order.address?.longitude ? 16 : 12}
+                              options={{
+                                zoomControl: true,
+                                streetViewControl: false,
+                                mapTypeControl: false,
+                                fullscreenControl: false,
+                              }}
+                            >
+                              {order.address?.latitude && order.address?.longitude && (
+                                <Marker position={getPickupLocation} />
+                              )}
+                            </GoogleMap>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                              {order.address?.addressLine1 || 'Address not available'}
+                            </div>
+                            <a
+                              href={getGoogleMapsLink()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              <span>Open in Maps</span>
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
                     <button
                       onClick={() => assignDriver('pickup')}
                       disabled={pickupAssignmentLoading || !selectedPickupDriver}
@@ -1305,6 +2160,67 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                         placeholder="Any special instructions..."
                       />
                     </div>
+                    
+                    {/* Delivery Location Map (same as pickup location) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Delivery Location
+                        <span className="text-xs text-gray-500 ml-1">
+                          {order.address?.latitude && order.address?.longitude ? '(Exact coordinates)' : '(Address search)'}
+                        </span>
+                      </label>
+                      
+                      {loadError && (
+                        <div className="text-red-600 text-sm mb-2">
+                          Error loading map. Please check your Google Maps API key.
+                        </div>
+                      )}
+                      
+                      {!isLoaded ? (
+                        <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                            <p className="text-sm text-gray-600">Loading map...</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="relative w-full h-48 border border-gray-300 rounded-lg overflow-hidden">
+                            <GoogleMap
+                              mapContainerClassName="w-full h-full"
+                              center={getPickupLocation}
+                              zoom={order.address?.latitude && order.address?.longitude ? 16 : 12}
+                              options={{
+                                zoomControl: true,
+                                streetViewControl: false,
+                                mapTypeControl: false,
+                                fullscreenControl: false,
+                              }}
+                            >
+                              {order.address?.latitude && order.address?.longitude && (
+                                <Marker position={getPickupLocation} />
+                              )}
+                            </GoogleMap>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                              {order.address?.addressLine1 || 'Address not available'}
+                            </div>
+                            <a
+                              href={getGoogleMapsLink()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              <span>Open in Maps</span>
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
                     <button
                       onClick={() => assignDriver('delivery')}
                       disabled={deliveryAssignmentLoading || !selectedDeliveryDriver}
@@ -1688,8 +2604,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   const [processingForm, setProcessingForm] = useState({
     processedQuantity: '',
     status: 'pending',
-    processingNotes: '',
-    qualityScore: ''
+    processingNotes: ''
   });
   const [markReadyLoading, setMarkReadyLoading] = useState(false);
 
@@ -1962,8 +2877,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
     setProcessingForm({
       processedQuantity: detail.processedQuantity?.toString() || '',
       status: detail.status,
-      processingNotes: detail.processingNotes || '',
-      qualityScore: detail.qualityScore?.toString() || ''
+      processingNotes: detail.processingNotes || ''
     });
     setProcessingModalOpen(true);
   };
@@ -1987,7 +2901,6 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
           processedQuantity: parseInt(processingForm.processedQuantity) || 0,
           status: processingForm.status,
           processingNotes: processingForm.processingNotes,
-          qualityScore: processingForm.qualityScore ? parseInt(processingForm.qualityScore) : undefined,
           updateParentStatus: true
         })
       });
@@ -2229,7 +3142,6 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                               <div className="flex flex-col items-center gap-1">
                                 <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(detail.status)}`}>{getStatusIcon(detail.status)}{detail.status.replace('_', ' ')}</span>
                                 <span className="text-xs text-gray-600">Processed: {detail.processedQuantity}/{detail.quantity}</span>
-                                {detail.qualityScore && <span className="text-xs text-green-700">Quality: {detail.qualityScore}/10</span>}
                                 <button
                                   onClick={() => openProcessingModal(detail)}
                                   className="text-blue-600 hover:text-blue-800 text-xs border border-blue-200 rounded px-2 py-1 mt-1"
@@ -2308,17 +3220,6 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                           value={processingForm.processingNotes}
                           onChange={e => handleProcessingFormChange('processingNotes', e.target.value)}
                           rows={2}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Quality Score (1-10)</label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          value={processingForm.qualityScore}
-                          onChange={e => handleProcessingFormChange('qualityScore', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>

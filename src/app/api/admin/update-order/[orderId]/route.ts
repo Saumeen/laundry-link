@@ -6,6 +6,18 @@ interface UpdateOrderRequest {
   status?: string;
   pickupTime?: string;
   deliveryTime?: string;
+  specialInstructions?: string;
+  // Address fields for order-specific address updates
+  addressLabel?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  area?: string;
+  building?: string;
+  floor?: string;
+  apartment?: string;
+  contactNumber?: string;
+  locationType?: string;
   orderItems?: Array<{
     id?: number; // Add ID for existing items
     orderServiceMappingId: number;
@@ -48,13 +60,30 @@ export async function PUT(
       );
     }
     
-    const { status, pickupTime, deliveryTime, orderItems }: UpdateOrderRequest = await req.json();
+    const { 
+      status, 
+      pickupTime, 
+      deliveryTime, 
+      specialInstructions,
+      addressLabel,
+      addressLine1,
+      addressLine2,
+      city,
+      area,
+      building,
+      floor,
+      apartment,
+      contactNumber,
+      locationType,
+      orderItems 
+    }: UpdateOrderRequest = await req.json();
 
     // Prepare update data
     const updateData: Record<string, unknown> = {};
     if (status) updateData.status = status;
     if (pickupTime) updateData.pickupTime = new Date(pickupTime);
     if (deliveryTime) updateData.deliveryTime = new Date(deliveryTime);
+    if (specialInstructions !== undefined) updateData.specialInstructions = specialInstructions;
 
     // Update the order
     const updatedOrder = await prisma.order.update({
@@ -63,6 +92,58 @@ export async function PUT(
       },
       data: updateData,
     });
+
+    // Handle address updates if provided
+    if (addressLine1 || addressLabel || city || contactNumber) {
+      // Get the current order to check if it has an address
+      const currentOrder = await prisma.order.findUnique({
+        where: { id: orderIdNum },
+        include: { address: true }
+      });
+
+      if (currentOrder?.address) {
+        // Update existing address
+        const addressUpdateData: Record<string, unknown> = {};
+        if (addressLabel) addressUpdateData.label = addressLabel;
+        if (addressLine1) addressUpdateData.addressLine1 = addressLine1;
+        if (addressLine2 !== undefined) addressUpdateData.addressLine2 = addressLine2;
+        if (city) addressUpdateData.city = city;
+        if (area !== undefined) addressUpdateData.area = area;
+        if (building !== undefined) addressUpdateData.building = building;
+        if (floor !== undefined) addressUpdateData.floor = floor;
+        if (apartment !== undefined) addressUpdateData.apartment = apartment;
+        if (contactNumber !== undefined) addressUpdateData.contactNumber = contactNumber;
+        if (locationType !== undefined) addressUpdateData.locationType = locationType;
+
+        await prisma.address.update({
+          where: { id: currentOrder.address.id },
+          data: addressUpdateData,
+        });
+      } else {
+        // Create new address for this order
+        const newAddress = await prisma.address.create({
+          data: {
+            customerId: currentOrder!.customerId,
+            label: addressLabel || 'Order Address',
+            addressLine1: addressLine1 || '',
+            addressLine2: addressLine2 || '',
+            city: city || 'Bahrain',
+            area: area || '',
+            building: building || '',
+            floor: floor || '',
+            apartment: apartment || '',
+            contactNumber: contactNumber || '',
+            locationType: locationType || 'flat',
+          }
+        });
+
+        // Link the new address to the order
+        await prisma.order.update({
+          where: { id: orderIdNum },
+          data: { addressId: newAddress.id }
+        });
+      }
+    }
 
     // If order items are provided, update them intelligently
     if (orderItems && Array.isArray(orderItems)) {

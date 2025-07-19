@@ -134,8 +134,8 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
         }
       );
 
-      // Send admin notification
-      await emailService.sendOrderNotificationToAdmin(order, {
+      // Send admin and operations notification
+      await emailService.sendOrderNotificationToAdminAndOperations(order, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
         phone: address.contactNumber || body.contactNumber || "",
@@ -326,8 +326,8 @@ async function handleGuestCustomerOrder(body: any) {
         }
       );
 
-      // Send admin notification
-      await emailService.sendOrderNotificationToAdmin(order, {
+      // Send admin and operations notification
+      await emailService.sendOrderNotificationToAdminAndOperations(order, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
         phone: address.contactNumber || body.contactNumber || "",

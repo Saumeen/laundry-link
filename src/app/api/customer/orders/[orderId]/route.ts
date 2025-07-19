@@ -26,6 +26,19 @@ export async function GET(
           },
         },
         address: true,
+        orderProcessing: {
+          include: {
+            processingItems: {
+              include: {
+                processingItemDetails: {
+                  include: {
+                    orderItem: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -36,7 +49,95 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ order });
+    // Transform the data to match the expected interface
+    const transformedOrder = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      invoiceTotal: order.invoiceTotal || 0,
+      pickupTime: order.pickupTime.toISOString(),
+      deliveryTime: order.deliveryTime?.toISOString(),
+      createdAt: order.createdAt.toISOString(),
+      updatedAt: order.updatedAt.toISOString(),
+      customerNotes: order.specialInstructions || null,
+      customerPhone: order.customerPhone,
+      customerAddress: order.customerAddress,
+      specialInstructions: order.specialInstructions,
+      
+      // Transform orderServiceMappings to items (for services tab)
+      items: order.orderServiceMappings.map(mapping => ({
+        id: mapping.id,
+        serviceName: mapping.service.name,
+        quantity: mapping.quantity,
+        unitPrice: mapping.price,
+        totalPrice: mapping.quantity * mapping.price,
+        notes: mapping.service.description || null,
+      })),
+      
+      // Transform orderItems to invoiceItems (for invoice tab)
+      invoiceItems: order.orderServiceMappings.flatMap(mapping => 
+        mapping.orderItems.map(item => ({
+          id: item.id,
+          serviceName: item.itemName,
+          quantity: item.quantity,
+          unitPrice: item.pricePerItem,
+          totalPrice: item.totalPrice,
+          notes: item.notes || null,
+        }))
+      ),
+      
+      // Address transformation
+      address: order.address ? {
+        id: order.address.id,
+        label: order.address.label,
+        addressLine1: order.address.addressLine1,
+        addressLine2: order.address.addressLine2 || '',
+        city: order.address.city,
+        area: order.address.area || '',
+        building: order.address.building || '',
+        floor: order.address.floor || '',
+        apartment: order.address.apartment || '',
+        contactNumber: order.address.contactNumber || order.customerPhone || '',
+      } : null,
+      
+      // Use the same address for both pickup and delivery (as per current system)
+      pickupAddress: order.address ? {
+        id: order.address.id,
+        label: order.address.label,
+        addressLine1: order.address.addressLine1,
+        addressLine2: order.address.addressLine2 || '',
+        city: order.address.city,
+        area: order.address.area || '',
+        building: order.address.building || '',
+        floor: order.address.floor || '',
+        apartment: order.address.apartment || '',
+        contactNumber: order.address.contactNumber || order.customerPhone || '',
+      } : null,
+      
+      deliveryAddress: order.address ? {
+        id: order.address.id,
+        label: order.address.label,
+        addressLine1: order.address.addressLine1,
+        addressLine2: order.address.addressLine2 || '',
+        city: order.address.city,
+        area: order.address.area || '',
+        building: order.address.building || '',
+        floor: order.address.floor || '',
+        apartment: order.address.apartment || '',
+        contactNumber: order.address.contactNumber || order.customerPhone || '',
+      } : null,
+      
+      // Processing details from orderProcessing
+      processingDetails: order.orderProcessing ? {
+        washType: order.orderProcessing.processingNotes || null,
+        dryType: null, // Not currently stored in the schema
+        specialInstructions: order.orderProcessing.processingNotes || null,
+        fabricType: null, // Not currently stored in the schema
+        stainTreatment: null, // Not currently stored in the schema
+      } : null,
+    };
+
+    return NextResponse.json({ order: transformedOrder });
   } catch (error) {
     console.error("Error fetching order details:", error);
     

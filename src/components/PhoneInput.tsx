@@ -153,7 +153,7 @@ export default function PhoneInput({
             type="button"
             onClick={handleDropdownToggle}
             disabled={disabled}
-            className="flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50"
+            className="flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50 font-medium"
           >
             <span className="font-medium">{selectedCountry.code}</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,9 +210,9 @@ export default function PhoneInput({
           placeholder={placeholder}
           disabled={disabled}
           className={`
-            w-full pl-16 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500
-            ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}
-            ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}
+            w-full pl-16 pr-4 py-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm
+            ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'}
+            ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white/50'}
             text-sm
           `}
         />

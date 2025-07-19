@@ -4,7 +4,17 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import PageTransition from "@/components/ui/PageTransition";
-import { Camera, MapPin, Phone, User, Clock, CheckCircle, XCircle, AlertCircle, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
+import { Camera, MapPin, Phone, User, Clock, CheckCircle, XCircle, AlertCircle, Calendar, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+
+// Google Maps configuration
+const libraries: ("places")[] = ["places"];
+
+// Default center for Bahrain
+const defaultCenter = {
+  lat: 26.0667,
+  lng: 50.5577
+};
 
 interface DriverAssignment {
   id: number;
@@ -93,10 +103,40 @@ export default function DriverDashboard() {
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [currentCameraId, setCurrentCameraId] = useState<string>("");
+  const [cameraError, setCameraError] = useState<string>("");
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+
+  // Google Maps state
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries,
+  });
+
+  // Get location coordinates for an assignment
+  const getAssignmentLocation = useCallback((assignment: DriverAssignment) => {
+    if (assignment.order.address?.latitude && assignment.order.address?.longitude) {
+      return {
+        lat: assignment.order.address.latitude,
+        lng: assignment.order.address.longitude
+      };
+    }
+    return defaultCenter;
+  }, []);
+
+  // Generate Google Maps link for an assignment
+  const getGoogleMapsLink = useCallback((assignment: DriverAssignment) => {
+    if (assignment.order.address?.latitude && assignment.order.address?.longitude) {
+      return `https://www.google.com/maps?q=${assignment.order.address.latitude},${assignment.order.address.longitude}`;
+    }
+    // Fallback to address search if no coordinates
+    const address = assignment.order.address?.addressLine1 || assignment.order.customerAddress || '';
+    return `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -109,6 +149,15 @@ export default function DriverDashboard() {
     fetchAssignments();
     fetchStats();
   }, [adminUser, authLoading, router]);
+
+  // Cleanup camera resources on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
 
   const fetchAssignments = useCallback(async () => {
     try {
@@ -139,6 +188,37 @@ export default function DriverDashboard() {
       setStatsLoading(false);
     }
   }, []);
+
+  const savePhoto = useCallback(async (assignmentId: number, photoUrl: string, photoType: string) => {
+    try {
+      setUpdating(assignmentId);
+      
+      const response = await fetch("/api/admin/driver/assignments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assignmentId,
+          photoUrl,
+          photoType,
+          notes: notes || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        await fetchAssignments();
+        setPhotoData(null);
+        setPhotoType("");
+        setNotes("");
+        setShowPhotoModal(false);
+      }
+    } catch (error) {
+      console.error("Error saving photo:", error);
+    } finally {
+      setUpdating(null);
+    }
+  }, [fetchAssignments, notes]);
 
   const updateAssignmentStatus = useCallback(async (assignmentId: number, status: string, photoUrl?: string) => {
     try {
@@ -182,9 +262,33 @@ export default function DriverDashboard() {
 
   const openCamera = useCallback(async () => {
     try {
+      setCameraError("");
+      
+      // Get available video devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      setAvailableCameras(videoDevices);
+      
+      if (videoDevices.length === 0) {
+        throw new Error("No cameras found on this device");
+      }
+      
+      // Find rear camera (environment) or use first available
+      let preferredCamera = videoDevices.find(device => 
+        device.label.toLowerCase().includes('back') || 
+        device.label.toLowerCase().includes('rear') ||
+        device.label.toLowerCase().includes('environment')
+      );
+      
+      if (!preferredCamera) {
+        preferredCamera = videoDevices[0]; // Fallback to first camera
+      }
+      
+      setCurrentCameraId(preferredCamera.deviceId);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: 'environment', // Use back camera if available
+          deviceId: { exact: preferredCamera.deviceId },
           width: { ideal: 1920 },
           height: { ideal: 1080 }
         } 
@@ -205,9 +309,101 @@ export default function DriverDashboard() {
       
     } catch (error) {
       console.error("Error accessing camera:", error);
-      alert("Unable to access camera. Please check camera permissions.");
+      setCameraError("Unable to access camera. Please check camera permissions.");
+      
+      // Fallback to basic camera access
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          } 
+        });
+        
+        setCameraStream(stream);
+        
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.playsInline = true;
+        setVideoElement(video);
+        
+        await new Promise((resolve) => {
+          video.addEventListener("canplay", resolve, { once: true });
+        });
+        
+        setCameraError("");
+      } catch (fallbackError) {
+        console.error("Fallback camera access failed:", fallbackError);
+        setCameraError("Camera access failed. Please check permissions and try again.");
+      }
     }
   }, []);
+
+  const switchCamera = useCallback(async () => {
+    if (availableCameras.length < 2) {
+      setCameraError("Only one camera available");
+      return;
+    }
+    
+    try {
+      setCameraError("");
+      
+      // Stop current stream
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+      
+      // Find next camera
+      const currentIndex = availableCameras.findIndex(cam => cam.deviceId === currentCameraId);
+      const nextIndex = (currentIndex + 1) % availableCameras.length;
+      const nextCamera = availableCameras[nextIndex];
+      
+      setCurrentCameraId(nextCamera.deviceId);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          deviceId: { exact: nextCamera.deviceId },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
+      });
+      
+      setCameraStream(stream);
+      
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      setVideoElement(video);
+      
+      // Wait for video to be ready
+      await new Promise((resolve) => {
+        video.addEventListener("canplay", resolve, { once: true });
+      });
+      
+    } catch (error) {
+      console.error("Error switching camera:", error);
+      setCameraError("Failed to switch camera");
+    }
+  }, [availableCameras, currentCameraId, cameraStream]);
+
+  const getCurrentCameraLabel = useCallback(() => {
+    if (!currentCameraId || availableCameras.length === 0) return "Camera";
+    
+    const currentCamera = availableCameras.find(cam => cam.deviceId === currentCameraId);
+    if (!currentCamera) return "Camera";
+    
+    const label = currentCamera.label.toLowerCase();
+    if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
+      return "Rear Camera";
+    } else if (label.includes('front') || label.includes('user')) {
+      return "Front Camera";
+    } else {
+      return currentCamera.label || "Camera";
+    }
+  }, [currentCameraId, availableCameras]);
 
   const capturePhoto = useCallback(() => {
     if (!videoElement) return;
@@ -237,6 +433,8 @@ export default function DriverDashboard() {
       setVideoElement(null);
     }
     setPhotoData(null);
+    setCameraError("");
+    setCurrentCameraId("");
   }, [cameraStream]);
 
   const handleReschedule = useCallback(async () => {
@@ -394,15 +592,18 @@ export default function DriverDashboard() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Driver Dashboard</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Driver Dashboard</h1>
               </div>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <span className="text-xs sm:text-sm text-gray-600 hidden sm:block">
                   Welcome, {adminUser.firstName} {adminUser.lastName}
+                </span>
+                <span className="text-xs sm:text-sm text-gray-600 sm:hidden">
+                  {adminUser.firstName}
                 </span>
                 <button
                   onClick={() => router.push("/admin/login")}
-                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                  className="bg-red-600 text-white px-2 sm:px-4 py-2 rounded-md hover:bg-red-700 text-xs sm:text-sm"
                 >
                   Logout
                 </button>
@@ -415,21 +616,21 @@ export default function DriverDashboard() {
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
               <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
+                <div className="p-4 sm:p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-md flex items-center justify-center">
+                        <svg className="w-3 h-3 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </div>
                     </div>
-                    <div className="ml-5 w-0 flex-1">
+                    <div className="ml-3 sm:ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Today's Assignments</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats?.totalAssignments || 0}</dd>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Today's Assignments</dt>
+                        <dd className="text-base sm:text-lg font-medium text-gray-900">{stats?.totalAssignments || 0}</dd>
                       </dl>
                     </div>
                   </div>
@@ -437,17 +638,17 @@ export default function DriverDashboard() {
               </div>
 
               <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
+                <div className="p-4 sm:p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                        <CheckCircle className="w-5 h-5 text-white" />
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-500 rounded-md flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
                       </div>
                     </div>
-                    <div className="ml-5 w-0 flex-1">
+                    <div className="ml-3 sm:ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats?.completedAssignments || 0}</dd>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Completed</dt>
+                        <dd className="text-base sm:text-lg font-medium text-gray-900">{stats?.completedAssignments || 0}</dd>
                       </dl>
                     </div>
                   </div>
@@ -455,17 +656,17 @@ export default function DriverDashboard() {
               </div>
 
               <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
+                <div className="p-4 sm:p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-white" />
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                        <Clock className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
                       </div>
                     </div>
-                    <div className="ml-5 w-0 flex-1">
+                    <div className="ml-3 sm:ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Pending</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats?.pendingAssignments || 0}</dd>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Pending</dt>
+                        <dd className="text-base sm:text-lg font-medium text-gray-900">{stats?.pendingAssignments || 0}</dd>
                       </dl>
                     </div>
                   </div>
@@ -473,19 +674,19 @@ export default function DriverDashboard() {
               </div>
 
               <div className="bg-white overflow-hidden shadow rounded-lg">
-                <div className="p-5">
+                <div className="p-4 sm:p-5">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                        <svg className="w-3 h-3 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                         </svg>
                       </div>
                     </div>
-                    <div className="ml-5 w-0 flex-1">
+                    <div className="ml-3 sm:ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Completion Rate</dt>
-                        <dd className="text-lg font-medium text-gray-900">{stats?.completionRate.toFixed(1) || 0}%</dd>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Completion Rate</dt>
+                        <dd className="text-base sm:text-lg font-medium text-gray-900">{stats?.completionRate.toFixed(1) || 0}%</dd>
                       </dl>
                     </div>
                   </div>
@@ -495,56 +696,83 @@ export default function DriverDashboard() {
 
             {/* Current Assignment */}
             {stats && (stats.inProgressAssignments > 0 || stats.pendingAssignments > 0) && (
-              <div className="bg-white shadow rounded-lg p-6 mb-8">
+              <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Current Assignment</h2>
                 {todayAssignments
                   .filter(a => a.status === "assigned" || a.status === "in_progress")
                   .slice(0, 1)
                   .map((assignment) => (
                     <div key={assignment.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-medium text-blue-900">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg font-medium text-blue-900 mb-2">
                             {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} - {assignment.order.orderNumber}
                           </h3>
-                          <p className="text-blue-700">
-                            Customer: {assignment.order.customerFirstName} {assignment.order.customerLastName}
-                          </p>
-                          <p className="text-blue-700">
-                            Address: {assignment.order.customerAddress}
-                          </p>
-                          <p className="text-sm text-blue-600 mt-2">
-                            {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} time: {
-                              new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleTimeString()
-                            }
-                          </p>
+                          <div className="space-y-1 mb-3">
+                            <p className="text-sm sm:text-base text-blue-700">
+                              <span className="font-medium">Customer:</span> {assignment.order.customerFirstName} {assignment.order.customerLastName}
+                            </p>
+                            <p className="text-sm sm:text-base text-blue-700 truncate">
+                              <span className="font-medium">Address:</span> {assignment.order.customerAddress}
+                            </p>
+                            <p className="text-xs sm:text-sm text-blue-600">
+                              <span className="font-medium">Time:</span> {new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </p>
+                          </div>
+                          
+                          {/* Compact Map for Current Assignment */}
+                          {isLoaded && !loadError && (
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <MapPin className="w-4 h-4 text-blue-600" />
+                                  <span className="text-sm font-medium text-blue-700">Location</span>
+                                </div>
+                                <a
+                                  href={getGoogleMapsLink(assignment)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-xs"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  <span>Open</span>
+                                </a>
+                              </div>
+                              <div className="relative w-full h-32 border border-blue-200 rounded-lg overflow-hidden">
+                                <GoogleMap
+                                  mapContainerClassName="w-full h-full"
+                                  center={getAssignmentLocation(assignment)}
+                                  zoom={assignment.order.address?.latitude && assignment.order.address?.longitude ? 15 : 12}
+                                  options={{
+                                    zoomControl: false,
+                                    streetViewControl: false,
+                                    mapTypeControl: false,
+                                    fullscreenControl: false,
+                                  }}
+                                >
+                                  {assignment.order.address?.latitude && assignment.order.address?.longitude && (
+                                    <Marker position={getAssignmentLocation(assignment)} />
+                                  )}
+                                </GoogleMap>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 lg:flex-col lg:space-y-2 lg:space-x-0">
                           <button 
                             onClick={() => {
                               setSelectedAssignment(assignment);
                               setPhotoType(`${assignment.assignmentType}_${getNextStatus(assignment.status, assignment.assignmentType)}_photo`);
                             }}
-                            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm sm:text-base"
                             disabled={updating === assignment.id}
                           >
                             {updating === assignment.id ? "Updating..." : getStatusButtonText(assignment.status, assignment.assignmentType)}
                           </button>
-                          {assignment.assignmentType === "delivery" && assignment.status !== "delivered" && (
-                            <button 
-                              onClick={() => {
-                                setSelectedAssignment(assignment);
-                                setShowRescheduleModal(true);
-                              }}
-                              className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700"
-                              disabled={updating === assignment.id}
-                            >
-                              Reschedule
-                            </button>
-                          )}
+
                           <button 
                             onClick={() => setSelectedAssignment(assignment)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm sm:text-base"
                           >
                             View Details
                           </button>
@@ -556,65 +784,66 @@ export default function DriverDashboard() {
             )}
 
             {/* Today's Assignments */}
-            <div className="bg-white shadow rounded-lg p-6 mb-8">
+            <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
               <h2 className="text-lg font-medium text-gray-900 mb-4">Today's Assignments</h2>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {todayAssignments.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No assignments for today</p>
                 ) : (
                   todayAssignments.map((assignment) => (
-                    <div key={assignment.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-medium text-gray-900">
-                            {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} - {assignment.order.orderNumber}
-                          </h3>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)}`}>
-                            {getStatusIcon(assignment.status)}
-                            <span className="ml-1">{assignment.status.replace("_", " ")}</span>
-                          </span>
+                    <div key={assignment.id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-1 sm:space-y-0">
+                            <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                              {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} - {assignment.order.orderNumber}
+                            </h3>
+                            <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)} w-fit`}>
+                              {getStatusIcon(assignment.status)}
+                              <span className="ml-1 hidden sm:inline">{assignment.status.replace("_", " ")}</span>
+                              <span className="ml-1 sm:hidden">{assignment.status.replace("_", " ").substring(0, 3)}</span>
+                            </span>
+                          </div>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm text-gray-600 truncate">
+                              <span className="font-medium">Customer:</span> {assignment.order.customerFirstName} {assignment.order.customerLastName}
+                            </p>
+                            <p className="text-sm text-gray-600 truncate">
+                              <span className="font-medium">Address:</span> {assignment.order.customerAddress}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              <span className="font-medium">Time:</span> {new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600">
-                          Customer: {assignment.order.customerFirstName} {assignment.order.customerLastName}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Address: {assignment.order.customerAddress}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleTimeString()}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        {assignment.status !== "completed" && assignment.status !== "delivered" && (
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                          {assignment.status !== "completed" && assignment.status !== "delivered" ? (
+                            <button
+                              onClick={() => {
+                                setSelectedAssignment(assignment);
+                                setPhotoType(`${assignment.assignmentType}_${getNextStatus(assignment.status, assignment.assignmentType)}_photo`);
+                              }}
+                              className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors w-full sm:w-auto"
+                              disabled={updating === assignment.id}
+                            >
+                              {updating === assignment.id ? "..." : "Update"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setSelectedAssignment(assignment)}
+                              className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors w-full sm:w-auto"
+                            >
+                              View
+                            </button>
+                          )}
                           <button
-                            onClick={() => {
-                              setSelectedAssignment(assignment);
-                              setPhotoType(`${assignment.assignmentType}_${getNextStatus(assignment.status, assignment.assignmentType)}_photo`);
-                            }}
-                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                            disabled={updating === assignment.id}
+                            onClick={() => window.open(getGoogleMapsLink(assignment), '_blank')}
+                            className="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1 w-full sm:w-auto"
                           >
-                            {updating === assignment.id ? "..." : "Update"}
+                            <MapPin className="w-3 h-3" />
+                            <span>Map</span>
                           </button>
-                        )}
-                        {assignment.assignmentType === "delivery" && assignment.status !== "delivered" && (
-                          <button
-                            onClick={() => {
-                              setSelectedAssignment(assignment);
-                              setShowRescheduleModal(true);
-                            }}
-                            className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700"
-                            disabled={updating === assignment.id}
-                          >
-                            Reschedule
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setSelectedAssignment(assignment)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                        >
-                          Details
-                        </button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -623,59 +852,72 @@ export default function DriverDashboard() {
             </div>
 
             {/* All Assignments */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <div className="flex justify-between items-center mb-4">
+            <div className="bg-white shadow rounded-lg p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
                 <h2 className="text-lg font-medium text-gray-900">All Assignments</h2>
                 <div className="text-sm text-gray-500">
                   Showing {startIndex + 1}-{Math.min(endIndex, assignments.length)} of {assignments.length} assignments
                 </div>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {assignments.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No assignments found</p>
                 ) : (
                   currentAssignments.map((assignment) => (
-                    <div key={assignment.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-medium text-gray-900">
-                            {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} - {assignment.order.orderNumber}
-                          </h3>
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)}`}>
-                            {getStatusIcon(assignment.status)}
-                            <span className="ml-1">{assignment.status.replace("_", " ")}</span>
-                          </span>
+                    <div key={assignment.id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-1 sm:space-y-0">
+                            <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                              {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} - {assignment.order.orderNumber}
+                            </h3>
+                            <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)} w-fit`}>
+                              {getStatusIcon(assignment.status)}
+                              <span className="ml-1 hidden sm:inline">{assignment.status.replace("_", " ")}</span>
+                              <span className="ml-1 sm:hidden">{assignment.status.replace("_", " ").substring(0, 3)}</span>
+                            </span>
+                          </div>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm text-gray-600 truncate">
+                              <span className="font-medium">Customer:</span> {assignment.order.customerFirstName} {assignment.order.customerLastName}
+                            </p>
+                            <p className="text-sm text-gray-600 truncate">
+                              <span className="font-medium">Address:</span> {assignment.order.customerAddress}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              <span className="font-medium">Date:</span> {new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600">
-                          Customer: {assignment.order.customerFirstName} {assignment.order.customerLastName}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Address: {assignment.order.customerAddress}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        {assignment.status !== "completed" && assignment.status !== "delivered" && (
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                          {assignment.status !== "completed" && assignment.status !== "delivered" ? (
+                            <button
+                              onClick={() => {
+                                setSelectedAssignment(assignment);
+                                setPhotoType(`${assignment.assignmentType}_${getNextStatus(assignment.status, assignment.assignmentType)}_photo`);
+                              }}
+                              className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors w-full sm:w-auto"
+                              disabled={updating === assignment.id}
+                            >
+                              {updating === assignment.id ? "..." : "Update"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setSelectedAssignment(assignment)}
+                              className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors w-full sm:w-auto"
+                            >
+                              View
+                            </button>
+                          )}
                           <button
-                            onClick={() => {
-                              setSelectedAssignment(assignment);
-                              setPhotoType(`${assignment.assignmentType}_${getNextStatus(assignment.status, assignment.assignmentType)}_photo`);
-                            }}
-                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                            disabled={updating === assignment.id}
+                            onClick={() => window.open(getGoogleMapsLink(assignment), '_blank')}
+                            className="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1 w-full sm:w-auto"
                           >
-                            {updating === assignment.id ? "..." : "Update"}
+                            <MapPin className="w-3 h-3" />
+                            <span>Map</span>
                           </button>
-                        )}
-                        <button
-                          onClick={() => setSelectedAssignment(assignment)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                        >
-                          Details
-                        </button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -684,11 +926,11 @@ export default function DriverDashboard() {
 
               {/* Pagination Controls */}
               {assignments.length > itemsPerPage && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-sm text-gray-700">
+                <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  <div className="text-sm text-gray-700 text-center sm:text-left">
                     Page {currentPage} of {totalPages}
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-center space-x-2">
                     <button
                       onClick={goToPreviousPage}
                       disabled={currentPage === 1}
@@ -697,18 +939,18 @@ export default function DriverDashboard() {
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     
-                    {/* Page Numbers */}
+                    {/* Page Numbers - Simplified for mobile */}
                     <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                         let pageNum;
-                        if (totalPages <= 5) {
+                        if (totalPages <= 3) {
                           pageNum = i + 1;
-                        } else if (currentPage <= 3) {
+                        } else if (currentPage <= 2) {
                           pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
+                        } else if (currentPage >= totalPages - 1) {
+                          pageNum = totalPages - 2 + i;
                         } else {
-                          pageNum = currentPage - 2 + i;
+                          pageNum = currentPage - 1 + i;
                         }
                         
                         return (
@@ -743,52 +985,52 @@ export default function DriverDashboard() {
 
         {/* Assignment Details Modal */}
         {selectedAssignment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 sm:p-6">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
                       {selectedAssignment.assignmentType === "pickup" ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                         </svg>
                       ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
                       )}
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold">
+                      <h2 className="text-lg sm:text-2xl font-bold">
                         {selectedAssignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} Assignment
                       </h2>
-                      <p className="text-blue-100">Order #{selectedAssignment.order.orderNumber}</p>
+                      <p className="text-blue-100 text-sm sm:text-base">Order #{selectedAssignment.order.orderNumber}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setSelectedAssignment(null)}
-                    className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+                    className="w-6 h-6 sm:w-8 sm:h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
                 
                 {/* Status Badge */}
-                <div className="mt-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedAssignment.status)}`}>
+                <div className="mt-3 sm:mt-4">
+                  <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(selectedAssignment.status)}`}>
                     {getStatusIcon(selectedAssignment.status)}
-                    <span className="ml-2 capitalize">{selectedAssignment.status.replace("_", " ")}</span>
+                    <span className="ml-1 sm:ml-2 capitalize">{selectedAssignment.status.replace("_", " ")}</span>
                   </span>
                 </div>
               </div>
 
               {/* Modal Content */}
               <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {/* Customer Information Card */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-3">
@@ -824,6 +1066,54 @@ export default function DriverDashboard() {
                         <p className="font-medium">{selectedAssignment.order.customerAddress}</p>
                       </div>
                     </div>
+                    
+                    {/* Location Map */}
+                    {isLoaded && !loadError && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <MapPin className="w-4 h-4 text-purple-600" />
+                            <span className="text-sm font-medium text-gray-700">
+                              {selectedAssignment.assignmentType === 'pickup' ? 'Pickup' : 'Delivery'} Location
+                              <span className="text-xs text-gray-500 ml-1">
+                                {selectedAssignment.order.address?.latitude && selectedAssignment.order.address?.longitude ? '(Exact coordinates)' : '(Address search)'}
+                              </span>
+                            </span>
+                          </div>
+                          <a
+                            href={getGoogleMapsLink(selectedAssignment)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                            <span>Open in Maps</span>
+                          </a>
+                        </div>
+                        
+                        <div className="relative w-full h-48 border border-gray-300 rounded-lg overflow-hidden">
+                          <GoogleMap
+                            mapContainerClassName="w-full h-full"
+                            center={getAssignmentLocation(selectedAssignment)}
+                            zoom={selectedAssignment.order.address?.latitude && selectedAssignment.order.address?.longitude ? 16 : 12}
+                            options={{
+                              zoomControl: true,
+                              streetViewControl: false,
+                              mapTypeControl: false,
+                              fullscreenControl: false,
+                            }}
+                          >
+                            {selectedAssignment.order.address?.latitude && selectedAssignment.order.address?.longitude && (
+                              <Marker position={getAssignmentLocation(selectedAssignment)} />
+                            )}
+                          </GoogleMap>
+                        </div>
+                        
+                        <div className="mt-2 text-xs text-gray-500">
+                          {selectedAssignment.order.address?.addressLine1 || selectedAssignment.order.customerAddress || 'Address not available'}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Timing Information Card */}
@@ -977,11 +1267,14 @@ export default function DriverDashboard() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold">Capture Photo</h2>
-                      <p className="text-blue-100 text-sm">Take a photo for this assignment</p>
+                      <p className="text-blue-100 text-sm">Take a photo for this assignment (status will not change)</p>
                     </div>
                   </div>
                   <button
-                    onClick={() => setShowPhotoModal(false)}
+                    onClick={() => {
+                      setShowPhotoModal(false);
+                      closeCamera();
+                    }}
                     className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -995,21 +1288,114 @@ export default function DriverDashboard() {
               <div className="p-6">
                 {!photoData ? (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 rounded-lg p-6 text-center">
-                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Camera className="w-8 h-8 text-blue-600" />
+                    {/* Camera Error Display */}
+                    {cameraError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-center space-x-2">
+                          <AlertCircle className="w-4 h-4 text-red-600" />
+                          <span className="text-sm text-red-700">{cameraError}</span>
+                        </div>
                       </div>
-                      <p className="text-gray-600 mb-4">
-                        Click the button below to capture a photo for this assignment
-                      </p>
-                      <button
-                        onClick={capturePhoto}
-                        className="w-full bg-blue-600 text-white py-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
-                      >
-                        <Camera className="w-5 h-5 inline mr-2" />
-                        Capture Photo
-                      </button>
-                    </div>
+                    )}
+                    
+                    {/* Camera Controls */}
+                    {!videoElement ? (
+                      <div className="bg-gray-50 rounded-lg p-6 text-center">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Camera className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <p className="text-gray-600 mb-4">
+                          Click the button below to open camera and capture a photo
+                        </p>
+                        <button
+                          onClick={openCamera}
+                          className="w-full bg-blue-600 text-white py-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                        >
+                          <Camera className="w-5 h-5 inline mr-2" />
+                          Open Camera
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Camera Preview */}
+                        <div className="relative">
+                          <div className="w-full h-64 bg-black rounded-lg flex items-center justify-center overflow-hidden">
+                            <video
+                              ref={el => {
+                                if (el && videoElement && !el.srcObject) {
+                                  el.srcObject = videoElement.srcObject;
+                                  el.play();
+                                }
+                              }}
+                              className="w-full h-64 object-cover"
+                              autoPlay
+                              playsInline
+                              muted
+                            />
+                          </div>
+                          
+                          {/* Camera Info Overlay */}
+                          <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                            {getCurrentCameraLabel()}
+                          </div>
+                          
+                          {/* Camera Switch Button */}
+                          {availableCameras.length > 1 && (
+                            <button
+                              onClick={switchCamera}
+                              className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 p-2 rounded-full hover:bg-opacity-100 transition-colors"
+                              title="Switch Camera"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* Camera Action Buttons */}
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={closeCamera}
+                            className="flex-1 bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
+                          >
+                            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Close Camera
+                          </button>
+                          <button
+                            onClick={capturePhoto}
+                            className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
+                          >
+                            <Camera className="w-4 h-4 inline mr-2" />
+                            Capture Photo
+                          </button>
+                        </div>
+                        
+                        {/* Camera Info */}
+                        {availableCameras.length > 0 && (
+                          <div className="text-center text-xs text-gray-500">
+                            {availableCameras.length} camera{availableCameras.length > 1 ? 's' : ''} available
+                            {availableCameras.length > 1 && (
+                              <span className="ml-2">
+                                • Tap the switch button to change camera
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Helpful Note */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <div className="flex items-center space-x-2">
+                            <AlertCircle className="w-4 h-4 text-blue-600" />
+                            <span className="text-xs text-blue-700">
+                              After saving the photo, use the "Update Status" button in the assignment details to change the assignment status.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1026,7 +1412,10 @@ export default function DriverDashboard() {
                     
                     <div className="flex space-x-3">
                       <button
-                        onClick={() => setPhotoData(null)}
+                        onClick={() => {
+                          setPhotoData(null);
+                          closeCamera();
+                        }}
                         className="flex-1 bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
                       >
                         <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1036,16 +1425,16 @@ export default function DriverDashboard() {
                       </button>
                       <button
                         onClick={() => {
-                          if (selectedAssignment) {
-                            updateAssignmentStatus(
+                          if (selectedAssignment && photoData) {
+                            savePhoto(
                               selectedAssignment.id,
-                              getNextStatus(selectedAssignment.status, selectedAssignment.assignmentType),
-                              photoData
+                              photoData,
+                              photoType || `${selectedAssignment.assignmentType}_photo`
                             );
                           }
                         }}
                         className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
-                        disabled={updating === selectedAssignment?.id}
+                        disabled={updating === selectedAssignment?.id || !photoData}
                       >
                         {updating === selectedAssignment?.id ? (
                           <>
@@ -1055,7 +1444,7 @@ export default function DriverDashboard() {
                         ) : (
                           <>
                             <CheckCircle className="w-4 h-4 inline mr-2" />
-                            Save Photo
+                            Save Photo Only
                           </>
                         )}
                       </button>
@@ -1157,21 +1546,105 @@ export default function DriverDashboard() {
                       <h3 className="text-lg font-semibold text-gray-900">Photo (Required)</h3>
                     </div>
                     
+                    {/* Camera Error Display */}
+                    {cameraError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center space-x-2">
+                          <AlertCircle className="w-4 h-4 text-red-600" />
+                          <span className="text-sm text-red-700">{cameraError}</span>
+                        </div>
+                      </div>
+                    )}
+                    
                     {!photoData ? (
                       <div className="text-center">
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Camera className="w-8 h-8 text-blue-600" />
-                        </div>
-                        <p className="text-gray-600 mb-4">
-                          A photo is required when rescheduling an assignment
-                        </p>
-                        <button
-                          onClick={openCamera}
-                          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
-                        >
-                          <Camera className="w-5 h-5 inline mr-2" />
-                          Open Camera
-                        </button>
+                        {!videoElement ? (
+                          <>
+                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <Camera className="w-8 h-8 text-blue-600" />
+                            </div>
+                            <p className="text-gray-600 mb-4">
+                              A photo is required when rescheduling an assignment
+                            </p>
+                            <button
+                              onClick={openCamera}
+                              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                            >
+                              <Camera className="w-5 h-5 inline mr-2" />
+                              Open Camera
+                            </button>
+                          </>
+                        ) : (
+                          <div className="space-y-4">
+                            {/* Camera Preview */}
+                            <div className="relative">
+                              <div className="w-full h-48 bg-black rounded-lg flex items-center justify-center overflow-hidden">
+                                <video
+                                  ref={el => {
+                                    if (el && videoElement && !el.srcObject) {
+                                      el.srcObject = videoElement.srcObject;
+                                      el.play();
+                                    }
+                                  }}
+                                  className="w-full h-48 object-cover"
+                                  autoPlay
+                                  playsInline
+                                  muted
+                                />
+                              </div>
+                              
+                              {/* Camera Info Overlay */}
+                              <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                                {getCurrentCameraLabel()}
+                              </div>
+                              
+                              {/* Camera Switch Button */}
+                              {availableCameras.length > 1 && (
+                                <button
+                                  onClick={switchCamera}
+                                  className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 p-2 rounded-full hover:bg-opacity-100 transition-colors"
+                                  title="Switch Camera"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* Camera Action Buttons */}
+                            <div className="flex space-x-3">
+                              <button
+                                onClick={closeCamera}
+                                className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
+                              >
+                                <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Close Camera
+                              </button>
+                              <button
+                                onClick={capturePhoto}
+                                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
+                              >
+                                <Camera className="w-4 h-4 inline mr-2" />
+                                Capture Photo
+                              </button>
+                            </div>
+                            
+                            {/* Camera Info */}
+                            {availableCameras.length > 0 && (
+                              <div className="text-center text-xs text-gray-500">
+                                {availableCameras.length} camera{availableCameras.length > 1 ? 's' : ''} available
+                                {availableCameras.length > 1 && (
+                                  <span className="ml-2">
+                                    • Tap the switch button to change camera
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -1186,40 +1659,16 @@ export default function DriverDashboard() {
                           </div>
                         </div>
                         <button
-                          onClick={closeCamera}
+                          onClick={() => {
+                            setPhotoData(null);
+                            closeCamera();
+                          }}
                           className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
                         >
                           <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                           </svg>
                           Retake Photo
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Live Video Preview */}
-                    {videoElement && !photoData && (
-                      <div className="mt-4">
-                        <div className="w-full h-48 bg-black rounded-lg flex items-center justify-center overflow-hidden">
-                          <video
-                            ref={el => {
-                              if (el && videoElement && !el.srcObject) {
-                                el.srcObject = videoElement.srcObject;
-                                el.play();
-                              }
-                            }}
-                            className="w-full h-48 object-cover"
-                            autoPlay
-                            playsInline
-                            muted
-                          />
-                        </div>
-                        <button
-                          onClick={capturePhoto}
-                          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium mt-3"
-                        >
-                          <Camera className="w-5 h-5 inline mr-2" />
-                          Capture Photo
                         </button>
                       </div>
                     )}

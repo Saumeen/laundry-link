@@ -31,6 +31,7 @@ interface Order {
   pickupTime: string;
   serviceType: string;
   createdAt: string;
+  deliveryTime?: string; // Added for delivery time
 }
 
 interface Address {
@@ -75,6 +76,12 @@ const TAB_CONFIG = [
     description: 'Track your laundry orders'
   },
   { 
+    id: 'invoices', 
+    name: 'Invoices', 
+    icon: '🧾',
+    description: 'View and download invoices'
+  },
+  { 
     id: 'addresses', 
     name: 'Addresses', 
     icon: '🏠',
@@ -116,6 +123,11 @@ const STATUS_CONFIG = {
     color: 'bg-purple-50 text-purple-700 border-purple-200',
     icon: '⚙️',
     bgColor: 'bg-purple-100'
+  },
+  'Cleaning Complete': { 
+    color: 'bg-green-50 text-green-700 border-green-200',
+    icon: '✅',
+    bgColor: 'bg-green-100'
   },
   'Ready for Delivery': { 
     color: 'bg-green-50 text-green-700 border-green-200',
@@ -178,6 +190,8 @@ const OrderItem = memo(({
   order: Order;
   onViewOrder: (orderId: number) => void;
 }) => {
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -195,7 +209,45 @@ const OrderItem = memo(({
     };
   }, []);
 
+  const handleDownloadInvoice = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInvoiceLoading(true);
+    try {
+      const response = await fetch(`/api/customer/invoice/${order.id}`, {
+        method: 'GET',
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoice-${order.orderNumber}.pdf`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const errorData = await response.json() as { error?: string };
+        alert(errorData.error || 'Failed to download invoice');
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Failed to download invoice');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }, [order.id, order.orderNumber]);
+
   const statusConfig = getStatusConfig(order.status);
+  const canDownloadInvoice = order.status === 'Cleaning Complete';
 
   return (
     <div 
@@ -224,16 +276,33 @@ const OrderItem = memo(({
         <span className={`px-3 py-1 text-xs font-medium rounded-full border ${statusConfig.color}`}>
           {order.status}
         </span>
-        <button 
-          className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 group-hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewOrder(order.id);
-          }}
-        >
-          <span>View Details</span>
-          <span className="group-hover:translate-x-1 transition-transform">→</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          {canDownloadInvoice && (
+            <button 
+              onClick={handleDownloadInvoice}
+              disabled={invoiceLoading}
+              className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center space-x-1 group-hover:underline disabled:opacity-50"
+              title="Download Invoice"
+            >
+              {invoiceLoading ? (
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+              ) : (
+                <span>📄</span>
+              )}
+              <span>{invoiceLoading ? 'Generating...' : 'Invoice'}</span>
+            </button>
+          )}
+          <button 
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 group-hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewOrder(order.id);
+            }}
+          >
+            <span>View Details</span>
+            <span className="group-hover:translate-x-1 transition-transform">→</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -249,6 +318,8 @@ const DetailedOrderItem = memo(({
   order: Order;
   onViewOrder: (orderId: number) => void;
 }) => {
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -267,7 +338,45 @@ const DetailedOrderItem = memo(({
     };
   }, []);
 
+  const handleDownloadInvoice = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setInvoiceLoading(true);
+    try {
+      const response = await fetch(`/api/customer/invoice/${order.id}`, {
+        method: 'GET',
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `invoice-${order.orderNumber}.pdf`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Cleanup
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        const errorData = await response.json() as { error?: string };
+        alert(errorData.error || 'Failed to download invoice');
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      alert('Failed to download invoice');
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }, [order.id, order.orderNumber]);
+
   const statusConfig = getStatusConfig(order.status);
+  const canDownloadInvoice = order.status === 'Cleaning Complete';
 
   return (
     <div 
@@ -288,16 +397,33 @@ const DetailedOrderItem = memo(({
         </div>
         <div className="text-right">
           <p className="font-bold text-xl text-gray-900">{order?.invoiceTotal?.toFixed(3)} BD</p>
-          <button 
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 mt-1 group-hover:underline"
-            onClick={(e) => {
-              e.stopPropagation();
-              onViewOrder(order.id);
-            }}
-          >
-            <span>View Details</span>
-            <span className="group-hover:translate-x-1 transition-transform">→</span>
-          </button>
+          <div className="flex items-center space-x-2 mt-1">
+            {canDownloadInvoice && (
+              <button 
+                onClick={handleDownloadInvoice}
+                disabled={invoiceLoading}
+                className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center space-x-1 group-hover:underline disabled:opacity-50"
+                title="Download Invoice"
+              >
+                {invoiceLoading ? (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                ) : (
+                  <span>📄</span>
+                )}
+                <span>{invoiceLoading ? 'Generating...' : 'Invoice'}</span>
+              </button>
+            )}
+            <button 
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 group-hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewOrder(order.id);
+              }}
+            >
+              <span>View Details</span>
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
+            </button>
+          </div>
         </div>
       </div>
       
@@ -425,6 +551,14 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
       year: 'numeric',
       month: 'long'
     });
+  }, []);
+
+  const getStatusConfig = useCallback((status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || {
+      color: 'bg-gray-50 text-gray-700 border-gray-200',
+      icon: '❓',
+      bgColor: 'bg-gray-100'
+    };
   }, []);
 
   const getDefaultAddress = useCallback(() => {
@@ -853,6 +987,110 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                         order={order}
                         onViewOrder={handleViewOrder}
                       />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Invoices Tab */}
+          {activeTab === 'invoices' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+              <div className="px-8 py-6 border-b border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <span className="mr-3">🧾</span>
+                  My Invoices
+                </h3>
+                <p className="text-gray-600 mt-2">Download and view your order invoices</p>
+              </div>
+              <div className="p-8">
+                {orders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-3xl">🧾</span>
+                    </div>
+                    <h4 className="text-xl font-semibold text-gray-900 mb-2">No invoices yet</h4>
+                    <p className="text-gray-600 mb-6">Invoices will be available once your orders are processed</p>
+                    <button
+                      onClick={handleScheduleOrder}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
+                      Place Your First Order
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {orders.map((order) => (
+                      <div key={order.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center">
+                              <span className="text-xl">🧾</span>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">Invoice #{order.orderNumber}</h4>
+                              <p className="text-sm text-gray-500">{order.serviceType}</p>
+                              <p className="text-xs text-gray-400">{formatDate(order.createdAt)}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-xl text-gray-900">{order?.invoiceTotal?.toFixed(3)} BD</p>
+                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusConfig(order.status).color}`}>
+                              {order.status}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                            <span>Pickup: {formatDate(order.pickupTime)}</span>
+                            {order.deliveryTime && <span>Delivery: {formatDate(order.deliveryTime)}</span>}
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={() => handleViewOrder(order.id)}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center space-x-1 hover:underline"
+                            >
+                              <span>View Details</span>
+                              <span>→</span>
+                            </button>
+                            {order.status === 'Cleaning Complete' && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(`/api/customer/invoice/${order.id}`, {
+                                      method: 'GET',
+                                    });
+
+                                    if (response.ok) {
+                                      const blob = await response.blob();
+                                      const url = window.URL.createObjectURL(blob);
+                                      const link = document.createElement('a');
+                                      link.href = url;
+                                      link.download = `invoice-${order.orderNumber}.pdf`;
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                      window.URL.revokeObjectURL(url);
+                                    } else {
+                                      const errorData = await response.json() as { error?: string };
+                                      alert(errorData.error || 'Failed to download invoice');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error downloading invoice:', error);
+                                    alert('Failed to download invoice');
+                                  }
+                                }}
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 text-sm"
+                              >
+                                <span>📄</span>
+                                <span>Download PDF</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}

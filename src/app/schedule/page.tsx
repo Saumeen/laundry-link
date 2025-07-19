@@ -141,6 +141,9 @@ function ScheduleContent() {
     specialInstructions: "",
   });
 
+  // Add validation state
+  const [timeValidationError, setTimeValidationError] = useState("");
+
   // Type guard for custom session.user fields
   function isCustomUser(user: any): user is { firstName: string; lastName: string; phone: string; email: string } {
     return (
@@ -259,7 +262,51 @@ function ScheduleContent() {
       ...prev,
       [name]: value
     }));
-  }, []);
+    
+    // Clear validation error when user makes changes
+    if (timeValidationError) {
+      setTimeValidationError("");
+    }
+  }, [timeValidationError]);
+
+  // Add time validation function
+  const validateTimeSelection = useCallback(() => {
+    if (!formData.pickupDate || !formData.pickupTime || !formData.deliveryDate || !formData.deliveryTime) {
+      return true; // Allow empty values during input
+    }
+
+    const pickupDateTime = new Date(`${formData.pickupDate}T${formData.pickupTime}`);
+    const deliveryDateTime = new Date(`${formData.deliveryDate}T${formData.deliveryTime}`);
+
+    // Check if delivery date is before pickup date
+    if (formData.deliveryDate < formData.pickupDate) {
+      setTimeValidationError("Delivery date cannot be before pickup date");
+      return false;
+    }
+
+    // Check if delivery time is before or equal to pickup time on the same date
+    if (deliveryDateTime <= pickupDateTime) {
+      setTimeValidationError("Delivery time must be after pickup time");
+      return false;
+    }
+
+    // Check minimum time gap (2 hours)
+    const timeDiffInHours = (deliveryDateTime.getTime() - pickupDateTime.getTime()) / (1000 * 60 * 60);
+    if (timeDiffInHours < 2) {
+      setTimeValidationError("Delivery must be at least 2 hours after pickup");
+      return false;
+    }
+
+    setTimeValidationError("");
+    return true;
+  }, [formData.pickupDate, formData.pickupTime, formData.deliveryDate, formData.deliveryTime]);
+
+  // Validate time selection when dates or times change
+  useEffect(() => {
+    if (formData.pickupDate && formData.pickupTime && formData.deliveryDate && formData.deliveryTime) {
+      validateTimeSelection();
+    }
+  }, [formData.pickupDate, formData.pickupTime, formData.deliveryDate, formData.deliveryTime, validateTimeSelection]);
 
   // Fix handleServiceToggle to use service IDs
   const handleServiceToggle = useCallback((serviceId: string) => {
@@ -273,10 +320,17 @@ function ScheduleContent() {
 
   // Guest customer navigation
   const handleNext = useCallback(() => {
+    // Validate time selection when moving from step 2 to step 3
+    if (step === 2) {
+      if (!validateTimeSelection()) {
+        return; // Don't proceed if validation fails
+      }
+    }
+    
     if (step < 4) {
       setStep(step + 1);
     }
-  }, [step]);
+  }, [step, validateTimeSelection]);
 
   const handlePrevious = useCallback(() => {
     if (step > 1) {
@@ -324,6 +378,11 @@ function ScheduleContent() {
       return;
     }
 
+    // Validate time selection before submission
+    if (!validateTimeSelection()) {
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError("");
 
@@ -367,7 +426,7 @@ function ScheduleContent() {
 
       if (response.ok) {
         // Redirect to success page
-        window.location.href = `/order-success?orderNumber=${result.orderNumber}&email=${encodeURIComponent(customerData?.email || '')}`;
+        window.location.href = `/order-success/${result.orderNumber}`;
       } else {
         setSubmitError(result.error || "Failed to submit order");
       }
@@ -376,10 +435,15 @@ function ScheduleContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, customerData, addresses]);
+  }, [formData, customerData, addresses, validateTimeSelection]);
 
   // Submit order for guest customers (original flow)
   const handleGuestSubmit = useCallback(async () => {
+    // Validate time selection before submission
+    if (!validateTimeSelection()) {
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError("");
 
@@ -431,7 +495,7 @@ function ScheduleContent() {
 
       if (response.ok) {
         // Redirect to success page
-        window.location.href = `/order-success?orderNumber=${result.orderNumber}&email=${encodeURIComponent(formData.email)}`;
+        window.location.href = `/order-success/${result.orderNumber}`;
       } else {
         if (result.error === "Customer already exists") {
           alert("An account with this email already exists. Please log in to continue.");
@@ -444,7 +508,7 @@ function ScheduleContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData]);
+  }, [formData, validateTimeSelection]);
 
   // Show loading while checking login status
   if (isLoading) {
@@ -488,6 +552,13 @@ function ScheduleContent() {
             {/* Step 2: Date & Time Selection */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">2. Choose Pickup & Delivery Time</h2>
+              
+              {/* Time Validation Error */}
+              {timeValidationError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                  {timeValidationError}
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-6">
                 {/* Pickup */}
@@ -724,12 +795,6 @@ function ScheduleContent() {
             >
               Login to Your Account
             </Link>
-            <button
-              onClick={() => setShowLoginPrompt(false)}
-              className="block w-full bg-gray-600 text-white py-3 px-4 rounded-md hover:bg-gray-700 transition-colors"
-            >
-              Continue as Guest
-            </button>
           </div>
         </div>
       </div>
@@ -1072,59 +1137,79 @@ function ScheduleContent() {
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Step 2: Time Selection</h2>
             
+            {/* Time Validation Error */}
+            {timeValidationError && (
+              <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {timeValidationError}
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Date *</label>
-                <input
-                  type="date"
-                  name="pickupDate"
-                  value={formData.pickupDate}
-                  onChange={handleChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Pickup Time *</label>
-                <select
-                  name="pickupTime"
-                  value={formData.pickupTime}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select time</option>
-                  {timeSlots.map((time) => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Date *</label>
-                <input
-                  type="date"
-                  name="deliveryDate"
-                  value={formData.deliveryDate}
-                  onChange={handleChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Time *</label>
-                <select
-                  name="deliveryTime"
-                  value={formData.deliveryTime}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select time</option>
-                  {timeSlots.map((time) => (
-                    <option key={time} value={time}>{time}</option>
-                  ))}
-                </select>
+                {/* Pickup */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Pickup</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                      <input
+                        type="date"
+                        name="pickupDate"
+                        value={formData.pickupDate}
+                        onChange={handleChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Time *</label>
+                      <select
+                        name="pickupTime"
+                        value={formData.pickupTime}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select time</option>
+                        {timeSlots.map((time) => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery */}
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3">Delivery</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                      <input
+                        type="date"
+                        name="deliveryDate"
+                        value={formData.deliveryDate}
+                        onChange={handleChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Time *</label>
+                      <select
+                        name="deliveryTime"
+                        value={formData.deliveryTime}
+                        onChange={handleChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select time</option>
+                        {timeSlots.map((time) => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
         );
 
       case 3:

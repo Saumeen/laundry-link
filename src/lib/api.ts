@@ -99,7 +99,7 @@ export const customerApi = {
   
   // Orders
   getOrders: () => authenticatedGet('/api/customer/orders'),
-  createOrder: (data: any) => authenticatedPost('/api/orders', data),
+  createOrder: (data: any) => authenticatedPost('/api/customer/orders', data),
   
   // Profile
   getProfile: () => authenticatedGet('/api/customer/profile'),
