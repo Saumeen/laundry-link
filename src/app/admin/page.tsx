@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import AdminHeader from '@/components/admin/AdminHeader';
 
 interface Customer {
   id: number;
@@ -220,7 +221,6 @@ export default function AdminPanel() {
         alert('Failed to add invoice item.');
       }
     } catch (error) {
-      console.error('Error adding invoice item:', error);
       alert('Failed to add invoice item.');
     }
   };
@@ -249,20 +249,23 @@ export default function AdminPanel() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'Order Placed': return 'bg-blue-100 text-blue-800';
-      case 'Driver Assigned for Pickup': return 'bg-purple-100 text-purple-800';
-      case 'Pickup Cancelled': return 'bg-red-100 text-red-800';
-      case 'Pickup Rescheduled': return 'bg-orange-100 text-orange-800';
-      case 'Picked Up': return 'bg-indigo-100 text-indigo-800';
-      case 'Processing': return 'bg-yellow-100 text-yellow-800';
-      case 'Cleaning Complete': return 'bg-lime-100 text-lime-800';
-      case 'Quality Check': return 'bg-pink-100 text-pink-800';
-      case 'Invoice Generated': return 'bg-emerald-100 text-emerald-800';
-      case 'Driver Assigned for Delivery': return 'bg-cyan-100 text-cyan-800';
-      case 'Out for Delivery': return 'bg-green-100 text-green-800';
-      case 'Delivered': return 'bg-teal-100 text-teal-800';
-      case 'Order Returned Unprocessed': return 'bg-gray-100 text-gray-800';
-      case 'Order Reprocess': return 'bg-amber-100 text-amber-800';
+      case 'ORDER_PLACED': return 'bg-blue-100 text-blue-800';
+      case 'CONFIRMED': return 'bg-purple-100 text-purple-800';
+      case 'PICKUP_ASSIGNED': return 'bg-indigo-100 text-indigo-800';
+      case 'PICKUP_IN_PROGRESS': return 'bg-yellow-100 text-yellow-800';
+      case 'PICKUP_COMPLETED': return 'bg-green-100 text-green-800';
+      case 'PICKUP_FAILED': return 'bg-red-100 text-red-800';
+      case 'RECEIVED_AT_FACILITY': return 'bg-cyan-100 text-cyan-800';
+      case 'PROCESSING_STARTED': return 'bg-orange-100 text-orange-800';
+      case 'PROCESSING_COMPLETED': return 'bg-lime-100 text-lime-800';
+      case 'QUALITY_CHECK': return 'bg-pink-100 text-pink-800';
+      case 'READY_FOR_DELIVERY': return 'bg-emerald-100 text-emerald-800';
+      case 'DELIVERY_ASSIGNED': return 'bg-teal-100 text-teal-800';
+      case 'DELIVERY_IN_PROGRESS': return 'bg-blue-100 text-blue-800';
+      case 'DELIVERED': return 'bg-green-100 text-green-800';
+      case 'DELIVERY_FAILED': return 'bg-red-100 text-red-800';
+      case 'CANCELLED': return 'bg-gray-100 text-gray-800';
+      case 'REFUNDED': return 'bg-amber-100 text-amber-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -277,6 +280,12 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      <AdminHeader
+        title="Order Management"
+        subtitle="Manage all orders, statuses, and invoices"
+        showBackButton={true}
+        backUrl="/"
+      />
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Panel - Order Management</h1>
         
@@ -352,20 +361,23 @@ export default function AdminPanel() {
                           onChange={(e) => updateStatus(order.id, e.target.value)}
                           className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
-                          <option value="Order Placed">Order Placed</option>
-                          <option value="Driver Assigned for Pickup">Driver Assigned for Pickup</option>
-                          <option value="Pickup Cancelled">Pickup Cancelled</option>
-                          <option value="Pickup Rescheduled">Pickup Rescheduled</option>
-                          <option value="Picked Up">Picked Up</option>
-                          <option value="Processing">Processing</option>
-                          <option value="Cleaning Complete">Cleaning Complete</option>
-                          <option value="Quality Check">Quality Check</option>
-                          <option value="Invoice Generated">Invoice Generated</option>
-                          <option value="Driver Assigned for Delivery">Driver Assigned for Delivery</option>
-                          <option value="Out for Delivery">Out for Delivery</option>
-                          <option value="Delivered">Delivered</option>
-                          <option value="Order Returned Unprocessed">Order Returned Unprocessed</option>
-                          <option value="Order Reprocess">Order Reprocess</option>
+                          <option value="ORDER_PLACED">Order Placed</option>
+                          <option value="CONFIRMED">Confirmed</option>
+                          <option value="PICKUP_ASSIGNED">Pickup Assigned</option>
+                          <option value="PICKUP_IN_PROGRESS">Pickup In Progress</option>
+                          <option value="PICKUP_COMPLETED">Pickup Completed</option>
+                          <option value="PICKUP_FAILED">Pickup Failed</option>
+                          <option value="RECEIVED_AT_FACILITY">Received at Facility</option>
+                          <option value="PROCESSING_STARTED">Processing Started</option>
+                          <option value="PROCESSING_COMPLETED">Processing Completed</option>
+                          <option value="QUALITY_CHECK">Quality Check</option>
+                          <option value="READY_FOR_DELIVERY">Ready for Delivery</option>
+                          <option value="DELIVERY_ASSIGNED">Delivery Assigned</option>
+                          <option value="DELIVERY_IN_PROGRESS">Delivery In Progress</option>
+                          <option value="DELIVERED">Delivered</option>
+                          <option value="DELIVERY_FAILED">Delivery Failed</option>
+                          <option value="CANCELLED">Cancelled</option>
+                          <option value="REFUNDED">Refunded</option>
                         </select>
                       </td>
                     </tr>

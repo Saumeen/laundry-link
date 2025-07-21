@@ -11,7 +11,7 @@ interface CreateDriverAssignmentRequest {
 }
 
 interface UpdateDriverAssignmentRequest {
-  status?: 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  status?: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED' | 'FAILED';
   estimatedTime?: string;
   actualTime?: string;
   notes?: string;
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
         orderId,
         assignmentType,
         status: {
-          not: 'cancelled',
+          not: 'CANCELLED',
         },
       },
     });
@@ -133,13 +133,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validation: For delivery assignments, ensure pickup has been completed first
+    // Validation: For delivery assignments, en sure pickup has been completed first
     if (assignmentType === 'delivery') {
       const pickupAssignment = await prisma.driverAssignment.findFirst({
         where: {
           orderId,
           assignmentType: 'pickup',
-          status: 'completed'
+          status: 'COMPLETED'
         }
       });
       
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
         assignmentType,
         estimatedTime: estimatedTime ? new Date(estimatedTime) : null,
         notes,
-        status: 'assigned',
+        status: 'ASSIGNED',
       },
       include: {
         driver: {
@@ -316,14 +316,14 @@ export async function DELETE(req: Request) {
 
     // Otherwise, cancel the assignment (set status to 'cancelled')
     // Check if the assignment can be cancelled based on its current status
-    if (existingAssignment.status === 'cancelled') {
+    if (existingAssignment.status === 'CANCELLED') {
       return NextResponse.json(
         { error: "Driver assignment is already cancelled" },
         { status: 400 }
       );
     }
 
-    if (existingAssignment.status === 'completed') {
+    if (existingAssignment.status === 'COMPLETED') {
       return NextResponse.json(
         { error: "Cannot cancel a completed driver assignment" },
         { status: 400 }
@@ -337,13 +337,13 @@ export async function DELETE(req: Request) {
     // For pickup assignments, check if order is still in early stages
     if (assignmentType === 'pickup') {
       const nonCancellablePickupStatuses = [
-        'Picked Up', 'Processing', 'Cleaning Complete', 'Quality Check', 
-        'Invoice Generated', 'Driver Assigned for Delivery', 'Out for Delivery', 'Delivered'
+        'PICKUP_COMPLETED', 'RECEIVED_AT_FACILITY', 'PROCESSING_STARTED', 'PROCESSING_COMPLETED', 'QUALITY_CHECK', 
+        'READY_FOR_DELIVERY', 'DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS', 'DELIVERED'
       ];
       
       if (nonCancellablePickupStatuses.includes(orderStatus)) {
         return NextResponse.json(
-          { error: `Cannot cancel pickup assignment. Order is already ${orderStatus.toLowerCase()}` },
+          { error: `Cannot cancel pickup assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}` },
           { status: 400 }
         );
       }
@@ -352,12 +352,12 @@ export async function DELETE(req: Request) {
     // For delivery assignments, check if order is still in processing stages
     if (assignmentType === 'delivery') {
       const nonCancellableDeliveryStatuses = [
-        'Out for Delivery', 'Delivered'
+        'DELIVERY_IN_PROGRESS', 'DELIVERED'
       ];
       
       if (nonCancellableDeliveryStatuses.includes(orderStatus)) {
         return NextResponse.json(
-          { error: `Cannot cancel delivery assignment. Order is already ${orderStatus.toLowerCase()}` },
+          { error: `Cannot cancel delivery assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}` },
           { status: 400 }
         );
       }
@@ -369,7 +369,7 @@ export async function DELETE(req: Request) {
         id: parseInt(assignmentId),
       },
       data: {
-        status: 'cancelled',
+        status: 'CANCELLED',
       },
     });
 
@@ -378,7 +378,7 @@ export async function DELETE(req: Request) {
       message: "Driver assignment cancelled successfully",
       assignment: {
         ...existingAssignment,
-        status: 'cancelled',
+        status: 'CANCELLED',
       },
     });
   } catch (error) {

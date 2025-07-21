@@ -225,7 +225,7 @@ export const authOptions: NextAuthOptions = {
       if (token.userType === "customer" && !token.customerId) {
         try {
           // Get customer record
-          let customer = await prisma.customer.findUnique({
+          const customer = await prisma.customer.findUnique({
             where: { email: token.email! }
           });
 

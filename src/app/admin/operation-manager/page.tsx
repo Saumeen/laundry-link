@@ -144,18 +144,38 @@ export default function OperationManagerDashboard() {
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
-      case "Order Placed":
+      case "ORDER_PLACED":
         return "bg-blue-100 text-blue-800";
-      case "Processing":
+      case "CONFIRMED":
+        return "bg-blue-100 text-blue-800";
+      case "PICKUP_ASSIGNED":
         return "bg-yellow-100 text-yellow-800";
-      case "Ready for Delivery":
-        return "bg-purple-100 text-purple-800";
-      case "Out for Delivery":
-        return "bg-indigo-100 text-indigo-800";
-      case "Delivered":
+      case "PICKUP_IN_PROGRESS":
+        return "bg-yellow-100 text-yellow-800";
+      case "PICKUP_COMPLETED":
         return "bg-green-100 text-green-800";
-      case "Cancelled":
+      case "RECEIVED_AT_FACILITY":
+        return "bg-purple-100 text-purple-800";
+      case "PROCESSING_STARTED":
+        return "bg-orange-100 text-orange-800";
+      case "PROCESSING_COMPLETED":
+        return "bg-green-100 text-green-800";
+      case "QUALITY_CHECK":
+        return "bg-purple-100 text-purple-800";
+      case "READY_FOR_DELIVERY":
+        return "bg-purple-100 text-purple-800";
+      case "DELIVERY_ASSIGNED":
+        return "bg-indigo-100 text-indigo-800";
+      case "DELIVERY_IN_PROGRESS":
+        return "bg-indigo-100 text-indigo-800";
+      case "DELIVERED":
+        return "bg-green-100 text-green-800";
+      case "DELIVERY_FAILED":
         return "bg-red-100 text-red-800";
+      case "CANCELLED":
+        return "bg-red-100 text-red-800";
+      case "REFUNDED":
+        return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
     }

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { emailService } from "@/lib/emailService";
+import { OrderTrackingService } from "@/lib/orderTracking";
+import { OrderStatus } from "@prisma/client";
+import { isValidOrderStatus } from "@/lib/orderStatus";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, status } = body as { orderId: string; status: string };
+    const { orderId, status, notes } = body as { orderId: string; status: string; notes?: string };
 
     if (!orderId || !status) {
       return NextResponse.json(
@@ -14,22 +17,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // Update the order status
-    const updatedOrder = await prisma.order.update({
-      where: {
-        id: parseInt(orderId),
-      },
-      data: {
-        status: status,
-      },
-      include: {
-        orderServiceMappings: {
-          include: {
-            orderItems: true,
-          },
-        },
-      },
+    // Validate status enum
+    if (!isValidOrderStatus(status)) {
+      return NextResponse.json(
+        { error: "Invalid order status" },
+        { status: 400 }
+      );
+    }
+
+    // Use the new tracking service to update order status
+    const result = await OrderTrackingService.updateOrderStatus({
+      orderId: parseInt(orderId),
+      newStatus: status as OrderStatus,
+      notes
     });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.message || "Failed to update order status" },
+        { status: 400 }
+      );
+    }
+
+    const updatedOrder = result.order;
 
     console.log("Order status updated:", updatedOrder.orderNumber, "->", status);
 
@@ -42,12 +52,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // Special handling for "Invoice Generated" status
-    const hasOrderItems = updatedOrder.orderServiceMappings.some(mapping => 
+    // Special handling for "READY_FOR_DELIVERY" status (equivalent to old "Invoice Generated")
+    const hasOrderItems = updatedOrder.orderServiceMappings.some((mapping: any) => 
       mapping.orderItems && mapping.orderItems.length > 0
     );
     
-    if (status === "Invoice Generated" && hasOrderItems) {
+    if (status === "READY_FOR_DELIVERY" && hasOrderItems) {
       try {
         // Send invoice email to customer
         await emailService.sendOrderConfirmationToCustomer(

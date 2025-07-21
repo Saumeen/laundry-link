@@ -321,18 +321,18 @@ export default function FacilityTeamDashboard() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'ready_for_processing':
+      case 'PENDING':
         return 'bg-blue-100 text-blue-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'bg-orange-100 text-orange-800';
-      case 'quality_check':
+      case 'COMPLETED':
+        return 'bg-green-100 text-green-800';
+      case 'QUALITY_CHECK':
         return 'bg-purple-100 text-purple-800';
-      case 'ready_for_delivery':
+      case 'READY_FOR_DELIVERY':
         return 'bg-green-100 text-green-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
+      case 'ISSUE_REPORTED':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -577,11 +577,11 @@ export default function FacilityTeamDashboard() {
                           ).join(', ')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(order.orderProcessing?.processingStatus || 'ready_for_processing')}`}>
-                            {order.orderProcessing?.processingStatus === 'ready_for_delivery' ? 'READY FOR DELIVERY' :
-                             order.orderProcessing?.processingStatus === 'quality_check' ? 'QUALITY CHECK' :
-                             order.orderProcessing?.processingStatus === 'in_progress' ? 'IN PROCESSING' :
-                             order.orderProcessing?.processingStatus?.replace('_', ' ').toUpperCase() || 'READY FOR PROCESSING'}
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(order.orderProcessing?.processingStatus || 'PENDING')}`}>
+                            {order.orderProcessing?.processingStatus === 'READY_FOR_DELIVERY' ? 'READY FOR DELIVERY' :
+                             order.orderProcessing?.processingStatus === 'QUALITY_CHECK' ? 'QUALITY CHECK' :
+                             order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'IN PROCESSING' :
+                             order.orderProcessing?.processingStatus?.replace('_', ' ').toUpperCase() || 'PENDING'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

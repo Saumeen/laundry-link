@@ -40,7 +40,7 @@ export async function GET(
     }
 
     // Check if order is ready for delivery
-    if (order.status !== 'Cleaning Complete') {
+    if (order.status !== 'READY_FOR_DELIVERY') {
       return NextResponse.json({ 
         error: `Invoice is not available yet. Current status: ${order.status}. Invoice will be available when your order is ready for delivery.` 
       }, { status: 400 });
@@ -279,7 +279,7 @@ export async function GET(
     });
     
   } catch (error) {
-    console.error('Error generating customer invoice PDF:', error);
+    // Handle error silently
     
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

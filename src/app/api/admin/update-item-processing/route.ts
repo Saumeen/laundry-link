@@ -2,12 +2,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { ItemStatus } from "@prisma/client";
 
 interface UpdateItemProcessingRequest {
   orderId: number;
   processingItemDetailId: number;
   processedQuantity?: number;
-  status: string;
+  status: ItemStatus;
   processingNotes?: string;
   qualityScore?: number;
 }
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       where: { id: processingItemDetailId },
       data: {
         processedQuantity: processedQuantity || 0,
-        status,
+        status: status as ItemStatus,
         processingNotes: processingNotes || null,
         qualityScore: qualityScore || null,
       },

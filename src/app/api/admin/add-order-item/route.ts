@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { ItemStatus } from "@prisma/client";
 
 interface OrderItemRequest {
   orderServiceMappingId: number;
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
           processingItemId: processingItem.id,
           orderItemId: createdItem.id,
           quantity: createdItem.quantity,
-          status: 'pending'
+          status: ItemStatus.PENDING
         },
         include: {
           orderItem: true,

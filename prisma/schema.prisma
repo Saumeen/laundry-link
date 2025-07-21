@@ -41,6 +41,7 @@ model Staff {
   createdOrders Order[]   @relation("CreatedByStaff")
   orderProcessing OrderProcessing[]
   issueReports  IssueReport[]
+  orderHistory  OrderHistory[]
 
   @@map("staff")
 }
@@ -100,7 +101,7 @@ model Order {
   orderNumber         String        @unique
   customerId          Int
   addressId           Int?
-  status              String        @default("Order Placed")
+  status              OrderStatus   @default(ORDER_PLACED)
   pickupTime          DateTime
   deliveryTime        DateTime
   specialInstructions String?
@@ -111,7 +112,7 @@ model Order {
   customerAddress     String
   invoiceTotal        Float?
   minimumOrderApplied Boolean       @default(false)
-  paymentStatus       String        @default("Pending")
+  paymentStatus       PaymentStatus @default(PENDING)
   paymentMethod       String?
   notes               String?       // General order notes
   createdByStaffId    Int?          // Track which staff member created the order
@@ -126,6 +127,7 @@ model Order {
   driverAssignments   DriverAssignment[]
   createdByStaff      Staff?        @relation("CreatedByStaff", fields: [createdByStaffId], references: [id])
   orderProcessing     OrderProcessing?
+  orderHistory        OrderHistory[]
 
   @@map("orders")
 }
@@ -173,7 +175,8 @@ model OrderUpdate {
   id        Int      @id @default(autoincrement())
   orderId   Int
   staffId   Int?
-  status    String
+  oldStatus OrderStatus?
+  newStatus OrderStatus
   notes     String?
   createdAt DateTime @default(now())
   
@@ -189,7 +192,7 @@ model DriverAssignment {
   orderId         Int
   driverId        Int
   assignmentType  String   // 'pickup' or 'delivery'
-  status          String   @default("assigned") // 'assigned', 'in_progress', 'completed', 'cancelled', 'rescheduled'
+  status          DriverAssignmentStatus @default(ASSIGNED)
   estimatedTime   DateTime?
   actualTime      DateTime?
   notes           String?
@@ -225,7 +228,7 @@ model OrderProcessing {
   id                  Int      @id @default(autoincrement())
   orderId             Int
   staffId             Int
-  processingStatus    String   // 'pending', 'in_progress', 'completed', 'quality_check', 'ready_for_delivery'
+  processingStatus    ProcessingStatus @default(PENDING)
   totalPieces         Int?
   totalWeight         Float?
   processingNotes     String?
@@ -251,7 +254,7 @@ model ProcessingItem {
   orderServiceMappingId Int
   quantity            Int
   processedQuantity   Int      @default(0)
-  status              String   // 'pending', 'in_progress', 'completed', 'issue_reported'
+  status              ItemStatus @default(PENDING)
   notes               String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -271,7 +274,7 @@ model ProcessingItemDetail {
   orderItemId         Int
   quantity            Int      @default(1)
   processedQuantity   Int      @default(0)
-  status              String   // 'pending', 'in_progress', 'completed', 'issue_reported'
+  status              ItemStatus @default(PENDING)
   processingNotes     String?
   qualityScore        Int?     // 1-100 for individual item quality
   createdAt           DateTime @default(now())
@@ -291,7 +294,7 @@ model IssueReport {
   issueType           String   // 'damage', 'stain', 'missing_item', 'wrong_item', 'other'
   description         String
   severity            String   // 'low', 'medium', 'high', 'critical'
-  status              String   // 'reported', 'investigating', 'resolved', 'escalated'
+  status              IssueStatus @default(REPORTED)
   resolution          String?
   photoUrl            String?
   reportedAt          DateTime @default(now())
@@ -302,6 +305,25 @@ model IssueReport {
   staff               Staff    @relation(fields: [staffId], references: [id])
 
   @@map("issue_reports")
+}
+
+// ===== COMPREHENSIVE ORDER TRACKING SYSTEM =====
+model OrderHistory {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  staffId     Int?
+  action      String   // 'status_change', 'payment_update', 'driver_assignment', 'processing_update', 'issue_reported', 'note_added'
+  oldValue    String?  // Previous value (JSON string for complex data)
+  newValue    String?  // New value (JSON string for complex data)
+  description String   // Human readable description
+  metadata    String?  // Additional JSON data
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  staff       Staff?   @relation(fields: [staffId], references: [id])
+
+  @@map("order_history")
 }
 
 // ===== NEXT AUTH MODELS =====
@@ -423,6 +445,67 @@ enum PricingType {
 enum PricingUnit {
   KG
   PIECE
+}
+
+// ===== ORDER STATUS ENUMS =====
+enum OrderStatus {
+  ORDER_PLACED
+  CONFIRMED
+  PICKUP_ASSIGNED
+  PICKUP_IN_PROGRESS
+  PICKUP_COMPLETED
+  PICKUP_FAILED
+  RECEIVED_AT_FACILITY
+  PROCESSING_STARTED
+  PROCESSING_COMPLETED
+  QUALITY_CHECK
+  READY_FOR_DELIVERY
+  DELIVERY_ASSIGNED
+  DELIVERY_IN_PROGRESS
+  DELIVERED
+  DELIVERY_FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL_REFUND
+}
+
+enum DriverAssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  FAILED
+}
+
+enum ProcessingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  QUALITY_CHECK
+  READY_FOR_DELIVERY
+  ISSUE_REPORTED
+}
+
+enum ItemStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  ISSUE_REPORTED
+}
+
+enum IssueStatus {
+  REPORTED
+  INVESTIGATING
+  RESOLVED
+  ESCALATED
 }
 
 // ===== SERVICE SYSTEM =====

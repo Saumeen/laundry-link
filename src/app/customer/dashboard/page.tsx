@@ -109,35 +109,80 @@ const TAB_CONFIG = [
 
 // Enhanced status configuration with better colors and icons
 const STATUS_CONFIG = {
-  'Order Placed': { 
+  'ORDER_PLACED': { 
     color: 'bg-blue-50 text-blue-700 border-blue-200',
     icon: '📝',
     bgColor: 'bg-blue-100'
   },
-  'Picked Up': { 
+  'CONFIRMED': { 
+    color: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: '✅',
+    bgColor: 'bg-purple-100'
+  },
+  'PICKUP_ASSIGNED': { 
+    color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: '🚚',
+    bgColor: 'bg-indigo-100'
+  },
+  'PICKUP_IN_PROGRESS': { 
     color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
     icon: '🚚',
     bgColor: 'bg-yellow-100'
   },
-  'In Process': { 
-    color: 'bg-purple-50 text-purple-700 border-purple-200',
+  'PICKUP_COMPLETED': { 
+    color: 'bg-green-50 text-green-700 border-green-200',
+    icon: '✅',
+    bgColor: 'bg-green-100'
+  },
+  'RECEIVED_AT_FACILITY': { 
+    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    icon: '🏢',
+    bgColor: 'bg-cyan-100'
+  },
+  'PROCESSING_STARTED': { 
+    color: 'bg-orange-50 text-orange-700 border-orange-200',
     icon: '⚙️',
-    bgColor: 'bg-purple-100'
+    bgColor: 'bg-orange-100'
   },
-  'Cleaning Complete': { 
-    color: 'bg-green-50 text-green-700 border-green-200',
+  'PROCESSING_COMPLETED': { 
+    color: 'bg-lime-50 text-lime-700 border-lime-200',
     icon: '✅',
-    bgColor: 'bg-green-100'
+    bgColor: 'bg-lime-100'
   },
-  'Ready for Delivery': { 
-    color: 'bg-green-50 text-green-700 border-green-200',
-    icon: '✅',
-    bgColor: 'bg-green-100'
+  'QUALITY_CHECK': { 
+    color: 'bg-pink-50 text-pink-700 border-pink-200',
+    icon: '🔍',
+    bgColor: 'bg-pink-100'
   },
-  'Delivered': { 
+  'READY_FOR_DELIVERY': { 
+    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    icon: '📦',
+    bgColor: 'bg-emerald-100'
+  },
+  'DELIVERY_ASSIGNED': { 
+    color: 'bg-teal-50 text-teal-700 border-teal-200',
+    icon: '🚚',
+    bgColor: 'bg-teal-100'
+  },
+  'DELIVERY_IN_PROGRESS': { 
+    color: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: '🚚',
+    bgColor: 'bg-blue-100'
+  },
+  'DELIVERED': { 
     color: 'bg-gray-50 text-gray-700 border-gray-200',
     icon: '🎉',
     bgColor: 'bg-gray-100'
+  },
+  'CANCELLED': { 
+    color: 'bg-red-50 text-red-700 border-red-200',
+    icon: '❌',
+    bgColor: 'bg-red-100'
+  },
+  'REFUNDED': { 
+    color: 'bg-amber-50 text-amber-700 border-amber-200',
+    icon: '💰',
+    bgColor: 'bg-amber-100'
   },
 } as const;
 
@@ -239,7 +284,6 @@ const OrderItem = memo(({
         alert(errorData.error || 'Failed to download invoice');
       }
     } catch (error) {
-      console.error('Error downloading invoice:', error);
       alert('Failed to download invoice');
     } finally {
       setInvoiceLoading(false);
@@ -247,7 +291,7 @@ const OrderItem = memo(({
   }, [order.id, order.orderNumber]);
 
   const statusConfig = getStatusConfig(order.status);
-  const canDownloadInvoice = order.status === 'Cleaning Complete';
+  const canDownloadInvoice = order.status === 'READY_FOR_DELIVERY';
 
   return (
     <div 
@@ -376,7 +420,7 @@ const DetailedOrderItem = memo(({
   }, [order.id, order.orderNumber]);
 
   const statusConfig = getStatusConfig(order.status);
-  const canDownloadInvoice = order.status === 'Cleaning Complete';
+  const canDownloadInvoice = order.status === 'READY_FOR_DELIVERY';
 
   return (
     <div 
@@ -621,8 +665,8 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
 
   // Memoized data calculations
   const statsData = useMemo(() => {
-    const activeOrders = orders.filter(order => !['Delivered', 'Cancelled'].includes(order.status)).length;
-    const completedOrders = orders.filter(order => order.status === 'Delivered').length;
+    const activeOrders = orders.filter(order => !['DELIVERED', 'CANCELLED'].includes(order.status)).length;
+    const completedOrders = orders.filter(order => order.status === 'DELIVERED').length;
     
     return [
       {
@@ -673,9 +717,17 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
     try {
       const response = await fetch('/api/customer/orders?limit=3&sort=updatedAt&order=desc');
       if (response.ok) {
-        const data = await response.json() as OrdersResponse;
-        if (data && typeof data === 'object' && 'orders' in data && Array.isArray(data.orders)) {
-          setOrders(data.orders);
+        const data = await response.json();
+        console.log('Orders API response:', data);
+        // Handle both formats: { orders: [...] } and [...]
+        if (data && typeof data === 'object') {
+          if ('orders' in data && Array.isArray(data.orders)) {
+            console.log('Setting orders from data.orders:', data.orders);
+            setOrders(data.orders);
+          } else if (Array.isArray(data)) {
+            console.log('Setting orders from data array:', data);
+            setOrders(data);
+          }
         }
       }
     } catch (error) {
@@ -917,7 +969,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                   </h3>
                 </div>
                 <div className="p-8">
-                  {orders.length === 0 ? (
+                  {recentOrders.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <span className="text-3xl">📦</span>
@@ -1055,7 +1107,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                               <span>View Details</span>
                               <span>→</span>
                             </button>
-                            {order.status === 'Cleaning Complete' && (
+                            {order.status === 'READY_FOR_DELIVERY' && (
                               <button
                                 onClick={async () => {
                                   try {

@@ -673,7 +673,7 @@ function OrderEditPageContent() {
       'Picked Up': 'bg-yellow-100 text-yellow-800',
       'In Process': 'bg-purple-100 text-purple-800',
       'Ready for Delivery': 'bg-green-100 text-green-800',
-      'Delivered': 'bg-gray-100 text-gray-800',
+      'DELIVERED': 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   }, []);
@@ -1059,7 +1059,7 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
         setError(errorData.error || 'Failed to update order');
       }
     } catch (error) {
-      console.error('Error updating order:', error);
+      // Handle error silently
       setError('Failed to update order');
     } finally {
       setLoading(false);
@@ -1108,12 +1108,23 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="Order Placed">Order Placed</option>
-                <option value="Picked Up">Picked Up</option>
-                <option value="In Process">In Process</option>
-                <option value="Ready for Delivery">Ready for Delivery</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
+                <option value="ORDER_PLACED">Order Placed</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PICKUP_ASSIGNED">Pickup Assigned</option>
+                <option value="PICKUP_IN_PROGRESS">Pickup In Progress</option>
+                <option value="PICKUP_COMPLETED">Pickup Completed</option>
+                <option value="PICKUP_FAILED">Pickup Failed</option>
+                <option value="RECEIVED_AT_FACILITY">Received at Facility</option>
+                <option value="PROCESSING_STARTED">Processing Started</option>
+                <option value="PROCESSING_COMPLETED">Processing Completed</option>
+                <option value="QUALITY_CHECK">Quality Check</option>
+                <option value="READY_FOR_DELIVERY">Ready for Delivery</option>
+                <option value="DELIVERY_ASSIGNED">Delivery Assigned</option>
+                <option value="DELIVERY_IN_PROGRESS">Delivery In Progress</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="DELIVERY_FAILED">Delivery Failed</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="REFUNDED">Refunded</option>
               </select>
             </div>
 
@@ -1826,9 +1837,12 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                           {assignment.assignmentType.charAt(0).toUpperCase() + assignment.assignmentType.slice(1)} Driver
                         </h5>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          assignment.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
-                          assignment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                          assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          assignment.status === 'ASSIGNED' ? 'bg-blue-100 text-blue-800' :
+                          assignment.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
+                          assignment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                          assignment.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                          assignment.status === 'RESCHEDULED' ? 'bg-purple-100 text-purple-800' :
+                          assignment.status === 'FAILED' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {assignment.status.replace('_', ' ')}
@@ -2603,7 +2617,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   const [processingItemDetail, setProcessingItemDetail] = useState<any>(null);
   const [processingForm, setProcessingForm] = useState({
     processedQuantity: '',
-    status: 'pending',
+    status: 'PENDING',
     processingNotes: ''
   });
   const [markReadyLoading, setMarkReadyLoading] = useState(false);
@@ -2814,24 +2828,28 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   // Status helpers
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-1" />;
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-1" />;
-      case 'issue_reported':
+      case 'ISSUE_REPORTED':
         return <span className="inline-block w-3 h-3 bg-red-500 rounded-full mr-1" />;
+      case 'PENDING':
+        return <span className="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1" />;
       default:
         return <span className="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1" />;
     }
   };
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'bg-green-100 text-green-800';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-800';
-      case 'issue_reported':
+      case 'ISSUE_REPORTED':
         return 'bg-red-100 text-red-800';
+      case 'PENDING':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -2839,7 +2857,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   const isAllItemsCompleted = () => {
     if (!processing?.processingItems) return false;
     return processing.processingItems.every((pi: any) =>
-      pi.processingItemDetails.every((detail: any) => detail.status === 'completed')
+              pi.processingItemDetails.every((detail: any) => detail.status === 'COMPLETED')
     );
   };
 
@@ -2927,7 +2945,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          processingStatus: 'ready_for_delivery',
+          processingStatus: 'READY_FOR_DELIVERY',
           processingNotes: processing?.processingNotes || 'Order completed and ready for delivery'
         })
       });
@@ -3043,7 +3061,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                   <span className="text-green-800 font-medium">
                     Processing Status: <span className="font-bold">{processing.processingStatus || 'In Progress'}</span>
                   </span>
-                  {isAllItemsCompleted() && processing.processingStatus !== 'ready_for_delivery' && (
+                  {isAllItemsCompleted() && processing.processingStatus !== 'READY_FOR_DELIVERY' && (
                     <button
                       onClick={handleMarkReady}
                       disabled={markReadyLoading}
@@ -3208,10 +3226,10 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                           onChange={e => handleProcessingFormChange('status', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="pending">Pending</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                          <option value="issue_reported">Issue Reported</option>
+                                              <option value="PENDING">Pending</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="ISSUE_REPORTED">Issue Reported</option>
                         </select>
                       </div>
                       <div>

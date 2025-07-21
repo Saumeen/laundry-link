@@ -96,13 +96,13 @@ const STATUS_CONFIG = {
     bgColor: 'bg-purple-100',
     description: 'Your items are being cleaned and processed'
   },
-  'Cleaning Complete': { 
+  'READY_FOR_DELIVERY': { 
     color: 'bg-green-50 text-green-700 border-green-200',
     icon: '✅',
     bgColor: 'bg-green-100',
     description: 'Your items are ready for delivery'
   },
-  'Delivered': { 
+  'DELIVERED': { 
     color: 'bg-gray-50 text-gray-700 border-gray-200',
     icon: '🎉',
     bgColor: 'bg-gray-100',
@@ -554,7 +554,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           <span className="mr-2">🧾</span>
                           Invoice Details
                         </h3>
-                        {orderDetails?.status === 'Cleaning Complete' && (
+                        {orderDetails?.status === 'READY_FOR_DELIVERY' && (
                           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                             <button
                               onClick={handlePrintInvoice}
@@ -583,7 +583,7 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         )}
                       </div>
 
-                      {orderDetails?.status === 'Cleaning Complete' ? (
+                      {orderDetails?.status === 'READY_FOR_DELIVERY' ? (
                         <>
                           {/* Invoice Header */}
                           <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 mb-6">

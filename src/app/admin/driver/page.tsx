@@ -164,11 +164,23 @@ export default function DriverDashboard() {
       setLoading(true);
       const response = await fetch("/api/admin/driver/assignments");
       if (response.ok) {
-        const data = await response.json() as { assignments: DriverAssignment[] };
-        setAssignments(data.assignments || []);
+        const data = await response.json();
+        // Handle both formats: { assignments: [...] } and [...]
+        if (data && typeof data === 'object') {
+          if ('assignments' in data && Array.isArray(data.assignments)) {
+            setAssignments(data.assignments);
+          } else if (Array.isArray(data)) {
+            setAssignments(data);
+          } else {
+            setAssignments([]);
+          }
+        } else {
+          setAssignments([]);
+        }
       }
     } catch (error) {
-      console.error("Error fetching assignments:", error);
+      console.error('Error fetching assignments:', error);
+      setAssignments([]);
     } finally {
       setLoading(false);
     }
@@ -183,7 +195,7 @@ export default function DriverDashboard() {
         setStats(data.stats);
       }
     } catch (error) {
-      console.error("Error fetching stats:", error);
+      // Handle error silently
     } finally {
       setStatsLoading(false);
     }
@@ -193,13 +205,21 @@ export default function DriverDashboard() {
     try {
       setUpdating(assignmentId);
       
+      // Find the current assignment to get its status
+      const currentAssignment = assignments.find(a => a.id === assignmentId);
+      if (!currentAssignment) {
+        console.error('Assignment not found');
+        return;
+      }
+      
       const response = await fetch("/api/admin/driver/assignments", {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           assignmentId,
+          status: currentAssignment.status, // Keep current status
           photoUrl,
           photoType,
           notes: notes || undefined,
@@ -214,7 +234,7 @@ export default function DriverDashboard() {
         setShowPhotoModal(false);
       }
     } catch (error) {
-      console.error("Error saving photo:", error);
+      // Handle error silently
     } finally {
       setUpdating(null);
     }
@@ -227,11 +247,11 @@ export default function DriverDashboard() {
       // Handle reschedule status
       let finalStatus = status;
       if (photoType?.includes('rescheduled')) {
-        finalStatus = 'rescheduled';
+        finalStatus = 'RESCHEDULED';
       }
       
       const response = await fetch("/api/admin/driver/assignments", {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -254,7 +274,7 @@ export default function DriverDashboard() {
         setNotes("");
       }
     } catch (error) {
-      console.error("Error updating assignment:", error);
+      // Handle error silently
     } finally {
       setUpdating(null);
     }
@@ -308,7 +328,7 @@ export default function DriverDashboard() {
       });
       
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      // Handle camera access error
       setCameraError("Unable to access camera. Please check camera permissions.");
       
       // Fallback to basic camera access
@@ -453,7 +473,7 @@ export default function DriverDashboard() {
         },
         body: JSON.stringify({
           assignmentId: selectedAssignment.id,
-          status: "rescheduled",
+          status: "RESCHEDULED",
           notes: `Rescheduled to ${rescheduleDate} at ${rescheduleTime}. ${notes}`,
           photoUrl: photoData,
           photoType: `${selectedAssignment.assignmentType}_rescheduled_photo`,
@@ -481,26 +501,24 @@ export default function DriverDashboard() {
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
-      case "assigned": return "bg-blue-100 text-blue-800";
-      case "in_progress": return "bg-yellow-100 text-yellow-800";
-      case "out_for_delivery": return "bg-orange-100 text-orange-800";
-      case "completed": return "bg-green-100 text-green-800";
-      case "delivered": return "bg-green-100 text-green-800";
-      case "cancelled": return "bg-red-100 text-red-800";
-      case "rescheduled": return "bg-purple-100 text-purple-800";
+      case "ASSIGNED": return "bg-blue-100 text-blue-800";
+      case "IN_PROGRESS": return "bg-yellow-100 text-yellow-800";
+      case "COMPLETED": return "bg-green-100 text-green-800";
+      case "CANCELLED": return "bg-red-100 text-red-800";
+      case "RESCHEDULED": return "bg-purple-100 text-purple-800";
+      case "FAILED": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
   }, []);
 
   const getStatusIcon = useCallback((status: string) => {
     switch (status) {
-      case "assigned": return <Clock className="w-4 h-4" />;
-      case "in_progress": return <AlertCircle className="w-4 h-4" />;
-      case "out_for_delivery": return <AlertCircle className="w-4 h-4" />;
-      case "completed": return <CheckCircle className="w-4 h-4" />;
-      case "delivered": return <CheckCircle className="w-4 h-4" />;
-      case "cancelled": return <XCircle className="w-4 h-4" />;
-      case "rescheduled": return <Clock className="w-4 h-4" />;
+      case "ASSIGNED": return <Clock className="w-4 h-4" />;
+      case "IN_PROGRESS": return <AlertCircle className="w-4 h-4" />;
+      case "COMPLETED": return <CheckCircle className="w-4 h-4" />;
+      case "CANCELLED": return <XCircle className="w-4 h-4" />;
+      case "RESCHEDULED": return <Clock className="w-4 h-4" />;
+      case "FAILED": return <XCircle className="w-4 h-4" />;
       default: return <Clock className="w-4 h-4" />;
     }
   }, []);
@@ -508,17 +526,17 @@ export default function DriverDashboard() {
   const getNextStatus = useCallback((currentStatus: string, assignmentType: string) => {
     if (assignmentType === "pickup") {
       switch (currentStatus) {
-        case "assigned": return "in_progress";
-        case "in_progress": return "completed";
+        case "ASSIGNED": return "IN_PROGRESS";
+        case "IN_PROGRESS": return "COMPLETED";
         default: return currentStatus;
       }
     } else {
       // Delivery status flow
       switch (currentStatus) {
-        case "assigned": return "out_for_delivery";
-        case "out_for_delivery": return "delivered";
-        case "delivered": return "delivered"; // Final state
-        case "rescheduled": return "assigned"; // Reset to assigned after reschedule
+        case "ASSIGNED": return "IN_PROGRESS";
+        case "IN_PROGRESS": return "COMPLETED";
+        case "COMPLETED": return "COMPLETED"; // Final state
+        case "RESCHEDULED": return "ASSIGNED"; // Reset to assigned after reschedule
         default: return currentStatus;
       }
     }
@@ -527,17 +545,17 @@ export default function DriverDashboard() {
   const getStatusButtonText = useCallback((currentStatus: string, assignmentType: string) => {
     if (assignmentType === "pickup") {
       switch (currentStatus) {
-        case "assigned": return "Start Pickup";
-        case "in_progress": return "Mark Picked Up";
+        case "ASSIGNED": return "Start Pickup";
+        case "IN_PROGRESS": return "Mark Picked Up";
         default: return "Update Status";
       }
     } else {
       // Delivery status button text
       switch (currentStatus) {
-        case "assigned": return "Start Delivery";
-        case "out_for_delivery": return "Mark Delivered";
-        case "delivered": return "Delivered";
-        case "rescheduled": return "Start Delivery";
+        case "ASSIGNED": return "Start Delivery";
+        case "IN_PROGRESS": return "Mark Delivered";
+        case "COMPLETED": return "Delivered";
+        case "RESCHEDULED": return "Start Delivery";
         default: return "Update Status";
       }
     }
@@ -629,7 +647,7 @@ export default function DriverDashboard() {
                     </div>
                     <div className="ml-3 sm:ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Today's Assignments</dt>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Today&apos;s Assignments</dt>
                         <dd className="text-base sm:text-lg font-medium text-gray-900">{stats?.totalAssignments || 0}</dd>
                       </dl>
                     </div>
@@ -698,9 +716,9 @@ export default function DriverDashboard() {
             {stats && (stats.inProgressAssignments > 0 || stats.pendingAssignments > 0) && (
               <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Current Assignment</h2>
-                {todayAssignments
-                  .filter(a => a.status === "assigned" || a.status === "in_progress")
-                  .slice(0, 1)
+                            {todayAssignments
+              .filter(a => a.status === "ASSIGNED" || a.status === "IN_PROGRESS")
+              .slice(0, 1)
                   .map((assignment) => (
                     <div key={assignment.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -785,7 +803,7 @@ export default function DriverDashboard() {
 
             {/* Today's Assignments */}
             <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Today's Assignments</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Today&apos;s Assignments</h2>
               <div className="space-y-3 sm:space-y-4">
                 {todayAssignments.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No assignments for today</p>
@@ -817,7 +835,7 @@ export default function DriverDashboard() {
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                          {assignment.status !== "completed" && assignment.status !== "delivered" ? (
+                          {assignment.status !== "COMPLETED" ? (
                             <button
                               onClick={() => {
                                 setSelectedAssignment(assignment);
@@ -891,7 +909,7 @@ export default function DriverDashboard() {
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                          {assignment.status !== "completed" && assignment.status !== "delivered" ? (
+                          {assignment.status !== "COMPLETED" ? (
                             <button
                               onClick={() => {
                                 setSelectedAssignment(assignment);
@@ -1181,7 +1199,7 @@ export default function DriverDashboard() {
                   )}
 
                   {/* Action Section */}
-                  {selectedAssignment.status !== "completed" && selectedAssignment.status !== "delivered" && (
+                  {selectedAssignment.status !== "COMPLETED" && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex items-center space-x-2 mb-4">
                         <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

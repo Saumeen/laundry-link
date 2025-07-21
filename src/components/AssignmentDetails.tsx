@@ -67,21 +67,24 @@ export default function AssignmentDetails({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "assigned": return "bg-blue-100 text-blue-800";
-      case "in_progress": return "bg-yellow-100 text-yellow-800";
-      case "completed": return "bg-green-100 text-green-800";
-      case "cancelled": return "bg-red-100 text-red-800";
-      case "rescheduled": return "bg-purple-100 text-purple-800";
+      case "ASSIGNED": return "bg-blue-100 text-blue-800";
+      case "IN_PROGRESS": return "bg-yellow-100 text-yellow-800";
+      case "COMPLETED": return "bg-green-100 text-green-800";
+      case "CANCELLED": return "bg-red-100 text-red-800";
+      case "RESCHEDULED": return "bg-purple-100 text-purple-800";
+      case "FAILED": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "assigned": return <Clock className="w-4 h-4" />;
-      case "in_progress": return <AlertCircle className="w-4 h-4" />;
-      case "completed": return <CheckCircle className="w-4 h-4" />;
-      case "cancelled": return <XCircle className="w-4 h-4" />;
+      case "ASSIGNED": return <Clock className="w-4 h-4" />;
+      case "IN_PROGRESS": return <AlertCircle className="w-4 h-4" />;
+      case "COMPLETED": return <CheckCircle className="w-4 h-4" />;
+      case "CANCELLED": return <XCircle className="w-4 h-4" />;
+      case "RESCHEDULED": return <Clock className="w-4 h-4" />;
+      case "FAILED": return <XCircle className="w-4 h-4" />;
       default: return <Clock className="w-4 h-4" />;
     }
   };
@@ -89,14 +92,14 @@ export default function AssignmentDetails({
   const getNextStatus = (currentStatus: string, assignmentType: string) => {
     if (assignmentType === "pickup") {
       switch (currentStatus) {
-        case "assigned": return "in_progress";
-        case "in_progress": return "completed";
+        case "ASSIGNED": return "IN_PROGRESS";
+        case "IN_PROGRESS": return "COMPLETED";
         default: return currentStatus;
       }
     } else {
       switch (currentStatus) {
-        case "assigned": return "in_progress";
-        case "in_progress": return "completed";
+        case "ASSIGNED": return "IN_PROGRESS";
+        case "IN_PROGRESS": return "COMPLETED";
         default: return currentStatus;
       }
     }
@@ -105,14 +108,14 @@ export default function AssignmentDetails({
   const getStatusButtonText = (currentStatus: string, assignmentType: string) => {
     if (assignmentType === "pickup") {
       switch (currentStatus) {
-        case "assigned": return "Start Pickup";
-        case "in_progress": return "Mark Picked Up";
+        case "ASSIGNED": return "Start Pickup";
+        case "IN_PROGRESS": return "Mark Picked Up";
         default: return "Update Status";
       }
     } else {
       switch (currentStatus) {
-        case "assigned": return "Start Delivery";
-        case "in_progress": return "Mark Delivered";
+        case "ASSIGNED": return "Start Delivery";
+        case "IN_PROGRESS": return "Mark Delivered";
         default: return "Update Status";
       }
     }
@@ -129,7 +132,7 @@ export default function AssignmentDetails({
   };
 
   const handleReschedule = () => {
-    onUpdateStatus(assignment.id, "rescheduled");
+    onUpdateStatus(assignment.id, "RESCHEDULED");
   };
 
   return (
@@ -256,7 +259,7 @@ export default function AssignmentDetails({
             )}
 
             {/* Action Buttons */}
-            {assignment.status !== "completed" && (
+            {assignment.status !== "COMPLETED" && assignment.status !== "CANCELLED" && (
               <div className="border-t pt-4">
                 <h3 className="font-semibold text-gray-900 mb-3">Update Status</h3>
                 
