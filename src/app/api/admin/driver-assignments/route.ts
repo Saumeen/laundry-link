@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 import { OrderStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 
 interface CreateDriverAssignmentRequest {
   orderId: number;
@@ -231,8 +232,31 @@ export async function PUT(req: Request) {
             phone: true,
           },
         },
+        order: true,
       },
     });
+
+    // --- Update Order Status if needed ---
+    if (status && assignment.order) {
+      let newOrderStatus: OrderStatus | undefined;
+      if (assignment.assignmentType === 'pickup') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.PICKUP_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.PICKUP_COMPLETED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.PICKUP_FAILED;
+      } else if (assignment.assignmentType === 'delivery') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.DELIVERY_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.DELIVERED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.DELIVERY_FAILED;
+      }
+      if (newOrderStatus) {
+        await OrderTrackingService.updateOrderStatus({
+          orderId: assignment.orderId,
+          newStatus: newOrderStatus,
+          notes,
+        });
+      }
+    }
+    // --- End update order status ---
 
     return NextResponse.json({
       success: true,

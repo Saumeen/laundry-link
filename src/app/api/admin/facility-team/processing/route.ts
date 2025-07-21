@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
 import { ProcessingStatus, ItemStatus, IssueStatus, OrderStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 
 interface ProcessingUpdateRequest {
   orderId: number;
@@ -220,6 +221,21 @@ export async function POST(request: NextRequest) {
             qualityScore
           })
         }
+      });
+    }
+
+    // After processing is created or updated, update order status if needed
+    let newOrderStatus;
+    if (processingStatus === ProcessingStatus.IN_PROGRESS) newOrderStatus = OrderStatus.PROCESSING_STARTED;
+    else if (processingStatus === ProcessingStatus.COMPLETED) newOrderStatus = OrderStatus.PROCESSING_COMPLETED;
+    else if (processingStatus === ProcessingStatus.QUALITY_CHECK) newOrderStatus = OrderStatus.QUALITY_CHECK;
+    else if (processingStatus === ProcessingStatus.READY_FOR_DELIVERY) newOrderStatus = OrderStatus.READY_FOR_DELIVERY;
+    if (newOrderStatus) {
+      await OrderTrackingService.updateOrderStatus({
+        orderId,
+        staffId: admin.id,
+        newStatus: newOrderStatus,
+        notes: processingNotes
       });
     }
 

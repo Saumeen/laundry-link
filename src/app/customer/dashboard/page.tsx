@@ -684,7 +684,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
 
   // Memoized data calculations
   const statsData = useMemo(() => {
-    const activeOrders = orders.filter(order => ![OrderStatus.DELIVERED, OrderStatus.CANCELLED].includes(order.status as OrderStatus)).length;
+    const activeOrders = orders.filter(order => ![OrderStatus.DELIVERED, OrderStatus.CANCELLED].includes(order.status as any)).length;
     const completedOrders = orders.filter(order => order.status === OrderStatus.DELIVERED).length;
     
     return [

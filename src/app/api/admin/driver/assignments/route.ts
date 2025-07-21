@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
-import { DriverAssignmentStatus } from "@prisma/client";
+import { DriverAssignmentStatus, OrderStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 
 interface DriverAssignmentRequest {
   orderId: number;
@@ -148,15 +149,32 @@ export async function PUT(request: NextRequest) {
             phone: true
           }
         },
-        order: {
-          include: {
-            customer: true,
-            address: true
-          }
-        },
+        order: true,
         photos: true
       }
     });
+
+    // --- Update Order Status if needed ---
+    if (status && updatedAssignment.order) {
+      let newOrderStatus: OrderStatus | undefined;
+      if (updatedAssignment.assignmentType === 'pickup') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.PICKUP_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.PICKUP_COMPLETED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.PICKUP_FAILED;
+      } else if (updatedAssignment.assignmentType === 'delivery') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.DELIVERY_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.DELIVERED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.DELIVERY_FAILED;
+      }
+      if (newOrderStatus) {
+        await OrderTrackingService.updateOrderStatus({
+          orderId: updatedAssignment.orderId,
+          newStatus: newOrderStatus,
+          notes,
+        });
+      }
+    }
+    // --- End update order status ---
 
     // If photo is provided, save it
     if (photoUrl && photoType) {
