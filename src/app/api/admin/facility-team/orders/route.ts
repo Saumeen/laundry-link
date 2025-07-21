@@ -29,8 +29,17 @@ export async function GET(req: Request) {
 
     // Filter by processing status if specified
     if (status !== 'all') {
-      if (status === 'ready_for_processing') {
+      if (status === 'received') {
+        whereClause.status = OrderStatus.RECEIVED_AT_FACILITY;
+        whereClause.orderProcessing = null; // No processing record exists yet
+      } else if (status === 'ready_for_processing') {
+        whereClause.status = OrderStatus.RECEIVED_AT_FACILITY;
         whereClause.orderProcessing = null; // No processing record exists
+      } else if (status === 'picked_up') {
+        whereClause.status = {
+          not: OrderStatus.RECEIVED_AT_FACILITY
+        };
+        whereClause.orderProcessing = null; // No processing record exists yet
       } else if (status === 'in_processing') {
         whereClause.orderProcessing = {
           processingStatus: {

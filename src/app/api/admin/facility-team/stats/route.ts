@@ -27,7 +27,7 @@ export async function GET(req: Request) {
         break;
     }
 
-    // Get orders ready for processing (picked up by driver but not yet processed)
+    // Get orders ready for processing (received at facility but not yet processed)
     const ordersReadyForProcessing = await prisma.order.count({
       where: {
         driverAssignments: {
@@ -36,6 +36,7 @@ export async function GET(req: Request) {
             status: DriverAssignmentStatus.COMPLETED
           }
         },
+        status: 'RECEIVED_AT_FACILITY',
         orderProcessing: null
       }
     });
