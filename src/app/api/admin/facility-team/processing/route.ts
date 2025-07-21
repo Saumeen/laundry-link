@@ -1,382 +1,506 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
+import { ProcessingStatus, ItemStatus, IssueStatus, OrderStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 
-interface StartProcessingRequest {
+interface ProcessingUpdateRequest {
   orderId: number;
-  totalPieces?: number;
-  totalWeight?: number;
-  processingNotes?: string;
-}
-
-interface UpdateProcessingRequest {
-  processingStatus?: string;
+  processingStatus: ProcessingStatus;
   totalPieces?: number;
   totalWeight?: number;
   processingNotes?: string;
   qualityScore?: number;
+  items?: Array<{
+    orderServiceMappingId: number;
+    status: ItemStatus;
+    notes?: string;
+  }>;
 }
 
 interface UpdateItemProcessingRequest {
   processingItemDetailId: number;
   processedQuantity?: number;
-  status?: string;
+  status: ItemStatus;
   processingNotes?: string;
   qualityScore?: number;
-  updateParentStatus?: boolean; // New optional flag
+  updateParentStatus?: boolean;
 }
 
-interface AddOrderItemRequest {
-  orderServiceMappingId: number;
-  itemName: string;
-  itemType: string;
-  quantity: number;
-  pricePerItem: number;
-  notes?: string;
+interface UpdateProcessingRequest {
+  processingStatus: ProcessingStatus;
+  totalPieces?: number;
+  totalWeight?: number;
+  processingNotes?: string;
+  qualityScore?: number;
 }
 
-// POST - Start processing an order
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
     const admin = await requireAuthenticatedAdmin();
+    const body: ProcessingUpdateRequest = await request.json();
     
-    const { orderId, totalPieces, totalWeight, processingNotes }: StartProcessingRequest = await req.json();
+    const {
+      orderId,
+      processingStatus,
+      totalPieces,
+      totalWeight,
+      processingNotes,
+      qualityScore,
+      items
+    } = body;
 
-    if (!orderId) {
-      return NextResponse.json(
-        { error: "Order ID is required" },
-        { status: 400 }
-      );
+    // Validate enum values
+    const validProcessingStatuses = Object.values(ProcessingStatus);
+    const validItemStatuses = Object.values(ItemStatus);
+
+    if (!validProcessingStatuses.includes(processingStatus)) {
+      return NextResponse.json({ error: "Invalid processing status" }, { status: 400 });
     }
 
-    // Check if order exists and is ready for processing
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        driverAssignments: {
-          some: {
-            assignmentType: 'pickup',
-            status: 'completed'
-          }
-        }
-      },
-      include: {
-        orderServiceMappings: {
-          include: {
-            service: true,
-            orderItems: true // Include order items
-          }
-        }
-      }
-    });
-
-    if (!order) {
-      return NextResponse.json(
-        { error: "Order not found or not ready for processing" },
-        { status: 404 }
-      );
-    }
-
-    // Check if processing already exists
+    // Check if processing exists
     const existingProcessing = await prisma.orderProcessing.findUnique({
       where: { orderId }
     });
 
-    if (existingProcessing) {
-      return NextResponse.json(
-        { error: "Order is already being processed" },
-        { status: 409 }
-      );
-    }
-
-    // Create processing record
-    const processing = await prisma.orderProcessing.create({
-      data: {
-        orderId,
-        staffId: admin.id,
-        processingStatus: 'pending',
-        totalPieces,
-        totalWeight,
-        processingNotes,
-        processingStartedAt: new Date()
-      },
-      include: {
-        staff: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true
-          }
-        }
-      }
-    });
-
-    // Create processing items for each service mapping
-    const processingItems = await Promise.all(
-      order.orderServiceMappings.map(async (mapping) => {
-        const processingItem = await prisma.processingItem.create({
+    let processing;
+    
+    if (!existingProcessing) {
+      // Use a transaction to ensure all operations succeed or fail together
+      processing = await prisma.$transaction(async (tx) => {
+        // Create new processing record
+        const newProcessing = await tx.orderProcessing.create({
           data: {
-            orderProcessingId: processing.id,
-            orderServiceMappingId: mapping.id,
-            quantity: mapping.quantity,
-            status: 'pending'
-          },
-          include: {
-            orderServiceMapping: {
-              include: {
-                service: true,
-                orderItems: true
-              }
-            }
+            orderId,
+            staffId: admin.id, // Use the authenticated admin's ID
+            processingStatus,
+            totalPieces,
+            totalWeight,
+            processingNotes,
+            qualityScore,
+            processingStartedAt: new Date(),
+            processingCompletedAt: processingStatus === ProcessingStatus.READY_FOR_DELIVERY ? new Date() : undefined
           }
         });
 
-        // Create processing item details for each order item
-        const processingItemDetails = await Promise.all(
-          mapping.orderItems.map(async (orderItem) => {
-            return await prisma.processingItemDetail.create({
+        // Create processing items for each order service mapping
+        const orderServiceMappings = await tx.orderServiceMapping.findMany({
+          where: { orderId },
+          include: {
+            orderItems: true
+          }
+        });
+
+        for (const mapping of orderServiceMappings) {
+          // Create processing item for this service mapping
+          const processingItem = await tx.processingItem.create({
+            data: {
+              orderProcessingId: newProcessing.id,
+              orderServiceMappingId: mapping.id,
+              quantity: mapping.quantity,
+              status: 'PENDING'
+            }
+          });
+
+          // Create processing item details for each order item in this service mapping
+          for (const orderItem of mapping.orderItems) {
+            await tx.processingItemDetail.create({
               data: {
                 processingItemId: processingItem.id,
                 orderItemId: orderItem.id,
                 quantity: orderItem.quantity,
-                status: 'pending'
-              },
-              include: {
-                orderItem: true
+                status: 'PENDING'
               }
             });
-          })
-        );
+          }
+        }
 
-        return {
-          ...processingItem,
-          processingItemDetails
-        };
-      })
-    );
+        // Update order status to PROCESSING_STARTED when processing begins
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: OrderStatus.PROCESSING_STARTED }
+        });
 
-    // Update order status
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { status: 'Processing' }
-    });
+        // Create order history entry
+        await tx.orderHistory.create({
+          data: {
+            orderId,
+            staffId: admin.id,
+            action: 'processing_update',
+            oldValue: OrderStatus.ORDER_PLACED,
+            newValue: OrderStatus.PROCESSING_STARTED,
+            description: 'Processing started by facility team',
+            metadata: JSON.stringify({
+              processingStatus,
+              processingNotes,
+              totalPieces,
+              totalWeight
+            })
+          }
+        });
 
-    return NextResponse.json({
-      success: true,
-      message: "Order processing started successfully",
-      processing: {
-        ...processing,
-        processingItems
-      }
-    });
-  } catch (error) {
-    console.error("Error starting order processing:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
-      return createAdminAuthErrorResponse();
+        return newProcessing;
+      });
+    } else {
+      // Update existing processing record
+      processing = await prisma.orderProcessing.update({
+        where: { orderId },
+        data: {
+          processingStatus,
+          totalPieces,
+          totalWeight,
+          processingNotes,
+          qualityScore,
+          processingCompletedAt: processingStatus === ProcessingStatus.READY_FOR_DELIVERY ? new Date() : undefined
+        }
+      });
     }
+
+    // Update processing items if provided
+    if (items && items.length > 0) {
+      for (const item of items) {
+        if (!validItemStatuses.includes(item.status)) {
+          return NextResponse.json({ error: "Invalid item status" }, { status: 400 });
+        }
+
+        await prisma.processingItem.updateMany({
+          where: { 
+            orderServiceMappingId: item.orderServiceMappingId,
+            orderServiceMapping: {
+              orderId
+            }
+          },
+          data: { 
+            status: item.status,
+            notes: item.notes
+          }
+        });
+      }
+    }
+
+    // Update order status based on processing status
+    let orderStatus: string | undefined;
+    let oldStatus: string | undefined;
     
+    // Get current order status
+    const currentOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true }
+    });
+    
+    oldStatus = currentOrder?.status;
+
+    if (processingStatus === ProcessingStatus.READY_FOR_DELIVERY) {
+      orderStatus = OrderStatus.READY_FOR_DELIVERY;
+    } else if (processingStatus === ProcessingStatus.QUALITY_CHECK) {
+      orderStatus = OrderStatus.QUALITY_CHECK;
+    } else if (processingStatus === ProcessingStatus.COMPLETED) {
+      orderStatus = OrderStatus.PROCESSING_COMPLETED;
+    }
+
+    if (orderStatus && orderStatus !== oldStatus) {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: orderStatus as any }
+      });
+
+      // Create order history entry
+      await prisma.orderHistory.create({
+        data: {
+          orderId,
+          staffId: admin.id,
+          action: 'processing_update',
+          oldValue: oldStatus || 'UNKNOWN',
+          newValue: orderStatus,
+          description: `Processing status updated to ${processingStatus.replace('_', ' ').toLowerCase()}`,
+          metadata: JSON.stringify({
+            processingStatus,
+            processingNotes,
+            totalPieces,
+            totalWeight,
+            qualityScore
+          })
+        }
+      });
+    }
+
+    // After processing is created or updated, update order status if needed
+    let newOrderStatus;
+    if (processingStatus === ProcessingStatus.IN_PROGRESS) newOrderStatus = OrderStatus.PROCESSING_STARTED;
+    else if (processingStatus === ProcessingStatus.COMPLETED) newOrderStatus = OrderStatus.PROCESSING_COMPLETED;
+    else if (processingStatus === ProcessingStatus.QUALITY_CHECK) newOrderStatus = OrderStatus.QUALITY_CHECK;
+    else if (processingStatus === ProcessingStatus.READY_FOR_DELIVERY) newOrderStatus = OrderStatus.READY_FOR_DELIVERY;
+    if (newOrderStatus) {
+      await OrderTrackingService.updateOrderStatus({
+        orderId,
+        staffId: admin.id,
+        newStatus: newOrderStatus,
+        notes: processingNotes
+      });
+    }
+
+    return NextResponse.json({ 
+      message: "Processing updated successfully",
+      processing 
+    });
+
+  } catch (error) {
+    console.error("Error updating processing:", error);
     return NextResponse.json(
-      { error: "Failed to start order processing" },
+      { error: "Failed to update processing" },
       { status: 500 }
     );
   }
 }
 
-// PUT - Update processing status
-export async function PUT(req: Request) {
+export async function PUT(request: NextRequest) {
   try {
     const admin = await requireAuthenticatedAdmin();
     
-    const { searchParams } = new URL(req.url);
+    const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
     const action = searchParams.get('action');
     
     if (!orderId) {
-      return NextResponse.json(
-        { error: "Order ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
     }
 
+    const body = await request.json() as UpdateItemProcessingRequest | UpdateProcessingRequest;
+
     if (action === 'updateItem') {
-      // Handle item-level processing updates
-      const { processingItemDetailId, processedQuantity, status, processingNotes, qualityScore, updateParentStatus }: UpdateItemProcessingRequest = await req.json();
-      
-      const updatedDetail = await prisma.processingItemDetail.update({
+      // Handle item processing update
+      const itemBody = body as UpdateItemProcessingRequest;
+      const {
+        processingItemDetailId,
+        processedQuantity,
+        status,
+        processingNotes,
+        qualityScore,
+        updateParentStatus
+      } = itemBody;
+
+      if (!processingItemDetailId || !status) {
+        return NextResponse.json({ error: "Processing item detail ID and status are required" }, { status: 400 });
+      }
+
+      // Validate status
+      const validItemStatuses = Object.values(ItemStatus);
+      if (!validItemStatuses.includes(status)) {
+        return NextResponse.json({ error: "Invalid item status" }, { status: 400 });
+      }
+
+      // Get current processing item detail to capture old status
+      const currentProcessingItemDetail = await prisma.processingItemDetail.findUnique({
+        where: { id: processingItemDetailId },
+        select: { status: true }
+      });
+
+      const oldItemStatus = currentProcessingItemDetail?.status || 'UNKNOWN';
+
+      // Update the processing item detail
+      const updatedProcessingItemDetail = await prisma.processingItemDetail.update({
         where: { id: processingItemDetailId },
         data: {
-          ...(processedQuantity !== undefined && { processedQuantity }),
-          ...(status && { status }),
-          ...(processingNotes !== undefined && { processingNotes }),
-          ...(qualityScore !== undefined && { qualityScore })
-        },
-        include: {
-          orderItem: true,
-          processingItem: {
-            include: {
-              orderServiceMapping: {
-                include: {
-                  service: true
-                }
-              }
-            }
-          }
+          processedQuantity: processedQuantity || 0,
+          status: status as ItemStatus,
+          processingNotes: processingNotes || null,
+          qualityScore: qualityScore || null,
         }
       });
 
-      // Only update parent processing item status if explicitly requested
+      // Update parent processing item status if requested
       if (updateParentStatus) {
-        const allDetails = await prisma.processingItemDetail.findMany({
-          where: { processingItemId: updatedDetail.processingItemId }
+        const processingItemDetail = await prisma.processingItemDetail.findUnique({
+          where: { id: processingItemDetailId },
+          include: { processingItem: true }
         });
 
-        const allCompleted = allDetails.every(detail => detail.status === 'completed');
-        const anyInProgress = allDetails.some(detail => detail.status === 'in_progress');
-        const anyIssues = allDetails.some(detail => detail.status === 'issue_reported');
+        if (processingItemDetail) {
+          // Check if all details in this processing item are completed
+          const allDetails = await prisma.processingItemDetail.findMany({
+            where: { processingItemId: processingItemDetail.processingItem.id }
+          });
 
-        let newStatus = 'pending';
-        if (anyIssues) {
-          newStatus = 'issue_reported';
-        } else if (allCompleted) {
-          newStatus = 'completed';
-        } else if (anyInProgress) {
-          newStatus = 'in_progress';
+          const allCompleted = allDetails.every(detail => detail.status === 'COMPLETED');
+          const anyInProgress = allDetails.some(detail => detail.status === 'IN_PROGRESS');
+
+          let newStatus: ItemStatus = 'PENDING';
+          if (allCompleted) {
+            newStatus = 'COMPLETED';
+          } else if (anyInProgress) {
+            newStatus = 'IN_PROGRESS';
+          }
+
+          await prisma.processingItem.update({
+            where: { id: processingItemDetail.processingItem.id },
+            data: { status: newStatus }
+          });
         }
-
-        await prisma.processingItem.update({
-          where: { id: updatedDetail.processingItemId },
-          data: { status: newStatus }
-        });
       }
 
-      return NextResponse.json({
-        success: true,
-        message: "Item processing updated successfully",
-        processingItemDetail: updatedDetail
-      });
-    } else if (action === 'addOrderItem') {
-      // Handle adding order items to processing
-      const { orderServiceMappingId, itemName, itemType, quantity, pricePerItem, notes }: AddOrderItemRequest = await req.json();
-      
-      // Create the order item
-      const orderItem = await prisma.orderItem.create({
+      // Create order history entry for item processing update
+      await prisma.orderHistory.create({
         data: {
-          orderServiceMappingId,
-          itemName,
-          itemType,
-          quantity,
-          pricePerItem,
-          totalPrice: quantity * pricePerItem,
-          notes
-        },
-        include: {
-          orderServiceMapping: {
-            include: {
-              service: true
-            }
-          }
+          orderId: parseInt(orderId),
+          staffId: admin.id,
+          action: 'processing_update',
+          oldValue: oldItemStatus,
+          newValue: status,
+          description: `Item processing updated from ${oldItemStatus.replace('_', ' ').toLowerCase()} to ${status.replace('_', ' ').toLowerCase()}`,
+          metadata: JSON.stringify({
+            processingItemDetailId,
+            processedQuantity,
+            status,
+            processingNotes,
+            qualityScore
+          })
         }
       });
-
-      // If there's an existing processing record, add processing item details
-      const existingProcessing = await prisma.orderProcessing.findUnique({
-        where: { orderId: parseInt(orderId) },
-        include: {
-          processingItems: {
-            where: { orderServiceMappingId }
-          }
-        }
-      });
-
-      if (existingProcessing && existingProcessing.processingItems.length > 0) {
-        const processingItem = existingProcessing.processingItems[0];
-        
-        // Create processing item detail for the new order item
-        await prisma.processingItemDetail.create({
-          data: {
-            processingItemId: processingItem.id,
-            orderItemId: orderItem.id,
-            quantity: orderItem.quantity,
-            status: 'pending'
-          }
-        });
-      }
 
       return NextResponse.json({
-        success: true,
-        message: "Order item added successfully",
-        orderItem
+        message: "Item processing updated successfully",
+        processingItemDetail: updatedProcessingItemDetail
       });
     } else {
-      // Handle overall processing updates
-      const { processingStatus, totalPieces, totalWeight, processingNotes, qualityScore }: UpdateProcessingRequest = await req.json();
+      // Handle general processing update
+      const processingBody = body as UpdateProcessingRequest;
+      const {
+        processingStatus,
+        totalPieces,
+        totalWeight,
+        processingNotes,
+        qualityScore
+      } = processingBody;
+
+      if (!processingStatus) {
+        return NextResponse.json({ error: "Processing status is required" }, { status: 400 });
+      }
+
+      // Validate enum values
+      const validProcessingStatuses = Object.values(ProcessingStatus);
+      if (!validProcessingStatuses.includes(processingStatus)) {
+        return NextResponse.json({ error: "Invalid processing status" }, { status: 400 });
+      }
+
+      // Get current order status
+      const currentOrder = await prisma.order.findUnique({
+        where: { id: parseInt(orderId) },
+        select: { status: true }
+      });
+      
+      const oldStatus = currentOrder?.status;
 
       // Update processing record
       const processing = await prisma.orderProcessing.update({
         where: { orderId: parseInt(orderId) },
         data: {
-          ...(processingStatus && { processingStatus }),
-          ...(totalPieces !== undefined && { totalPieces }),
-          ...(totalWeight !== undefined && { totalWeight }),
-          ...(processingNotes !== undefined && { processingNotes }),
-          ...(qualityScore !== undefined && { qualityScore }),
-          ...(processingStatus === 'ready_for_delivery' && { processingCompletedAt: new Date() })
-        },
-        include: {
-          staff: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          processingItems: {
-            include: {
-              orderServiceMapping: {
-                include: {
-                  service: true,
-                  orderItems: true
-                }
-              },
-              processingItemDetails: {
-                include: {
-                  orderItem: true
-                }
-              }
-            }
-          }
+          processingStatus,
+          totalPieces,
+          totalWeight,
+          processingNotes,
+          qualityScore,
+          processingCompletedAt: processingStatus === ProcessingStatus.READY_FOR_DELIVERY ? new Date() : undefined
         }
       });
 
       // Update order status based on processing status
-      let orderStatus = 'Processing';
-      if (processingStatus === 'ready_for_delivery') {
-        orderStatus = 'Cleaning Complete';
-      } else if (processingStatus === 'quality_check') {
-        orderStatus = 'Quality Check';
+      let orderStatus: OrderStatus | undefined;
+      if (processingStatus === ProcessingStatus.READY_FOR_DELIVERY) {
+        orderStatus = OrderStatus.READY_FOR_DELIVERY;
+      } else if (processingStatus === ProcessingStatus.QUALITY_CHECK) {
+        orderStatus = OrderStatus.QUALITY_CHECK;
+      } else if (processingStatus === ProcessingStatus.COMPLETED) {
+        orderStatus = OrderStatus.PROCESSING_COMPLETED;
       }
 
-      await prisma.order.update({
-        where: { id: parseInt(orderId) },
-        data: { status: orderStatus }
-      });
+      if (orderStatus && orderStatus !== oldStatus) {
+        await prisma.order.update({
+          where: { id: parseInt(orderId) },
+          data: { status: orderStatus }
+        });
 
-      return NextResponse.json({
-        success: true,
+        // Create order history entry
+        await prisma.orderHistory.create({
+          data: {
+            orderId: parseInt(orderId),
+            staffId: admin.id,
+            action: 'processing_update',
+            oldValue: oldStatus || 'UNKNOWN',
+            newValue: orderStatus,
+            description: `Processing status updated to ${processingStatus.replace('_', ' ').toLowerCase()}`,
+            metadata: JSON.stringify({
+              processingStatus,
+              processingNotes,
+              totalPieces,
+              totalWeight,
+              qualityScore
+            })
+          }
+        });
+      }
+
+      return NextResponse.json({ 
         message: "Processing updated successfully",
-        processing
+        processing 
       });
     }
+
   } catch (error) {
     console.error("Error updating processing:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
-      return createAdminAuthErrorResponse();
-    }
-    
     return NextResponse.json(
       { error: "Failed to update processing" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAuthenticatedAdmin();
+    
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status') as ProcessingStatus;
+    const orderId = searchParams.get('orderId');
+
+    const where: any = {};
+    
+    if (status) {
+      where.processingStatus = status;
+    }
+    
+    if (orderId) {
+      where.orderId = parseInt(orderId);
+    }
+
+    const processing = await prisma.orderProcessing.findMany({
+      where,
+      include: {
+        order: {
+          include: {
+            customer: true,
+            orderServiceMappings: {
+              include: {
+                service: true,
+                processingItems: true
+              }
+            }
+          }
+        },
+        staff: true,
+        processingItems: true,
+        issueReports: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    return NextResponse.json(processing);
+
+  } catch (error) {
+    console.error("Error fetching processing:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch processing" },
       { status: 500 }
     );
   }

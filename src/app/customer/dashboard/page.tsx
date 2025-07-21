@@ -107,39 +107,100 @@ const TAB_CONFIG = [
   },
 ] as const;
 
+import { OrderStatus } from "@prisma/client";
+
 // Enhanced status configuration with better colors and icons
-const STATUS_CONFIG = {
-  'Order Placed': { 
+const STATUS_CONFIG: Record<OrderStatus, {
+  color: string;
+  icon: string;
+  bgColor: string;
+}> = {
+  [OrderStatus.ORDER_PLACED]: { 
     color: 'bg-blue-50 text-blue-700 border-blue-200',
     icon: '📝',
     bgColor: 'bg-blue-100'
   },
-  'Picked Up': { 
+  [OrderStatus.CONFIRMED]: { 
+    color: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: '✅',
+    bgColor: 'bg-purple-100'
+  },
+  [OrderStatus.PICKUP_ASSIGNED]: { 
+    color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: '🚚',
+    bgColor: 'bg-indigo-100'
+  },
+  [OrderStatus.PICKUP_IN_PROGRESS]: { 
     color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
     icon: '🚚',
     bgColor: 'bg-yellow-100'
   },
-  'In Process': { 
-    color: 'bg-purple-50 text-purple-700 border-purple-200',
+  [OrderStatus.PICKUP_COMPLETED]: { 
+    color: 'bg-green-50 text-green-700 border-green-200',
+    icon: '✅',
+    bgColor: 'bg-green-100'
+  },
+  [OrderStatus.PICKUP_FAILED]: { 
+    color: 'bg-red-50 text-red-700 border-red-200',
+    icon: '❌',
+    bgColor: 'bg-red-100'
+  },
+  [OrderStatus.RECEIVED_AT_FACILITY]: { 
+    color: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    icon: '🏢',
+    bgColor: 'bg-cyan-100'
+  },
+  [OrderStatus.PROCESSING_STARTED]: { 
+    color: 'bg-orange-50 text-orange-700 border-orange-200',
     icon: '⚙️',
-    bgColor: 'bg-purple-100'
+    bgColor: 'bg-orange-100'
   },
-  'Cleaning Complete': { 
-    color: 'bg-green-50 text-green-700 border-green-200',
+  [OrderStatus.PROCESSING_COMPLETED]: { 
+    color: 'bg-lime-50 text-lime-700 border-lime-200',
     icon: '✅',
-    bgColor: 'bg-green-100'
+    bgColor: 'bg-lime-100'
   },
-  'Ready for Delivery': { 
-    color: 'bg-green-50 text-green-700 border-green-200',
-    icon: '✅',
-    bgColor: 'bg-green-100'
+  [OrderStatus.QUALITY_CHECK]: { 
+    color: 'bg-pink-50 text-pink-700 border-pink-200',
+    icon: '🔍',
+    bgColor: 'bg-pink-100'
   },
-  'Delivered': { 
+  [OrderStatus.READY_FOR_DELIVERY]: { 
+    color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    icon: '📦',
+    bgColor: 'bg-emerald-100'
+  },
+  [OrderStatus.DELIVERY_ASSIGNED]: { 
+    color: 'bg-teal-50 text-teal-700 border-teal-200',
+    icon: '🚚',
+    bgColor: 'bg-teal-100'
+  },
+  [OrderStatus.DELIVERY_IN_PROGRESS]: { 
+    color: 'bg-blue-50 text-blue-700 border-blue-200',
+    icon: '🚚',
+    bgColor: 'bg-blue-100'
+  },
+  [OrderStatus.DELIVERED]: { 
     color: 'bg-gray-50 text-gray-700 border-gray-200',
     icon: '🎉',
     bgColor: 'bg-gray-100'
   },
-} as const;
+  [OrderStatus.DELIVERY_FAILED]: { 
+    color: 'bg-red-50 text-red-700 border-red-200',
+    icon: '❌',
+    bgColor: 'bg-red-100'
+  },
+  [OrderStatus.CANCELLED]: { 
+    color: 'bg-red-50 text-red-700 border-red-200',
+    icon: '❌',
+    bgColor: 'bg-red-100'
+  },
+  [OrderStatus.REFUNDED]: { 
+    color: 'bg-amber-50 text-amber-700 border-amber-200',
+    icon: '💰',
+    bgColor: 'bg-amber-100'
+  },
+};
 
 // Enhanced Stats Card Component with better visual design
 const StatsCard = memo(({ 
@@ -239,7 +300,6 @@ const OrderItem = memo(({
         alert(errorData.error || 'Failed to download invoice');
       }
     } catch (error) {
-      console.error('Error downloading invoice:', error);
       alert('Failed to download invoice');
     } finally {
       setInvoiceLoading(false);
@@ -247,7 +307,7 @@ const OrderItem = memo(({
   }, [order.id, order.orderNumber]);
 
   const statusConfig = getStatusConfig(order.status);
-  const canDownloadInvoice = order.status === 'Cleaning Complete';
+  const canDownloadInvoice = order.status === OrderStatus.READY_FOR_DELIVERY;
 
   return (
     <div 
@@ -376,7 +436,7 @@ const DetailedOrderItem = memo(({
   }, [order.id, order.orderNumber]);
 
   const statusConfig = getStatusConfig(order.status);
-  const canDownloadInvoice = order.status === 'Cleaning Complete';
+  const canDownloadInvoice = order.status === OrderStatus.READY_FOR_DELIVERY;
 
   return (
     <div 
@@ -526,6 +586,9 @@ QuickActionButton.displayName = 'QuickActionButton';
 function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5); // Default page size
+  const [totalOrders, setTotalOrders] = useState(0);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -621,8 +684,8 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
 
   // Memoized data calculations
   const statsData = useMemo(() => {
-    const activeOrders = orders.filter(order => !['Delivered', 'Cancelled'].includes(order.status)).length;
-    const completedOrders = orders.filter(order => order.status === 'Delivered').length;
+    const activeOrders = orders.filter(order => ![OrderStatus.DELIVERED, OrderStatus.CANCELLED].includes(order.status as any)).length;
+    const completedOrders = orders.filter(order => order.status === OrderStatus.DELIVERED).length;
     
     return [
       {
@@ -637,7 +700,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
       {
         icon: '📦',
         title: 'Total Orders',
-        value: orders.length,
+        value: totalOrders,
         subtitle: 'All time',
         bgColor: 'bg-gradient-to-br from-green-100 to-green-200',
         textColor: 'text-green-700'
@@ -659,29 +722,31 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
         textColor: 'text-purple-700'
       }
     ];
-  }, [customer?.walletBalance, orders]);
+  }, [customer?.walletBalance, orders, totalOrders]);
 
   const recentOrders = useMemo(() => {
-    return orders;
+    return orders.slice(0, 3);
   }, [orders]);
 
   const hasMoreOrders = useMemo(() => {
-    return orders.length === 3;
-  }, [orders.length]);
+    return totalOrders > 3;
+  }, [totalOrders]);
 
   const fetchOrders = useCallback(async () => {
     try {
-      const response = await fetch('/api/customer/orders?limit=3&sort=updatedAt&order=desc');
+      const response = await fetch(`/api/customer/orders?limit=${limit}&page=${page}&sort=updatedAt&order=desc`);
       if (response.ok) {
-        const data = await response.json() as OrdersResponse;
+        // Explicitly type the response
+        const data: { orders: Order[]; total: number } = await response.json();
         if (data && typeof data === 'object' && 'orders' in data && Array.isArray(data.orders)) {
           setOrders(data.orders);
+          setTotalOrders(data.total || 0);
         }
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
     }
-  }, []);
+  }, [limit, page]);
 
   const fetchAddresses = useCallback(async () => {
     try {
@@ -741,6 +806,13 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
       fetchOrdersAndAddresses();
     }
   }, [authLoading, sessionStatus, isAuthenticated, authCustomer, router, activeTab, fetchOrdersAndAddresses]);
+
+  // Fetch orders when page or limit changes
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      fetchOrders();
+    }
+  }, [fetchOrders, page, limit, activeTab]);
 
   // Set loading to false if we have customer data from useAuth
   useEffect(() => {
@@ -917,7 +989,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                   </h3>
                 </div>
                 <div className="p-8">
-                  {orders.length === 0 ? (
+                  {recentOrders.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <span className="text-3xl">📦</span>
@@ -980,15 +1052,37 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    {orders.map((order) => (
-                      <DetailedOrderItem
-                        key={order.id}
-                        order={order}
-                        onViewOrder={handleViewOrder}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="space-y-6">
+                      {orders.map((order) => (
+                        <DetailedOrderItem
+                          key={order.id}
+                          order={order}
+                          onViewOrder={handleViewOrder}
+                        />
+                      ))}
+                    </div>
+                    {/* Pagination Controls */}
+                    <div className="flex justify-between items-center mt-8">
+                      <button
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="px-4 py-2 rounded bg-gray-100 text-gray-700 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span>
+                        Page {page} of {Math.max(1, Math.ceil(totalOrders / limit))}
+                      </span>
+                      <button
+                        onClick={() => setPage((p) => p + 1)}
+                        disabled={page >= Math.ceil(totalOrders / limit)}
+                        className="px-4 py-2 rounded bg-gray-100 text-gray-700 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1055,7 +1149,7 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
                               <span>View Details</span>
                               <span>→</span>
                             </button>
-                            {order.status === 'Cleaning Complete' && (
+                            {order.status === OrderStatus.READY_FOR_DELIVERY && (
                               <button
                                 onClick={async () => {
                                   try {

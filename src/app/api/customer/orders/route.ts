@@ -1,308 +1,189 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { emailService } from "@/lib/emailService";
-import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
+import { requireAuthenticatedCustomer } from "@/lib/auth";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
 
-interface OrderRequestBody {
-  addressId: string;
-  pickupDate: string;
+interface CreateOrderRequest {
+  addressId?: number;
   pickupTime: string;
-  deliveryDate: string;
   deliveryTime: string;
-  services: string[];
   specialInstructions?: string;
-  contactNumber?: string;
+  services: Array<{
+    serviceId: number;
+    quantity: number;
+  }>;
+  customerFirstName: string;
+  customerLastName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerAddress: string;
 }
 
-export async function POST(req: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Get authenticated customer using NextAuth
-    const authenticatedCustomer = await requireAuthenticatedCustomer();
-    
-    const body = await req.json() as OrderRequestBody;
+    const customer = await requireAuthenticatedCustomer();
 
-    // Validate required fields
-    if (!body.addressId || !body.pickupDate || !body.pickupTime || 
-        !body.deliveryDate || !body.deliveryTime || !body.services || body.services.length === 0) {
-      return NextResponse.json(
-        { error: "Missing required fields: addressId, pickupDate, pickupTime, deliveryDate, deliveryTime, and services are required" },
-        { status: 400 }
-      );
-    }
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status') as OrderStatus;
+    const paymentStatus = searchParams.get('paymentStatus') as PaymentStatus;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 10;
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
+    const sort = searchParams.get('sort') || 'createdAt';
+    const order = searchParams.get('order') || 'desc';
 
-    return await handleCustomerOrder(body, authenticatedCustomer);
-  } catch (error) {
-    console.error("Error creating order:", error);
-    
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return createAuthErrorResponse();
-    }
-    
-    return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
-    );
-  }
-}
-
-async function handleCustomerOrder(body: OrderRequestBody, customer: any) {
-  try {
-    // Get the selected address and validate ownership
-    const address = await prisma.address.findFirst({
-      where: {
-        id: parseInt(body.addressId),
-        customerId: customer.id
-      }
-    });
-
-    if (!address) {
-      return NextResponse.json(
-        { error: "Address not found or access denied" },
-        { status: 404 }
-      );
-    }
-
-    // Generate unique order number
-    const orderNumber = `LL${Date.now().toString().slice(-8)}${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
-
-    // Parse and validate datetime
-    const pickupDateTime = new Date(`${body.pickupDate}T${body.pickupTime}:00`);
-    const deliveryDateTime = new Date(`${body.deliveryDate}T${body.deliveryTime}:00`);
-
-    // Validate that delivery is after pickup
-    if (deliveryDateTime <= pickupDateTime) {
-      return NextResponse.json(
-        { error: "Delivery time must be after pickup time" },
-        { status: 400 }
-      );
-    }
-
-    // Validate that pickup is not in the past
-    const now = new Date();
-    if (pickupDateTime <= now) {
-      return NextResponse.json(
-        { error: "Pickup time cannot be in the past" },
-        { status: 400 }
-      );
-    }
-
-    // Create order with transaction for data consistency
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the order
-      const order = await tx.order.create({
-        data: {
-          orderNumber: orderNumber,
-          customerId: customer.id,
-          addressId: address.id,
-          pickupTime: pickupDateTime,
-          deliveryTime: deliveryDateTime,
-          specialInstructions: body.specialInstructions || "",
-          status: "Order Placed",
-          customerFirstName: customer.firstName,
-          customerLastName: customer.lastName,
-          customerEmail: customer.email,
-          customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
-          customerAddress: address.address || address.addressLine1,
-          paymentStatus: "Pending",
-        },
-      });
-
-      // Create order service mappings for each service
-      const serviceMappings = [];
-      for (const serviceId of body.services) {
-        // Get service details to get the price
-        const service = await tx.service.findUnique({
-          where: { id: parseInt(serviceId) }
-        });
-
-        if (!service) {
-          throw new Error(`Service with ID ${serviceId} not found`);
-        }
-
-        const mapping = await tx.orderServiceMapping.create({
-          data: {
-            orderId: order.id,
-            serviceId: service.id,
-            quantity: 1,
-            price: service.price,
-          }
-        });
-        
-        serviceMappings.push(mapping);
-      }
-
-      return { order, serviceMappings };
-    });
-
-    // Send emails asynchronously (don't block order creation)
-    sendOrderEmails(result.order, customer, address, body.services).catch(emailError => {
-      console.error("Email sending failed:", emailError);
-    });
-
-    return NextResponse.json({
-      success: true,
-      orderNumber: result.order.orderNumber,
-      message: "Order created successfully",
-      orderId: result.order.id
-    });
-
-  } catch (error) {
-    console.error("Error creating customer order:", error);
-    
-    if (error instanceof Error && error.message.includes('Service with ID')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
-    
-    return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
-    );
-  }
-}
-
-async function sendOrderEmails(order: any, customer: any, address: any, services: string[]) {
-  try {
-    const pickupDateTime = order.pickupTime;
-    const deliveryDateTime = order.deliveryTime;
-
-    // Send order confirmation email to customer
-    await emailService.sendOrderConfirmationToCustomer(
-      order,
-      customer.email,
-      `${customer.firstName} ${customer.lastName}`,
-      {
-        pickupDateTime,
-        deliveryDateTime,
-        services,
-        address: address.address || address.addressLine1,
-        locationType: address.locationType
-      }
-    );
-
-    // Send admin notification
-    await emailService.sendOrderNotificationToAdmin(order, {
-      name: `${customer.firstName} ${customer.lastName}`,
-      email: customer.email,
-      phone: customer.phone,
-      address: address.address || address.addressLine1,
-      services
-    });
-  } catch (error) {
-    console.error("Email sending failed:", error);
-    // Don't throw - emails are not critical for order creation
-  }
-}
-
-export async function GET(req: Request) {
-  try {
-    // Get authenticated customer using NextAuth
-    const authenticatedCustomer = await requireAuthenticatedCustomer();
-
-    // Parse query parameters
-    const { searchParams } = new URL(req.url);
-    const limit = searchParams.get('limit');
-    const sort = searchParams.get('sort');
-    const order = searchParams.get('order');
-    const status = searchParams.get('status');
-
-    // Build orderBy object
-    let orderBy: any = { createdAt: 'desc' }; // default sorting
-    if (sort === 'updatedAt') {
-      orderBy = { updatedAt: order === 'asc' ? 'asc' : 'desc' };
-    } else if (sort === 'createdAt') {
-      orderBy = { createdAt: order === 'asc' ? 'asc' : 'desc' };
-    } else if (sort === 'pickupTime') {
-      orderBy = { pickupTime: order === 'asc' ? 'asc' : 'desc' };
-    }
-
-    // Build take object for limiting results
-    let take: number | undefined = undefined;
-    if (limit) {
-      const limitNum = parseInt(limit);
-      if (!isNaN(limitNum) && limitNum > 0 && limitNum <= 100) { // Add reasonable upper limit
-        take = limitNum;
-      }
-    }
-
-    // Build where clause
-    const whereClause: any = {
-      customerId: authenticatedCustomer.id
+    const where: any = {
+      customerId: customer.id
     };
 
     if (status) {
-      whereClause.status = status;
+      where.status = status;
     }
 
-    const customer = await prisma.customer.findUnique({
-      where: { id: authenticatedCustomer.id },
+    if (paymentStatus) {
+      where.paymentStatus = paymentStatus;
+    }
+
+    // Get total count for pagination
+    const total = await prisma.order.count({ where });
+
+    const orders = await prisma.order.findMany({
+      where,
       include: {
-        orders: {
-          where: whereClause,
+        orderServiceMappings: {
           include: {
-            address: true,
-            orderServiceMappings: {
-              include: {
-                service: true,
-                orderItems: true,
-              },
-            },
+            service: true,
+            orderItems: true
+          }
+        },
+        address: true,
+        orderUpdates: {
+          orderBy: {
+            createdAt: 'desc'
           },
-          orderBy,
-          ...(take && { take })
+          take: 10
+        },
+        driverAssignments: {
+          include: {
+            driver: {
+              select: {
+                firstName: true,
+                lastName: true,
+                phone: true
+              }
+            }
+          }
+        },
+        orderProcessing: {
+          include: {
+            processingItems: true,
+            issueReports: true
+          }
         }
+      },
+      orderBy: {
+        [sort]: order
+      },
+      skip: (page - 1) * limit,
+      take: limit
+    });
+
+    return NextResponse.json({ orders, total });
+
+  } catch (error) {
+    console.error("Error fetching customer orders:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch orders" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const customer = await requireAuthenticatedCustomer();
+    const body: CreateOrderRequest = await request.json();
+    const {
+      addressId,
+      pickupTime,
+      deliveryTime,
+      specialInstructions,
+      services,
+      customerFirstName,
+      customerLastName,
+      customerEmail,
+      customerPhone,
+      customerAddress
+    } = body;
+
+    // Validate required fields
+    if (!pickupTime || !deliveryTime || !services || !Array.isArray(services)) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Generate order number
+    const orderNumber = `LL${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+    // Create order
+    const order = await prisma.order.create({
+      data: {
+        orderNumber,
+        customerId: customer.id,
+        addressId,
+        status: OrderStatus.ORDER_PLACED,
+        pickupTime: new Date(pickupTime),
+        deliveryTime: new Date(deliveryTime),
+        specialInstructions,
+        customerFirstName,
+        customerLastName,
+        customerEmail,
+        customerPhone,
+        customerAddress,
+        paymentStatus: PaymentStatus.PENDING
       }
     });
 
-    if (!customer) {
-      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    // Create service mappings
+    let totalAmount = 0;
+    for (const service of services) {
+      const serviceRecord = await prisma.service.findUnique({
+        where: { id: service.serviceId }
+      });
+
+      if (!serviceRecord) {
+        return NextResponse.json({ error: `Service ${service.serviceId} not found` }, { status: 404 });
+      }
+
+      const serviceTotal = serviceRecord.price * service.quantity;
+      totalAmount += serviceTotal;
+
+      await prisma.orderServiceMapping.create({
+        data: {
+          orderId: order.id,
+          serviceId: service.serviceId,
+          quantity: service.quantity,
+          price: serviceRecord.price
+        }
+      });
     }
 
-    // Transform orders to include order items with service information
-    const transformedOrders = customer.orders.map((order: typeof customer.orders[0]) => {
-      return {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        status: order.status,
-        invoiceTotal: order.invoiceTotal || 0,
-        pickupTime: order.pickupTime.toISOString(),
-        deliveryTime: order.deliveryTime?.toISOString(),
-        createdAt: order.createdAt.toISOString(),
-        updatedAt: order.updatedAt.toISOString(),
-        customerFirstName: order.customerFirstName,
-        customerLastName: order.customerLastName,
-        customerEmail: order.customerEmail,
-        customerPhone: order.customerPhone,
-        customerAddress: order.customerAddress,
-        specialInstructions: order.specialInstructions,
-        paymentStatus: order.paymentStatus,
-        orderServiceMappings: order.orderServiceMappings.map(mapping => ({
-          id: mapping.id,
-          service: mapping.service,
-          quantity: mapping.quantity,
-          price: mapping.price,
-          orderItems: mapping.orderItems
-        })),
-        address: order.address
-      };
+    // Update order with total amount
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { invoiceTotal: totalAmount }
     });
 
     return NextResponse.json({ 
-      success: true,
-      orders: transformedOrders,
-      total: transformedOrders.length
+      message: "Order created successfully",
+      order: {
+        ...order,
+        invoiceTotal: totalAmount
+      }
     });
+
   } catch (error) {
-    console.error("Error fetching orders:", error);
-    
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return createAuthErrorResponse();
-    }
-    
+    console.error("Error creating order:", error);
     return NextResponse.json(
-      { error: "Failed to fetch orders" },
+      { error: "Failed to create order" },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { DriverAssignmentStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,10 +50,10 @@ export async function GET(request: NextRequest) {
 
     // Calculate stats
     const totalAssignments = assignments.length;
-    const completedAssignments = assignments.filter(a => a.status === "completed").length;
-    const inProgressAssignments = assignments.filter(a => a.status === "in_progress").length;
-    const pendingAssignments = assignments.filter(a => a.status === "assigned").length;
-    const cancelledAssignments = assignments.filter(a => a.status === "cancelled").length;
+    const completedAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.COMPLETED).length;
+    const inProgressAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.IN_PROGRESS).length;
+    const pendingAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.ASSIGNED).length;
+    const cancelledAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.CANCELLED).length;
 
     // Calculate earnings (assuming $5 per completed assignment)
     const earnings = completedAssignments * 5;

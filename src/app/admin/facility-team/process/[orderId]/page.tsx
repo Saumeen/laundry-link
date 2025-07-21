@@ -7,6 +7,7 @@ import { X, Plus, CheckCircle, AlertCircle, Clock, ArrowLeft } from "lucide-reac
 import { useToast } from "@/components/ui/Toast";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Link from "next/link";
+import { OrderStatus } from "@prisma/client";
 
 interface OrderItem {
   id: number;
@@ -108,7 +109,7 @@ export default function ProcessOrderPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'add-item'>('overview');
   const [itemProcessingData, setItemProcessingData] = useState({
     processedQuantity: '',
-    status: 'pending',
+    status: 'PENDING',
     processingNotes: '',
     qualityScore: ''
   });
@@ -138,6 +139,7 @@ export default function ProcessOrderPage() {
   } | null>(null);
   const [selectedItemDetail, setSelectedItemDetail] = useState<ProcessingItemDetail | null>(null);
   const [showItemModal, setShowItemModal] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -173,7 +175,7 @@ export default function ProcessOrderPage() {
         router.push('/admin/facility-team');
       }
     } catch (error) {
-      console.error('Error fetching order:', error);
+      // Handle error silently
       showToast('Failed to fetch order details', 'error');
       router.push('/admin/facility-team');
     } finally {
@@ -189,7 +191,7 @@ export default function ProcessOrderPage() {
         setServicePricing(data.data || null);
       }
     } catch (error) {
-      console.error('Error fetching service pricing:', error);
+      // Handle error silently
     }
   };
 
@@ -317,7 +319,7 @@ export default function ProcessOrderPage() {
         showToast(errorData.error || 'Failed to add item', 'error');
       }
     } catch (error) {
-      console.error('Error adding order item:', error);
+      // Handle error silently
       showToast('Failed to add item. Please try again.', 'error');
     } finally {
       setIsLoading(false);
@@ -353,7 +355,7 @@ export default function ProcessOrderPage() {
         showToast(errorData.error || 'Failed to update item processing', 'error');
       }
     } catch (error) {
-      console.error('Error updating item processing:', error);
+      // Handle error silently
       showToast('Failed to update item processing. Please try again.', 'error');
     } finally {
       setIsLoading(false);
@@ -369,7 +371,7 @@ export default function ProcessOrderPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          processingStatus: 'ready_for_delivery',
+          processingStatus: OrderStatus.READY_FOR_DELIVERY,
           processingNotes: order?.orderProcessing?.processingNotes || 'Order completed and ready for delivery'
         }),
       });
@@ -402,6 +404,7 @@ export default function ProcessOrderPage() {
           },
           body: JSON.stringify({
             orderId: order?.id,
+            processingStatus: 'IN_PROGRESS',
             totalPieces: 0,
             totalWeight: 0,
             processingNotes: 'Processing started by facility team'
@@ -418,14 +421,8 @@ export default function ProcessOrderPage() {
       // Now refresh the order data to get the new processing items
       await fetchOrder();
       
-      // Find the processing detail for this item after refresh
-      const orderResponse = await fetch(`/api/admin/order-details/${orderId}`);
-      if (!orderResponse.ok) {
-        showToast('Failed to refresh order data', 'error');
-        return;
-      }
-      const updatedOrderData = await orderResponse.json() as OrderResponse;
-      const processingDetail = updatedOrderData.order.orderProcessing?.processingItems
+      // Find the processing detail for this item in the updated order data
+      const processingDetail = order?.orderProcessing?.processingItems
         .flatMap(pi => pi.processingItemDetails)
         .find(detail => detail.orderItem.id === item.id);
 
@@ -433,6 +430,11 @@ export default function ProcessOrderPage() {
         // Open the modal for the newly created processing detail
         openItemModal(processingDetail);
       } else {
+        // Add some debugging to understand what's happening
+        console.log('Order processing:', order?.orderProcessing);
+        console.log('Processing items:', order?.orderProcessing?.processingItems);
+        console.log('Looking for item ID:', item.id);
+        console.log('Available processing details:', order?.orderProcessing?.processingItems?.flatMap(pi => pi.processingItemDetails));
         showToast('Failed to create processing item for this order item', 'error');
       }
     } catch (error) {
@@ -456,11 +458,11 @@ export default function ProcessOrderPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return <Clock className="w-4 h-4 text-blue-600" />;
-      case 'issue_reported':
+      case 'ISSUE_REPORTED':
         return <AlertCircle className="w-4 h-4 text-red-600" />;
       default:
         return <Clock className="w-4 h-4 text-gray-400" />;
@@ -469,11 +471,11 @@ export default function ProcessOrderPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'bg-green-100 text-green-800';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-800';
-      case 'issue_reported':
+      case 'ISSUE_REPORTED':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -484,14 +486,64 @@ export default function ProcessOrderPage() {
     if (!order?.orderProcessing?.processingItems) return false;
     
     return order.orderProcessing.processingItems.every(processingItem => 
-      processingItem.processingItemDetails.every(detail => detail.status === 'completed')
+      processingItem.processingItemDetails.every(detail => detail.status === 'COMPLETED')
     );
   };
 
   const canMarkAsReadyForDelivery = () => {
     return order?.orderProcessing && 
-           order.orderProcessing.processingStatus !== 'ready_for_delivery' && 
+           order.orderProcessing.processingStatus !== OrderStatus.READY_FOR_DELIVERY && 
            isAllItemsCompleted();
+  };
+
+  const hasOrderItems = () => {
+    if (!order?.orderServiceMappings) return false;
+    
+    return order.orderServiceMappings.some(mapping => 
+      mapping.orderItems && mapping.orderItems.length > 0
+    );
+  };
+
+  const handleStartProcessingClick = () => {
+    if (!hasOrderItems()) {
+      setShowWarningModal(true);
+    } else {
+      startProcessing();
+    }
+  };
+
+  const startProcessing = async () => {
+    if (!order) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/facility-team/processing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          processingStatus: 'IN_PROGRESS',
+          totalPieces: 0,
+          totalWeight: 0,
+          processingNotes: 'Processing started by facility team'
+        }),
+      });
+
+      if (response.ok) {
+        showToast('Processing started successfully!', 'success');
+        await fetchOrder();
+      } else {
+        const errorData = await response.json() as { error?: string };
+        showToast(errorData.error || 'Failed to start processing', 'error');
+      }
+    } catch (error) {
+      console.error('Error starting processing:', error);
+      showToast('Failed to start processing. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (loading) {
@@ -535,17 +587,17 @@ export default function ProcessOrderPage() {
         backUrl="/admin/facility-team"
         rightContent={
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-            order.orderProcessing?.processingStatus === 'ready_for_delivery' ? 'bg-green-100 text-green-800' :
-            order.orderProcessing?.processingStatus === 'quality_check' ? 'bg-purple-100 text-purple-800' :
-            order.orderProcessing?.processingStatus === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-            order.status === 'Ready for Processing' ? 'bg-blue-100 text-blue-800' :
-            order.status === 'In Processing' ? 'bg-yellow-100 text-yellow-800' :
-            order.status === 'Completed' ? 'bg-green-100 text-green-800' :
+            order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'bg-green-100 text-green-800' :
+            order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'bg-purple-100 text-purple-800' :
+            order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
+            order.status === OrderStatus.READY_FOR_DELIVERY ? 'bg-green-100 text-green-800' :
+            order.status === OrderStatus.PROCESSING_STARTED ? 'bg-yellow-100 text-yellow-800' :
+            order.status === OrderStatus.PROCESSING_COMPLETED ? 'bg-green-100 text-green-800' :
             'bg-gray-100 text-gray-800'
           }`}>
-            {order.orderProcessing?.processingStatus === 'ready_for_delivery' ? 'Ready for Delivery' :
-             order.orderProcessing?.processingStatus === 'quality_check' ? 'Quality Check' :
-             order.orderProcessing?.processingStatus === 'in_progress' ? 'In Processing' :
+            {order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'Ready for Delivery' :
+             order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'Quality Check' :
+             order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'In Processing' :
              order.status}
           </span>
         }
@@ -610,42 +662,15 @@ export default function ProcessOrderPage() {
                 <h3 className="font-medium text-gray-900 mb-2">Processing Summary</h3>
                 <p className="text-sm text-gray-600">
                   {!order.orderProcessing 
-                    ? "Processing has not started yet. Use the Items tab to begin processing individual items."
+                    ? hasOrderItems() 
+                      ? "Processing has not started yet. Use the Items tab to begin processing individual items."
+                      : "No items are added to this order. Please add items using the Add Item tab before starting processing."
                     : `Processing started by facility team. ${order.orderProcessing.processingItems?.length || 0} service(s) being processed.`
                   }
                 </p>
                 {!order.orderProcessing && (
                   <button
-                    onClick={async () => {
-                      setIsLoading(true);
-                      try {
-                        const response = await fetch('/api/admin/facility-team/processing', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            orderId: order.id,
-                            totalPieces: 0,
-                            totalWeight: 0,
-                            processingNotes: 'Processing started by facility team'
-                          }),
-                        });
-
-                        if (response.ok) {
-                          showToast('Processing started successfully!', 'success');
-                          await fetchOrder();
-                        } else {
-                          const errorData = await response.json() as { error?: string };
-                          showToast(errorData.error || 'Failed to start processing', 'error');
-                        }
-                      } catch (error) {
-                        console.error('Error starting processing:', error);
-                        showToast('Failed to start processing. Please try again.', 'error');
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
+                    onClick={handleStartProcessingClick}
                     disabled={isLoading}
                     className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -684,7 +709,7 @@ export default function ProcessOrderPage() {
               {order.orderProcessing && (
                 <div className="bg-green-50 p-4 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-2">Order Completion</h3>
-                  {order.orderProcessing.processingStatus === 'ready_for_delivery' ? (
+                  {order.orderProcessing.processingStatus === OrderStatus.READY_FOR_DELIVERY ? (
                     <div className="text-sm text-gray-600">
                       <p className="text-green-700 font-medium">✅ Order marked as ready for delivery!</p>
                       <p className="mt-1">The driver has been notified and can now pick up this order.</p>
@@ -706,7 +731,7 @@ export default function ProcessOrderPage() {
                       <p>Complete all items in the <strong>Items</strong> tab to mark this order as ready for delivery.</p>
                       {order.orderProcessing.processingItems && (
                         <div className="mt-2 text-xs text-gray-500">
-                          Progress: {order.orderProcessing.processingItems.flatMap(pi => pi.processingItemDetails).filter(d => d.status === 'completed').length} / {order.orderProcessing.processingItems.flatMap(pi => pi.processingItemDetails).length} items completed
+                          Progress: {order.orderProcessing.processingItems.flatMap(pi => pi.processingItemDetails).filter(d => d.status === 'COMPLETED').length} / {order.orderProcessing.processingItems.flatMap(pi => pi.processingItemDetails).length} items completed
                         </div>
                       )}
                     </div>
@@ -1030,10 +1055,10 @@ export default function ProcessOrderPage() {
                     onChange={(e) => setItemProcessingData({...itemProcessingData, status: e.target.value})}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="issue_reported">Issue Reported</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="ISSUE_REPORTED">Issue Reported</option>
                   </select>
                 </div>
                 <div>
@@ -1071,6 +1096,47 @@ export default function ProcessOrderPage() {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Updating...' : 'Update'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning Modal for No Items */}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+                <AlertCircle className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">
+                No Items Added
+              </h3>
+              <div className="text-sm text-gray-600 mb-6">
+                <p className="mb-3">
+                  This order doesn't have any items added yet. Starting processing without items may affect the order workflow.
+                </p>
+                <p className="font-medium">
+                  Do you want to continue with processing anyway?
+                </p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowWarningModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowWarningModal(false);
+                    startProcessing();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Continue Anyway
                 </button>
               </div>
             </div>

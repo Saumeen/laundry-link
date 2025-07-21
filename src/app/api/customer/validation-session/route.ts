@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     const cookies = req.headers.get('cookie');
     if (cookies) {
       const cookieArray = cookies.split(';');
-      for (let cookie of cookieArray) {
+      for (const cookie of cookieArray) {
         const [name, value] = cookie.trim().split('=');
         if (name && (name.includes('customer') || name.includes('user') || name.includes('auth')) && value) {
           try {

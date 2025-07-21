@@ -4,6 +4,8 @@ import { emailService } from "@/lib/emailService";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
+import { OrderStatus, PaymentStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 
 interface AddressData {
   customerId: number;
@@ -80,13 +82,13 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
         pickupTime: pickupDateTime,
         deliveryTime: deliveryDateTime,
         specialInstructions: body.specialInstructions || "",
-        status: "Order Placed",
+        status: OrderStatus.ORDER_PLACED,
         customerFirstName: customer.firstName,
         customerLastName: customer.lastName,
         customerEmail: customer.email,
         customerPhone: address.contactNumber || body.contactNumber || "",
         customerAddress: address.address || address.addressLine1,
-        paymentStatus: "Pending",
+        paymentStatus: PaymentStatus.PENDING,
       },
     });
 
@@ -271,13 +273,13 @@ async function handleGuestCustomerOrder(body: any) {
         pickupTime: pickupDateTime,
         deliveryTime: deliveryDateTime,
         specialInstructions: body.specialInstructions || "",
-        status: "Order Placed",
+        status: OrderStatus.ORDER_PLACED,
         customerFirstName: customer.firstName,
         customerLastName: customer.lastName,
         customerEmail: customer.email,
         customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
         customerAddress: addressString,
-        paymentStatus: "Pending",
+        paymentStatus: PaymentStatus.PENDING,
       },
     });
 

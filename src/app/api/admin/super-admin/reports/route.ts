@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdminRoles, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { OrderStatus } from "@prisma/client";
 
 export async function GET(request: Request) {
   try {
@@ -280,7 +281,7 @@ export async function GET(request: Request) {
     try {
       completedOrders = await prisma.order.count({
         where: {
-          status: 'Delivered',
+          status: OrderStatus.DELIVERED,
           createdAt: {
             gte: startDate,
             lte: endDate

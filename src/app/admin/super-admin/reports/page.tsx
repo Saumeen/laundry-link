@@ -144,15 +144,15 @@ export default function ReportsPage() {
         if (data && typeof data === 'object') {
           setReportData(data);
         } else {
-          console.error('Invalid data structure received');
+          // Handle invalid data structure
           setReportData(null);
         }
       } else {
-        console.error('Failed to fetch reports');
+        // Handle failed request
         setReportData(null);
       }
     } catch (error) {
-      console.error('Error fetching reports:', error);
+      // Handle network error
       setReportData(null);
     } finally {
       setDataLoading(false);
@@ -188,10 +188,10 @@ export default function ReportsPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        console.error('Failed to export report');
+        // Handle export failure
       }
     } catch (error) {
-      console.error('Error exporting report:', error);
+      // Handle export error
     } finally {
       setExportLoading(false);
     }
@@ -228,7 +228,6 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!loading && adminUser) {
-      console.log('Fetching reports for date range:', dateRange);
       fetchReports();
     }
   }, [loading, adminUser, fetchReports]);

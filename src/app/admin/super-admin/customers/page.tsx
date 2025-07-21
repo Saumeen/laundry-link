@@ -77,7 +77,7 @@ const CustomerCard = memo(({
       <div className="text-right">
         <p className="text-sm text-gray-500">Wallet Balance</p>
         <p className="text-lg font-semibold text-green-600">
-          ${customer.walletBalance.toFixed(2)}
+          BD {customer.walletBalance.toFixed(2)}
         </p>
       </div>
     </div>
@@ -275,10 +275,12 @@ export default function CustomerManagement() {
         setCustomers(prev => append ? [...prev, ...data.customers] : data.customers);
         setHasMore(page < data.pagination.totalPages);
       } else {
-        console.error('Failed to fetch customers:', data.error);
+        // Handle error silently or show user-friendly message
+        setCustomers(prev => append ? prev : []);
       }
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      // Handle error silently or show user-friendly message
+      setCustomers(prev => append ? prev : []);
     } finally {
       setCustomersLoading(false);
       setIsLoadingMore(false);
@@ -303,7 +305,7 @@ export default function CustomerManagement() {
         });
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      // Handle error silently or show user-friendly message
     }
   }, []); // Remove customers dependency to prevent infinite loop
 

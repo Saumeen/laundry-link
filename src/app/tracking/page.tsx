@@ -147,7 +147,7 @@ export default function Tracking() {
     });
 
     // Driver Assigned for Pickup
-    if (order.status !== "Order Placed") {
+    if (order.status !== "ORDER_PLACED") {
       timeline.push({
         status: "Driver Assigned for Pickup",
         time: new Date(createdAt.getTime() + 15 * 60000).toLocaleString(),
@@ -156,7 +156,7 @@ export default function Tracking() {
     }
 
     // Picked Up
-    if (["Picked Up", "In Process", "Cleaning Complete", "Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+    if (["PICKUP_COMPLETED", "RECEIVED_AT_FACILITY", "PROCESSING_STARTED", "PROCESSING_COMPLETED", "QUALITY_CHECK", "READY_FOR_DELIVERY", "DELIVERY_ASSIGNED", "DELIVERY_IN_PROGRESS", "DELIVERED"].includes(order.status)) {
       timeline.push({
         status: "Picked Up",
         time: new Date(createdAt.getTime() + 90 * 60000).toLocaleString(),
@@ -165,7 +165,7 @@ export default function Tracking() {
     }
 
     // Processing
-    if (["In Process", "Cleaning Complete", "Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+    if (["RECEIVED_AT_FACILITY", "PROCESSING_STARTED", "PROCESSING_COMPLETED", "QUALITY_CHECK", "READY_FOR_DELIVERY", "DELIVERY_ASSIGNED", "DELIVERY_IN_PROGRESS", "DELIVERED"].includes(order.status)) {
       timeline.push({
         status: "Processing",
         time: new Date(createdAt.getTime() + 3 * 3600000).toLocaleString(),
@@ -173,17 +173,17 @@ export default function Tracking() {
       });
     }
 
-    // Cleaning Complete
-    if (["Cleaning Complete", "Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+    // Processing Complete
+    if (["PROCESSING_COMPLETED", "QUALITY_CHECK", "READY_FOR_DELIVERY", "DELIVERY_ASSIGNED", "DELIVERY_IN_PROGRESS", "DELIVERED"].includes(order.status)) {
       timeline.push({
-        status: "Cleaning Complete",
+        status: "Processing Complete",
         time: new Date(updatedAt.getTime() - 2 * 3600000).toLocaleString(),
         completed: true
       });
     }
 
     // Quality Check
-    if (["Ready for Delivery", "Out for Delivery", "Delivered"].includes(order.status)) {
+    if (["QUALITY_CHECK", "READY_FOR_DELIVERY", "DELIVERY_ASSIGNED", "DELIVERY_IN_PROGRESS", "DELIVERED"].includes(order.status)) {
       timeline.push({
         status: "Quality Check",
         time: new Date(updatedAt.getTime() - 1.5 * 3600000).toLocaleString(),
@@ -192,7 +192,7 @@ export default function Tracking() {
     }
 
     // Driver Assigned for Delivery
-    if (["Out for Delivery", "Delivered"].includes(order.status)) {
+    if (["DELIVERY_ASSIGNED", "DELIVERY_IN_PROGRESS", "DELIVERED"].includes(order.status)) {
       timeline.push({
         status: "Driver Assigned for Delivery",
         time: new Date(updatedAt.getTime() - 1 * 3600000).toLocaleString(),
@@ -201,7 +201,7 @@ export default function Tracking() {
     }
 
     // Out for Delivery
-    if (order.status === "Out for Delivery") {
+    if (order.status === "DELIVERY_IN_PROGRESS") {
       timeline.push({
         status: "Out for Delivery",
         time: new Date(updatedAt.getTime() - 30 * 60000).toLocaleString(),
@@ -210,7 +210,7 @@ export default function Tracking() {
     }
 
     // Delivered
-    if (order.status === "Delivered") {
+    if (order.status === "DELIVERED") {
       timeline.push({
         status: "Delivered",
         time: updatedAt.toLocaleString(),
