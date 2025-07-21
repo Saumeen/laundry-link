@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       mapping.orderItems && mapping.orderItems.length > 0
     );
     
-    if (status === "READY_FOR_DELIVERY" && hasOrderItems) {
+    if (status === OrderStatus.READY_FOR_DELIVERY && hasOrderItems) {
       try {
         // Send invoice email to customer
         await emailService.sendOrderConfirmationToCustomer(

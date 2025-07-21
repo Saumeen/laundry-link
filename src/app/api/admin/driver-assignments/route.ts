@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { OrderStatus } from "@prisma/client";
 
 interface CreateDriverAssignmentRequest {
   orderId: number;
@@ -337,11 +338,11 @@ export async function DELETE(req: Request) {
     // For pickup assignments, check if order is still in early stages
     if (assignmentType === 'pickup') {
       const nonCancellablePickupStatuses = [
-        'PICKUP_COMPLETED', 'RECEIVED_AT_FACILITY', 'PROCESSING_STARTED', 'PROCESSING_COMPLETED', 'QUALITY_CHECK', 
-        'READY_FOR_DELIVERY', 'DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS', 'DELIVERED'
+        OrderStatus.PICKUP_COMPLETED, OrderStatus.RECEIVED_AT_FACILITY, OrderStatus.PROCESSING_STARTED, OrderStatus.PROCESSING_COMPLETED, OrderStatus.QUALITY_CHECK, 
+        OrderStatus.READY_FOR_DELIVERY, OrderStatus.DELIVERY_ASSIGNED, OrderStatus.DELIVERY_IN_PROGRESS, OrderStatus.DELIVERED
       ];
       
-      if (nonCancellablePickupStatuses.includes(orderStatus)) {
+      if (nonCancellablePickupStatuses.includes(orderStatus as any)) {
         return NextResponse.json(
           { error: `Cannot cancel pickup assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}` },
           { status: 400 }
@@ -352,10 +353,10 @@ export async function DELETE(req: Request) {
     // For delivery assignments, check if order is still in processing stages
     if (assignmentType === 'delivery') {
       const nonCancellableDeliveryStatuses = [
-        'DELIVERY_IN_PROGRESS', 'DELIVERED'
+        OrderStatus.DELIVERY_IN_PROGRESS, OrderStatus.DELIVERED
       ];
       
-      if (nonCancellableDeliveryStatuses.includes(orderStatus)) {
+      if (nonCancellableDeliveryStatuses.includes(orderStatus as any)) {
         return NextResponse.json(
           { error: `Cannot cancel delivery assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}` },
           { status: 400 }

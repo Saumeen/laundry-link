@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import PageTransition from "@/components/ui/PageTransition";
 import { useToast } from "@/components/ui/Toast";
 import Link from "next/link";
+import { OrderStatus, ProcessingStatus } from "@prisma/client";
 
 interface OrderItem {
   id: number;
@@ -327,9 +328,9 @@ export default function FacilityTeamDashboard() {
         return 'bg-orange-100 text-orange-800';
       case 'COMPLETED':
         return 'bg-green-100 text-green-800';
-      case 'QUALITY_CHECK':
+      case ProcessingStatus.QUALITY_CHECK:
         return 'bg-purple-100 text-purple-800';
-      case 'READY_FOR_DELIVERY':
+      case ProcessingStatus.READY_FOR_DELIVERY:
         return 'bg-green-100 text-green-800';
       case 'ISSUE_REPORTED':
         return 'bg-red-100 text-red-800';
@@ -578,8 +579,8 @@ export default function FacilityTeamDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(order.orderProcessing?.processingStatus || 'PENDING')}`}>
-                            {order.orderProcessing?.processingStatus === 'READY_FOR_DELIVERY' ? 'READY FOR DELIVERY' :
-                             order.orderProcessing?.processingStatus === 'QUALITY_CHECK' ? 'QUALITY CHECK' :
+                            {order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'READY FOR DELIVERY' :
+                             order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'QUALITY CHECK' :
                              order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'IN PROCESSING' :
                              order.orderProcessing?.processingStatus?.replace('_', ' ').toUpperCase() || 'PENDING'}
                           </span>

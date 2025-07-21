@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
+import { OrderStatus } from '@prisma/client';
 
 export async function GET(
   request: NextRequest,
@@ -40,7 +41,7 @@ export async function GET(
     }
 
     // Check if order is ready for delivery
-    if (order.status !== 'READY_FOR_DELIVERY') {
+    if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
       return NextResponse.json({ 
         error: `Invoice is not available yet. Current status: ${order.status}. Invoice will be available when your order is ready for delivery.` 
       }, { status: 400 });

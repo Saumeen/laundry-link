@@ -7,6 +7,7 @@ import { X, Plus, CheckCircle, AlertCircle, Clock, ArrowLeft } from "lucide-reac
 import { useToast } from "@/components/ui/Toast";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Link from "next/link";
+import { OrderStatus } from "@prisma/client";
 
 interface OrderItem {
   id: number;
@@ -369,7 +370,7 @@ export default function ProcessOrderPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          processingStatus: 'READY_FOR_DELIVERY',
+          processingStatus: OrderStatus.READY_FOR_DELIVERY,
           processingNotes: order?.orderProcessing?.processingNotes || 'Order completed and ready for delivery'
         }),
       });
@@ -490,7 +491,7 @@ export default function ProcessOrderPage() {
 
   const canMarkAsReadyForDelivery = () => {
     return order?.orderProcessing && 
-           order.orderProcessing.processingStatus !== 'READY_FOR_DELIVERY' && 
+           order.orderProcessing.processingStatus !== OrderStatus.READY_FOR_DELIVERY && 
            isAllItemsCompleted();
   };
 
@@ -535,16 +536,16 @@ export default function ProcessOrderPage() {
         backUrl="/admin/facility-team"
         rightContent={
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-            order.orderProcessing?.processingStatus === 'READY_FOR_DELIVERY' ? 'bg-green-100 text-green-800' :
-            order.orderProcessing?.processingStatus === 'QUALITY_CHECK' ? 'bg-purple-100 text-purple-800' :
+            order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'bg-green-100 text-green-800' :
+            order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'bg-purple-100 text-purple-800' :
             order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
-            order.status === 'READY_FOR_DELIVERY' ? 'bg-green-100 text-green-800' :
-            order.status === 'PROCESSING_STARTED' ? 'bg-yellow-100 text-yellow-800' :
-            order.status === 'PROCESSING_COMPLETED' ? 'bg-green-100 text-green-800' :
+            order.status === OrderStatus.READY_FOR_DELIVERY ? 'bg-green-100 text-green-800' :
+            order.status === OrderStatus.PROCESSING_STARTED ? 'bg-yellow-100 text-yellow-800' :
+            order.status === OrderStatus.PROCESSING_COMPLETED ? 'bg-green-100 text-green-800' :
             'bg-gray-100 text-gray-800'
           }`}>
-            {order.orderProcessing?.processingStatus === 'READY_FOR_DELIVERY' ? 'Ready for Delivery' :
-             order.orderProcessing?.processingStatus === 'QUALITY_CHECK' ? 'Quality Check' :
+            {order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'Ready for Delivery' :
+             order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'Quality Check' :
              order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'In Processing' :
              order.status}
           </span>
@@ -685,7 +686,7 @@ export default function ProcessOrderPage() {
               {order.orderProcessing && (
                 <div className="bg-green-50 p-4 rounded-lg">
                   <h3 className="font-medium text-gray-900 mb-2">Order Completion</h3>
-                  {order.orderProcessing.processingStatus === 'READY_FOR_DELIVERY' ? (
+                  {order.orderProcessing.processingStatus === OrderStatus.READY_FOR_DELIVERY ? (
                     <div className="text-sm text-gray-600">
                       <p className="text-green-700 font-medium">✅ Order marked as ready for delivery!</p>
                       <p className="mt-1">The driver has been notified and can now pick up this order.</p>

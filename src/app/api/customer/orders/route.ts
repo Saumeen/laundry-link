@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as OrderStatus;
     const paymentStatus = searchParams.get('paymentStatus') as PaymentStatus;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 10;
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
     const sort = searchParams.get('sort') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
@@ -41,6 +42,9 @@ export async function GET(request: NextRequest) {
     if (paymentStatus) {
       where.paymentStatus = paymentStatus;
     }
+
+    // Get total count for pagination
+    const total = await prisma.order.count({ where });
 
     const orders = await prisma.order.findMany({
       where,
@@ -79,10 +83,11 @@ export async function GET(request: NextRequest) {
       orderBy: {
         [sort]: order
       },
-      ...(limit && { take: limit })
+      skip: (page - 1) * limit,
+      take: limit
     });
 
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders, total });
 
   } catch (error) {
     console.error("Error fetching customer orders:", error);

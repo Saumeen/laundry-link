@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { DriverAssignmentStatus, ProcessingStatus } from "@prisma/client";
+import { DriverAssignmentStatus, ProcessingStatus, OrderStatus } from "@prisma/client";
 
 // GET - Fetch orders ready for facility team processing
 export async function GET(req: Request) {
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
         };
       } else if (status === 'quality_check') {
         whereClause.orderProcessing = {
-          processingStatus: ProcessingStatus.QUALITY_CHECK
+          processingStatus: OrderStatus.QUALITY_CHECK
         };
       } else if (status === 'issue_reported') {
         whereClause.orderProcessing = {

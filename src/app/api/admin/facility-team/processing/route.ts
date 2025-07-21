@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
-import { ProcessingStatus, ItemStatus, IssueStatus } from "@prisma/client";
+import { ProcessingStatus, ItemStatus, IssueStatus, OrderStatus } from "@prisma/client";
 
 interface ProcessingUpdateRequest {
   orderId: number;
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         // Update order status to PROCESSING_STARTED when processing begins
         await tx.order.update({
           where: { id: orderId },
-          data: { status: 'PROCESSING_STARTED' }
+          data: { status: OrderStatus.PROCESSING_STARTED }
         });
 
         // Create order history entry
@@ -126,8 +126,8 @@ export async function POST(request: NextRequest) {
             orderId,
             staffId: admin.id,
             action: 'processing_update',
-            oldValue: 'ORDER_PLACED',
-            newValue: 'PROCESSING_STARTED',
+            oldValue: OrderStatus.ORDER_PLACED,
+            newValue: OrderStatus.PROCESSING_STARTED,
             description: 'Processing started by facility team',
             metadata: JSON.stringify({
               processingStatus,
@@ -190,11 +190,11 @@ export async function POST(request: NextRequest) {
     oldStatus = currentOrder?.status;
 
     if (processingStatus === ProcessingStatus.READY_FOR_DELIVERY) {
-      orderStatus = 'READY_FOR_DELIVERY';
+      orderStatus = OrderStatus.READY_FOR_DELIVERY;
     } else if (processingStatus === ProcessingStatus.QUALITY_CHECK) {
-      orderStatus = 'QUALITY_CHECK';
+      orderStatus = OrderStatus.QUALITY_CHECK;
     } else if (processingStatus === ProcessingStatus.COMPLETED) {
-      orderStatus = 'PROCESSING_COMPLETED';
+      orderStatus = OrderStatus.PROCESSING_COMPLETED;
     }
 
     if (orderStatus && orderStatus !== oldStatus) {
@@ -388,19 +388,19 @@ export async function PUT(request: NextRequest) {
       });
 
       // Update order status based on processing status
-      let orderStatus: string | undefined;
+      let orderStatus: OrderStatus | undefined;
       if (processingStatus === ProcessingStatus.READY_FOR_DELIVERY) {
-        orderStatus = 'READY_FOR_DELIVERY';
+        orderStatus = OrderStatus.READY_FOR_DELIVERY;
       } else if (processingStatus === ProcessingStatus.QUALITY_CHECK) {
-        orderStatus = 'QUALITY_CHECK';
+        orderStatus = OrderStatus.QUALITY_CHECK;
       } else if (processingStatus === ProcessingStatus.COMPLETED) {
-        orderStatus = 'PROCESSING_COMPLETED';
+        orderStatus = OrderStatus.PROCESSING_COMPLETED;
       }
 
       if (orderStatus && orderStatus !== oldStatus) {
         await prisma.order.update({
           where: { id: parseInt(orderId) },
-          data: { status: orderStatus as any }
+          data: { status: orderStatus }
         });
 
         // Create order history entry

@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { UserRole, DriverAssignment } from "@/types/global";
+import { OrderStatus } from "@prisma/client";
 
 import { useToast, ToastProvider } from "@/components/ui/Toast";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
@@ -673,7 +674,7 @@ function OrderEditPageContent() {
       'Picked Up': 'bg-yellow-100 text-yellow-800',
       'In Process': 'bg-purple-100 text-purple-800',
       'Ready for Delivery': 'bg-green-100 text-green-800',
-      'DELIVERED': 'bg-gray-100 text-gray-800',
+      [OrderStatus.DELIVERED]: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   }, []);
@@ -2945,7 +2946,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          processingStatus: 'READY_FOR_DELIVERY',
+          processingStatus: OrderStatus.READY_FOR_DELIVERY,
           processingNotes: processing?.processingNotes || 'Order completed and ready for delivery'
         })
       });
@@ -3061,7 +3062,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                   <span className="text-green-800 font-medium">
                     Processing Status: <span className="font-bold">{processing.processingStatus || 'In Progress'}</span>
                   </span>
-                  {isAllItemsCompleted() && processing.processingStatus !== 'READY_FOR_DELIVERY' && (
+                  {isAllItemsCompleted() && processing.processingStatus !== OrderStatus.READY_FOR_DELIVERY && (
                     <button
                       onClick={handleMarkReady}
                       disabled={markReadyLoading}

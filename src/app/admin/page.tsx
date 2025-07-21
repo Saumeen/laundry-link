@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import AdminHeader from '@/components/admin/AdminHeader';
+import { OrderStatus } from '@prisma/client';
 
 interface Customer {
   id: number;
@@ -249,23 +250,23 @@ export default function AdminPanel() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'ORDER_PLACED': return 'bg-blue-100 text-blue-800';
-      case 'CONFIRMED': return 'bg-purple-100 text-purple-800';
-      case 'PICKUP_ASSIGNED': return 'bg-indigo-100 text-indigo-800';
-      case 'PICKUP_IN_PROGRESS': return 'bg-yellow-100 text-yellow-800';
-      case 'PICKUP_COMPLETED': return 'bg-green-100 text-green-800';
-      case 'PICKUP_FAILED': return 'bg-red-100 text-red-800';
-      case 'RECEIVED_AT_FACILITY': return 'bg-cyan-100 text-cyan-800';
-      case 'PROCESSING_STARTED': return 'bg-orange-100 text-orange-800';
-      case 'PROCESSING_COMPLETED': return 'bg-lime-100 text-lime-800';
-      case 'QUALITY_CHECK': return 'bg-pink-100 text-pink-800';
-      case 'READY_FOR_DELIVERY': return 'bg-emerald-100 text-emerald-800';
-      case 'DELIVERY_ASSIGNED': return 'bg-teal-100 text-teal-800';
-      case 'DELIVERY_IN_PROGRESS': return 'bg-blue-100 text-blue-800';
-      case 'DELIVERED': return 'bg-green-100 text-green-800';
-      case 'DELIVERY_FAILED': return 'bg-red-100 text-red-800';
-      case 'CANCELLED': return 'bg-gray-100 text-gray-800';
-      case 'REFUNDED': return 'bg-amber-100 text-amber-800';
+      case OrderStatus.ORDER_PLACED: return 'bg-blue-100 text-blue-800';
+      case OrderStatus.CONFIRMED: return 'bg-purple-100 text-purple-800';
+      case OrderStatus.PICKUP_ASSIGNED: return 'bg-indigo-100 text-indigo-800';
+      case OrderStatus.PICKUP_IN_PROGRESS: return 'bg-yellow-100 text-yellow-800';
+      case OrderStatus.PICKUP_COMPLETED: return 'bg-green-100 text-green-800';
+      case OrderStatus.PICKUP_FAILED: return 'bg-red-100 text-red-800';
+      case OrderStatus.RECEIVED_AT_FACILITY: return 'bg-cyan-100 text-cyan-800';
+      case OrderStatus.PROCESSING_STARTED: return 'bg-orange-100 text-orange-800';
+      case OrderStatus.PROCESSING_COMPLETED: return 'bg-lime-100 text-lime-800';
+      case OrderStatus.QUALITY_CHECK: return 'bg-pink-100 text-pink-800';
+      case OrderStatus.READY_FOR_DELIVERY: return 'bg-emerald-100 text-emerald-800';
+      case OrderStatus.DELIVERY_ASSIGNED: return 'bg-teal-100 text-teal-800';
+      case OrderStatus.DELIVERY_IN_PROGRESS: return 'bg-blue-100 text-blue-800';
+      case OrderStatus.DELIVERED: return 'bg-green-100 text-green-800';
+      case OrderStatus.DELIVERY_FAILED: return 'bg-red-100 text-red-800';
+      case OrderStatus.CANCELLED: return 'bg-gray-100 text-gray-800';
+      case OrderStatus.REFUNDED: return 'bg-amber-100 text-amber-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -361,23 +362,23 @@ export default function AdminPanel() {
                           onChange={(e) => updateStatus(order.id, e.target.value)}
                           className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
-                          <option value="ORDER_PLACED">Order Placed</option>
-                          <option value="CONFIRMED">Confirmed</option>
-                          <option value="PICKUP_ASSIGNED">Pickup Assigned</option>
-                          <option value="PICKUP_IN_PROGRESS">Pickup In Progress</option>
-                          <option value="PICKUP_COMPLETED">Pickup Completed</option>
-                          <option value="PICKUP_FAILED">Pickup Failed</option>
-                          <option value="RECEIVED_AT_FACILITY">Received at Facility</option>
-                          <option value="PROCESSING_STARTED">Processing Started</option>
-                          <option value="PROCESSING_COMPLETED">Processing Completed</option>
-                          <option value="QUALITY_CHECK">Quality Check</option>
-                          <option value="READY_FOR_DELIVERY">Ready for Delivery</option>
-                          <option value="DELIVERY_ASSIGNED">Delivery Assigned</option>
-                          <option value="DELIVERY_IN_PROGRESS">Delivery In Progress</option>
-                          <option value="DELIVERED">Delivered</option>
-                          <option value="DELIVERY_FAILED">Delivery Failed</option>
-                          <option value="CANCELLED">Cancelled</option>
-                          <option value="REFUNDED">Refunded</option>
+                          <option value={OrderStatus.ORDER_PLACED}>Order Placed</option>
+                          <option value={OrderStatus.CONFIRMED}>Confirmed</option>
+                          <option value={OrderStatus.PICKUP_ASSIGNED}>Pickup Assigned</option>
+                          <option value={OrderStatus.PICKUP_IN_PROGRESS}>Pickup In Progress</option>
+                          <option value={OrderStatus.PICKUP_COMPLETED}>Pickup Completed</option>
+                          <option value={OrderStatus.PICKUP_FAILED}>Pickup Failed</option>
+                          <option value={OrderStatus.RECEIVED_AT_FACILITY}>Received at Facility</option>
+                          <option value={OrderStatus.PROCESSING_STARTED}>Processing Started</option>
+                          <option value={OrderStatus.PROCESSING_COMPLETED}>Processing Completed</option>
+                          <option value={OrderStatus.QUALITY_CHECK}>Quality Check</option>
+                          <option value={OrderStatus.READY_FOR_DELIVERY}>Ready for Delivery</option>
+                          <option value={OrderStatus.DELIVERY_ASSIGNED}>Delivery Assigned</option>
+                          <option value={OrderStatus.DELIVERY_IN_PROGRESS}>Delivery In Progress</option>
+                          <option value={OrderStatus.DELIVERED}>Delivered</option>
+                          <option value={OrderStatus.DELIVERY_FAILED}>Delivery Failed</option>
+                          <option value={OrderStatus.CANCELLED}>Cancelled</option>
+                          <option value={OrderStatus.REFUNDED}>Refunded</option>
                         </select>
                       </td>
                     </tr>
