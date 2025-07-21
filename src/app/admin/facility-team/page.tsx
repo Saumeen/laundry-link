@@ -168,7 +168,7 @@ export default function FacilityTeamDashboard() {
     severity: 'medium',
     photoUrl: ''
   });
-  const [currentTab, setCurrentTab] = useState('ready');
+  const [currentTab, setCurrentTab] = useState('picked_up');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -235,6 +235,28 @@ export default function FacilityTeamDashboard() {
     }
   }, [currentTab, currentPage, searchTerm, loading]);
 
+  const handleMarkReceived = async (orderId: number) => {
+    try {
+      const response = await fetch('/api/admin/facility-team/receive-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      });
+
+      if (response.ok) {
+        showToast('Order marked as received successfully!', 'success');
+        fetchOrders();
+        fetchStats();
+      } else {
+        const error = await response.json() as ErrorResponse;
+        showToast(error.error || 'Failed to mark order as received', 'error');
+      }
+    } catch (error) {
+      console.error('Error marking order as received:', error);
+      showToast('Failed to mark order as received', 'error');
+    }
+  };
+
   const handleStartProcessing = async (data: any) => {
     try {
       const response = await fetch('/api/admin/facility-team/processing', {
@@ -247,14 +269,14 @@ export default function FacilityTeamDashboard() {
         setProcessingData({ totalPieces: '', totalWeight: '', processingNotes: '', qualityScore: '' });
         fetchOrders();
         fetchStats();
-              } else {
-          const error = await response.json() as ErrorResponse;
-          showToast(error.error || 'Failed to start processing', 'error');
-        }
-      } catch (error) {
-        console.error('Error starting processing:', error);
-        showToast('Failed to start processing', 'error');
+      } else {
+        const error = await response.json() as ErrorResponse;
+        showToast(error.error || 'Failed to start processing', 'error');
       }
+    } catch (error) {
+      console.error('Error starting processing:', error);
+      showToast('Failed to start processing', 'error');
+    }
   };
 
   const handleUpdateProcessing = async (data: any) => {
@@ -322,6 +344,8 @@ export default function FacilityTeamDashboard() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
+      case 'RECEIVED_AT_FACILITY':
+        return 'bg-yellow-100 text-yellow-800';
       case 'PENDING':
         return 'bg-blue-100 text-blue-800';
       case 'IN_PROGRESS':
@@ -493,14 +517,34 @@ export default function FacilityTeamDashboard() {
                 </div>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setCurrentTab('ready')}
+                    onClick={() => setCurrentTab('picked_up')}
                     className={`px-4 py-2 rounded-md ${
-                      currentTab === 'ready' 
+                      currentTab === 'picked_up' 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
-                    Ready ({stats?.ordersReadyForProcessing || 0})
+                    Picked Up by Driver
+                  </button>
+                  <button
+                    onClick={() => setCurrentTab('received')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentTab === 'received' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Received at Facility
+                  </button>
+                  <button
+                    onClick={() => setCurrentTab('ready_for_processing')}
+                    className={`px-4 py-2 rounded-md ${
+                      currentTab === 'ready_for_processing' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Ready for Processing ({stats?.ordersReadyForProcessing || 0})
                   </button>
                   <button
                     onClick={() => setCurrentTab('in_processing')}
@@ -578,8 +622,9 @@ export default function FacilityTeamDashboard() {
                           ).join(', ')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(order.orderProcessing?.processingStatus || 'PENDING')}`}>
-                            {order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'READY FOR DELIVERY' :
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(order.orderProcessing?.processingStatus || order.status)}`}>
+                            {order.status === 'RECEIVED_AT_FACILITY' ? 'RECEIVED AT FACILITY' :
+                             order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'READY FOR DELIVERY' :
                              order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'QUALITY CHECK' :
                              order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'IN PROCESSING' :
                              order.orderProcessing?.processingStatus?.replace('_', ' ').toUpperCase() || 'PENDING'}
@@ -589,22 +634,40 @@ export default function FacilityTeamDashboard() {
                           {new Date(order.pickupTime).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <Link
-                            href={`/admin/facility-team/process/${order.id}`}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            {!order.orderProcessing ? 'Start Processing' : 'Continue Processing'}
-                          </Link>
-                          {order.orderProcessing && (
+                          {order.status !== 'RECEIVED_AT_FACILITY' && !order.orderProcessing ? (
                             <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setShowIssueModal(true);
-                              }}
-                              className="text-red-600 hover:text-red-900 ml-2"
+                              onClick={() => handleMarkReceived(order.id)}
+                              className="text-green-600 hover:text-green-900"
                             >
-                              Report Issue
+                              Mark as Received
                             </button>
+                          ) : order.status === 'RECEIVED_AT_FACILITY' && !order.orderProcessing ? (
+                            <Link
+                              href={`/admin/facility-team/process/${order.id}`}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Start Processing
+                            </Link>
+                          ) : (
+                            <>
+                              <Link
+                                href={`/admin/facility-team/process/${order.id}`}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Continue Processing
+                              </Link>
+                              {order.orderProcessing && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setShowIssueModal(true);
+                                  }}
+                                  className="text-red-600 hover:text-red-900 ml-2"
+                                >
+                                  Report Issue
+                                </button>
+                              )}
+                            </>
                           )}
                         </td>
                       </tr>

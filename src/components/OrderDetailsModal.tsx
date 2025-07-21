@@ -555,7 +555,12 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                           <span className="mr-2">🧾</span>
                           Invoice Details
                         </h3>
-                        {orderDetails?.status === OrderStatus.READY_FOR_DELIVERY && (
+                        {(orderDetails?.status === OrderStatus.PROCESSING_COMPLETED || 
+                          orderDetails?.status === OrderStatus.QUALITY_CHECK || 
+                          orderDetails?.status === OrderStatus.READY_FOR_DELIVERY || 
+                          orderDetails?.status === OrderStatus.DELIVERY_ASSIGNED || 
+                          orderDetails?.status === OrderStatus.DELIVERY_IN_PROGRESS || 
+                          orderDetails?.status === OrderStatus.DELIVERED) && (
                           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                             <button
                               onClick={handlePrintInvoice}
@@ -584,7 +589,12 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
                         )}
                       </div>
 
-                      {orderDetails?.status === OrderStatus.READY_FOR_DELIVERY ? (
+                      {(orderDetails?.status === OrderStatus.PROCESSING_COMPLETED || 
+                        orderDetails?.status === OrderStatus.QUALITY_CHECK || 
+                        orderDetails?.status === OrderStatus.READY_FOR_DELIVERY || 
+                        orderDetails?.status === OrderStatus.DELIVERY_ASSIGNED || 
+                        orderDetails?.status === OrderStatus.DELIVERY_IN_PROGRESS || 
+                        orderDetails?.status === OrderStatus.DELIVERED) ? (
                         <>
                           {/* Invoice Header */}
                           <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 mb-6">

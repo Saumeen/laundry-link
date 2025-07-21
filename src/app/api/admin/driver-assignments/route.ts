@@ -176,6 +176,22 @@ export async function POST(req: Request) {
       },
     });
 
+    // Update order status based on assignment type
+    let newOrderStatus: OrderStatus;
+    if (assignmentType === 'pickup') {
+      newOrderStatus = OrderStatus.PICKUP_ASSIGNED;
+    } else if (assignmentType === 'delivery') {
+      newOrderStatus = OrderStatus.DELIVERY_ASSIGNED;
+    } else {
+      newOrderStatus = OrderStatus.PICKUP_ASSIGNED; // fallback
+    }
+
+    await OrderTrackingService.updateOrderStatus({
+      orderId: assignment.orderId,
+      newStatus: newOrderStatus,
+      notes: `Driver assigned for ${assignmentType}`,
+    });
+
     return NextResponse.json({
       success: true,
       message: "Driver assigned successfully",
@@ -327,11 +343,30 @@ export async function DELETE(req: Request) {
 
     // If action is 'delete', actually delete the record
     if (action === 'delete') {
+      // Determine what status to revert to based on assignment type and current order status
+      let revertStatus: OrderStatus | undefined;
+      
+      if (existingAssignment.assignmentType === 'pickup' && existingAssignment.order.status === OrderStatus.PICKUP_ASSIGNED) {
+        revertStatus = OrderStatus.CONFIRMED;
+      } else if (existingAssignment.assignmentType === 'delivery' && existingAssignment.order.status === OrderStatus.DELIVERY_ASSIGNED) {
+        revertStatus = OrderStatus.READY_FOR_DELIVERY;
+      }
+      
+      // Delete the assignment
       await prisma.driverAssignment.delete({
         where: {
           id: parseInt(assignmentId),
         },
       });
+
+      // Revert order status if needed
+      if (revertStatus) {
+        await OrderTrackingService.updateOrderStatus({
+          orderId: existingAssignment.orderId,
+          newStatus: revertStatus,
+          notes: `Driver assignment deleted - reverted to ${revertStatus.replace(/_/g, ' ').toLowerCase()}`,
+        });
+      }
 
       return NextResponse.json({
         success: true,

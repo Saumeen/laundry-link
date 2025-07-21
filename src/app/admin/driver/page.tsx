@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import PageTransition from "@/components/ui/PageTransition";
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
-import { Camera, MapPin, Phone, User, Clock, CheckCircle, XCircle, AlertCircle, Calendar, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Camera, MapPin, Phone, User, Clock, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 
 // Google Maps configuration
 const libraries: ("places")[] = ["places"];
@@ -95,12 +95,9 @@ export default function DriverDashboard() {
   const [updating, setUpdating] = useState<number | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<DriverAssignment | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [photoType, setPhotoType] = useState<string>("");
   const [notes, setNotes] = useState("");
-  const [rescheduleDate, setRescheduleDate] = useState("");
-  const [rescheduleTime, setRescheduleTime] = useState("");
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
@@ -244,12 +241,6 @@ export default function DriverDashboard() {
     try {
       setUpdating(assignmentId);
       
-      // Handle reschedule status
-      let finalStatus = status;
-      if (photoType?.includes('rescheduled')) {
-        finalStatus = 'RESCHEDULED';
-      }
-      
       const response = await fetch("/api/admin/driver/assignments", {
         method: "PUT",
         headers: {
@@ -257,7 +248,7 @@ export default function DriverDashboard() {
         },
         body: JSON.stringify({
           assignmentId,
-          status: finalStatus,
+          status,
           notes,
           photoUrl,
           photoType: photoType || `${status}_photo`,
@@ -457,47 +448,7 @@ export default function DriverDashboard() {
     setCurrentCameraId("");
   }, [cameraStream]);
 
-  const handleReschedule = useCallback(async () => {
-    if (!selectedAssignment || !rescheduleDate || !rescheduleTime) {
-      alert("Please select both date and time for rescheduling.");
-      return;
-    }
 
-    try {
-      setUpdating(selectedAssignment.id);
-      
-      const response = await fetch("/api/admin/driver/assignments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assignmentId: selectedAssignment.id,
-          status: "RESCHEDULED",
-          notes: `Rescheduled to ${rescheduleDate} at ${rescheduleTime}. ${notes}`,
-          photoUrl: photoData,
-          photoType: `${selectedAssignment.assignmentType}_rescheduled_photo`,
-        }),
-      });
-
-      if (response.ok) {
-        await fetchAssignments();
-        await fetchStats();
-        setShowRescheduleModal(false);
-        setSelectedAssignment(null);
-        setPhotoData(null);
-        setPhotoType("");
-        setNotes("");
-        setRescheduleDate("");
-        setRescheduleTime("");
-        closeCamera();
-      }
-    } catch (error) {
-      console.error("Error rescheduling assignment:", error);
-    } finally {
-      setUpdating(null);
-    }
-  }, [selectedAssignment, rescheduleDate, rescheduleTime, notes, photoData, photoType, fetchAssignments, fetchStats, closeCamera]);
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
@@ -1252,16 +1203,7 @@ export default function DriverDashboard() {
                             )}
                           </button>
                           
-                          {selectedAssignment.assignmentType === "delivery" && (
-                            <button
-                              onClick={() => setShowRescheduleModal(true)}
-                              className="flex items-center space-x-2 bg-yellow-600 text-white px-4 py-3 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm"
-                              disabled={updating === selectedAssignment.id}
-                            >
-                              <Calendar className="w-4 h-4" />
-                              <span>Reschedule</span>
-                            </button>
-                          )}
+
                         </div>
                       </div>
                     </div>
@@ -1474,259 +1416,7 @@ export default function DriverDashboard() {
           </div>
         )}
 
-        {/* Reschedule Modal */}
-        {showRescheduleModal && selectedAssignment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[95vh] overflow-hidden">
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white p-6 rounded-t-xl">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold">Reschedule Assignment</h2>
-                      <p className="text-yellow-100 text-sm">Set a new date and time for this assignment</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowRescheduleModal(false);
-                      setPhotoData(null);
-                      setRescheduleDate("");
-                      setRescheduleTime("");
-                      setNotes("");
-                      closeCamera();
-                    }}
-                    className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
 
-              {/* Modal Content */}
-              <div className="overflow-y-auto max-h-[calc(95vh-200px)]">
-                <div className="p-6 space-y-6">
-                  {/* Date and Time Selection */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Calendar className="w-4 h-4 inline mr-1" />
-                        New Date
-                      </label>
-                      <input
-                        type="date"
-                        value={rescheduleDate}
-                        onChange={e => setRescheduleDate(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                        min={new Date().toISOString().split('T')[0]}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Clock className="w-4 h-4 inline mr-1" />
-                        New Time
-                      </label>
-                      <input
-                        type="time"
-                        value={rescheduleTime}
-                        onChange={e => setRescheduleTime(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Notes (Optional)
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={e => setNotes(e.target.value)}
-                      placeholder="Add any additional notes about the reschedule..."
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Photo Section */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-2 mb-3">
-                      <Camera className="w-5 h-5 text-blue-600" />
-                      <h3 className="text-lg font-semibold text-gray-900">Photo (Required)</h3>
-                    </div>
-                    
-                    {/* Camera Error Display */}
-                    {cameraError && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                        <div className="flex items-center space-x-2">
-                          <AlertCircle className="w-4 h-4 text-red-600" />
-                          <span className="text-sm text-red-700">{cameraError}</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {!photoData ? (
-                      <div className="text-center">
-                        {!videoElement ? (
-                          <>
-                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                              <Camera className="w-8 h-8 text-blue-600" />
-                            </div>
-                            <p className="text-gray-600 mb-4">
-                              A photo is required when rescheduling an assignment
-                            </p>
-                            <button
-                              onClick={openCamera}
-                              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
-                            >
-                              <Camera className="w-5 h-5 inline mr-2" />
-                              Open Camera
-                            </button>
-                          </>
-                        ) : (
-                          <div className="space-y-4">
-                            {/* Camera Preview */}
-                            <div className="relative">
-                              <div className="w-full h-48 bg-black rounded-lg flex items-center justify-center overflow-hidden">
-                                <video
-                                  ref={el => {
-                                    if (el && videoElement && !el.srcObject) {
-                                      el.srcObject = videoElement.srcObject;
-                                      el.play();
-                                    }
-                                  }}
-                                  className="w-full h-48 object-cover"
-                                  autoPlay
-                                  playsInline
-                                  muted
-                                />
-                              </div>
-                              
-                              {/* Camera Info Overlay */}
-                              <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                                {getCurrentCameraLabel()}
-                              </div>
-                              
-                              {/* Camera Switch Button */}
-                              {availableCameras.length > 1 && (
-                                <button
-                                  onClick={switchCamera}
-                                  className="absolute top-2 right-2 bg-white bg-opacity-80 text-gray-800 p-2 rounded-full hover:bg-opacity-100 transition-colors"
-                                  title="Switch Camera"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                            
-                            {/* Camera Action Buttons */}
-                            <div className="flex space-x-3">
-                              <button
-                                onClick={closeCamera}
-                                className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
-                              >
-                                <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Close Camera
-                              </button>
-                              <button
-                                onClick={capturePhoto}
-                                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
-                              >
-                                <Camera className="w-4 h-4 inline mr-2" />
-                                Capture Photo
-                              </button>
-                            </div>
-                            
-                            {/* Camera Info */}
-                            {availableCameras.length > 0 && (
-                              <div className="text-center text-xs text-gray-500">
-                                {availableCameras.length} camera{availableCameras.length > 1 ? 's' : ''} available
-                                {availableCameras.length > 1 && (
-                                  <span className="ml-2">
-                                    • Tap the switch button to change camera
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="relative">
-                          <img
-                            src={photoData}
-                            alt="Captured"
-                            className="w-full h-48 object-cover rounded-lg shadow-sm border"
-                          />
-                          <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                            ✓ Photo Captured
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setPhotoData(null);
-                            closeCamera();
-                          }}
-                          className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm font-medium"
-                        >
-                          <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Retake Photo
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Submit Button */}
-                  <button
-                    onClick={handleReschedule}
-                    className="w-full bg-yellow-600 text-white py-4 rounded-lg hover:bg-yellow-700 transition-colors shadow-sm font-medium"
-                    disabled={updating === selectedAssignment.id || !rescheduleDate || !rescheduleTime || !photoData}
-                  >
-                    {updating === selectedAssignment.id ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin inline mr-2"></div>
-                        Rescheduling...
-                      </>
-                    ) : (
-                      <>
-                        <Calendar className="w-5 h-5 inline mr-2" />
-                        Submit Reschedule
-                      </>
-                    )}
-                  </button>
-
-                  {/* Validation Messages */}
-                  {(!rescheduleDate || !rescheduleTime || !photoData) && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="w-4 h-4 text-red-600" />
-                        <span className="text-sm text-red-700">
-                          Please fill in all required fields: Date, Time, and Photo
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </PageTransition>
   );

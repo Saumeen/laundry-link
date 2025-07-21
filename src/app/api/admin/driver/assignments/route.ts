@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
 import { DriverAssignmentStatus, OrderStatus } from "@prisma/client";
 import { OrderTrackingService } from "@/lib/orderTracking";
+import { emailService } from "@/lib/emailService";
 
 interface DriverAssignmentRequest {
   orderId: number;
@@ -149,7 +150,11 @@ export async function PUT(request: NextRequest) {
             phone: true
           }
         },
-        order: true,
+        order: {
+          include: {
+            customer: true
+          }
+        },
         photos: true
       }
     });
@@ -186,6 +191,54 @@ export async function PUT(request: NextRequest) {
           description: notes || null
         }
       });
+    }
+
+    // Send delivery confirmation email with invoice when delivery is completed
+    if (updatedAssignment.assignmentType === 'delivery' && status === 'COMPLETED' && updatedAssignment.order?.customer) {
+      try {
+        // Fetch order details with invoice information
+        const orderWithInvoice = await prisma.order.findUnique({
+          where: { id: updatedAssignment.orderId },
+          include: {
+            customer: true,
+            orderServiceMappings: {
+              include: {
+                service: true,
+                orderItems: true
+              }
+            }
+          }
+        });
+
+        if (orderWithInvoice && orderWithInvoice.customer) {
+          // Prepare invoice data
+          const invoiceData = {
+            totalAmount: orderWithInvoice.invoiceTotal || 0,
+            items: orderWithInvoice.orderServiceMappings.map(mapping => ({
+              serviceName: mapping.service.displayName,
+              quantity: mapping.quantity,
+              unitPrice: mapping.price,
+              totalPrice: mapping.price * mapping.quantity,
+              notes: mapping.orderItems.length > 0 ? 
+                mapping.orderItems.map(item => item.itemName).join(', ') : 
+                undefined
+            }))
+          };
+
+          // Send delivery confirmation email with invoice
+          await emailService.sendDeliveryConfirmationWithInvoice(
+            orderWithInvoice,
+            orderWithInvoice.customer.email,
+            `${orderWithInvoice.customer.firstName} ${orderWithInvoice.customer.lastName}`,
+            invoiceData
+          );
+
+          console.log(`Delivery confirmation email sent for order #${orderWithInvoice.orderNumber}`);
+        }
+      } catch (emailError) {
+        console.error('Error sending delivery confirmation email:', emailError);
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json({ 

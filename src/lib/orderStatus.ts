@@ -15,6 +15,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '📋',
     canTransitionTo: [
       OrderStatus.CONFIRMED,
+      OrderStatus.PICKUP_ASSIGNED,
       OrderStatus.CANCELLED
     ]
   },
@@ -25,6 +26,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '✅',
     canTransitionTo: [
       OrderStatus.PICKUP_ASSIGNED,
+      OrderStatus.CONFIRMED,
       OrderStatus.CANCELLED
     ]
   },
@@ -35,6 +37,7 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '🚚',
     canTransitionTo: [
       OrderStatus.PICKUP_IN_PROGRESS,
+      OrderStatus.CONFIRMED,
       OrderStatus.PICKUP_FAILED,
       OrderStatus.CANCELLED
     ]
