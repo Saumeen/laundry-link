@@ -139,6 +139,7 @@ export default function ProcessOrderPage() {
   } | null>(null);
   const [selectedItemDetail, setSelectedItemDetail] = useState<ProcessingItemDetail | null>(null);
   const [showItemModal, setShowItemModal] = useState(false);
+  const [showWarningModal, setShowWarningModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -495,6 +496,56 @@ export default function ProcessOrderPage() {
            isAllItemsCompleted();
   };
 
+  const hasOrderItems = () => {
+    if (!order?.orderServiceMappings) return false;
+    
+    return order.orderServiceMappings.some(mapping => 
+      mapping.orderItems && mapping.orderItems.length > 0
+    );
+  };
+
+  const handleStartProcessingClick = () => {
+    if (!hasOrderItems()) {
+      setShowWarningModal(true);
+    } else {
+      startProcessing();
+    }
+  };
+
+  const startProcessing = async () => {
+    if (!order) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/facility-team/processing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          processingStatus: 'IN_PROGRESS',
+          totalPieces: 0,
+          totalWeight: 0,
+          processingNotes: 'Processing started by facility team'
+        }),
+      });
+
+      if (response.ok) {
+        showToast('Processing started successfully!', 'success');
+        await fetchOrder();
+      } else {
+        const errorData = await response.json() as { error?: string };
+        showToast(errorData.error || 'Failed to start processing', 'error');
+      }
+    } catch (error) {
+      console.error('Error starting processing:', error);
+      showToast('Failed to start processing. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -611,43 +662,15 @@ export default function ProcessOrderPage() {
                 <h3 className="font-medium text-gray-900 mb-2">Processing Summary</h3>
                 <p className="text-sm text-gray-600">
                   {!order.orderProcessing 
-                    ? "Processing has not started yet. Use the Items tab to begin processing individual items."
+                    ? hasOrderItems() 
+                      ? "Processing has not started yet. Use the Items tab to begin processing individual items."
+                      : "No items are added to this order. Please add items using the Add Item tab before starting processing."
                     : `Processing started by facility team. ${order.orderProcessing.processingItems?.length || 0} service(s) being processed.`
                   }
                 </p>
                 {!order.orderProcessing && (
                   <button
-                    onClick={async () => {
-                      setIsLoading(true);
-                      try {
-                        const response = await fetch('/api/admin/facility-team/processing', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            orderId: order.id,
-                            processingStatus: 'IN_PROGRESS',
-                            totalPieces: 0,
-                            totalWeight: 0,
-                            processingNotes: 'Processing started by facility team'
-                          }),
-                        });
-
-                        if (response.ok) {
-                          showToast('Processing started successfully!', 'success');
-                          await fetchOrder();
-                        } else {
-                          const errorData = await response.json() as { error?: string };
-                          showToast(errorData.error || 'Failed to start processing', 'error');
-                        }
-                      } catch (error) {
-                        console.error('Error starting processing:', error);
-                        showToast('Failed to start processing. Please try again.', 'error');
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
+                    onClick={handleStartProcessingClick}
                     disabled={isLoading}
                     className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -1073,6 +1096,47 @@ export default function ProcessOrderPage() {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Updating...' : 'Update'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning Modal for No Items */}
+      {showWarningModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+                <AlertCircle className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4 text-center">
+                No Items Added
+              </h3>
+              <div className="text-sm text-gray-600 mb-6">
+                <p className="mb-3">
+                  This order doesn't have any items added yet. Starting processing without items may affect the order workflow.
+                </p>
+                <p className="font-medium">
+                  Do you want to continue with processing anyway?
+                </p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowWarningModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowWarningModal(false);
+                    startProcessing();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Continue Anyway
                 </button>
               </div>
             </div>

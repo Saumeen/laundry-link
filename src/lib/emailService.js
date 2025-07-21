@@ -526,6 +526,111 @@ export const emailService = {
   },
 
   /**
+   * Send delivery confirmation with invoice to customer
+   */
+  async sendDeliveryConfirmationWithInvoice(order, customerEmail, customerName, invoiceData) {
+    const msg = {
+      to: customerEmail,
+      from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
+      subject: `✅ Order Delivered - Invoice #${order.orderNumber}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #3b82f6; margin: 0;">Laundry Link</h1>
+            <h2 style="color: #374151; margin: 10px 0;">Order Delivered Successfully!</h2>
+          </div>
+          
+          <div style="background-color: #10b981; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; font-size: 24px;">✅ Delivery Complete</h2>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Your order has been delivered successfully</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #374151;">Dear ${customerName},</p>
+          <p style="font-size: 16px; color: #374151;">Great news! Your order has been delivered successfully. Please find your invoice attached below.</p>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
+            <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+            <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString('en-GB', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric'
+            })}</p>
+            <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
+          </div>
+
+          ${invoiceData?.items && invoiceData.items.length > 0 ? `
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
+            <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Invoice Details</h3>
+            <div style="max-height: 300px; overflow-y: auto;">
+              ${invoiceData.items.map(item => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
+                  <div>
+                    <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
+                    ${item.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">${item.notes}</p>` : ''}
+                  </div>
+                  <div style="text-align: right;">
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">Qty: ${item.quantity || 0}</p>
+                    <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.unitPrice?.toFixed(3) || '0.000'} BD</p>
+                    <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
+              <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
+              <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
+            </div>
+          </div>
+          ` : ''}
+          
+          <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0277bd;">
+            <h4 style="margin: 0; color: #0277bd;">💳 Payment Information</h4>
+            <p style="margin: 10px 0 0 0; color: #0277bd;">
+              Payment has been processed successfully. You can view your complete order history and payment details in your account dashboard.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://laundrylink.net'}/customer/dashboard" 
+               style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              View Order History
+            </a>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <p style="font-size: 16px; color: #374151;">Need help? Contact us on WhatsApp:</p>
+            <a href="https://wa.me/97333440841" style="display: inline-block; background-color: #25d366; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              📱 +973 3344 0841
+            </a>
+          </div>
+          
+          <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+            <h4 style="margin: 0; color: #92400e;">⭐ Rate Your Experience</h4>
+            <p style="margin: 10px 0 0 0; color: #92400e;">
+              We hope you're satisfied with our service! Your feedback helps us improve and serve you better.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
+          </div>
+        </div>
+      `
+    };
+    
+    try {
+      await sgMail.send(msg);
+      console.log(`Delivery confirmation email with invoice sent to customer: ${customerEmail}`);
+      return true;
+    } catch (error) {
+      console.error('Error sending delivery confirmation email:', error);
+      return false;
+    }
+  },
+
+  /**
    * Send welcome email (legacy function for compatibility)
    */
   async sendWelcomeEmail(customer, customerName) {
