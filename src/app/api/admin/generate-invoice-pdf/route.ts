@@ -193,13 +193,6 @@ export async function POST(request: NextRequest) {
     // Calculate totals
     let subtotal = 0;
     
-    // Add service costs
-    if (order.orderServiceMappings) {
-      order.orderServiceMappings.forEach(mapping => {
-        subtotal += mapping.quantity * mapping.price;
-      });
-    }
-    
     // Add order items costs
     if (order.orderServiceMappings) {
       order.orderServiceMappings.forEach(mapping => {

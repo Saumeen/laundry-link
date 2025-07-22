@@ -141,7 +141,6 @@ export async function GET(
     let total = 0;
     if (order.orderServiceMappings) {
       order.orderServiceMappings.forEach(mapping => {
-        total += mapping.quantity * mapping.price;
         if (mapping.orderItems) {
           mapping.orderItems.forEach(item => {
             total += item.totalPrice;

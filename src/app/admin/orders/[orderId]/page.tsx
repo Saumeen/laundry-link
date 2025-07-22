@@ -223,13 +223,6 @@ function InvoiceTab({ order, onRefresh }: { order: Order; onRefresh: () => void 
   const calculateSubtotal = useCallback(() => {
     let subtotal = 0;
     
-    // Add service costs
-    if (order.orderServiceMappings) {
-      order.orderServiceMappings.forEach(mapping => {
-        subtotal += mapping.quantity * mapping.price;
-      });
-    }
-    
     // Add order items costs
     if (order.orderServiceMappings) {
       order.orderServiceMappings.forEach(mapping => {
@@ -683,13 +676,6 @@ function OrderEditPageContent() {
     if (!order) return 0;
     
     let subtotal = 0;
-    
-    // Add service costs
-    if (order.orderServiceMappings) {
-      order.orderServiceMappings.forEach(mapping => {
-        subtotal += mapping.quantity * mapping.price;
-      });
-    }
     
     // Add order items costs
     if (order.orderServiceMappings) {
@@ -2377,14 +2363,8 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Description
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantity
-                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Price
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -2409,19 +2389,9 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
                       {mapping.service.description}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <div className="text-sm text-gray-900">
-                      {mapping.quantity}
-                    </div>
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm text-gray-900">
                       {mapping.price.toFixed(3)} BD
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm font-medium text-gray-900">
-                      {(mapping.quantity * mapping.price).toFixed(3)} BD
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -2432,19 +2402,6 @@ function ServicesRequestedTab({ order, onRefresh }: { order: Order; onRefresh: (
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-50 border-t border-gray-200">
-              <tr>
-                <td colSpan={4} className="px-6 py-3 text-right text-sm font-medium text-gray-900">
-                  Total:
-                </td>
-                <td className="px-6 py-3 text-right text-sm font-bold text-blue-600">
-                  {order.orderServiceMappings.reduce((sum, mapping) => 
-                    sum + (mapping.quantity * mapping.price), 0
-                  ).toFixed(3)} BD
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       ) : (
