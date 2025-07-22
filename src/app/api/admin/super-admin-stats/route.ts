@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdminRoles, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 import { UserRole } from "@/types/global";
+import { OrderStatus } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -32,7 +33,7 @@ export async function GET() {
     const pendingOrders = await prisma.order.count({
       where: {
         status: {
-          in: ["Order Placed", "Processing", "Ready for Delivery"]
+          in: [OrderStatus.ORDER_PLACED, OrderStatus.PROCESSING_STARTED, OrderStatus.READY_FOR_DELIVERY]
         }
       }
     });
@@ -40,7 +41,7 @@ export async function GET() {
     // Get completed orders
     const completedOrders = await prisma.order.count({
       where: {
-        status: "Delivered"
+        status: OrderStatus.DELIVERED
       }
     });
 

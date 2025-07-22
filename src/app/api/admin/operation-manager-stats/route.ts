@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdminRole, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 import { UserRole } from "@/types/global";
+import { OrderStatus } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -16,7 +17,7 @@ export async function GET() {
     const pendingOrders = await prisma.order.count({
       where: {
         status: {
-          in: ["Order Placed", "Processing", "Ready for Delivery"]
+          in: [OrderStatus.ORDER_PLACED, OrderStatus.PROCESSING_STARTED, OrderStatus.READY_FOR_DELIVERY]
         }
       }
     });
@@ -24,7 +25,7 @@ export async function GET() {
     // Fetch completed orders today
     const completedToday = await prisma.order.count({
       where: {
-        status: "Delivered",
+        status: OrderStatus.DELIVERED,
         updatedAt: {
           gte: startOfDay,
           lte: endOfDay
@@ -35,7 +36,7 @@ export async function GET() {
     // Calculate average processing time (simplified - using time between order creation and delivery)
     const completedOrders = await prisma.order.findMany({
       where: {
-        status: "Delivered",
+        status: OrderStatus.DELIVERED,
         updatedAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
         }

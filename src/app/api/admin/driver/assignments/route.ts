@@ -1,202 +1,313 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
+import { DriverAssignmentStatus, OrderStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 import { emailService } from "@/lib/emailService";
 
-// Type definitions for request body
-interface UpdateAssignmentBody {
+interface DriverAssignmentRequest {
+  orderId: number;
+  driverId: number;
+  assignmentType: 'pickup' | 'delivery';
+  status: DriverAssignmentStatus;
+  estimatedTime?: Date;
+  notes?: string;
+}
+
+interface DriverAssignmentUpdateRequest {
   assignmentId: number;
-  status: string;
+  status: DriverAssignmentStatus;
   notes?: string;
   photoUrl?: string;
   photoType?: string;
-  latitude?: number;
-  longitude?: number;
 }
 
-// GET - Fetch driver assignments for the logged-in driver
-export async function GET(request: NextRequest) {
-  try {
-    const admin = await requireAuthenticatedAdmin();
-    
-    // Ensure the user is a driver
-    if (admin.role !== "DRIVER") {
-      return NextResponse.json({ error: "Access denied. Driver role required." }, { status: 403 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
-    const assignmentType = searchParams.get("type");
-
-    const whereClause: any = {
-      driverId: admin.id,
-    };
-
-    if (status) {
-      whereClause.status = status;
-    }
-
-    if (assignmentType) {
-      whereClause.assignmentType = assignmentType;
-    }
-
-    const assignments = await prisma.driverAssignment.findMany({
-      where: whereClause,
-      include: {
-        order: {
-          include: {
-            customer: true,
-            address: true,
-          },
-        },
-        photos: {
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json({ assignments });
-  } catch (error) {
-    console.error("Error fetching driver assignments:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
-      return createAdminAuthErrorResponse();
-    }
-    
-    return NextResponse.json(
-      { error: "Failed to fetch assignments" },
-      { status: 500 }
-    );
-  }
-}
-
-// POST - Update driver assignment status
 export async function POST(request: NextRequest) {
   try {
     const admin = await requireAuthenticatedAdmin();
+    const body: DriverAssignmentRequest = await request.json();
     
-    // Ensure the user is a driver
-    if (admin.role !== "DRIVER") {
-      return NextResponse.json({ error: "Access denied. Driver role required." }, { status: 403 });
+    const {
+      orderId,
+      driverId,
+      assignmentType,
+      status,
+      estimatedTime,
+      notes
+    } = body;
+
+    // Validate enum values
+    const validStatuses = Object.values(DriverAssignmentStatus);
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Invalid driver status" }, { status: 400 });
     }
 
-    const body = await request.json() as UpdateAssignmentBody;
-    const { assignmentId, status, notes, photoUrl, photoType, latitude, longitude } = body;
-
-    // Verify the assignment belongs to this driver
-    const assignment = await prisma.driverAssignment.findFirst({
+    // Check if driver exists and is active
+    const driver = await prisma.staff.findFirst({
       where: {
-        id: assignmentId,
-        driverId: admin.id,
+        id: driverId,
+        role: {
+          name: 'DRIVER'
+        },
+        isActive: true
+      }
+    });
+
+    if (!driver) {
+      return NextResponse.json({ error: "Driver not found or inactive" }, { status: 404 });
+    }
+
+    // Check if assignment already exists for this order and type
+    const existingAssignment = await prisma.driverAssignment.findFirst({
+      where: {
+        orderId,
+        assignmentType
+      }
+    });
+
+    if (existingAssignment) {
+      return NextResponse.json({ error: "Assignment already exists for this order and type" }, { status: 400 });
+    }
+
+    // Create driver assignment
+    const assignment = await prisma.driverAssignment.create({
+      data: {
+        orderId,
+        driverId,
+        assignmentType,
+        status,
+        estimatedTime,
+        notes
       },
       include: {
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
         order: {
           include: {
-            driverAssignments: {
-              where: {
-                assignmentType: 'pickup'
-              }
-            }
+            customer: true
           }
         }
       }
     });
 
-    if (!assignment) {
-      return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    return NextResponse.json({ 
+      message: "Driver assignment created successfully",
+      assignment 
+    });
+
+  } catch (error) {
+    console.error("Error creating driver assignment:", error);
+    return NextResponse.json(
+      { error: "Failed to create driver assignment" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    await requireAuthenticatedAdmin();
+    const body: DriverAssignmentUpdateRequest = await request.json();
+    
+    const {
+      assignmentId,
+      status,
+      notes,
+      photoUrl,
+      photoType
+    } = body;
+
+    if (!assignmentId || !status) {
+      return NextResponse.json({ error: "Assignment ID and status are required" }, { status: 400 });
     }
 
-    // Validation: For delivery assignments, ensure pickup has been completed first
-    if (assignment.assignmentType === 'delivery') {
-      const pickupAssignment = assignment.order.driverAssignments.find(
-        da => da.assignmentType === 'pickup'
-      );
-      
-      if (!pickupAssignment) {
-        return NextResponse.json({ 
-          error: "Cannot start delivery. Pickup assignment not found for this order." 
-        }, { status: 400 });
-      }
-      
-      if (pickupAssignment.status !== 'completed') {
-        return NextResponse.json({ 
-          error: "Cannot start delivery. Pickup must be completed first. Current pickup status: " + pickupAssignment.status 
-        }, { status: 400 });
-      }
+    // Validate enum values
+    const validStatuses = Object.values(DriverAssignmentStatus);
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Invalid driver status" }, { status: 400 });
     }
 
-    // Update assignment status
+    // Update the assignment
     const updatedAssignment = await prisma.driverAssignment.update({
       where: { id: assignmentId },
       data: {
         status,
-        notes,
-        actualTime: status === "completed" ? new Date() : undefined,
+        notes: notes || null,
+        actualTime: new Date()
       },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
+        order: {
+          include: {
+            customer: true
+          }
+        },
+        photos: true
+      }
     });
 
-    // Add photo if provided
+    // --- Update Order Status if needed ---
+    if (status && updatedAssignment.order) {
+      let newOrderStatus: OrderStatus | undefined;
+      if (updatedAssignment.assignmentType === 'pickup') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.PICKUP_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.PICKUP_COMPLETED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.PICKUP_FAILED;
+      } else if (updatedAssignment.assignmentType === 'delivery') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.DELIVERY_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.DELIVERED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.DELIVERY_FAILED;
+      }
+      if (newOrderStatus) {
+        await OrderTrackingService.updateOrderStatus({
+          orderId: updatedAssignment.orderId,
+          newStatus: newOrderStatus,
+          notes,
+        });
+      }
+    }
+    // --- End update order status ---
+
+    // If photo is provided, save it
     if (photoUrl && photoType) {
       await prisma.driverPhoto.create({
         data: {
           driverAssignmentId: assignmentId,
           photoUrl,
           photoType,
-          description: notes,
-          latitude,
-          longitude,
-        },
+          description: notes || null
+        }
       });
     }
 
-    // Create order update
-    await prisma.orderUpdate.create({
-      data: {
-        orderId: assignment.orderId,
-        staffId: admin.id,
-        status: `${assignment.assignmentType.toUpperCase()}: ${status}`,
-        notes,
-      },
-    });
-
-    // Send email notification when driver starts pickup
-    if (assignment.assignmentType === 'pickup' && status === 'in_progress') {
+    // Send delivery confirmation email with invoice when delivery is completed
+    if (updatedAssignment.assignmentType === 'delivery' && status === 'COMPLETED' && updatedAssignment.order?.customer) {
       try {
-        const driverName = `${admin.firstName} ${admin.lastName}`;
-        const customerName = `${assignment.order.customerFirstName} ${assignment.order.customerLastName}`;
-        
-        await emailService.sendDriverPickupNotification(
-          assignment.order,
-          assignment.order.customerEmail,
-          customerName,
-          driverName
-        );
-        
-        console.log(`Pickup notification email sent for order #${assignment.order.orderNumber}`);
+        // Fetch order details with invoice information
+        const orderWithInvoice = await prisma.order.findUnique({
+          where: { id: updatedAssignment.orderId },
+          include: {
+            customer: true,
+            orderServiceMappings: {
+              include: {
+                service: true,
+                orderItems: true
+              }
+            }
+          }
+        });
+
+        if (orderWithInvoice && orderWithInvoice.customer) {
+          // Prepare invoice data
+          const invoiceData = {
+            totalAmount: orderWithInvoice.invoiceTotal || 0,
+            items: orderWithInvoice.orderServiceMappings.map(mapping => ({
+              serviceName: mapping.service.displayName,
+              quantity: mapping.quantity,
+              unitPrice: mapping.price,
+              totalPrice: mapping.price * mapping.quantity,
+              notes: mapping.orderItems.length > 0 ? 
+                mapping.orderItems.map(item => item.itemName).join(', ') : 
+                undefined
+            }))
+          };
+
+          // Send delivery confirmation email with invoice
+          await emailService.sendDeliveryConfirmationWithInvoice(
+            orderWithInvoice,
+            orderWithInvoice.customer.email,
+            `${orderWithInvoice.customer.firstName} ${orderWithInvoice.customer.lastName}`,
+            invoiceData
+          );
+
+          console.log(`Delivery confirmation email sent for order #${orderWithInvoice.orderNumber}`);
+        }
       } catch (emailError) {
-        console.error("Failed to send pickup notification email:", emailError);
-        // Don't fail the status update if email fails
+        console.error('Error sending delivery confirmation email:', emailError);
+        // Don't fail the request if email fails
       }
     }
 
     return NextResponse.json({ 
-      success: true, 
+      message: "Driver assignment updated successfully",
       assignment: updatedAssignment 
     });
+
   } catch (error) {
     console.error("Error updating driver assignment:", error);
+    return NextResponse.json(
+      { error: "Failed to update driver assignment" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAuthenticatedAdmin();
     
-    if (error instanceof Error && error.message === 'Admin authentication required') {
-      return createAdminAuthErrorResponse();
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status') as DriverAssignmentStatus;
+    const driverId = searchParams.get('driverId');
+    const orderId = searchParams.get('orderId');
+
+    const where: any = {};
+    
+    if (status) {
+      where.status = status;
     }
     
+    if (driverId) {
+      where.driverId = parseInt(driverId);
+    }
+    
+    if (orderId) {
+      where.orderId = parseInt(orderId);
+    }
+
+    const assignments = await prisma.driverAssignment.findMany({
+      where,
+      include: {
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true
+          }
+        },
+        order: {
+          include: {
+            customer: true,
+            address: true
+          }
+        },
+        photos: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    return NextResponse.json(assignments);
+
+  } catch (error) {
+    console.error("Error fetching driver assignments:", error);
     return NextResponse.json(
-      { error: "Failed to update assignment" },
+      { error: "Failed to fetch driver assignments" },
       { status: 500 }
     );
   }

@@ -47,7 +47,7 @@ export interface DriverAssignment {
   orderId: number;
   driverId: number;
   assignmentType: 'pickup' | 'delivery';
-  status: 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED' | 'FAILED';
   estimatedTime?: Date;
   actualTime?: Date;
   notes?: string;

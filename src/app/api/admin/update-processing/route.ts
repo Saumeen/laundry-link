@@ -2,13 +2,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { OrderTrackingService } from "@/lib/orderTracking";
+import { OrderStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
     // Require admin authentication
-    await requireAuthenticatedAdmin();
-
-    const { orderId, totalPieces, totalWeight, processingNotes } = await req.json();
+    const admin = await requireAuthenticatedAdmin();
+    const { orderId, totalPieces, totalWeight, processingNotes } = await req.json() as { orderId: string, totalPieces: number, totalWeight: number, processingNotes: string };
 
     if (!orderId) {
       return NextResponse.json(
@@ -17,15 +18,22 @@ export async function POST(req: Request) {
       );
     }
 
+    //TODO
     const updatedOrder = await prisma.order.update({
       where: {
         id: parseInt(orderId),
       },
       data: {
-        totalPieces: totalPieces || 0,
-        totalWeight: totalWeight || 0,
-        processingNotes: processingNotes || null,
+        status: OrderStatus.PROCESSING_STARTED,
       },
+    });
+
+    // Also update order status and tracking
+    await OrderTrackingService.updateOrderStatus({
+      orderId: parseInt(orderId),
+      staffId: admin.id,
+      newStatus: OrderStatus.PROCESSING_STARTED,
+      notes: processingNotes
     });
 
     return NextResponse.json({

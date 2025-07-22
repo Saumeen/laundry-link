@@ -4,10 +4,10 @@ import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/aut
 
 export async function GET(
   req: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params;
+    const { orderId } = await params;
 
     // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();

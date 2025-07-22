@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { OrderStatus } from "@prisma/client";
+import { OrderTrackingService } from "@/lib/orderTracking";
 
 interface CreateDriverAssignmentRequest {
   orderId: number;
@@ -11,7 +13,7 @@ interface CreateDriverAssignmentRequest {
 }
 
 interface UpdateDriverAssignmentRequest {
-  status?: 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  status?: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED' | 'FAILED';
   estimatedTime?: string;
   actualTime?: string;
   notes?: string;
@@ -121,7 +123,7 @@ export async function POST(req: Request) {
         orderId,
         assignmentType,
         status: {
-          not: 'cancelled',
+          not: 'CANCELLED',
         },
       },
     });
@@ -133,13 +135,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validation: For delivery assignments, ensure pickup has been completed first
+    // Validation: For delivery assignments, en sure pickup has been completed first
     if (assignmentType === 'delivery') {
       const pickupAssignment = await prisma.driverAssignment.findFirst({
         where: {
           orderId,
           assignmentType: 'pickup',
-          status: 'completed'
+          status: 'COMPLETED'
         }
       });
       
@@ -159,7 +161,7 @@ export async function POST(req: Request) {
         assignmentType,
         estimatedTime: estimatedTime ? new Date(estimatedTime) : null,
         notes,
-        status: 'assigned',
+        status: 'ASSIGNED',
       },
       include: {
         driver: {
@@ -172,6 +174,22 @@ export async function POST(req: Request) {
           },
         },
       },
+    });
+
+    // Update order status based on assignment type
+    let newOrderStatus: OrderStatus;
+    if (assignmentType === 'pickup') {
+      newOrderStatus = OrderStatus.PICKUP_ASSIGNED;
+    } else if (assignmentType === 'delivery') {
+      newOrderStatus = OrderStatus.DELIVERY_ASSIGNED;
+    } else {
+      newOrderStatus = OrderStatus.PICKUP_ASSIGNED; // fallback
+    }
+
+    await OrderTrackingService.updateOrderStatus({
+      orderId: assignment.orderId,
+      newStatus: newOrderStatus,
+      notes: `Driver assigned for ${assignmentType}`,
     });
 
     return NextResponse.json({
@@ -230,8 +248,31 @@ export async function PUT(req: Request) {
             phone: true,
           },
         },
+        order: true,
       },
     });
+
+    // --- Update Order Status if needed ---
+    if (status && assignment.order) {
+      let newOrderStatus: OrderStatus | undefined;
+      if (assignment.assignmentType === 'pickup') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.PICKUP_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.PICKUP_COMPLETED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.PICKUP_FAILED;
+      } else if (assignment.assignmentType === 'delivery') {
+        if (status === 'IN_PROGRESS') newOrderStatus = OrderStatus.DELIVERY_IN_PROGRESS;
+        else if (status === 'COMPLETED') newOrderStatus = OrderStatus.DELIVERED;
+        else if (status === 'FAILED') newOrderStatus = OrderStatus.DELIVERY_FAILED;
+      }
+      if (newOrderStatus) {
+        await OrderTrackingService.updateOrderStatus({
+          orderId: assignment.orderId,
+          newStatus: newOrderStatus,
+          notes,
+        });
+      }
+    }
+    // --- End update order status ---
 
     return NextResponse.json({
       success: true,
@@ -302,11 +343,30 @@ export async function DELETE(req: Request) {
 
     // If action is 'delete', actually delete the record
     if (action === 'delete') {
+      // Determine what status to revert to based on assignment type and current order status
+      let revertStatus: OrderStatus | undefined;
+      
+      if (existingAssignment.assignmentType === 'pickup' && existingAssignment.order.status === OrderStatus.PICKUP_ASSIGNED) {
+        revertStatus = OrderStatus.CONFIRMED;
+      } else if (existingAssignment.assignmentType === 'delivery' && existingAssignment.order.status === OrderStatus.DELIVERY_ASSIGNED) {
+        revertStatus = OrderStatus.READY_FOR_DELIVERY;
+      }
+      
+      // Delete the assignment
       await prisma.driverAssignment.delete({
         where: {
           id: parseInt(assignmentId),
         },
       });
+
+      // Revert order status if needed
+      if (revertStatus) {
+        await OrderTrackingService.updateOrderStatus({
+          orderId: existingAssignment.orderId,
+          newStatus: revertStatus,
+          notes: `Driver assignment deleted - reverted to ${revertStatus.replace(/_/g, ' ').toLowerCase()}`,
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -316,14 +376,14 @@ export async function DELETE(req: Request) {
 
     // Otherwise, cancel the assignment (set status to 'cancelled')
     // Check if the assignment can be cancelled based on its current status
-    if (existingAssignment.status === 'cancelled') {
+    if (existingAssignment.status === 'CANCELLED') {
       return NextResponse.json(
         { error: "Driver assignment is already cancelled" },
         { status: 400 }
       );
     }
 
-    if (existingAssignment.status === 'completed') {
+    if (existingAssignment.status === 'COMPLETED') {
       return NextResponse.json(
         { error: "Cannot cancel a completed driver assignment" },
         { status: 400 }
@@ -337,13 +397,13 @@ export async function DELETE(req: Request) {
     // For pickup assignments, check if order is still in early stages
     if (assignmentType === 'pickup') {
       const nonCancellablePickupStatuses = [
-        'Picked Up', 'Processing', 'Cleaning Complete', 'Quality Check', 
-        'Invoice Generated', 'Driver Assigned for Delivery', 'Out for Delivery', 'Delivered'
+        OrderStatus.PICKUP_COMPLETED, OrderStatus.RECEIVED_AT_FACILITY, OrderStatus.PROCESSING_STARTED, OrderStatus.PROCESSING_COMPLETED, OrderStatus.QUALITY_CHECK, 
+        OrderStatus.READY_FOR_DELIVERY, OrderStatus.DELIVERY_ASSIGNED, OrderStatus.DELIVERY_IN_PROGRESS, OrderStatus.DELIVERED
       ];
       
-      if (nonCancellablePickupStatuses.includes(orderStatus)) {
+      if (nonCancellablePickupStatuses.includes(orderStatus as any)) {
         return NextResponse.json(
-          { error: `Cannot cancel pickup assignment. Order is already ${orderStatus.toLowerCase()}` },
+          { error: `Cannot cancel pickup assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}` },
           { status: 400 }
         );
       }
@@ -352,12 +412,12 @@ export async function DELETE(req: Request) {
     // For delivery assignments, check if order is still in processing stages
     if (assignmentType === 'delivery') {
       const nonCancellableDeliveryStatuses = [
-        'Out for Delivery', 'Delivered'
+        OrderStatus.DELIVERY_IN_PROGRESS, OrderStatus.DELIVERED
       ];
       
-      if (nonCancellableDeliveryStatuses.includes(orderStatus)) {
+      if (nonCancellableDeliveryStatuses.includes(orderStatus as any)) {
         return NextResponse.json(
-          { error: `Cannot cancel delivery assignment. Order is already ${orderStatus.toLowerCase()}` },
+          { error: `Cannot cancel delivery assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}` },
           { status: 400 }
         );
       }
@@ -369,7 +429,7 @@ export async function DELETE(req: Request) {
         id: parseInt(assignmentId),
       },
       data: {
-        status: 'cancelled',
+        status: 'CANCELLED',
       },
     });
 
@@ -378,7 +438,7 @@ export async function DELETE(req: Request) {
       message: "Driver assignment cancelled successfully",
       assignment: {
         ...existingAssignment,
-        status: 'cancelled',
+        status: 'CANCELLED',
       },
     });
   } catch (error) {

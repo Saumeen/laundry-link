@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { UserRole, DriverAssignment } from "@/types/global";
+import { OrderStatus } from "@prisma/client";
 
 import { useToast, ToastProvider } from "@/components/ui/Toast";
 import ConfirmationModal from "@/components/ui/ConfirmationModal";
@@ -164,7 +165,7 @@ interface OrderItemsResponse {
   orderItems: OrderItem[];
 }
 
-type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items' | 'invoice';
+type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items' | 'invoice' | 'history';
 
 // Tab Button Component
 const TabButton = React.memo(({ 
@@ -576,6 +577,299 @@ function InvoiceTab({ order, onRefresh }: { order: Order; onRefresh: () => void 
   );
 }
 
+// Order History Tab Component
+function OrderHistoryTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+  const { showToast } = useToast();
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addingNote, setAddingNote] = useState(false);
+  const [newNote, setNewNote] = useState('');
+
+  const formatDateTime = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, []);
+
+  const formatDate = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }, []);
+
+  const getEventIcon = useCallback((type: string) => {
+    switch (type) {
+      case 'history':
+        return (
+          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        );
+      case 'update':
+        return (
+          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+        );
+      case 'driver_assignment':
+        return (
+          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+        );
+      case 'processing':
+        return (
+          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+        );
+      default:
+        return (
+          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        );
+    }
+  }, []);
+
+  const getEventColor = useCallback((type: string) => {
+    switch (type) {
+      case 'history':
+        return 'border-blue-200 bg-blue-50';
+      case 'update':
+        return 'border-green-200 bg-green-50';
+      case 'driver_assignment':
+        return 'border-purple-200 bg-purple-50';
+      case 'processing':
+        return 'border-orange-200 bg-orange-50';
+      default:
+        return 'border-gray-200 bg-gray-50';
+    }
+  }, []);
+
+  const fetchTimeline = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/admin/order-history/${order.id}`);
+      if (response.ok) {
+        const data = await response.json() as any[];
+        setTimeline(data);
+      } else {
+        showToast('Failed to fetch order history', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching timeline:', error);
+      showToast('Failed to fetch order history', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [order.id, showToast]);
+
+  const handleAddNote = async () => {
+    if (!newNote.trim()) {
+      showToast('Please enter a note', 'error');
+      return;
+    }
+
+    try {
+      setAddingNote(true);
+      const response = await fetch(`/api/admin/order-history/${order.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'ADD_NOTE',
+          description: newNote,
+          metadata: { type: 'admin_note' }
+        }),
+      });
+
+      if (response.ok) {
+        showToast('Note added successfully', 'success');
+        setNewNote('');
+        fetchTimeline();
+        onRefresh();
+      } else {
+        showToast('Failed to add note', 'error');
+      }
+    } catch (error) {
+      console.error('Error adding note:', error);
+      showToast('Failed to add note', 'error');
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTimeline();
+  }, [fetchTimeline]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-3 text-gray-600">Loading order history...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Order Timeline</h3>
+            <p className="text-sm text-gray-600">
+              Complete history of all activities, status changes, and updates for this order.
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-blue-600">
+              {timeline.length}
+            </div>
+            <div className="text-xs text-gray-500">Total Events</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Note Section */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="text-md font-medium text-gray-900 mb-4">Add Note</h4>
+        <div className="flex gap-3">
+          <input
+            type="text"
+            placeholder="Add a note to the order history..."
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyPress={(e) => e.key === 'Enter' && handleAddNote()}
+          />
+          <button
+            onClick={handleAddNote}
+            disabled={addingNote || !newNote.trim()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {addingNote ? 'Adding...' : 'Add Note'}
+          </button>
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="text-md font-medium text-gray-900 mb-6">Order Timeline</h4>
+        
+        {timeline.length === 0 ? (
+          <div className="text-center py-8">
+            <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-gray-500">No history events found for this order.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {timeline.map((event, index) => (
+              <div key={event.id} className={`relative border-l-4 ${getEventColor(event.type)} pl-6 pb-6`}>
+                {/* Timeline dot */}
+                <div className="absolute left-0 top-0 transform -translate-x-1/2">
+                  {getEventIcon(event.type)}
+                </div>
+                
+                {/* Event content */}
+                <div className="ml-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-gray-900 mb-1">
+                        {event.description}
+                      </h5>
+                      
+                      {/* Event details based on type */}
+                      {event.type === 'update' && (
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="inline-block bg-gray-100 px-2 py-1 rounded mr-2">
+                            {event.oldStatus} → {event.newStatus}
+                          </span>
+                          {event.notes && (
+                            <span className="text-gray-500">Note: {event.notes}</span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {event.type === 'driver_assignment' && (
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded mr-2">
+                            {event.metadata.assignmentType}
+                          </span>
+                          <span className="inline-block bg-gray-100 px-2 py-1 rounded mr-2">
+                            {event.metadata.status}
+                          </span>
+                          {event.metadata.estimatedTime && (
+                            <span className="text-gray-500">
+                              Est: {formatDateTime(event.metadata.estimatedTime)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {event.type === 'processing' && (
+                        <div className="text-sm text-gray-600 mb-2">
+                          <span className="inline-block bg-orange-100 text-orange-800 px-2 py-1 rounded mr-2">
+                            {event.metadata.processingStatus}
+                          </span>
+                          {event.metadata.totalPieces && (
+                            <span className="text-gray-500">
+                              Pieces: {event.metadata.totalPieces}
+                            </span>
+                          )}
+                          {event.metadata.totalWeight && (
+                            <span className="text-gray-500 ml-2">
+                              Weight: {event.metadata.totalWeight}kg
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Staff information */}
+                      {event.staff && (
+                        <div className="text-xs text-gray-500">
+                          By: {event.staff.firstName} {event.staff.lastName} ({event.staff.email})
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 ml-4">
+                      {formatDateTime(event.createdAt)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function OrderEditPageContent() {
   const router = useRouter();
   const params = useParams();
@@ -666,7 +960,7 @@ function OrderEditPageContent() {
       'Picked Up': 'bg-yellow-100 text-yellow-800',
       'In Process': 'bg-purple-100 text-purple-800',
       'Ready for Delivery': 'bg-green-100 text-green-800',
-      'Delivered': 'bg-gray-100 text-gray-800',
+      [OrderStatus.DELIVERED]: 'bg-gray-100 text-gray-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   }, []);
@@ -836,6 +1130,12 @@ function OrderEditPageContent() {
               >
                 Invoice
               </TabButton>
+              <TabButton
+                isActive={activeTab === 'history'}
+                onClick={() => handleTabClick('history')}
+              >
+                Order History
+              </TabButton>
             </nav>
           </div>
 
@@ -858,6 +1158,9 @@ function OrderEditPageContent() {
             )}
             {activeTab === 'invoice' && (
               <InvoiceTab order={order} onRefresh={fetchOrder} />
+            )}
+            {activeTab === 'history' && (
+              <OrderHistoryTab order={order} onRefresh={fetchOrder} />
             )}
           </div>
         </div>
@@ -1045,7 +1348,7 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
         setError(errorData.error || 'Failed to update order');
       }
     } catch (error) {
-      console.error('Error updating order:', error);
+      // Handle error silently
       setError('Failed to update order');
     } finally {
       setLoading(false);
@@ -1094,12 +1397,23 @@ function OrderEditTab({ order, onUpdate }: { order: Order; onUpdate: () => void 
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="Order Placed">Order Placed</option>
-                <option value="Picked Up">Picked Up</option>
-                <option value="In Process">In Process</option>
-                <option value="Ready for Delivery">Ready for Delivery</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
+                <option value="ORDER_PLACED">Order Placed</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="PICKUP_ASSIGNED">Pickup Assigned</option>
+                <option value="PICKUP_IN_PROGRESS">Pickup In Progress</option>
+                <option value="PICKUP_COMPLETED">Pickup Completed</option>
+                <option value="PICKUP_FAILED">Pickup Failed</option>
+                <option value="RECEIVED_AT_FACILITY">Received at Facility</option>
+                <option value="PROCESSING_STARTED">Processing Started</option>
+                <option value="PROCESSING_COMPLETED">Processing Completed</option>
+                <option value="QUALITY_CHECK">Quality Check</option>
+                <option value="READY_FOR_DELIVERY">Ready for Delivery</option>
+                <option value="DELIVERY_ASSIGNED">Delivery Assigned</option>
+                <option value="DELIVERY_IN_PROGRESS">Delivery In Progress</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="DELIVERY_FAILED">Delivery Failed</option>
+                <option value="CANCELLED">Cancelled</option>
+                <option value="REFUNDED">Refunded</option>
               </select>
             </div>
 
@@ -1384,6 +1698,8 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     loadData();
   }, [order.id]);
 
+
+
   // Check pickup time against customer's requested time
   const checkPickupTimeWarning = useCallback((assignedTime: string) => {
     if (!assignedTime || !order.pickupTime) return '';
@@ -1577,6 +1893,8 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       
       if (response.ok) {
         await loadDriverAssignments();
+        // Refresh order data to get updated status
+        onRefresh();
         showToast(`Driver assigned for ${assignmentType} successfully`, 'success');
       } else {
         const error = await response.json() as ErrorResponse;
@@ -1593,7 +1911,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
         setDeliveryAssignmentLoading(false);
       }
     }
-  }, [selectedPickupDriver, selectedDeliveryDriver, pickupEstimatedTime, deliveryEstimatedTime, pickupNotes, deliveryNotes, validateDateTime, order.id, loadDriverAssignments, showToast]);
+  }, [selectedPickupDriver, selectedDeliveryDriver, pickupEstimatedTime, deliveryEstimatedTime, pickupNotes, deliveryNotes, validateDateTime, order.id, loadDriverAssignments, onRefresh, showToast]);
 
   const startEditing = useCallback((assignment: DriverAssignment) => {
     setEditingAssignment(assignment.id);
@@ -1642,6 +1960,8 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       
       if (response.ok) {
         await loadDriverAssignments();
+        // Refresh order data to get updated status
+        onRefresh();
         cancelEditing();
         showToast('Assignment updated successfully', 'success');
       } else {
@@ -1654,7 +1974,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     } finally {
       setEditLoading(false);
     }
-  }, [editingAssignment, editDriverId, driverAssignments, validateEditDateTime, editEstimatedTime, editNotes, loadDriverAssignments, cancelEditing, showToast]);
+  }, [editingAssignment, editDriverId, driverAssignments, validateEditDateTime, editEstimatedTime, editNotes, loadDriverAssignments, onRefresh, cancelEditing, showToast]);
 
   const handleDeleteClick = useCallback((assignmentId: number) => {
     setAssignmentToDelete(assignmentId);
@@ -1672,6 +1992,8 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       
       if (response.ok) {
         await loadDriverAssignments();
+        // Refresh order data to get updated status
+        onRefresh();
         showToast('Assignment deleted successfully', 'success');
       } else {
         const error = await response.json() as ErrorResponse;
@@ -1685,7 +2007,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
       setAssignmentToDelete(null);
       setShowDeleteModal(false);
     }
-  }, [assignmentToDelete, loadDriverAssignments, showToast]);
+  }, [assignmentToDelete, loadDriverAssignments, onRefresh, showToast]);
 
   const handleDeleteCancel = useCallback(() => {
     setShowDeleteModal(false);
@@ -1812,9 +2134,12 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
                           {assignment.assignmentType.charAt(0).toUpperCase() + assignment.assignmentType.slice(1)} Driver
                         </h5>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          assignment.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
-                          assignment.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                          assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          assignment.status === 'ASSIGNED' ? 'bg-blue-100 text-blue-800' :
+                          assignment.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
+                          assignment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                          assignment.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                          assignment.status === 'RESCHEDULED' ? 'bg-purple-100 text-purple-800' :
+                          assignment.status === 'FAILED' ? 'bg-red-100 text-red-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {assignment.status.replace('_', ' ')}
@@ -2560,7 +2885,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   const [processingItemDetail, setProcessingItemDetail] = useState<any>(null);
   const [processingForm, setProcessingForm] = useState({
     processedQuantity: '',
-    status: 'pending',
+    status: 'PENDING',
     processingNotes: ''
   });
   const [markReadyLoading, setMarkReadyLoading] = useState(false);
@@ -2771,24 +3096,28 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   // Status helpers
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-1" />;
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-1" />;
-      case 'issue_reported':
+      case 'ISSUE_REPORTED':
         return <span className="inline-block w-3 h-3 bg-red-500 rounded-full mr-1" />;
+      case 'PENDING':
+        return <span className="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1" />;
       default:
         return <span className="inline-block w-3 h-3 bg-gray-400 rounded-full mr-1" />;
     }
   };
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'bg-green-100 text-green-800';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-800';
-      case 'issue_reported':
+      case 'ISSUE_REPORTED':
         return 'bg-red-100 text-red-800';
+      case 'PENDING':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -2796,7 +3125,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   const isAllItemsCompleted = () => {
     if (!processing?.processingItems) return false;
     return processing.processingItems.every((pi: any) =>
-      pi.processingItemDetails.every((detail: any) => detail.status === 'completed')
+              pi.processingItemDetails.every((detail: any) => detail.status === 'COMPLETED')
     );
   };
 
@@ -2884,7 +3213,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          processingStatus: 'ready_for_delivery',
+          processingStatus: OrderStatus.READY_FOR_DELIVERY,
           processingNotes: processing?.processingNotes || 'Order completed and ready for delivery'
         })
       });
@@ -3000,7 +3329,7 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                   <span className="text-green-800 font-medium">
                     Processing Status: <span className="font-bold">{processing.processingStatus || 'In Progress'}</span>
                   </span>
-                  {isAllItemsCompleted() && processing.processingStatus !== 'ready_for_delivery' && (
+                  {isAllItemsCompleted() && processing.processingStatus !== OrderStatus.READY_FOR_DELIVERY && (
                     <button
                       onClick={handleMarkReady}
                       disabled={markReadyLoading}
@@ -3165,10 +3494,10 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
                           onChange={e => handleProcessingFormChange('status', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="pending">Pending</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="completed">Completed</option>
-                          <option value="issue_reported">Issue Reported</option>
+                                              <option value="PENDING">Pending</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="ISSUE_REPORTED">Issue Reported</option>
                         </select>
                       </div>
                       <div>
