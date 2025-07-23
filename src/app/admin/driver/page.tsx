@@ -107,6 +107,7 @@ export default function DriverDashboard() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [error, setError] = useState<string | null>(null);
 
   // Google Maps state
   const { isLoaded, loadError } = useLoadScript({
@@ -202,21 +203,13 @@ export default function DriverDashboard() {
     try {
       setUpdating(assignmentId);
       
-      // Find the current assignment to get its status
-      const currentAssignment = assignments.find(a => a.id === assignmentId);
-      if (!currentAssignment) {
-        console.error('Assignment not found');
-        return;
-      }
-      
-      const response = await fetch("/api/admin/driver/assignments", {
-        method: "PUT",
+      const response = await fetch("/api/admin/driver/photo", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           assignmentId,
-          status: currentAssignment.status, // Keep current status
           photoUrl,
           photoType,
           notes: notes || undefined,
@@ -240,18 +233,53 @@ export default function DriverDashboard() {
   const updateAssignmentStatus = useCallback(async (assignmentId: number, status: string, photoUrl?: string) => {
     try {
       setUpdating(assignmentId);
+      setError(null);
       
-      const response = await fetch("/api/admin/driver/assignments", {
-        method: "PUT",
+      // Map assignment status to driver action
+      let action: string;
+      switch (status) {
+        case 'STARTED':
+          action = 'start_pickup';
+          break;
+        case 'COMPLETED':
+          action = 'complete_pickup';
+          break;
+        case 'FAILED':
+          action = 'fail_pickup';
+          break;
+        case 'DROPPED_OFF':
+          action = 'drop_off';
+          break;
+        case 'DELIVERY_STARTED':
+          action = 'start_delivery';
+          break;
+        case 'DELIVERY_COMPLETED':
+          action = 'complete_delivery';
+          break;
+        case 'DELIVERY_FAILED':
+          action = 'fail_delivery';
+          break;
+        default:
+          action = 'start_pickup'; // fallback
+      }
+
+      // Get the order ID from the assignment
+      const assignment = assignments.find(a => a.id === assignmentId);
+      if (!assignment) {
+        setError('Assignment not found');
+        return;
+      }
+
+      const response = await fetch("/api/admin/driver/actions", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          assignmentId,
-          status,
-          notes,
+          orderId: assignment.order.id,
+          action: action as any,
           photoUrl,
-          photoType: photoType || `${status}_photo`,
+          notes: notes || undefined,
         }),
       });
 
@@ -263,13 +291,16 @@ export default function DriverDashboard() {
         setPhotoData(null);
         setPhotoType("");
         setNotes("");
+      } else {
+        const errorData = await response.json() as { error?: string };
+        setError(errorData.error || 'Failed to update assignment');
       }
     } catch (error) {
-      // Handle error silently
+      setError('Network error occurred');
     } finally {
       setUpdating(null);
     }
-  }, [fetchAssignments, fetchStats, notes, photoType]);
+  }, [fetchAssignments, fetchStats, notes, photoType, assignments]);
 
   const openCamera = useCallback(async () => {
     try {
@@ -512,18 +543,30 @@ export default function DriverDashboard() {
     }
   }, []);
 
-  // Get today's assignments for display purposes
-  const todayAssignments = useMemo(() => 
-    assignments.filter(a => 
-      new Date(a.estimatedTime || a.order.pickupTime).toDateString() === new Date().toDateString()
-    ), [assignments]
+  // Helper function to check if assignment is for today
+  const isTodayAssignment = useCallback((assignment: DriverAssignment) => {
+    if (!assignment.estimatedTime) return false;
+    const today = new Date();
+    const assignmentDate = new Date(assignment.estimatedTime);
+    return today.toDateString() === assignmentDate.toDateString();
+  }, []);
+
+  // Filter assignments
+  const todaysAssignments = useMemo(() => 
+    assignments.filter(assignment => isTodayAssignment(assignment)), 
+    [assignments, isTodayAssignment]
+  );
+  
+  const otherAssignments = useMemo(() => 
+    assignments.filter(assignment => !isTodayAssignment(assignment)), 
+    [assignments, isTodayAssignment]
   );
 
-  // Pagination logic
-  const totalPages = Math.ceil(assignments.length / itemsPerPage);
+  // Pagination calculations
+  const totalPages = Math.ceil(otherAssignments.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentAssignments = assignments.slice(startIndex, endIndex);
+  const currentAssignments = otherAssignments.slice(startIndex, endIndex);
 
   const goToPage = (page: number) => {
     setCurrentPage(page);
@@ -616,8 +659,8 @@ export default function DriverDashboard() {
                     </div>
                     <div className="ml-3 sm:ml-5 w-0 flex-1">
                       <dl>
-                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Completed</dt>
-                        <dd className="text-base sm:text-lg font-medium text-gray-900">{stats?.completedAssignments || 0}</dd>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Today's Tasks</dt>
+                        <dd className="text-base sm:text-lg font-medium text-gray-900">{todaysAssignments.length}</dd>
                       </dl>
                     </div>
                   </div>
@@ -663,14 +706,37 @@ export default function DriverDashboard() {
               </div>
             </div>
 
-            {/* Current Assignment */}
-            {stats && (stats.inProgressAssignments > 0 || stats.pendingAssignments > 0) && (
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">Error</h3>
+                    <div className="mt-2 text-sm text-red-700">
+                      <p>{error}</p>
+                    </div>
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setError(null)}
+                        className="bg-red-100 text-red-800 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-200"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Today's Assignments */}
+            {todaysAssignments.length > 0 && (
               <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Current Assignment</h2>
-                            {todayAssignments
-              .filter(a => a.status === "ASSIGNED" || a.status === "IN_PROGRESS")
-              .slice(0, 1)
-                  .map((assignment) => (
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Today's Assignments</h2>
+                <div className="space-y-3 sm:space-y-4">
+                  {todaysAssignments.map((assignment) => (
                     <div key={assignment.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                         <div className="flex-1 min-w-0">
@@ -749,17 +815,63 @@ export default function DriverDashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
               </div>
             )}
 
-            {/* Today's Assignments */}
-            <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Today&apos;s Assignments</h2>
-              <div className="space-y-3 sm:space-y-4">
-                {todayAssignments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No assignments for today</p>
-                ) : (
-                  todayAssignments.map((assignment) => (
+            {/* No Assignments Message */}
+            {assignments.length === 0 && !loading && (
+              <div className="bg-white shadow rounded-lg p-8 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Assignments Available</h3>
+                <p className="text-gray-600 mb-4">
+                  You don't have any assignments at the moment. New assignments will appear here when they are assigned to you.
+                </p>
+                <button
+                  onClick={() => {
+                    fetchAssignments();
+                    fetchStats();
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Refresh
+                </button>
+              </div>
+            )}
+
+            {/* No Today's Assignments Message */}
+            {assignments.length > 0 && todaysAssignments.length === 0 && !loading && (
+              <div className="bg-white shadow rounded-lg p-6 mb-8">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-900">Today's Assignments</h2>
+                    <p className="text-sm text-gray-600">No assignments scheduled for today</p>
+                  </div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm text-blue-700">
+                      You have {otherAssignments.length} assignment{otherAssignments.length !== 1 ? 's' : ''} scheduled for other days.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Other Assignments */}
+            {otherAssignments.length > 0 && (
+              <div className="bg-white shadow rounded-lg p-4 sm:p-6 mb-8">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">Other Assignments</h2>
+                <div className="space-y-3 sm:space-y-4">
+                  {otherAssignments.map((assignment) => (
                     <div key={assignment.id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                         <div className="flex-1 min-w-0">
@@ -815,142 +927,69 @@ export default function DriverDashboard() {
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* All Assignments */}
-            <div className="bg-white shadow rounded-lg p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
-                <h2 className="text-lg font-medium text-gray-900">All Assignments</h2>
-                <div className="text-sm text-gray-500">
-                  Showing {startIndex + 1}-{Math.min(endIndex, assignments.length)} of {assignments.length} assignments
+                  ))}
                 </div>
               </div>
-              
-              <div className="space-y-3 sm:space-y-4">
-                {assignments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No assignments found</p>
-                ) : (
-                  currentAssignments.map((assignment) => (
-                    <div key={assignment.id} className="border border-gray-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-1 sm:space-y-0">
-                            <h3 className="font-medium text-gray-900 text-sm sm:text-base truncate">
-                              {assignment.assignmentType === "pickup" ? "Pickup" : "Delivery"} - {assignment.order.orderNumber}
-                            </h3>
-                            <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(assignment.status)} w-fit`}>
-                              {getStatusIcon(assignment.status)}
-                              <span className="ml-1 hidden sm:inline">{assignment.status.replace("_", " ")}</span>
-                              <span className="ml-1 sm:hidden">{assignment.status.replace("_", " ").substring(0, 3)}</span>
-                            </span>
-                          </div>
-                          <div className="mt-2 space-y-1">
-                            <p className="text-sm text-gray-600 truncate">
-                              <span className="font-medium">Customer:</span> {assignment.order.customerFirstName} {assignment.order.customerLastName}
-                            </p>
-                            <p className="text-sm text-gray-600 truncate">
-                              <span className="font-medium">Address:</span> {assignment.order.customerAddress}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              <span className="font-medium">Date:</span> {new Date(assignment.estimatedTime || assignment.order.pickupTime).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                          {assignment.status !== "COMPLETED" ? (
-                            <button
-                              onClick={() => {
-                                setSelectedAssignment(assignment);
-                                setPhotoType(`${assignment.assignmentType}_${getNextStatus(assignment.status, assignment.assignmentType)}_photo`);
-                              }}
-                              className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition-colors w-full sm:w-auto"
-                              disabled={updating === assignment.id}
-                            >
-                              {updating === assignment.id ? "..." : "Update"}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setSelectedAssignment(assignment)}
-                              className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700 transition-colors w-full sm:w-auto"
-                            >
-                              View
-                            </button>
-                          )}
-                          <button
-                            onClick={() => window.open(getGoogleMapsLink(assignment), '_blank')}
-                            className="bg-purple-600 text-white px-3 py-2 rounded text-sm hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1 w-full sm:w-auto"
-                          >
-                            <MapPin className="w-3 h-3" />
-                            <span>Map</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+            )}
 
-              {/* Pagination Controls */}
-              {assignments.length > itemsPerPage && (
-                <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-                  <div className="text-sm text-gray-700 text-center sm:text-left">
-                    Page {currentPage} of {totalPages}
-                  </div>
-                  <div className="flex items-center justify-center space-x-2">
-                    <button
-                      onClick={goToPreviousPage}
-                      disabled={currentPage === 1}
-                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    
-                    {/* Page Numbers - Simplified for mobile */}
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 2) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 1) {
-                          pageNum = totalPages - 2 + i;
-                        } else {
-                          pageNum = currentPage - 1 + i;
-                        }
-                        
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => goToPage(pageNum)}
-                            className={`px-3 py-2 text-sm font-medium rounded-md ${
-                              currentPage === pageNum
-                                ? 'bg-blue-600 text-white'
-                                : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    <button
-                      onClick={goToNextPage}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
+            {/* Pagination Controls for Other Assignments */}
+            {otherAssignments.length > itemsPerPage && (
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                <div className="text-sm text-gray-700 text-center sm:text-left">
+                  Page {currentPage} of {totalPages}
                 </div>
-              )}
-            </div>
+                <div className="flex items-center justify-center space-x-2">
+                  <button
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Page Numbers - Simplified for mobile */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 2) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 1) {
+                        pageNum = totalPages - 2 + i;
+                      } else {
+                        pageNum = currentPage - 1 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium rounded-md ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <button
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </main>
+      </div>
 
         {/* Assignment Details Modal */}
         {selectedAssignment && (
@@ -1415,9 +1454,6 @@ export default function DriverDashboard() {
             </div>
           </div>
         )}
-
-
-      </div>
     </PageTransition>
   );
 }

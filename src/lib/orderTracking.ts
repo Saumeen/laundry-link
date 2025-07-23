@@ -1,6 +1,7 @@
 import prisma from './prisma';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, DriverAssignmentStatus, ProcessingStatus, ItemStatus, IssueStatus } from '@prisma/client';
 import { createOrderHistoryEntry, validateStatusChange } from './orderStatus';
+import emailService from './emailService';
 
 export interface OrderUpdateData {
   orderId: number;
@@ -9,6 +10,7 @@ export interface OrderUpdateData {
   newPaymentStatus?: PaymentStatus;
   notes?: string;
   metadata?: any;
+  shouldSendEmail?: boolean;
 }
 
 export interface OrderHistoryEntry {
@@ -26,6 +28,30 @@ export interface OrderHistoryEntry {
     lastName: string;
     email: string;
   } | null;
+}
+
+export interface DriverActionData {
+  orderId: number;
+  driverId: number;
+  action: 'start_pickup' | 'complete_pickup' | 'fail_pickup' | 'drop_off' | 'start_delivery' | 'complete_delivery' | 'fail_delivery';
+  photoUrl?: string;
+  notes?: string;
+}
+
+export interface FacilityActionData {
+  orderId: number;
+  staffId: number;
+  action: 'receive_order' | 'start_processing' | 'complete_processing' | 'generate_invoice' | 'assign_delivery_driver';
+  notes?: string;
+  metadata?: any;
+}
+
+export interface OperationsActionData {
+  orderId: number;
+  staffId: number;
+  action: 'confirm_order' | 'assign_pickup_driver' | 'assign_delivery_driver';
+  driverId?: number;
+  notes?: string;
 }
 
 export class OrderTrackingService {
@@ -134,6 +160,449 @@ export class OrderTrackingService {
   }
 
   /**
+   * Update order status with email notification
+   */
+  static async updateOrderStatusWithEmail(data: OrderUpdateData): Promise<{ success: boolean; message?: string; order?: any }> {
+    const { orderId, newStatus, shouldSendEmail = true } = data;
+
+    try {
+      // Get order with customer details for email
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          customer: true,
+          orderServiceMappings: {
+            include: {
+              service: true,
+              orderItems: true
+            }
+          }
+        }
+      });
+
+      if (!order) {
+        return { success: false, message: 'Order not found' };
+      }
+
+      // Update order status using existing method
+      const result = await this.updateOrderStatus(data);
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Send email notification if required
+      if (shouldSendEmail && newStatus && order.customer?.email) {
+        await this.sendStatusUpdateEmail(order, newStatus);
+      }
+
+      return { success: true, order: result.order };
+    } catch (error) {
+      console.error('Error updating order status with email:', error);
+      return { success: false, message: 'Failed to update order status' };
+    }
+  }
+
+  /**
+   * Handle driver actions with automatic status updates
+   */
+  static async handleDriverAction(data: DriverActionData): Promise<{ success: boolean; message?: string }> {
+    const { orderId, driverId, action, photoUrl, notes } = data;
+
+    try {
+      let newStatus: OrderStatus;
+      let shouldSendEmail = true;
+
+      switch (action) {
+        case 'start_pickup':
+          newStatus = OrderStatus.PICKUP_IN_PROGRESS;
+          break;
+        case 'complete_pickup':
+          newStatus = OrderStatus.PICKUP_COMPLETED;
+          break;
+        case 'fail_pickup':
+          newStatus = OrderStatus.PICKUP_FAILED;
+          break;
+        case 'drop_off':
+          newStatus = OrderStatus.RECEIVED_AT_FACILITY;
+          break;
+        case 'start_delivery':
+          newStatus = OrderStatus.DELIVERY_IN_PROGRESS;
+          break;
+        case 'complete_delivery':
+          newStatus = OrderStatus.DELIVERED;
+          break;
+        case 'fail_delivery':
+          newStatus = OrderStatus.DELIVERY_FAILED;
+          break;
+        default:
+          return { success: false, message: 'Invalid driver action' };
+      }
+
+      // Update order status
+      const result = await this.updateOrderStatusWithEmail({
+        orderId,
+        newStatus,
+        staffId: driverId,
+        notes,
+        metadata: { action },
+        shouldSendEmail
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Handle special cases
+      if (action === 'drop_off') {
+        // Remove from driver's pickup list
+        await this.removeFromDriverList(orderId, 'pickup');
+      } else if (action === 'complete_delivery' || action === 'fail_delivery') {
+        // Remove from driver's delivery list
+        await this.removeFromDriverList(orderId, 'delivery');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error handling driver action:', error);
+      return { success: false, message: 'Failed to handle driver action' };
+    }
+  }
+
+  /**
+   * Handle facility team actions with automatic status updates
+   */
+  static async handleFacilityAction(data: FacilityActionData): Promise<{ success: boolean; message?: string }> {
+    const { orderId, staffId, action, notes, metadata } = data;
+
+    try {
+      let newStatus: OrderStatus;
+      let shouldSendEmail = true;
+
+      switch (action) {
+        case 'receive_order':
+          newStatus = OrderStatus.RECEIVED_AT_FACILITY;
+          break;
+        case 'start_processing':
+          newStatus = OrderStatus.PROCESSING_STARTED;
+          break;
+        case 'complete_processing':
+          newStatus = OrderStatus.PROCESSING_COMPLETED;
+          break;
+        case 'generate_invoice':
+          newStatus = OrderStatus.READY_FOR_DELIVERY;
+          break;
+        case 'assign_delivery_driver':
+          newStatus = OrderStatus.DELIVERY_ASSIGNED;
+          shouldSendEmail = false; // Don't send email for this status
+          break;
+        default:
+          return { success: false, message: 'Invalid facility action' };
+      }
+
+      // Update order status
+      const result = await this.updateOrderStatusWithEmail({
+        orderId,
+        newStatus,
+        staffId,
+        notes,
+        metadata,
+        shouldSendEmail
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Handle special cases
+      if (action === 'generate_invoice') {
+        // Send invoice email
+        await this.sendInvoiceEmail(orderId);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error handling facility action:', error);
+      return { success: false, message: 'Failed to handle facility action' };
+    }
+  }
+
+  /**
+   * Handle operations team actions
+   */
+  static async handleOperationsAction(data: OperationsActionData): Promise<{ success: boolean; message?: string }> {
+    const { orderId, staffId, action, driverId, notes } = data;
+
+    try {
+      let newStatus: OrderStatus;
+      let shouldSendEmail = true;
+
+      switch (action) {
+        case 'confirm_order':
+          newStatus = OrderStatus.CONFIRMED;
+          break;
+        case 'assign_pickup_driver':
+          newStatus = OrderStatus.PICKUP_ASSIGNED;
+          break;
+        case 'assign_delivery_driver':
+          newStatus = OrderStatus.DELIVERY_ASSIGNED;
+          shouldSendEmail = false; // Don't send email for this status
+          break;
+        default:
+          return { success: false, message: 'Invalid operations action' };
+      }
+
+      // Update order status
+      const result = await this.updateOrderStatusWithEmail({
+        orderId,
+        newStatus,
+        staffId,
+        notes,
+        metadata: { action, driverId },
+        shouldSendEmail
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      // Create driver assignment if driver is provided
+      if (driverId && (action === 'assign_pickup_driver' || action === 'assign_delivery_driver')) {
+        await this.createDriverAssignment(orderId, driverId, action === 'assign_pickup_driver' ? 'pickup' : 'delivery');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error handling operations action:', error);
+      return { success: false, message: 'Failed to handle operations action' };
+    }
+  }
+
+  /**
+   * Check if order should be ready for delivery (payment check)
+   */
+  static async checkPaymentAndUpdateStatus(orderId: number): Promise<void> {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId }
+      });
+
+      if (!order) return;
+
+      // If processing is completed and payment is done, update to ready for delivery
+      if (order.status === OrderStatus.PROCESSING_COMPLETED && order.paymentStatus === PaymentStatus.PAID) {
+        await this.updateOrderStatusWithEmail({
+          orderId,
+          newStatus: OrderStatus.READY_FOR_DELIVERY,
+          shouldSendEmail: true
+        });
+      }
+    } catch (error) {
+      console.error('Error checking payment and updating status:', error);
+    }
+  }
+
+  /**
+   * Get orders for specific team members
+   */
+  static async getOrdersForTeam(teamType: 'driver' | 'facility' | 'operations', filters?: any): Promise<any[]> {
+    try {
+      let whereClause: any = {};
+
+      switch (teamType) {
+        case 'driver':
+          whereClause = {
+            OR: [
+              { status: OrderStatus.PICKUP_ASSIGNED },
+              { status: OrderStatus.PICKUP_IN_PROGRESS },
+              { status: OrderStatus.DELIVERY_ASSIGNED },
+              { status: OrderStatus.DELIVERY_IN_PROGRESS }
+            ]
+          };
+          break;
+        case 'facility':
+          whereClause = {
+            OR: [
+              { status: OrderStatus.RECEIVED_AT_FACILITY },
+              { status: OrderStatus.PROCESSING_STARTED },
+              { status: OrderStatus.PROCESSING_COMPLETED },
+              { status: OrderStatus.READY_FOR_DELIVERY }
+            ]
+          };
+          break;
+        case 'operations':
+          whereClause = {
+            OR: [
+              { status: OrderStatus.ORDER_PLACED },
+              { status: OrderStatus.CONFIRMED },
+              { status: OrderStatus.PICKUP_FAILED },
+              { status: OrderStatus.DELIVERY_FAILED }
+            ]
+          };
+          break;
+      }
+
+      // Add additional filters
+      if (filters) {
+        whereClause = { ...whereClause, ...filters };
+      }
+
+      const orders = await prisma.order.findMany({
+        where: whereClause,
+        include: {
+          customer: true,
+          orderServiceMappings: {
+            include: {
+              service: true
+            }
+          },
+          driverAssignments: {
+            include: {
+              driver: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      return orders;
+    } catch (error) {
+      console.error('Error getting orders for team:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Send status update email based on status
+   */
+  private static async sendStatusUpdateEmail(order: any, status: OrderStatus): Promise<void> {
+    // Only send emails for specific statuses as per requirements
+    const emailStatuses = new Set([
+      OrderStatus.ORDER_PLACED,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PICKUP_IN_PROGRESS,
+      OrderStatus.PICKUP_COMPLETED,
+      OrderStatus.PICKUP_FAILED,
+      OrderStatus.PROCESSING_STARTED,
+      OrderStatus.PROCESSING_COMPLETED,
+      OrderStatus.READY_FOR_DELIVERY,
+      OrderStatus.DELIVERY_IN_PROGRESS,
+      OrderStatus.DELIVERED,
+      OrderStatus.DELIVERY_FAILED,
+      OrderStatus.CANCELLED,
+      OrderStatus.REFUNDED
+    ]);
+
+    if (!emailStatuses.has(status as any) || !order.customer?.email) {
+      return;
+    }
+
+    try {
+      // Use any type since email service is JavaScript and supports all OrderStatus values
+      await emailService.sendStatusUpdateToCustomer(
+        order,
+        order.customer.email,
+        `${order.customer.firstName} ${order.customer.lastName}`,
+        status.toString()
+      );
+    } catch (error) {
+      console.error('Error sending status update email:', error);
+    }
+  }
+
+  /**
+   * Send invoice email when order is ready for delivery
+   */
+  private static async sendInvoiceEmail(orderId: number): Promise<void> {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          customer: true,
+          orderServiceMappings: {
+            include: {
+              service: true,
+              orderItems: true
+            }
+          }
+        }
+      });
+
+      if (!order || !order.customer?.email) {
+        return;
+      }
+
+      // Prepare invoice data
+      const invoiceData = {
+        totalAmount: order.invoiceTotal || 0,
+        items: order.orderServiceMappings.map(mapping => ({
+          serviceName: mapping.service.displayName,
+          quantity: mapping.quantity,
+          unitPrice: mapping.price,
+          totalPrice: mapping.price * mapping.quantity,
+          notes: mapping.orderItems.length > 0 ? 
+            mapping.orderItems.map(item => item.itemName).join(', ') : 
+            undefined
+        }))
+      };
+
+      // Send invoice email
+      await emailService.sendDeliveryConfirmationWithInvoice(
+        order,
+        order.customer.email,
+        `${order.customer.firstName} ${order.customer.lastName}`,
+        invoiceData
+      );
+    } catch (error) {
+      console.error('Error sending invoice email:', error);
+    }
+  }
+
+  /**
+   * Remove order from driver's list
+   */
+  private static async removeFromDriverList(orderId: number, assignmentType: 'pickup' | 'delivery'): Promise<void> {
+    try {
+      await prisma.driverAssignment.updateMany({
+        where: {
+          orderId,
+          assignmentType,
+          status: DriverAssignmentStatus.IN_PROGRESS
+        },
+        data: {
+          status: DriverAssignmentStatus.COMPLETED
+        }
+      });
+    } catch (error) {
+      console.error('Error removing order from driver list:', error);
+    }
+  }
+
+  /**
+   * Create driver assignment
+   */
+  private static async createDriverAssignment(
+    orderId: number,
+    driverId: number,
+    assignmentType: 'pickup' | 'delivery'
+  ): Promise<void> {
+    try {
+      await prisma.driverAssignment.create({
+        data: {
+          orderId,
+          driverId,
+          assignmentType,
+          status: DriverAssignmentStatus.ASSIGNED
+        }
+      });
+    } catch (error) {
+      console.error('Error creating driver assignment:', error);
+    }
+  }
+
+  /**
    * Get comprehensive order history
    */
   static async getOrderHistory(orderId: number): Promise<OrderHistoryEntry[]> {
@@ -223,7 +692,7 @@ export class OrderTrackingService {
   static async trackProcessingUpdate(
     orderId: number,
     staffId: number,
-    processingStatus: string,
+    processingStatus: ProcessingStatus,
     notes?: string,
     metadata?: any
   ): Promise<{ success: boolean; message?: string }> {

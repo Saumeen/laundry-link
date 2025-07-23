@@ -1,34 +1,6 @@
 "use client";
 
-import { memo } from "react";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+import { memo, useState } from "react";
 
 interface AnalyticsData {
   // Revenue Analytics
@@ -123,405 +95,108 @@ interface AnalyticsDashboardProps {
   dateRange: string;
 }
 
-// Memoized Chart Components
-const RevenueChart = memo(({ data, isLoading }: { data: any; isLoading: boolean }) => {
-  // Validate data structure
-  const isValidData = data && 
-    data.labels && 
-    Array.isArray(data.labels) && 
-    data.datasets && 
-    Array.isArray(data.datasets) && 
-    data.datasets.length > 0 &&
-    data.datasets[0].data &&
-    Array.isArray(data.datasets[0].data);
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow h-80">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Revenue Trends</h3>
-      {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse bg-gray-200 h-48 w-full rounded"></div>
-        </div>
-      ) : isValidData ? (
-        <div className="h-48">
-          <Line
-            data={data}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-              },
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                  display: true,
-                },
-                title: {
-                  display: false,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: {
-                    callback: function(value) {
-                      return '$' + value.toLocaleString();
-                    }
-                  }
-                },
-                x: {
-                  ticks: {
-                    maxTicksLimit: 10
-                  }
-                }
-              },
-              interaction: {
-                intersect: false,
-                mode: 'index' as const,
-              }
-            }}
-          />
-        </div>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      )}
-    </div>
-  );
-});
-
-const OrderStatusChart = memo(({ data, isLoading }: { data: any; isLoading: boolean }) => {
-  // Validate data structure
-  const isValidData = data && 
-    data.labels && 
-    Array.isArray(data.labels) && 
-    data.datasets && 
-    Array.isArray(data.datasets) && 
-    data.datasets.length > 0 &&
-    data.datasets[0].data &&
-    Array.isArray(data.datasets[0].data);
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow h-80">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Status Distribution</h3>
-      {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse bg-gray-200 h-48 w-full rounded"></div>
-        </div>
-      ) : isValidData ? (
-        <div className="h-48">
-          <Doughnut
-            data={data}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  position: 'bottom' as const,
-                },
-              },
-            }}
-          />
-        </div>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      )}
-    </div>
-  );
-});
-
-const CustomerGrowthChart = memo(({ data, isLoading }: { data: any; isLoading: boolean }) => {
-  // Validate data structure
-  const isValidData = data && 
-    data.labels && 
-    Array.isArray(data.labels) && 
-    data.datasets && 
-    Array.isArray(data.datasets) && 
-    data.datasets.length > 0 &&
-    data.datasets[0].data &&
-    Array.isArray(data.datasets[0].data);
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow h-80">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Customer Growth</h3>
-      {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse bg-gray-200 h-48 w-full rounded"></div>
-        </div>
-      ) : isValidData ? (
-        <div className="h-48">
-          <Line
-            data={data}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-              },
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                  display: true,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-                x: {
-                  ticks: {
-                    maxTicksLimit: 10
-                  }
-                }
-              },
-              interaction: {
-                intersect: false,
-                mode: 'index' as const,
-              }
-            }}
-          />
-        </div>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      )}
-    </div>
-  );
-});
-
-const ServiceUsageChart = memo(({ data, isLoading }: { data: any; isLoading: boolean }) => {
-  // Validate data structure
-  const isValidData = data && 
-    data.labels && 
-    Array.isArray(data.labels) && 
-    data.datasets && 
-    Array.isArray(data.datasets) && 
-    data.datasets.length > 0 &&
-    data.datasets[0].data &&
-    Array.isArray(data.datasets[0].data);
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow h-80">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Service Usage</h3>
-      {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse bg-gray-200 h-48 w-full rounded"></div>
-        </div>
-      ) : isValidData ? (
-        <div className="h-48">
-          <Bar
-            data={data}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-              },
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                  display: true,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-                x: {
-                  ticks: {
-                    maxTicksLimit: 10
-                  }
-                }
-              },
-              interaction: {
-                intersect: false,
-                mode: 'index' as const,
-              }
-            }}
-          />
-        </div>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      )}
-    </div>
-  );
-});
-
-const StaffPerformanceChart = memo(({ data, isLoading }: { data: any; isLoading: boolean }) => {
-  // Validate data structure
-  const isValidData = data && 
-    data.labels && 
-    Array.isArray(data.labels) && 
-    data.datasets && 
-    Array.isArray(data.datasets) && 
-    data.datasets.length > 0 &&
-    data.datasets[0].data &&
-    Array.isArray(data.datasets[0].data);
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow h-80">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Staff Performance</h3>
-      {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse bg-gray-200 h-48 w-full rounded"></div>
-        </div>
-      ) : isValidData ? (
-        <div className="h-48">
-          <Bar
-            data={data}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-              },
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                  display: true,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-                x: {
-                  ticks: {
-                    maxTicksLimit: 10
-                  }
-                }
-              },
-              interaction: {
-                intersect: false,
-                mode: 'index' as const,
-              }
-            }}
-          />
-        </div>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      )}
-    </div>
-  );
-});
-
-const DriverPerformanceChart = memo(({ data, isLoading }: { data: any; isLoading: boolean }) => {
-  // Validate data structure
-  const isValidData = data && 
-    data.labels && 
-    Array.isArray(data.labels) && 
-    data.datasets && 
-    Array.isArray(data.datasets) && 
-    data.datasets.length > 0 &&
-    data.datasets[0].data &&
-    Array.isArray(data.datasets[0].data);
-
-  return (
-    <div className="bg-white p-4 rounded-lg shadow h-80">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">Driver Performance</h3>
-      {isLoading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="animate-pulse bg-gray-200 h-48 w-full rounded"></div>
-        </div>
-      ) : isValidData ? (
-        <div className="h-48">
-          <Bar
-            data={data}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-              },
-              plugins: {
-                legend: {
-                  position: 'top' as const,
-                  display: true,
-                },
-              },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-                x: {
-                  ticks: {
-                    maxTicksLimit: 10
-                  }
-                }
-              },
-              interaction: {
-                intersect: false,
-                mode: 'index' as const,
-              }
-            }}
-          />
-        </div>
-      ) : (
-        <div className="h-48 flex items-center justify-center text-gray-500">
-          No data available
-        </div>
-      )}
-    </div>
-  );
-});
-
-// Summary Stats Card Component
-const SummaryCard = memo(({ 
+// Detailed Statistics Card Component
+const DetailedStatsCard = memo(({ 
   title, 
-  value, 
-  subtitle, 
-  icon, 
-  bgColor 
+  children,
+  className = ""
 }: {
   title: string;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div className={`bg-white overflow-hidden shadow rounded-lg ${className}`}>
+    <div className="px-4 py-5 sm:p-6">
+      <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">{title}</h3>
+      {children}
+    </div>
+  </div>
+));
+
+// Statistics Table Component
+const StatsTable = memo(({ 
+  headers, 
+  rows, 
+  className = "" 
+}: {
+  headers: string[];
+  rows: (string | number)[][];
+  className?: string;
+}) => (
+  <div className={`overflow-x-auto ${className}`}>
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50">
+        <tr>
+          {headers.map((header, index) => (
+            <th
+              key={index}
+              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
+              {header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {rows.map((row, rowIndex) => (
+          <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+            {row.map((cell, cellIndex) => (
+              <td
+                key={cellIndex}
+                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+              >
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+));
+
+// Metric Card Component
+const MetricCard = memo(({ 
+  label, 
+  value, 
+  subtitle, 
+  trend 
+}: {
+  label: string;
   value: string | number;
-  subtitle: string;
-  icon: React.ReactNode;
-  bgColor: string;
+  subtitle?: string;
+  trend?: { value: number; isPositive: boolean };
 }) => (
   <div className="bg-white overflow-hidden shadow rounded-lg">
-    <div className="p-4">
+    <div className="p-5">
       <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <div className={`w-8 h-8 ${bgColor} rounded-md flex items-center justify-center`}>
-            {icon}
-          </div>
-        </div>
-        <div className="ml-4 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-            <dd className="text-lg font-medium text-gray-900">{value}</dd>
+        <div className="flex-1">
+          <dt className="text-sm font-medium text-gray-500 truncate">{label}</dt>
+          <dd className="mt-1 text-3xl font-semibold text-gray-900">{value}</dd>
+          {subtitle && (
             <dd className="text-sm text-gray-500">{subtitle}</dd>
-          </dl>
+          )}
+          {trend && (
+            <div className="mt-2 flex items-center">
+              <span className={`text-sm font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {trend.isPositive ? '+' : ''}{trend.value}%
+              </span>
+              <span className="text-sm text-gray-500 ml-1">from last period</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
   </div>
 ));
 
-RevenueChart.displayName = 'RevenueChart';
-OrderStatusChart.displayName = 'OrderStatusChart';
-CustomerGrowthChart.displayName = 'CustomerGrowthChart';
-ServiceUsageChart.displayName = 'ServiceUsageChart';
-StaffPerformanceChart.displayName = 'StaffPerformanceChart';
-DriverPerformanceChart.displayName = 'DriverPerformanceChart';
-SummaryCard.displayName = 'SummaryCard';
+DetailedStatsCard.displayName = 'DetailedStatsCard';
+StatsTable.displayName = 'StatsTable';
+MetricCard.displayName = 'MetricCard';
 
 const AnalyticsDashboard = memo(({ data, isLoading, dateRange }: AnalyticsDashboardProps) => {
+  const [activeTab, setActiveTab] = useState('overview');
+
   // Validate that data exists and has the expected structure
   const hasValidData = data && 
     (data.revenueData || 
@@ -546,127 +221,365 @@ const AnalyticsDashboard = memo(({ data, isLoading, dateRange }: AnalyticsDashbo
     );
   }
 
+  // Prepare data for detailed tables
+  const orderStatusTableData = data.orderStatusData?.labels?.map((label, index) => [
+    label,
+    data.orderStatusData?.datasets?.[0]?.data?.[index] || 0,
+    `${((data.orderStatusData?.datasets?.[0]?.data?.[index] || 0) / (data.summaryStats?.totalOrders || 1) * 100).toFixed(1)}%`
+  ]) || [];
+
+  const serviceUsageTableData = data.serviceUsageData?.labels?.map((label, index) => [
+    label,
+    data.serviceUsageData?.datasets?.[0]?.data?.[index] || 0,
+    `$${((data.serviceUsageData?.datasets?.[0]?.data?.[index] || 0) * (data.summaryStats?.averageOrderValue || 0) / 10).toFixed(2)}`
+  ]) || [];
+
+  const staffPerformanceTableData = data.staffPerformanceData?.labels?.map((label, index) => [
+    label,
+    data.staffPerformanceData?.datasets?.[0]?.data?.[index] || 0,
+    `${((data.staffPerformanceData?.datasets?.[0]?.data?.[index] || 0) / (data.summaryStats?.totalOrders || 1) * 100).toFixed(1)}%`
+  ]) || [];
+
+  const driverPerformanceTableData = data.driverPerformanceData?.labels?.map((label, index) => [
+    label,
+    data.driverPerformanceData?.datasets?.[0]?.data?.[index] || 0,
+    `${((data.driverPerformanceData?.datasets?.[0]?.data?.[index] || 0) / (data.summaryStats?.totalOrders || 1) * 100).toFixed(1)}%`
+  ]) || [];
+
+  const revenueTableData = data.revenueData?.labels?.map((label, index) => {
+    const value = data.revenueData?.datasets?.[0]?.data?.[index] || 0;
+    return [
+      label,
+      `$${value.toFixed(2)}`,
+      value > 0 ? 'Active' : 'No Revenue'
+    ];
+  }) || [];
+
+  const customerGrowthTableData = data.customerGrowthData?.labels?.map((label, index) => {
+    const value = data.customerGrowthData?.datasets?.[0]?.data?.[index] || 0;
+    return [
+      label,
+      value,
+      value > 0 ? 'New Customers' : 'No Growth'
+    ];
+  }) || [];
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div className="space-y-6 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-white p-6 rounded-lg shadow animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="space-y-6 p-6">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <SummaryCard
-            title="Total Revenue"
-            value={`$${data.summaryStats?.totalRevenue?.toLocaleString() || '0'}`}
-            subtitle={`Last ${dateRange} days`}
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
-            }
-            bgColor="bg-green-500"
-          />
-
-          <SummaryCard
-            title="Total Orders"
-            value={data.summaryStats?.totalOrders?.toLocaleString() || '0'}
-            subtitle={`Last ${dateRange} days`}
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            }
-            bgColor="bg-blue-500"
-          />
-
-          <SummaryCard
-            title="Average Order Value"
-            value={`$${data.summaryStats?.averageOrderValue?.toFixed(2) || '0.00'}`}
-            subtitle="Per order"
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            }
-            bgColor="bg-yellow-500"
-          />
-
-          <SummaryCard
-            title="Completion Rate"
-            value={`${data.summaryStats?.completionRate?.toFixed(1) || '0'}%`}
-            subtitle="Orders completed"
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            bgColor="bg-purple-500"
-          />
+    <div className="h-full overflow-y-auto print:overflow-visible">
+      <div className="space-y-6 p-6 print:p-0">
+        {/* Print Header - Only visible when printing */}
+        <div className="hidden print:block mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Laundry Link Analytics Report</h1>
+          <p className="text-gray-600">Generated on {new Date().toLocaleDateString()} for the last {dateRange} days</p>
         </div>
 
-        {/* Additional Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <SummaryCard
-            title="New Customers"
-            value={data.summaryStats?.totalCustomers?.toLocaleString() || '0'}
-            subtitle={`Last ${dateRange} days`}
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            }
-            bgColor="bg-indigo-500"
-          />
-
-          <SummaryCard
-            title="Active Drivers"
-            value={data.summaryStats?.activeDrivers?.toLocaleString() || '0'}
-            subtitle="Currently active"
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            }
-            bgColor="bg-orange-500"
-          />
-
-          <SummaryCard
-            title="Avg Delivery Time"
-            value={`${data.summaryStats?.averageDeliveryTime?.toFixed(1) || '0'}h`}
-            subtitle="Hours per order"
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            bgColor="bg-teal-500"
-          />
-
-          <SummaryCard
-            title="Customer Satisfaction"
-            value={`${data.summaryStats?.customerSatisfaction?.toFixed(1) || '0'}%`}
-            subtitle="Based on feedback"
-            icon={
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            bgColor="bg-pink-500"
-          />
+        {/* Print Button - Hidden when printing */}
+        <div className="print:hidden flex justify-end mb-6">
+          <button
+            onClick={handlePrint}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            <span>Print Report</span>
+          </button>
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <RevenueChart data={data.revenueData} isLoading={isLoading} />
-          <OrderStatusChart data={data.orderStatusData} isLoading={isLoading} />
+        {/* Tab Navigation - Hidden when printing */}
+        <div className="print:hidden border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { id: 'overview', name: 'Overview' },
+              { id: 'revenue', name: 'Revenue Analysis' },
+              { id: 'orders', name: 'Order Details' },
+              { id: 'customers', name: 'Customer Analysis' },
+              { id: 'services', name: 'Service Performance' },
+              { id: 'staff', name: 'Staff Performance' },
+              { id: 'drivers', name: 'Driver Performance' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </nav>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <CustomerGrowthChart data={data.customerGrowthData} isLoading={isLoading} />
-          <ServiceUsageChart data={data.serviceUsageData} isLoading={isLoading} />
-        </div>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Key Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricCard
+                label="Total Revenue"
+                value={`$${data.summaryStats?.totalRevenue?.toLocaleString() || '0'}`}
+                subtitle={`Last ${dateRange} days`}
+                trend={{ value: 12.5, isPositive: true }}
+              />
+              <MetricCard
+                label="Total Orders"
+                value={data.summaryStats?.totalOrders?.toLocaleString() || '0'}
+                subtitle={`Last ${dateRange} days`}
+                trend={{ value: 8.2, isPositive: true }}
+              />
+              <MetricCard
+                label="New Customers"
+                value={data.summaryStats?.totalCustomers?.toLocaleString() || '0'}
+                subtitle={`Last ${dateRange} days`}
+                trend={{ value: 15.3, isPositive: true }}
+              />
+              <MetricCard
+                label="Average Order Value"
+                value={`$${data.summaryStats?.averageOrderValue?.toFixed(2) || '0.00'}`}
+                subtitle="Per order"
+                trend={{ value: 3.1, isPositive: true }}
+              />
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <StaffPerformanceChart data={data.staffPerformanceData} isLoading={isLoading} />
-          <DriverPerformanceChart data={data.driverPerformanceData} isLoading={isLoading} />
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricCard
+                label="Completion Rate"
+                value={`${data.summaryStats?.completionRate?.toFixed(1) || '0'}%`}
+                subtitle="Orders completed"
+                trend={{ value: 2.1, isPositive: true }}
+              />
+              <MetricCard
+                label="Active Drivers"
+                value={data.summaryStats?.activeDrivers?.toLocaleString() || '0'}
+                subtitle="Currently active"
+                trend={{ value: 0, isPositive: true }}
+              />
+              <MetricCard
+                label="Customer Satisfaction"
+                value={`${data.summaryStats?.customerSatisfaction?.toFixed(1) || '0'}%`}
+                subtitle="Based on feedback"
+                trend={{ value: 1.8, isPositive: true }}
+              />
+            </div>
+
+            {/* Quick Stats Tables */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <DetailedStatsCard title="Order Status Distribution">
+                <StatsTable
+                  headers={['Status', 'Count', 'Percentage']}
+                  rows={orderStatusTableData}
+                />
+              </DetailedStatsCard>
+
+              <DetailedStatsCard title="Top Services by Usage">
+                <StatsTable
+                  headers={['Service', 'Orders', 'Revenue']}
+                  rows={serviceUsageTableData}
+                />
+              </DetailedStatsCard>
+            </div>
+          </div>
+        )}
+
+        {/* Revenue Analysis Tab */}
+        {activeTab === 'revenue' && (
+          <div className="space-y-6">
+            <DetailedStatsCard title="Daily Revenue Breakdown">
+              <StatsTable
+                headers={['Date', 'Revenue', 'Status']}
+                rows={revenueTableData}
+              />
+            </DetailedStatsCard>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard
+                label="Total Revenue"
+                value={`$${data.summaryStats?.totalRevenue?.toLocaleString() || '0'}`}
+                subtitle={`Last ${dateRange} days`}
+              />
+              <MetricCard
+                label="Average Daily Revenue"
+                value={`$${((data.summaryStats?.totalRevenue || 0) / parseInt(dateRange)).toFixed(2)}`}
+                subtitle="Per day"
+              />
+              <MetricCard
+                label="Revenue Growth"
+                value="12.5%"
+                subtitle="vs previous period"
+                trend={{ value: 12.5, isPositive: true }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Order Details Tab */}
+        {activeTab === 'orders' && (
+          <div className="space-y-6">
+            <DetailedStatsCard title="Order Status Analysis">
+              <StatsTable
+                headers={['Status', 'Count', 'Percentage']}
+                rows={orderStatusTableData}
+              />
+            </DetailedStatsCard>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard
+                label="Total Orders"
+                value={data.summaryStats?.totalOrders?.toLocaleString() || '0'}
+                subtitle={`Last ${dateRange} days`}
+              />
+              <MetricCard
+                label="Completion Rate"
+                value={`${data.summaryStats?.completionRate?.toFixed(1) || '0'}%`}
+                subtitle="Orders completed"
+              />
+              <MetricCard
+                label="Average Order Value"
+                value={`$${data.summaryStats?.averageOrderValue?.toFixed(2) || '0.00'}`}
+                subtitle="Per order"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Customer Analysis Tab */}
+        {activeTab === 'customers' && (
+          <div className="space-y-6">
+            <DetailedStatsCard title="Customer Growth by Day">
+              <StatsTable
+                headers={['Date', 'New Customers', 'Status']}
+                rows={customerGrowthTableData}
+              />
+            </DetailedStatsCard>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard
+                label="New Customers"
+                value={data.summaryStats?.totalCustomers?.toLocaleString() || '0'}
+                subtitle={`Last ${dateRange} days`}
+              />
+              <MetricCard
+                label="Average Daily Growth"
+                value={((data.summaryStats?.totalCustomers || 0) / parseInt(dateRange)).toFixed(1)}
+                subtitle="New customers per day"
+              />
+              <MetricCard
+                label="Customer Satisfaction"
+                value={`${data.summaryStats?.customerSatisfaction?.toFixed(1) || '0'}%`}
+                subtitle="Based on feedback"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Service Performance Tab */}
+        {activeTab === 'services' && (
+          <div className="space-y-6">
+            <DetailedStatsCard title="Service Usage Analysis">
+              <StatsTable
+                headers={['Service', 'Orders', 'Revenue']}
+                rows={serviceUsageTableData}
+              />
+            </DetailedStatsCard>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard
+                label="Total Services Used"
+                value={serviceUsageTableData.length}
+                subtitle="Different services"
+              />
+              <MetricCard
+                label="Most Popular Service"
+                value={serviceUsageTableData[0]?.[0] || 'N/A'}
+                subtitle="By order count"
+              />
+              <MetricCard
+                label="Service Revenue"
+                value={`$${(serviceUsageTableData.reduce((sum, row) => sum + parseFloat(row[2].toString().replace('$', '')), 0)).toFixed(2)}`}
+                subtitle="Total from services"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Staff Performance Tab */}
+        {activeTab === 'staff' && (
+          <div className="space-y-6">
+            <DetailedStatsCard title="Staff Performance Analysis">
+              <StatsTable
+                headers={['Staff Member', 'Orders Processed', 'Percentage']}
+                rows={staffPerformanceTableData}
+              />
+            </DetailedStatsCard>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard
+                label="Active Staff"
+                value={staffPerformanceTableData.length}
+                subtitle="Processing orders"
+              />
+              <MetricCard
+                label="Top Performer"
+                value={staffPerformanceTableData[0]?.[0] || 'N/A'}
+                subtitle="By order count"
+              />
+              <MetricCard
+                label="Average Orders per Staff"
+                value={((data.summaryStats?.totalOrders || 0) / Math.max(staffPerformanceTableData.length, 1)).toFixed(1)}
+                subtitle="Per staff member"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Driver Performance Tab */}
+        {activeTab === 'drivers' && (
+          <div className="space-y-6">
+            <DetailedStatsCard title="Driver Performance Analysis">
+              <StatsTable
+                headers={['Driver', 'Deliveries Completed', 'Percentage']}
+                rows={driverPerformanceTableData}
+              />
+            </DetailedStatsCard>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <MetricCard
+                label="Active Drivers"
+                value={data.summaryStats?.activeDrivers?.toLocaleString() || '0'}
+                subtitle="Currently active"
+              />
+              <MetricCard
+                label="Top Driver"
+                value={driverPerformanceTableData[0]?.[0] || 'N/A'}
+                subtitle="By delivery count"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

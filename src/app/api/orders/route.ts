@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { emailService } from "@/lib/emailService";
+import emailService from "@/lib/emailService";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
 import { OrderStatus, PaymentStatus } from "@prisma/client";
-import { OrderTrackingService } from "@/lib/orderTracking";
 
 interface AddressData {
   customerId: number;
@@ -25,8 +24,10 @@ export async function POST(req: Request) {
   let customer = null;
   let isAuthenticated = false;
   let body;
+  
   try {
     body = await req.json();
+    
     try {
       customer = await requireAuthenticatedCustomer();
       isAuthenticated = true;
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
       return await handleGuestCustomerOrder(body);
     }
   } catch (error) {
+    console.error("Error in order creation:", error);
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -73,38 +75,38 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
     const pickupDateTime = new Date(`${body.pickupDate}T${body.pickupTime}:00`);
     const deliveryDateTime = new Date(`${body.deliveryDate}T${body.deliveryTime}:00`);
 
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: orderNumber,
-        customerId: customer.id,
-        addressId: address.id,
-        pickupTime: pickupDateTime,
-        deliveryTime: deliveryDateTime,
-        specialInstructions: body.specialInstructions || "",
-        status: OrderStatus.ORDER_PLACED,
-        customerFirstName: customer.firstName,
-        customerLastName: customer.lastName,
-        customerEmail: customer.email,
-        customerPhone: address.contactNumber || body.contactNumber || "",
-        customerAddress: address.address || address.addressLine1,
-        paymentStatus: PaymentStatus.PENDING,
-      },
-    });
+    // Create order using transaction
+    const order = await prisma.$transaction(async (tx) => {
+      // Create order
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber: orderNumber,
+          customerId: customer.id,
+          addressId: address.id,
+          pickupTime: pickupDateTime,
+          deliveryTime: deliveryDateTime,
+          specialInstructions: body.specialInstructions || "",
+          status: OrderStatus.ORDER_PLACED,
+          customerFirstName: customer.firstName,
+          customerLastName: customer.lastName,
+          customerEmail: customer.email,
+          customerPhone: address.contactNumber || body.contactNumber || "",
+          customerAddress: address.address || address.addressLine1,
+          paymentStatus: PaymentStatus.PENDING,
+        },
+      });
 
-    // Create order service mappings for each service
-    if (Array.isArray(body.services)) {
-      for (const serviceId of body.services) {
-        try {
-          // Get service details to get the price
-          const service = await prisma.service.findUnique({
+      // Create order service mappings for each service
+      if (Array.isArray(body.services)) {
+        for (const serviceId of body.services) {
+          const service = await tx.service.findUnique({
             where: { id: parseInt(serviceId) }
           });
 
           if (service) {
-            await prisma.orderServiceMapping.create({
+            await tx.orderServiceMapping.create({
               data: {
-                orderId: order.id,
+                orderId: newOrder.id,
                 serviceId: service.id,
                 quantity: 1,
                 price: service.price,
@@ -113,39 +115,51 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
           } else {
             console.error(`Service not found for ID: ${serviceId}`);
           }
-        } catch (serviceError) {
-          console.error(`Error creating service mapping for service ID ${serviceId}:`, serviceError || 'Unknown error');
-          throw serviceError;
         }
       }
-    }
+
+      return newOrder;
+    });
+
+    // Fetch order with relations for email service
+    const orderWithRelations = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        customer: true,
+        orderServiceMappings: {
+          include: {
+            service: true,
+            orderItems: true,
+          },
+        },
+      },
+    });
 
     // Send emails (wrapped in try-catch to not fail order creation)
     try {
       // Send order confirmation email for logged-in customer
       await emailService.sendOrderConfirmationToCustomer(
-        order,
+        orderWithRelations!,
         customer.email,
         `${customer.firstName} ${customer.lastName}`,
         {
           pickupDateTime,
           deliveryDateTime,
-          services: body.services,
-          address: address.address || address.addressLine1,
-          locationType: address.locationType
+          services: body.services.map((id: any) => parseInt(id)),
+          address: address.address || address.addressLine1
         }
       );
 
-      // Send admin and operations notification
-      await emailService.sendOrderNotificationToAdminAndOperations(order, {
+      // Send admin notification
+      await emailService.sendOrderNotificationToAdmin(orderWithRelations!, {
         name: `${customer.firstName} ${customer.lastName}`,
         email: customer.email,
         phone: address.contactNumber || body.contactNumber || "",
         address: address.address || address.addressLine1,
-        services: body.services
+        services: body.services.map((id: any) => id.toString())
       });
     } catch (emailError) {
-      console.error("Email sending failed:", emailError || 'Unknown error');
+      console.error("Email sending failed:", emailError);
       // Continue with order creation even if emails fail
     }
 
@@ -156,7 +170,7 @@ async function handleLoggedInCustomerOrder(body: any, customer: { id: number; em
     });
 
   } catch (error) {
-    console.error("Error creating logged-in customer order:", error || 'Unknown error');
+    console.error("Error creating logged-in customer order:", error);
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -183,22 +197,10 @@ async function handleGuestCustomerOrder(body: any) {
     const randomPassword = crypto.randomBytes(8).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
-    // Create new customer
-    customer = await prisma.customer.create({
-      data: {
-        email: body.email,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        phone: body.phone || body.contactNumber,
-        password: hashedPassword,
-        isActive: true, // Auto-activate since we're sending login credentials
-      },
-    });
-
     // Build address string based on location type
     let addressString = "";
     let addressData: AddressData = {
-      customerId: customer.id,
+      customerId: 0, // Will be set after customer creation
       label: body.locationType.charAt(0).toUpperCase() + body.locationType.slice(1),
       addressLine1: "",
       city: "Bahrain",
@@ -252,11 +254,6 @@ async function handleGuestCustomerOrder(body: any) {
       };
     }
 
-    // Create address
-    const address = await prisma.address.create({
-      data: addressData,
-    });
-
     // Generate order number
     const orderNumber = `LL${Date.now().toString().slice(-8)}`;
 
@@ -264,80 +261,117 @@ async function handleGuestCustomerOrder(body: any) {
     const pickupDateTime = new Date(`${body.pickupDate}T${body.pickupTime}:00`);
     const deliveryDateTime = new Date(`${body.deliveryDate}T${body.deliveryTime}:00`);
 
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: orderNumber,
-        customerId: customer.id,
-        addressId: address.id,
-        pickupTime: pickupDateTime,
-        deliveryTime: deliveryDateTime,
-        specialInstructions: body.specialInstructions || "",
-        status: OrderStatus.ORDER_PLACED,
-        customerFirstName: customer.firstName,
-        customerLastName: customer.lastName,
-        customerEmail: customer.email,
-        customerPhone: address.contactNumber || customer.phone || body.contactNumber || "",
-        customerAddress: addressString,
-        paymentStatus: PaymentStatus.PENDING,
-      },
-    });
+    // Create customer, address, and order using transaction
+    const { customer: newCustomer, order } = await prisma.$transaction(async (tx) => {
+      // Create new customer
+      const createdCustomer = await tx.customer.create({
+        data: {
+          email: body.email,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          phone: body.phone || body.contactNumber,
+          password: hashedPassword,
+          isActive: true, // Auto-activate since we're sending login credentials
+        },
+      });
 
-    // Create order service mappings for each service
-    if (Array.isArray(body.services)) {
-      for (const serviceId of body.services) {
-        // Get service details to get the price
-        const service = await prisma.service.findUnique({
-          where: { id: parseInt(serviceId) }
-        });
+      // Create address
+      const address = await tx.address.create({
+        data: {
+          ...addressData,
+          customerId: createdCustomer.id,
+        },
+      });
 
-        if (service) {
-          await prisma.orderServiceMapping.create({
-            data: {
-              orderId: order.id,
-              serviceId: service.id,
-              quantity: 1,
-              price: service.price,
-            }
+      // Create order
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber: orderNumber,
+          customerId: createdCustomer.id,
+          addressId: address.id,
+          pickupTime: pickupDateTime,
+          deliveryTime: deliveryDateTime,
+          specialInstructions: body.specialInstructions || "",
+          status: OrderStatus.ORDER_PLACED,
+          customerFirstName: createdCustomer.firstName,
+          customerLastName: createdCustomer.lastName,
+          customerEmail: createdCustomer.email,
+          customerPhone: address.contactNumber || createdCustomer.phone || body.contactNumber || "",
+          customerAddress: addressString,
+          paymentStatus: PaymentStatus.PENDING,
+        },
+      });
+
+      // Create order service mappings for each service
+      if (Array.isArray(body.services)) {
+        for (const serviceId of body.services) {
+          const service = await tx.service.findUnique({
+            where: { id: parseInt(serviceId) }
           });
+
+          if (service) {
+            await tx.orderServiceMapping.create({
+              data: {
+                orderId: newOrder.id,
+                serviceId: service.id,
+                quantity: 1,
+                price: service.price,
+              }
+            });
+          }
         }
       }
-    }
+
+      return { customer: createdCustomer, order: newOrder };
+    });
+
+    // Fetch order with relations for email service
+    const orderWithRelations = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        customer: true,
+        orderServiceMappings: {
+          include: {
+            service: true,
+            orderItems: true,
+          },
+        },
+      },
+    });
 
     // Send emails (wrapped in try-catch to not fail order creation)
     try {
       // 1. Send welcome email with credentials
       await emailService.sendWelcomeEmailWithCredentials(
-        customer,
-        `${customer.firstName} ${customer.lastName}`,
-        customer.email,
+        newCustomer,
+        `${newCustomer.firstName} ${newCustomer.lastName}`,
+        newCustomer.email,
         randomPassword
       );
 
       // 2. Send order confirmation email
       await emailService.sendOrderConfirmationToCustomer(
-        order,
-        customer.email,
-        `${customer.firstName} ${customer.lastName}`,
+        orderWithRelations!,
+        newCustomer.email,
+        `${newCustomer.firstName} ${newCustomer.lastName}`,
         {
           pickupDateTime,
           deliveryDateTime,
-          services: body.services,
-          address: addressString,
-          locationType: body.locationType
+          services: body.services.map((id: any) => parseInt(id)),
+          address: addressString
         }
       );
 
-      // Send admin and operations notification
-      await emailService.sendOrderNotificationToAdminAndOperations(order, {
-        name: `${customer.firstName} ${customer.lastName}`,
-        email: customer.email,
-        phone: address.contactNumber || body.contactNumber || "",
+      // Send admin notification
+      await emailService.sendOrderNotificationToAdmin(orderWithRelations!, {
+        name: `${newCustomer.firstName} ${newCustomer.lastName}`,
+        email: newCustomer.email,
+        phone: newCustomer.phone || body.contactNumber || "",
         address: addressString,
-        services: body.services
+        services: body.services.map((id: any) => id.toString())
       });
     } catch (emailError) {
-      console.error("Email sending failed:", emailError || 'Unknown error');
+      console.error("Email sending failed:", emailError);
       // Continue with order creation even if emails fail
     }
 
@@ -348,7 +382,7 @@ async function handleGuestCustomerOrder(body: any) {
     });
 
   } catch (error) {
-    console.error("Error creating guest customer order:", error || 'Unknown error');
+    console.error("Error creating guest customer order:", error);
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
@@ -390,7 +424,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(order);
   } catch (error) {
-    console.error("Error fetching order:", error || 'Unknown error');
+    console.error("Error fetching order:", error);
     return NextResponse.json(
       { error: "Failed to fetch order" },
       { status: 500 }

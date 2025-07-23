@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { DriverAssignmentStatus, ProcessingStatus } from "@prisma/client";
+import { DriverAssignmentStatus, ProcessingStatus, OrderStatus } from "@prisma/client";
 
 // GET - Fetch facility team statistics
 export async function GET(req: Request) {
@@ -30,14 +30,16 @@ export async function GET(req: Request) {
     // Get orders ready for processing (received at facility but not yet processed)
     const ordersReadyForProcessing = await prisma.order.count({
       where: {
-        driverAssignments: {
-          some: {
-            assignmentType: 'pickup',
-            status: DriverAssignmentStatus.COMPLETED
+        OR: [
+          {
+            status: OrderStatus.PICKUP_COMPLETED,
+            orderProcessing: null
+          },
+          {
+            status: OrderStatus.RECEIVED_AT_FACILITY,
+            orderProcessing: null
           }
-        },
-        status: 'RECEIVED_AT_FACILITY',
-        orderProcessing: null
+        ]
       }
     });
 

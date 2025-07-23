@@ -33,18 +33,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Check if order has been picked up
-    if (order.driverAssignments.length === 0) {
-      return NextResponse.json({ error: "Order has not been picked up yet" }, { status: 400 });
-    }
-
-    // Check if order is already in a later status
-    if (order.status === OrderStatus.RECEIVED_AT_FACILITY || 
-        order.status === OrderStatus.PROCESSING_STARTED ||
-        order.status === OrderStatus.PROCESSING_COMPLETED ||
-        order.status === OrderStatus.QUALITY_CHECK ||
-        order.status === OrderStatus.READY_FOR_DELIVERY) {
-      return NextResponse.json({ error: "Order is already in a later processing stage" }, { status: 400 });
+    // Check if order is in a valid status for receiving
+    if (order.status !== OrderStatus.PICKUP_COMPLETED && 
+        order.status !== OrderStatus.PICKUP_IN_PROGRESS) {
+      return NextResponse.json({ 
+        error: "Order must be in PICKUP_COMPLETED or PICKUP_IN_PROGRESS status to be received at facility" 
+      }, { status: 400 });
     }
 
     // Update order status to RECEIVED_AT_FACILITY

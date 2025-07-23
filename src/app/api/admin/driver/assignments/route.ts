@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
 import { DriverAssignmentStatus, OrderStatus } from "@prisma/client";
 import { OrderTrackingService } from "@/lib/orderTracking";
-import { emailService } from "@/lib/emailService";
+import  emailService  from "@/lib/emailService";
 
 interface DriverAssignmentRequest {
   orderId: number;
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    await requireAuthenticatedAdmin();
+    const admin = await requireAuthenticatedAdmin();
     const body: DriverAssignmentUpdateRequest = await request.json();
     
     const {
@@ -131,6 +131,53 @@ export async function PUT(request: NextRequest) {
     const validStatuses = Object.values(DriverAssignmentStatus);
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: "Invalid driver status" }, { status: 400 });
+    }
+
+    // Get the assignment to check time validation
+    const assignment = await prisma.driverAssignment.findUnique({
+      where: { id: assignmentId },
+      include: {
+        order: true
+      }
+    });
+
+    if (!assignment) {
+      return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
+    }
+
+    // Ensure only the assigned driver can update the assignment
+    if (assignment.driverId !== admin.id) {
+      return NextResponse.json({ error: "Access denied. You can only update your own assignments." }, { status: 403 });
+    }
+
+    // Time validation for starting assignments
+    if (status === 'IN_PROGRESS') {
+      const now = new Date();
+      const estimatedTime = assignment.estimatedTime ? new Date(assignment.estimatedTime) : null;
+      
+      if (estimatedTime) {
+        // Allow starting 30 minutes before and 2 hours after estimated time
+        // For development environment, allow same-day assignments
+        const isDev = process.env.NODE_ENV === 'development';
+        const earliestStart = isDev 
+          ? new Date() // Allow immediate assignments in dev
+          : new Date(estimatedTime.getTime() - 30 * 60 * 1000); // 30 minutes before
+        const latestStart = isDev
+          ? new Date(estimatedTime.getTime() + 24 * 60 * 60 * 1000) // 24 hours after in dev
+          : new Date(estimatedTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours after
+        
+        if (now < earliestStart) {
+          return NextResponse.json({ 
+            error: `Cannot start ${assignment.assignmentType} yet. Earliest start time is ${earliestStart.toLocaleString()}` 
+          }, { status: 400 });
+        }
+        
+        if (now > latestStart) {
+          return NextResponse.json({ 
+            error: `Cannot start ${assignment.assignmentType}. Time window has expired. Please contact support.` 
+          }, { status: 400 });
+        }
+      }
     }
 
     // Update the assignment
@@ -257,25 +304,36 @@ export async function PUT(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuthenticatedAdmin();
+    const admin = await requireAuthenticatedAdmin();
+    
+    // Ensure the user is a driver
+    if (admin.role !== "DRIVER") {
+      return NextResponse.json({ error: "Access denied. Driver role required." }, { status: 403 });
+    }
     
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as DriverAssignmentStatus;
     const driverId = searchParams.get('driverId');
     const orderId = searchParams.get('orderId');
+    const showCompleted = searchParams.get('showCompleted') === 'true';
 
-    const where: any = {};
+    const where: any = {
+      driverId: admin.id // Only show assignments for the current driver
+    };
     
     if (status) {
       where.status = status;
     }
     
-    if (driverId) {
-      where.driverId = parseInt(driverId);
-    }
-    
     if (orderId) {
       where.orderId = parseInt(orderId);
+    }
+
+    // Filter out completed assignments unless explicitly requested
+    if (!showCompleted) {
+      where.status = {
+        notIn: [DriverAssignmentStatus.COMPLETED, DriverAssignmentStatus.FAILED]
+      };
     }
 
     const assignments = await prisma.driverAssignment.findMany({
@@ -297,12 +355,52 @@ export async function GET(request: NextRequest) {
         },
         photos: true
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        {
+          estimatedTime: 'asc' // Sort by estimated time for today's assignments
+        },
+        {
+          createdAt: 'desc'
+        }
+      ]
     });
 
-    return NextResponse.json(assignments);
+    // Auto-move previous assignments to today if they're still pending
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const updatedAssignments = await Promise.all(
+      assignments.map(async (assignment) => {
+        // If assignment is from previous days and still pending, update estimated time to today
+        if (assignment.status === DriverAssignmentStatus.ASSIGNED && 
+            assignment.estimatedTime && 
+            new Date(assignment.estimatedTime) < today) {
+          
+          const newEstimatedTime = new Date(today);
+          newEstimatedTime.setHours(
+            new Date(assignment.estimatedTime).getHours(),
+            new Date(assignment.estimatedTime).getMinutes(),
+            0, 0
+          );
+          
+          // Update the assignment in database
+          await prisma.driverAssignment.update({
+            where: { id: assignment.id },
+            data: { estimatedTime: newEstimatedTime }
+          });
+          
+          // Return updated assignment
+          return {
+            ...assignment,
+            estimatedTime: newEstimatedTime.toISOString()
+          };
+        }
+        
+        return assignment;
+      })
+    );
+
+    return NextResponse.json(updatedAssignments);
 
   } catch (error) {
     console.error("Error fetching driver assignments:", error);

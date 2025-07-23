@@ -237,10 +237,13 @@ export default function FacilityTeamDashboard() {
 
   const handleMarkReceived = async (orderId: number) => {
     try {
-      const response = await fetch('/api/admin/facility-team/receive-order', {
+      const response = await fetch('/api/admin/facility/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId })
+        body: JSON.stringify({ 
+          orderId,
+          action: 'receive_order'
+        })
       });
 
       if (response.ok) {
@@ -259,10 +262,17 @@ export default function FacilityTeamDashboard() {
 
   const handleStartProcessing = async (data: any) => {
     try {
-      const response = await fetch('/api/admin/facility-team/processing', {
+      const response = await fetch('/api/admin/facility/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          orderId: data.orderId,
+          action: 'start_processing',
+          notes: data.processingNotes,
+          totalPieces: data.totalPieces ? parseInt(data.totalPieces) : undefined,
+          totalWeight: data.totalWeight ? parseFloat(data.totalWeight) : undefined,
+          qualityScore: data.qualityScore ? parseInt(data.qualityScore) : undefined
+        })
       });
 
       if (response.ok) {
@@ -281,10 +291,17 @@ export default function FacilityTeamDashboard() {
 
   const handleUpdateProcessing = async (data: any) => {
     try {
-      const response = await fetch(`/api/admin/facility-team/processing?orderId=${data.orderId}`, {
-        method: 'PUT',
+      const response = await fetch('/api/admin/facility/actions', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({
+          orderId: data.orderId,
+          action: 'complete_processing',
+          notes: data.processingNotes,
+          totalPieces: data.totalPieces ? parseInt(data.totalPieces) : undefined,
+          totalWeight: data.totalWeight ? parseFloat(data.totalWeight) : undefined,
+          qualityScore: data.qualityScore ? parseInt(data.qualityScore) : undefined
+        })
       });
 
       if (response.ok) {
@@ -292,14 +309,14 @@ export default function FacilityTeamDashboard() {
         setProcessingData({ totalPieces: '', totalWeight: '', processingNotes: '', qualityScore: '' });
         fetchOrders();
         fetchStats();
-              } else {
-          const error = await response.json() as ErrorResponse;
-          showToast(error.error || 'Failed to update processing', 'error');
-        }
-      } catch (error) {
-        console.error('Error updating processing:', error);
-        showToast('Failed to update processing', 'error');
+      } else {
+        const error = await response.json() as ErrorResponse;
+        showToast(error.error || 'Failed to update processing', 'error');
       }
+    } catch (error) {
+      console.error('Error updating processing:', error);
+      showToast('Failed to update processing', 'error');
+    }
   };
 
 
@@ -344,6 +361,8 @@ export default function FacilityTeamDashboard() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
+      case 'PICKUP_COMPLETED':
+        return 'bg-blue-100 text-blue-800';
       case 'RECEIVED_AT_FACILITY':
         return 'bg-yellow-100 text-yellow-800';
       case 'PENDING':
@@ -623,18 +642,19 @@ export default function FacilityTeamDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(order.orderProcessing?.processingStatus || order.status)}`}>
-                            {order.status === 'RECEIVED_AT_FACILITY' ? 'RECEIVED AT FACILITY' :
+                            {order.status === 'PICKUP_COMPLETED' ? 'PICKED UP BY DRIVER' :
+                             order.status === 'RECEIVED_AT_FACILITY' ? 'RECEIVED AT FACILITY' :
                              order.orderProcessing?.processingStatus === OrderStatus.READY_FOR_DELIVERY ? 'READY FOR DELIVERY' :
                              order.orderProcessing?.processingStatus === OrderStatus.QUALITY_CHECK ? 'QUALITY CHECK' :
                              order.orderProcessing?.processingStatus === 'IN_PROGRESS' ? 'IN PROCESSING' :
-                             order.orderProcessing?.processingStatus?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                             order.orderProcessing?.processingStatus?.replace('_', ' ').toUpperCase() || order.status.replace('_', ' ').toUpperCase()}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {new Date(order.pickupTime).toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          {order.status !== 'RECEIVED_AT_FACILITY' && !order.orderProcessing ? (
+                          {order.status === 'PICKUP_COMPLETED' && !order.orderProcessing ? (
                             <button
                               onClick={() => handleMarkReceived(order.id)}
                               className="text-green-600 hover:text-green-900"
