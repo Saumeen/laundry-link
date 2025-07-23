@@ -113,6 +113,7 @@ model Order {
   customerAddress     String
   invoiceTotal        Float?
   minimumOrderApplied Boolean       @default(false)
+  invoiceGenerated    Boolean       @default(false)
   paymentStatus       PaymentStatus @default(PENDING)
   paymentMethod       String?
   notes               String?       // General order notes

@@ -26,7 +26,6 @@
     "bcryptjs": "^3.0.2",
     "caniuse-lite": "1.0.30001281",
     "clsx": "^2.1.1",
-    "dotenv": "^16.6.0",
     "firebase": "^11.10.0",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",

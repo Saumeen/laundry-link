@@ -524,79 +524,137 @@ export default function FacilityTeamDashboard() {
 
             {/* Search and Filters */}
             <div className="bg-white shadow rounded-lg p-6 mb-8">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
+              {/* Search Section */}
+              <div className="mb-6">
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+                  Search Orders
+                </label>
+                <div className="relative">
                   <input
+                    id="search"
                     type="text"
-                    placeholder="Search orders..."
+                    placeholder="Search by order number, customer name, or email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
+              </div>
+
+              {/* Filter Tabs */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Filter by Status
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   <button
                     onClick={() => setCurrentTab('picked_up')}
-                    className={`px-4 py-2 rounded-md ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentTab === 'picked_up' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                     }`}
                   >
-                    Picked Up by Driver
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">Picked Up</span>
+                      <span className="text-xs opacity-75">by Driver</span>
+                    </div>
                   </button>
+                  
                   <button
                     onClick={() => setCurrentTab('received')}
-                    className={`px-4 py-2 rounded-md ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentTab === 'received' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                     }`}
                   >
-                    Received at Facility
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">Received</span>
+                      <span className="text-xs opacity-75">at Facility</span>
+                    </div>
                   </button>
+                  
                   <button
                     onClick={() => setCurrentTab('ready_for_processing')}
-                    className={`px-4 py-2 rounded-md ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentTab === 'ready_for_processing' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                     }`}
                   >
-                    Ready for Processing ({stats?.ordersReadyForProcessing || 0})
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">Ready for</span>
+                      <span className="text-xs opacity-75">Processing</span>
+                      <span className="text-xs font-bold text-blue-600 mt-1">({stats?.ordersReadyForProcessing || 0})</span>
+                    </div>
                   </button>
+                  
                   <button
                     onClick={() => setCurrentTab('in_processing')}
-                    className={`px-4 py-2 rounded-md ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentTab === 'in_processing' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                     }`}
                   >
-                    Processing ({stats?.ordersInProcessing || 0})
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">In</span>
+                      <span className="text-xs opacity-75">Processing</span>
+                      <span className="text-xs font-bold text-blue-600 mt-1">({stats?.ordersInProcessing || 0})</span>
+                    </div>
                   </button>
+                  
                   <button
                     onClick={() => setCurrentTab('ready_for_delivery')}
-                    className={`px-4 py-2 rounded-md ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentTab === 'ready_for_delivery' 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-green-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                     }`}
                   >
-                    Ready for Delivery
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">Ready for</span>
+                      <span className="text-xs opacity-75">Delivery</span>
+                    </div>
                   </button>
+                  
                   <button
                     onClick={() => setCurrentTab('completed')}
-                    className={`px-4 py-2 rounded-md ${
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       currentTab === 'completed' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
                     }`}
                   >
-                    Completed ({stats?.completedOrders || 0})
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">Completed</span>
+                      <span className="text-xs font-bold text-blue-600 mt-1">({stats?.completedOrders || 0})</span>
+                    </div>
                   </button>
                 </div>
               </div>
+
+              {/* Active Filter Display */}
+              {searchTerm && (
+                <div className="mt-4 flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Active filters:</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    Search: "{searchTerm}"
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="ml-1.5 text-blue-600 hover:text-blue-800"
+                    >
+                      ×
+                    </button>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Orders Table */}
