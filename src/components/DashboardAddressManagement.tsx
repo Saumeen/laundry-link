@@ -21,6 +21,7 @@ interface Address {
   longitude?: number;
   isDefault: boolean;
   contactNumber?: string;
+  googleAddress?: string;
 }
 
 export default function DashboardAddressManagement() {
@@ -218,16 +219,58 @@ export default function DashboardAddressManagement() {
     }
   }, [fetchAddresses]);
 
-  // Format address for display
+  // Format address for display based on location type
   const formatAddress = useCallback((address: Address) => {
+    const locationType = address.locationType || 'flat';
+    let locationDetails = '';
+    
+    switch (locationType) {
+      case 'hotel':
+        if (address.building && address.floor) {
+          locationDetails = `Hotel. ${address.building} - Room ${address.floor}`;
+        }
+        break;
+        
+      case 'home':
+        if (address.building) {
+          locationDetails = `Home. Number ${address.building}`;
+        }
+        break;
+        
+      case 'flat':
+        if (address.building && address.floor) {
+          locationDetails = `Flat. ${address.building} and Flat ${address.floor}`;
+        }
+        break;
+        
+      case 'office':
+        if (address.building && address.apartment) {
+          locationDetails = `Office. ${address.building} and ${address.apartment}`;
+        }
+        break;
+    }
+    
+    // If we have both Google address and location details, show both
+    if (address.googleAddress && locationDetails) {
+      return `${locationDetails} (${address.googleAddress})`;
+    }
+    
+    // If we only have Google address
+    if (address.googleAddress) {
+      return address.googleAddress;
+    }
+    
+    // If we only have location details
+    if (locationDetails) {
+      return locationDetails;
+    }
+    
+    // Fallback to original format if specific fields are missing
     const parts = [];
     if (address.addressLine1) parts.push(address.addressLine1);
     if (address.addressLine2) parts.push(address.addressLine2);
-    if (address.building) parts.push(`Building: ${address.building}`);
-    if (address.floor) parts.push(`Floor: ${address.floor}`);
-    if (address.apartment) parts.push(`Apartment: ${address.apartment}`);
     if (address.city) parts.push(address.city);
-    if (address.area) parts.push(address.area);
+    
     return parts.length > 0 ? parts.join(', ') : 'Address not available';
   }, []);
 

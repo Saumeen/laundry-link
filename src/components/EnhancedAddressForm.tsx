@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
 import PhoneInput from './PhoneInput';
+import { useAuth } from '../hooks/useAuth';
 
 // Define proper types for form data
 export interface FormData {
@@ -53,6 +54,7 @@ export default function EnhancedAddressForm({
   setAddressLoading,
   onAddressSelect
 }: EnhancedAddressFormProps) {
+  const { customer } = useAuth();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [marker, setMarker] = useState<google.maps.LatLng | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -373,7 +375,7 @@ export default function EnhancedAddressForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hotel Name (Optional)
+                  Hotel Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -391,7 +393,7 @@ export default function EnhancedAddressForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Room Number (Optional)
+                  Room Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -432,7 +434,7 @@ export default function EnhancedAddressForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  House (Optional)
+                  House Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -516,7 +518,7 @@ export default function EnhancedAddressForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Building *
+                  Building Name/Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -554,7 +556,7 @@ export default function EnhancedAddressForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Flat Number
+                  Flat Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -562,8 +564,13 @@ export default function EnhancedAddressForm({
                   value={formData.flatNumber}
                   onChange={handleInputChange}
                   placeholder="Flat number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.flatNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.flatNumber && (
+                  <p className="mt-1 text-sm text-red-600">{errors.flatNumber}</p>
+                )}
               </div>
             </div>
           </div>
@@ -588,7 +595,7 @@ export default function EnhancedAddressForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Building *
+                  Building Name/Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -626,16 +633,21 @@ export default function EnhancedAddressForm({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Office Number
+                  Office Name/Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="officeNumber"
                   value={formData.officeNumber}
                   onChange={handleInputChange}
-                  placeholder="Office number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Office name or number"
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.officeNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.officeNumber && (
+                  <p className="mt-1 text-sm text-red-600">{errors.officeNumber}</p>
+                )}
               </div>
             </div>
           </div>
@@ -879,17 +891,19 @@ export default function EnhancedAddressForm({
         {renderLocationForm()}
       </div>
 
-      {/* Contact Number */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <PhoneInput
-          value={formData.contactNumber}
-          onChange={(value) => setFormData((prev: FormData) => ({ ...prev, contactNumber: value }))}
-          placeholder="Enter your contact number"
-          label="Contact Number"
-          required
-          error={errors.contactNumber}
-        />
-      </div>
+      {/* Contact Number - Only show if customer doesn't have a phone number */}
+      {!customer?.phone && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <PhoneInput
+            value={formData.contactNumber}
+            onChange={(value) => setFormData((prev: FormData) => ({ ...prev, contactNumber: value }))}
+            placeholder="Enter your contact number"
+            label="Contact Number"
+            required
+            error={errors.contactNumber}
+          />
+        </div>
+      )}
     </div>
   );
 } 

@@ -84,6 +84,7 @@ model Address {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   address      String?
+  googleAddress String? // Store the original Google Maps address
   locationType String?  @default("flat")
   latitude     Float?
   longitude    Float?

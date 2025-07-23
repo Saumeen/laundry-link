@@ -169,12 +169,54 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }: OrderDet
       return address;
     }
     
+    // Format based on location type
+    const locationType = address.locationType || 'flat';
+    let locationDetails = '';
+    
+    switch (locationType) {
+      case 'hotel':
+        if (address.building && address.floor) {
+          locationDetails = `Hotel. ${address.building} - Room ${address.floor}`;
+        }
+        break;
+        
+      case 'home':
+        if (address.building) {
+          locationDetails = `Home. Number ${address.building}`;
+        }
+        break;
+        
+      case 'flat':
+        if (address.building && address.floor) {
+          locationDetails = `Flat. ${address.building} and Flat ${address.floor}`;
+        }
+        break;
+        
+      case 'office':
+        if (address.building && address.apartment) {
+          locationDetails = `Office. ${address.building} and ${address.apartment}`;
+        }
+        break;
+    }
+    
+    // If we have both Google address and location details, show both
+    if (address.googleAddress && locationDetails) { 
+      return `${locationDetails} (${address.googleAddress})`;
+    }
+    
+    // If we only have Google address
+    if (address.googleAddress) {
+      return address.googleAddress;
+    }
+    
+    // If we only have location details
+    if (locationDetails) {
+      return locationDetails;
+    }
+    
+    // Fallback to original format if specific fields are missing
     let formatted = address.addressLine1 || '';
     if (address.addressLine2) formatted += `, ${address.addressLine2}`;
-    if (address.building) formatted += `, Building ${address.building}`;
-    if (address.floor) formatted += `, Floor ${address.floor}`;
-    if (address.apartment) formatted += `, Apt ${address.apartment}`;
-    if (address.area) formatted += `, ${address.area}`;
     if (address.city) formatted += `, ${address.city}`;
     
     return formatted || 'Address not available';

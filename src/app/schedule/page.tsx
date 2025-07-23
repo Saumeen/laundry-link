@@ -793,7 +793,7 @@ function ScheduleContent() {
               href="/customer/login"
               className="block w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition-colors"
             >
-              Login to Your Account
+              Log in to create and account
             </Link>
           </div>
         </div>
