@@ -1658,6 +1658,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
   const [pickupTimeError, setPickupTimeError] = useState<string>('');
   const [deliveryTimeError, setDeliveryTimeError] = useState<string>('');
   const [pickupTimeWarning, setPickupTimeWarning] = useState<string>('');
+  const [deliveryTimeWarning, setDeliveryTimeWarning] = useState<string>('');
 
   // Google Maps state
   const { isLoaded, loadError } = useLoadScript({
@@ -1849,7 +1850,7 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     const notes = assignmentType === 'pickup' ? pickupNotes : deliveryNotes;
     
     if (!driverId) {
-      showToast(`Please select a driver for ${assignmentType}`, 'error');
+      showToast('Please select a driver', 'error');
       return;
     }
 
@@ -1857,17 +1858,16 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     const timeError = validateDateTime(estimatedTime, assignmentType);
     if (timeError) {
       if (assignmentType === 'pickup') {
-        setPickupTimeError(timeError);
+        setPickupTimeWarning(timeError);
       } else {
-        setDeliveryTimeError(timeError);
+        setDeliveryTimeWarning(timeError);
       }
       return;
     }
 
-    // Clear any previous errors
-    setPickupTimeError('');
-    setDeliveryTimeError('');
+    // Clear warnings
     setPickupTimeWarning(''); // Clear warning when assigning
+    setDeliveryTimeWarning(''); // Clear warning when assigning
     
     // Set the appropriate loading state
     if (assignmentType === 'pickup') {
@@ -1877,16 +1877,15 @@ function DriverAssignmentsTab({ order, onRefresh }: { order: Order; onRefresh: (
     }
 
     try {
-      const response = await fetch('/api/admin/driver-assignments', {
+      const response = await fetch('/api/admin/operations/actions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           orderId: order.id,
+          action: assignmentType === 'pickup' ? 'assign_pickup_driver' : 'assign_delivery_driver',
           driverId: parseInt(driverId.toString()),
-          assignmentType,
-          estimatedTime: estimatedTime || undefined,
           notes: notes || undefined,
         }),
       });

@@ -4,6 +4,7 @@ import { customerApi } from '../lib/api';
 import { parseJsonResponse } from '../lib/api';
 import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
 import EnhancedAddressForm, { FormData } from './EnhancedAddressForm';
+import { useAuth } from '../hooks/useAuth';
 
 interface Address {
   id: number;
@@ -22,6 +23,7 @@ interface Address {
   longitude?: number;
   isDefault: boolean;
   contactNumber?: string;
+  googleAddress?: string;
 }
 
 interface AddressSelectorProps {
@@ -44,6 +46,7 @@ export default function AddressSelector({
   required = false
 }: AddressSelectorProps) {
   const { data: session, status } = useSession();
+  const { customer } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,7 +90,7 @@ export default function AddressSelector({
     flatNumber: '',
     // Office fields
     officeNumber: '',
-    // Contact number (required for all addresses)
+    // Contact number - will be updated when customer data is available
     contactNumber: '',
   });
 
@@ -97,6 +100,13 @@ export default function AddressSelector({
       fetchAddresses();
     }
   }, [session]);
+
+  // Update form data when customer data is available
+  useEffect(() => {
+    if (customer?.phone && !formData.contactNumber) {
+      setFormData(prev => ({ ...prev, contactNumber: customer.phone || '' }));
+    }
+  }, [customer?.phone, formData.contactNumber]);
 
   const fetchAddresses = useCallback(async () => {
     if (!session?.user?.email) return;
@@ -187,13 +197,13 @@ export default function AddressSelector({
       flatNumber: '',
       // Office fields
       officeNumber: '',
-      // Contact number (required for all addresses)
-      contactNumber: '',
+      // Contact number - only clear if customer doesn't have one
+      contactNumber: customer?.phone || '',
     });
     setSelectedAddress(null);
     setMessage('');
     setErrors({});
-  }, []);
+  }, [customer?.phone]);
 
   // Show create form
   const showCreateForm = useCallback(() => {
@@ -246,52 +256,45 @@ export default function AddressSelector({
     // Validate required fields
     const newErrors: {[key: string]: string} = {};
 
-    // Always require contact number
-    if (!formData.contactNumber.trim()) {
-      newErrors.contactNumber = 'Contact number is required';
-    } else if (!isValidPhoneNumber(formData.contactNumber)) {
-      newErrors.contactNumber = 'Please enter a valid phone number';
+    // Only require contact number if customer doesn't have one
+    if (!customer?.phone) {
+      if (!formData.contactNumber.trim()) {
+        newErrors.contactNumber = 'Contact number is required';
+      } else if (!isValidPhoneNumber(formData.contactNumber)) {
+        newErrors.contactNumber = 'Please enter a valid phone number';
+      }
     }
 
-    // If Google address is selected (and geocoded), only contact number is required
-    if (formData.googleAddress.trim() && selectedAddress) {
-      // Only contact number is required when Google address is provided
-      // All other fields are optional
-    } else {
-      // Require googleAddress if no Google address is selected
-      if (!formData.googleAddress.trim()) {
-        newErrors.googleAddress = 'Address is required';
+    // Always require Google address or manual address input
+    if (!formData.googleAddress.trim()) {
+      newErrors.googleAddress = 'Address is required';
+    }
+    
+    // Location-specific validations - always required regardless of Google address
+    if (formData.locationType === 'hotel') {
+      if (!formData.hotelName.trim()) {
+        newErrors.hotelName = 'Hotel name is required';
       }
-      
-      // Location-specific validations only when no Google address is provided
-      if (formData.locationType === 'hotel') {
-        if (!formData.hotelName.trim()) {
-          newErrors.hotelName = 'Hotel name is required';
-        }
-        if (!formData.roomNumber.trim()) {
-          newErrors.roomNumber = 'Room number is required';
-        }
-      } else if (formData.locationType === 'home') {
-        if (!formData.house.trim()) {
-          newErrors.house = 'House number is required';
-        }
-        if (!formData.road.trim()) {
-          newErrors.road = 'Road name is required';
-        }
-      } else if (formData.locationType === 'flat') {
-        if (!formData.building.trim()) {
-          newErrors.building = 'Building name is required';
-        }
-        if (!formData.flatNumber.trim()) {
-          newErrors.flatNumber = 'Flat number is required';
-        }
-      } else if (formData.locationType === 'office') {
-        if (!formData.building.trim()) {
-          newErrors.building = 'Building name is required';
-        }
-        if (!formData.officeNumber.trim()) {
-          newErrors.officeNumber = 'Office number is required';
-        }
+      if (!formData.roomNumber.trim()) {
+        newErrors.roomNumber = 'Room number is required';
+      }
+    } else if (formData.locationType === 'home') {
+      if (!formData.house.trim()) {
+        newErrors.house = 'House number is required';
+      }
+    } else if (formData.locationType === 'flat') {
+      if (!formData.building.trim()) {
+        newErrors.building = 'Building name/number is required';
+      }
+      if (!formData.flatNumber.trim()) {
+        newErrors.flatNumber = 'Flat number is required';
+      }
+    } else if (formData.locationType === 'office') {
+      if (!formData.building.trim()) {
+        newErrors.building = 'Building name/number is required';
+      }
+      if (!formData.officeNumber.trim()) {
+        newErrors.officeNumber = 'Office name/number is required';
       }
     }
 
@@ -312,7 +315,7 @@ export default function AddressSelector({
         area: formData.area,
         building: formData.building,
         locationType: formData.locationType,
-        contactNumber: formData.contactNumber,
+        contactNumber: customer?.phone || formData.contactNumber, // Use customer's phone if available
         email: session?.user?.email || '',
         // GPS coordinates if available
         ...(selectedAddress?.latitude && selectedAddress?.longitude && {
@@ -321,22 +324,26 @@ export default function AddressSelector({
         }),
       };
 
-      // Add location-specific data only if Google address is not provided
-      if (!formData.googleAddress.trim() || !selectedAddress) {
-        if (formData.locationType === 'hotel') {
-          addressData.hotelName = formData.hotelName;
-          addressData.roomNumber = formData.roomNumber;
-          addressData.collectionMethod = formData.collectionMethod;
-        } else if (formData.locationType === 'home') {
-          addressData.house = formData.house;
-          addressData.road = formData.road;
-          addressData.block = formData.block;
-          addressData.homeCollectionMethod = formData.homeCollectionMethod;
-        } else if (formData.locationType === 'flat') {
-          addressData.flatNumber = formData.flatNumber;
-        } else if (formData.locationType === 'office') {
-          addressData.officeNumber = formData.officeNumber;
-        }
+      // Always add location-specific data
+      if (formData.locationType === 'hotel') {
+        addressData.hotelName = formData.hotelName;
+        addressData.roomNumber = formData.roomNumber;
+        addressData.collectionMethod = formData.collectionMethod;
+      } else if (formData.locationType === 'home') {
+        addressData.house = formData.house;
+        addressData.road = formData.road;
+        addressData.block = formData.block;
+        addressData.homeCollectionMethod = formData.homeCollectionMethod;
+      } else if (formData.locationType === 'flat') {
+        addressData.building = formData.building;
+        addressData.flatNumber = formData.flatNumber;
+        addressData.road = formData.road;
+        addressData.block = formData.block;
+      } else if (formData.locationType === 'office') {
+        addressData.building = formData.building;
+        addressData.officeNumber = formData.officeNumber;
+        addressData.road = formData.road;
+        addressData.block = formData.block;
       }
 
       await saveAddress(addressData);
@@ -346,10 +353,55 @@ export default function AddressSelector({
     } finally {
       setSaving(false);
     }
-  }, [formData, selectedAddress, saveAddress, isValidPhoneNumber]);
+  }, [formData, selectedAddress, saveAddress, isValidPhoneNumber, customer?.phone]);
 
-  // Format address for display
+  // Format address for display based on location type
   const formatAddress = useCallback((address: Address) => {
+    const locationType = address.locationType || 'flat';
+    let locationDetails = '';
+    
+    switch (locationType) {
+      case 'hotel':
+        if (address.building && address.floor) {
+          locationDetails = `Hotel. ${address.building} - Room ${address.floor}`;
+        }
+        break;
+        
+      case 'home':
+        if (address.building) {
+          locationDetails = `Home. Number ${address.building}`;
+        }
+        break;
+        
+      case 'flat':
+        if (address.building && address.floor) {
+          locationDetails = `Flat. ${address.building} and Floor ${address.floor}`;
+        }
+        break;
+        
+      case 'office':
+        if (address.building && address.apartment) {
+          locationDetails = `Office. ${address.building} and ${address.apartment}`;
+        }
+        break;
+    }
+    
+    // If we have both Google address and location details, show both
+    if (locationDetails) {
+      return `${locationDetails}`;
+    }
+    
+    // If we only have Google address
+    if (address.googleAddress) {
+      return address.googleAddress;
+    }
+    
+    // If we only have location details
+    if (locationDetails) {
+      return locationDetails;
+    }
+    
+    // Fallback to original format if specific fields are missing
     if (address.addressLine1) {
       let formatted = address.addressLine1;
       if (address.addressLine2) formatted += `, ${address.addressLine2}`;
@@ -520,7 +572,7 @@ export default function AddressSelector({
                 />
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-gray-900">{address.label}</span>
+                    <span className="font-medium text-gray-900">{formatAddress(address)}</span>
                     <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 capitalize">
                       {address.locationType || 'flat'}
                     </span>
@@ -530,7 +582,7 @@ export default function AddressSelector({
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-600">{formatAddress(address)}</div>
+                  <div className="text-sm text-gray-600">{address.label}</div>
                   {address.contactNumber && (
                     <div className="text-sm text-gray-500">Contact: {address.contactNumber}</div>
                   )}

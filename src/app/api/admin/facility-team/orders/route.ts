@@ -18,57 +18,94 @@ export async function GET(req: Request) {
 
     // Build where clause based on status
     const whereClause: any = {
-      // Only show orders that have been picked up by driver
-      driverAssignments: {
-        some: {
-          assignmentType: 'pickup',
-          status: DriverAssignmentStatus.COMPLETED
+      // Show orders that have been picked up by driver (PICKUP_COMPLETED status)
+      // OR orders that are already at the facility
+      OR: [
+        {
+          status: OrderStatus.PICKUP_COMPLETED
+        },
+        {
+          status: {
+            in: [
+              OrderStatus.RECEIVED_AT_FACILITY,
+              OrderStatus.PROCESSING_STARTED,
+              OrderStatus.PROCESSING_COMPLETED,
+              OrderStatus.QUALITY_CHECK,
+              OrderStatus.READY_FOR_DELIVERY
+            ]
+          }
         }
-      }
+      ]
     };
 
     // Filter by processing status if specified
     if (status !== 'all') {
-      if (status === 'received') {
-        whereClause.status = OrderStatus.RECEIVED_AT_FACILITY;
-        whereClause.orderProcessing = null; // No processing record exists yet
+      if (status === 'picked_up') {
+        whereClause.AND = [{
+          status: OrderStatus.PICKUP_COMPLETED,
+          orderProcessing: null // No processing record exists yet
+        }];
+      } else if (status === 'received') {
+        whereClause.AND = [{
+          status: OrderStatus.RECEIVED_AT_FACILITY,
+          orderProcessing: null // No processing record exists yet
+        }];
       } else if (status === 'ready_for_processing') {
-        whereClause.status = OrderStatus.RECEIVED_AT_FACILITY;
-        whereClause.orderProcessing = null; // No processing record exists
-      } else if (status === 'picked_up') {
-        whereClause.status = {
-          not: OrderStatus.RECEIVED_AT_FACILITY
-        };
-        whereClause.orderProcessing = null; // No processing record exists yet
+        whereClause.AND = [{
+          status: OrderStatus.RECEIVED_AT_FACILITY,
+          orderProcessing: null // No processing record exists
+        }];
       } else if (status === 'in_processing') {
-        whereClause.orderProcessing = {
-          processingStatus: {
-            in: [ProcessingStatus.PENDING, ProcessingStatus.IN_PROGRESS]
+        whereClause.AND = [{
+          orderProcessing: {
+            processingStatus: {
+              in: [ProcessingStatus.PENDING, ProcessingStatus.IN_PROGRESS]
+            }
           }
-        };
+        }];
+      } else if (status === 'ready_for_delivery') {
+        whereClause.AND = [{
+          orderProcessing: {
+            processingStatus: ProcessingStatus.READY_FOR_DELIVERY
+          }
+        }];
       } else if (status === 'completed') {
-        whereClause.orderProcessing = {
-          processingStatus: ProcessingStatus.READY_FOR_DELIVERY
-        };
+        whereClause.AND = [{
+          orderProcessing: {
+            processingStatus: ProcessingStatus.READY_FOR_DELIVERY
+          }
+        }];
       } else if (status === 'quality_check') {
-        whereClause.orderProcessing = {
-          processingStatus: OrderStatus.QUALITY_CHECK
-        };
+        whereClause.AND = [{
+          orderProcessing: {
+            processingStatus: OrderStatus.QUALITY_CHECK
+          }
+        }];
       } else if (status === 'issue_reported') {
-        whereClause.orderProcessing = {
-          processingStatus: ProcessingStatus.ISSUE_REPORTED
-        };
+        whereClause.AND = [{
+          orderProcessing: {
+            processingStatus: ProcessingStatus.ISSUE_REPORTED
+          }
+        }];
       }
     }
 
     // Add search functionality
     if (search) {
-      whereClause.OR = [
-        { orderNumber: { contains: search, mode: 'insensitive' } },
-        { customerFirstName: { contains: search, mode: 'insensitive' } },
-        { customerLastName: { contains: search, mode: 'insensitive' } },
-        { customerEmail: { contains: search, mode: 'insensitive' } }
-      ];
+      const searchClause = {
+        OR: [
+          { orderNumber: { contains: search, mode: 'insensitive' } },
+          { customerFirstName: { contains: search, mode: 'insensitive' } },
+          { customerLastName: { contains: search, mode: 'insensitive' } },
+          { customerEmail: { contains: search, mode: 'insensitive' } }
+        ]
+      };
+      
+      if (whereClause.AND) {
+        whereClause.AND.push(searchClause);
+      } else {
+        whereClause.AND = [searchClause];
+      }
     }
 
     const [orders, totalCount] = await Promise.all([

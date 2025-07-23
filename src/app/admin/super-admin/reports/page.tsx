@@ -132,6 +132,7 @@ export default function ReportsPage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
   const [dateRange, setDateRange] = useState('30'); // days
+  const [exportFormat, setExportFormat] = useState('csv'); // csv or json
 
   // Memoized fetch reports function
   const fetchReports = useCallback(async () => {
@@ -173,7 +174,7 @@ export default function ReportsPage() {
   const handleExportReport = useCallback(async () => {
     try {
       setExportLoading(true);
-      const response = await fetch(`/api/admin/super-admin/reports/export?range=${dateRange}`, {
+      const response = await fetch(`/api/admin/super-admin/reports/export?range=${dateRange}&format=${exportFormat}`, {
         method: 'POST',
       });
       
@@ -182,20 +183,23 @@ export default function ReportsPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `laundry-reports-${dateRange}days-${new Date().toISOString().split('T')[0]}.json`;
+        const extension = exportFormat === 'csv' ? 'csv' : 'json';
+        a.download = `laundry-analytics-${dateRange}days-${new Date().toISOString().split('T')[0]}.${extension}`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
         // Handle export failure
+        console.error('Export failed:', response.statusText);
       }
     } catch (error) {
       // Handle export error
+      console.error('Export error:', error);
     } finally {
       setExportLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, exportFormat]);
 
   useEffect(() => {
     if (status === "loading") {
@@ -272,6 +276,14 @@ export default function ReportsPage() {
                   <option value="30">Last 30 days</option>
                   <option value="90">Last 90 days</option>
                   <option value="365">Last year</option>
+                </select>
+                <select
+                  value={exportFormat}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="csv">CSV Export</option>
+                  <option value="json">JSON Export</option>
                 </select>
                 <ExportButton onClick={handleExportReport} isLoading={exportLoading} />
                 <span className="text-sm text-gray-600">

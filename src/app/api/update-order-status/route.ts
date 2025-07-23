@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { emailService } from "@/lib/emailService";
 import { OrderTrackingService } from "@/lib/orderTracking";
 import { OrderStatus } from "@prisma/client";
 import { isValidOrderStatus } from "@/lib/orderStatus";
@@ -8,7 +6,13 @@ import { isValidOrderStatus } from "@/lib/orderStatus";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, status, notes } = body as { orderId: string; status: string; notes?: string };
+    const { orderId, status, notes, staffId, metadata } = body as { 
+      orderId: string; 
+      status: string; 
+      notes?: string;
+      staffId?: number;
+      metadata?: any;
+    };
 
     if (!orderId || !status) {
       return NextResponse.json(
@@ -25,11 +29,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Use the new tracking service to update order status
-    const result = await OrderTrackingService.updateOrderStatus({
+    // Use the existing OrderTrackingService
+    const result = await OrderTrackingService.updateOrderStatusWithEmail({
       orderId: parseInt(orderId),
       newStatus: status as OrderStatus,
-      notes
+      staffId,
+      notes,
+      metadata,
+      shouldSendEmail: true
     });
 
     if (!result.success) {
@@ -39,43 +46,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const updatedOrder = result.order;
-
-    console.log("Order status updated:", updatedOrder.orderNumber, "->", status);
-
-    // Send status update email to customer
-    if (updatedOrder.customerEmail) {
-      await emailService.sendStatusUpdateToCustomer(
-        updatedOrder,
-        updatedOrder.customerEmail,
-        `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`
-      );
-    }
-
-    // Special handling for "READY_FOR_DELIVERY" status (equivalent to old "Invoice Generated")
-    const hasOrderItems = updatedOrder.orderServiceMappings.some((mapping: any) => 
-      mapping.orderItems && mapping.orderItems.length > 0
-    );
-    
-    if (status === OrderStatus.READY_FOR_DELIVERY && hasOrderItems) {
-      try {
-        // Send invoice email to customer
-        await emailService.sendOrderConfirmationToCustomer(
-          updatedOrder,
-          updatedOrder.customerEmail,
-          `${updatedOrder.customerFirstName} ${updatedOrder.customerLastName}`,
-          updatedOrder.orderServiceMappings
-        );
-        console.log("Invoice email sent to customer:", updatedOrder.customerEmail);
-      } catch (emailError) {
-        console.error("Failed to send invoice email:", emailError);
-        // Don't fail the status update if email fails
-      }
-    }
+    console.log("Order status updated:", result.order?.orderNumber, "->", status);
 
     return NextResponse.json({
       message: "Order status updated successfully",
-      order: updatedOrder
+      order: result.order
     });
   } catch (error) {
     console.error("Error updating order status:", error);

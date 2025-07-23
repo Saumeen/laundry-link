@@ -60,81 +60,49 @@ export async function POST(req: Request) {
     let addressLine1 = '';
     let city = 'Bahrain'; // Default city
 
-    // Check if this is a Google address (has googleAddress or addressLine1 field)
-    if (body.googleAddress?.trim() || body.addressLine1?.trim()) {
-      // Use Google address as the primary address - all other fields are optional
-      addressLine1 = (body.googleAddress || body.addressLine1).trim();
-      city = body.city || 'Bahrain';
-      // Skip all location-specific validation when Google address is provided
-    } else {
-      // Fall back to location-specific address formatting
-      switch (locationType) {
-        case 'hotel':
-          if (!body.hotelName?.trim() || !body.roomNumber?.trim()) {
-            return NextResponse.json(
-              { error: "Hotel name and room number are required" },
-              { status: 400 }
-            );
-          }
-          addressLine1 = `${body.hotelName}, Room ${body.roomNumber}`;
-          if (body.collectionMethod) {
-            addressLine1 += ` (${body.collectionMethod})`;
-          }
-          break;
-
-        case 'home':
-          if (!body.house?.trim() || !body.road?.trim()) {
-            return NextResponse.json(
-              { error: "House and road are required" },
-              { status: 400 }
-            );
-          }
-          addressLine1 = `${body.house}, ${body.road}`;
-          if (body.block?.trim()) {
-            addressLine1 += `, Block ${body.block}`;
-          }
-          break;
-
-        case 'flat':
-          if (!body.building?.trim() || !body.flatNumber?.trim()) {
-            return NextResponse.json(
-              { error: "Building and flat number are required" },
-              { status: 400 }
-            );
-          }
-          addressLine1 = `${body.building}`;
-          if (body.road?.trim()) {
-            addressLine1 += `, ${body.road}`;
-          }
-          if (body.block?.trim()) {
-            addressLine1 += `, Block ${body.block}`;
-          }
-          addressLine1 += `, Flat ${body.flatNumber}`;
-          break;
-
-        case 'office':
-          if (!body.building?.trim() || !body.officeNumber?.trim()) {
-            return NextResponse.json(
-              { error: "Building and office number are required" },
-              { status: 400 }
-            );
-          }
-          addressLine1 = `${body.building}`;
-          if (body.road?.trim()) {
-            addressLine1 += `, ${body.road}`;
-          }
-          if (body.block?.trim()) {
-            addressLine1 += `, Block ${body.block}`;
-          }
-          addressLine1 += `, Office ${body.officeNumber}`;
-          break;
-
-        default:
+    // Always validate location-specific fields regardless of Google address
+    switch (locationType) {
+      case 'hotel':
+        if (!body.hotelName?.trim() || !body.roomNumber?.trim()) {
           return NextResponse.json(
-            { error: "Invalid location type" },
+            { error: "Hotel name and room number are required" },
             { status: 400 }
           );
-      }
+        }
+        break;
+
+      case 'home':
+        if (!body.house?.trim()) {
+          return NextResponse.json(
+            { error: "House number is required" },
+            { status: 400 }
+          );
+        }
+        break;
+
+      case 'flat':
+        if (!body.building?.trim() || !body.flatNumber?.trim()) {
+          return NextResponse.json(
+            { error: "Building name/number and flat number are required" },
+            { status: 400 }
+          );
+        }
+        break;
+
+      case 'office':
+        if (!body.building?.trim() || !body.officeNumber?.trim()) {
+          return NextResponse.json(
+            { error: "Building name/number and office name/number are required" },
+            { status: 400 }
+          );
+        }
+        break;
+
+      default:
+        return NextResponse.json(
+          { error: "Invalid location type" },
+          { status: 400 }
+        );
     }
 
     // Check if this is the first address (make it default)
@@ -144,20 +112,96 @@ export async function POST(req: Request) {
 
     const isFirstAddress = existingAddresses.length === 0;
 
-    // Create the address
+    // Prepare address data based on location type
+    let addressLine1Data = '';
+    let addressLine2Data = '';
+    let buildingData = '';
+    let floorData = '';
+    let apartmentData = '';
+    let areaData = '';
+
+    // Set Google address as primary if available
+    if (body.googleAddress?.trim()) {
+      addressLine1Data = body.googleAddress.trim();
+      city = body.city || 'Bahrain';
+    }
+
+    // Add location-specific details to addressLine2
+    switch (locationType) {
+      case 'hotel':
+        buildingData = body.hotelName?.trim() || '';
+        floorData = body.roomNumber?.trim() || '';
+        if (buildingData && floorData) {
+          addressLine2Data = `${buildingData}, Room ${floorData}`;
+          if (body.collectionMethod) {
+            addressLine2Data += ` (${body.collectionMethod})`;
+          }
+        }
+        break;
+
+      case 'home':
+        buildingData = body.house?.trim() || '';
+        areaData = body.road?.trim() || '';
+        if (buildingData) {
+          addressLine2Data = buildingData;
+          if (areaData) {
+            addressLine2Data += `, ${areaData}`;
+          }
+          if (body.block?.trim()) {
+            addressLine2Data += `, Block ${body.block.trim()}`;
+          }
+        }
+        break;
+
+      case 'flat':
+        buildingData = body.building?.trim() || '';
+        floorData = body.flatNumber?.trim() || '';
+        areaData = body.road?.trim() || '';
+        if (buildingData && floorData) {
+          addressLine2Data = `${buildingData}`;
+          if (areaData) {
+            addressLine2Data += `, ${areaData}`;
+          }
+          if (body.block?.trim()) {
+            addressLine2Data += `, Block ${body.block.trim()}`;
+          }
+          addressLine2Data += `, Flat ${floorData}`;
+        }
+        break;
+
+      case 'office':
+        buildingData = body.building?.trim() || '';
+        apartmentData = body.officeNumber?.trim() || '';
+        areaData = body.road?.trim() || '';
+        if (buildingData && apartmentData) {
+          addressLine2Data = `${buildingData}`;
+          if (areaData) {
+            addressLine2Data += `, ${areaData}`;
+          }
+          if (body.block?.trim()) {
+            addressLine2Data += `, Block ${body.block.trim()}`;
+          }
+          addressLine2Data += `, Office ${apartmentData}`;
+        }
+        break;
+    }
+
+    // Create the address with proper field structure
     const newAddress = await prisma.address.create({
       data: {
         customerId: customer.id,
         label: label.trim(),
-        address: addressLine1,
-        addressLine1,
+        addressLine1: addressLine1Data || addressLine2Data, // Use Google address or location details
+        addressLine2: addressLine1Data && addressLine2Data ? addressLine2Data : null, // Only if both exist
         city,
         locationType,
         contactNumber: contactNumber.trim(),
-        area: body.road?.trim() || null,
-        building: body.building?.trim() || body.hotelName?.trim() || null,
-        floor: body.flatNumber?.trim() || body.roomNumber?.trim() || null,
-        apartment: body.officeNumber?.trim() || null,
+        area: areaData || body.area?.trim() || null,
+        building: buildingData || null,
+        floor: floorData || null,
+        apartment: apartmentData || null,
+        landmark: body.landmark?.trim() || null,
+        googleAddress: body.googleAddress?.trim() || null,
         latitude: body.latitude || null,
         longitude: body.longitude || null,
         isDefault: isFirstAddress,

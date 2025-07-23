@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication - we'll validate this on the frontend
-    // The frontend will only call this if user is authenticated as admin
+    // Check authentication
+    await requireAuthenticatedAdmin();
     
     const body = await request.json();
     const { orderId } = body as { orderId: number };

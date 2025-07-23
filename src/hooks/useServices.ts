@@ -5,8 +5,8 @@ export interface Service {
   name: string;
   displayName: string;
   description: string;
-  pricingType: 'BY_WEIGHT' | 'BY_PIECE';
-  pricingUnit: 'KG' | 'PIECE';
+  pricingType: string;
+  pricingUnit: string;
   price: number;
   unit: string;
   turnaround: string;

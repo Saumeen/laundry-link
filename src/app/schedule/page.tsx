@@ -654,7 +654,11 @@ function ScheduleContent() {
                           <h3 className="font-medium text-gray-900">{service.displayName}</h3>
                           <p className="text-sm text-gray-600 mt-1">{service.description}</p>
                           <p className="text-sm text-blue-600 mt-1 font-medium">
-                            Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'} ({service.pricingUnit})
+                            {service.pricingType && service.pricingUnit && (
+                              <>
+                               {service.pricingType && `Pricing: ${service.pricingType}`} { service.pricingUnit && `(${service.pricingUnit})`}
+                              </>
+                            )}
                           </p>
                         </div>
                         <div className="flex-shrink-0">
@@ -793,7 +797,7 @@ function ScheduleContent() {
               href="/customer/login"
               className="block w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition-colors"
             >
-              Login to Your Account
+              Log in to create and account
             </Link>
           </div>
         </div>
@@ -1240,7 +1244,7 @@ function ScheduleContent() {
                         <h3 className="font-medium text-gray-900">{service.displayName}</h3>
                         <p className="text-sm text-gray-600 mt-1">{service.description}</p>
                         <p className="text-sm text-blue-600 mt-1 font-medium">
-                          Pricing: {service.pricingType === 'BY_WEIGHT' ? 'By Weight' : 'By Piece'} ({service.pricingUnit})
+                          {service.pricingType && `Pricing: ${service.pricingType}`} { service.pricingUnit && `(${service.pricingUnit})`}
                         </p>
                       </div>
                       <div className="flex-shrink-0">

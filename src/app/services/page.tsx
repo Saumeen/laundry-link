@@ -125,29 +125,21 @@ export default function Services() {
                 <p className="text-gray-600 mb-4">
                   {service.description}
                 </p>
-                <div className="border-t border-gray-200 pt-4 mt-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Service Details:</h4>
-                  <ul className="space-y-1">
-                    <li className="flex items-start">
-                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">Professional cleaning process</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">Quality assurance</span>
-                    </li>
-                    <li className="flex items-start">
-                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-sm text-gray-600">Convenient pickup & delivery</span>
-                    </li>
-                  </ul>
-                </div>
+                {service.features && service.features.length > 0 && (
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Service Features:</h4>
+                    <ul className="space-y-1">
+                      {service.features.map((feature, index) => (
+                        <li key={index} className="flex items-start">
+                          <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="text-sm text-gray-600">{feature.trim()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className="mt-6">
                   <Link
                     href="/schedule"

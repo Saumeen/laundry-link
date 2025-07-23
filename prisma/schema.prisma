@@ -84,6 +84,7 @@ model Address {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   address      String?
+  googleAddress String? // Store the original Google Maps address
   locationType String?  @default("flat")
   latitude     Float?
   longitude    Float?
@@ -112,6 +113,7 @@ model Order {
   customerAddress     String
   invoiceTotal        Float?
   minimumOrderApplied Boolean       @default(false)
+  invoiceGenerated    Boolean       @default(false)
   paymentStatus       PaymentStatus @default(PENDING)
   paymentMethod       String?
   notes               String?       // General order notes
@@ -437,15 +439,6 @@ model PricingHeader {
 }
 
 // ===== ENUMS =====
-enum PricingType {
-  BY_WEIGHT
-  BY_PIECE
-}
-
-enum PricingUnit {
-  KG
-  PIECE
-}
 
 // ===== ORDER STATUS ENUMS =====
 enum OrderStatus {
@@ -514,8 +507,8 @@ model Service {
   name        String      @unique // e.g., "wash-fold", "dry-cleaning", "ironing", "express-service", "bedding-linens", "stain-removal"
   displayName String      // e.g., "Wash & Fold", "Dry Cleaning", "Ironing", "Express Service", "Bedding & Linens", "Stain Removal"
   description String      // e.g., "Professional washing service"
-  pricingType PricingType // BY_WEIGHT or BY_PIECE
-  pricingUnit PricingUnit // KG or PIECE
+  pricingType String      // User-defined pricing type (e.g., "By Weight", "By Piece", "By Item", etc.)
+  pricingUnit String      // User-defined pricing unit (e.g., "KG", "Piece", "Item", "Bag", etc.)
   price       Float       // Price in BD
   unit        String      // e.g., "per kg", "per item"
   turnaround  String      // e.g., "24 hours", "48 hours", "8 hours"

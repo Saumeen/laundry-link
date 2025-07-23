@@ -144,6 +144,10 @@ export default function SuperAdminDashboard() {
     router.push('/admin/super-admin/reports');
   };
 
+  const handleNavigateToServicePricing = () => {
+    router.push('/admin/super-admin/service-pricing');
+  };
+
   useEffect(() => {
     if (status === "loading") {
       return; // Still loading
@@ -337,6 +341,11 @@ export default function SuperAdminDashboard() {
                 title="View Reports"
                 onClick={handleNavigateToReports}
                 bgColor="bg-yellow-600"
+              />
+              <QuickActionButton
+                title="Manage Service & Pricing"
+                onClick={handleNavigateToServicePricing}
+                bgColor="bg-indigo-600"
               />
             </div>
           </div>

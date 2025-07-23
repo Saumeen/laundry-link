@@ -247,6 +247,8 @@ export default function StaffManagementPage() {
   const [error, setError] = useState("");
   const [deletingStaffId, setDeletingStaffId] = useState<number | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
   const observer = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
@@ -279,9 +281,24 @@ export default function StaffManagementPage() {
     phone: ""
   });
 
+  // Edit form state
+  const [editFormData, setEditFormData] = useState({
+    email: "",
+    firstName: "",
+    lastName: "",
+    password: "",
+    role: "" as UserRole | "",
+    phone: "",
+    isActive: true
+  });
+
   // Memoized form handlers
   const handleFormDataChange = useCallback((field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleEditFormDataChange = useCallback((field: keyof typeof editFormData, value: string | boolean) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
   const handleClearFilters = useCallback(() => {
@@ -297,6 +314,15 @@ export default function StaffManagementPage() {
 
   const handleHideCreateForm = useCallback(() => {
     setShowCreateForm(false);
+  }, []);
+
+  const handleShowEditForm = useCallback(() => {
+    setShowEditForm(true);
+  }, []);
+
+  const handleHideEditForm = useCallback(() => {
+    setShowEditForm(false);
+    setEditingStaff(null);
   }, []);
 
   // Memoized computed values
@@ -418,6 +444,8 @@ export default function StaffManagementPage() {
   }, [formData, fetchStaffMembers]);
 
   const handleToggleStatus = useCallback(async (staff: StaffMember) => {
+    setError("");
+    
     try {
       const response = await fetch(`/api/admin/staff?id=${staff.id}`, {
         method: "PUT",
@@ -427,13 +455,17 @@ export default function StaffManagementPage() {
         body: JSON.stringify({ isActive: !staff.isActive }),
       });
 
+      const data = await response.json() as { message?: string; error?: string };
+
       if (response.ok) {
         // Update the staff member in the local state
         setStaffMembers(prev => prev.map(s => 
           s.id === staff.id ? { ...s, isActive: !s.isActive } : s
         ));
+        // Show success message (you can add a success state if needed)
+        console.log(data.message || "Staff status updated successfully");
       } else {
-        setError("Failed to update staff status");
+        setError(data.error || "Failed to update staff status");
       }
     } catch (error) {
       setError("Network error");
@@ -441,7 +473,7 @@ export default function StaffManagementPage() {
   }, []);
 
   const handleDeleteStaff = useCallback(async (staff: StaffMember) => {
-    if (!confirm(`Are you sure you want to delete ${staff.firstName} ${staff.lastName}?`)) {
+    if (!confirm(`Are you sure you want to delete ${staff.firstName} ${staff.lastName}? This action cannot be undone.`)) {
       return;
     }
 
@@ -458,6 +490,8 @@ export default function StaffManagementPage() {
       if (response.ok) {
         // Remove the staff member from local state
         setStaffMembers(prev => prev.filter(s => s.id !== staff.id));
+        // Show success message (you can add a success state if needed)
+        console.log(data.message || "Staff member deleted successfully");
       } else {
         setError(data.error || "Failed to delete staff member");
       }
@@ -469,8 +503,90 @@ export default function StaffManagementPage() {
   }, []);
 
   const handleEditStaff = useCallback((staff: StaffMember) => {
-    // TODO: Implement edit functionality
-  }, []);
+    setEditingStaff(staff);
+    setEditFormData({
+      email: staff.email,
+      firstName: staff.firstName,
+      lastName: staff.lastName,
+      password: "", // Password is not editable
+      role: staff.role,
+      phone: staff.phone || "",
+      isActive: staff.isActive
+    });
+    handleShowEditForm();
+  }, [handleShowEditForm]);
+
+  const handleUpdateStaff = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+
+    setError("");
+
+    try {
+      // Prepare update data (only include fields that have changed)
+      const updateData: any = {};
+      
+      if (editFormData.email !== editingStaff.email) {
+        updateData.email = editFormData.email;
+      }
+      if (editFormData.firstName !== editingStaff.firstName) {
+        updateData.firstName = editFormData.firstName;
+      }
+      if (editFormData.lastName !== editingStaff.lastName) {
+        updateData.lastName = editFormData.lastName;
+      }
+      if (editFormData.role !== editingStaff.role) {
+        updateData.role = editFormData.role;
+      }
+      if (editFormData.phone !== (editingStaff.phone || "")) {
+        updateData.phone = editFormData.phone;
+      }
+      if (editFormData.isActive !== editingStaff.isActive) {
+        updateData.isActive = editFormData.isActive;
+      }
+      if (editFormData.password) {
+        updateData.password = editFormData.password;
+      }
+
+      // Only make the request if there are changes
+      if (Object.keys(updateData).length === 0) {
+        handleHideEditForm();
+        return;
+      }
+
+      const response = await fetch(`/api/admin/staff?id=${editingStaff.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await response.json() as { message?: string; error?: string; staff?: any };
+
+      if (response.ok) {
+        // Update the staff member in the local state
+        setStaffMembers(prev => prev.map(s => 
+          s.id === editingStaff.id ? {
+            ...s,
+            email: data.staff?.email || s.email,
+            firstName: data.staff?.firstName || s.firstName,
+            lastName: data.staff?.lastName || s.lastName,
+            role: data.staff?.role || s.role,
+            phone: data.staff?.phone || s.phone,
+            isActive: data.staff?.isActive !== undefined ? data.staff.isActive : s.isActive,
+          } : s
+        ));
+        
+        handleHideEditForm();
+        setError(""); // Clear any previous errors
+      } else {
+        setError(data.error || "Failed to update staff member");
+      }
+    } catch (error) {
+      setError("Network error");
+    }
+  }, [editingStaff, editFormData, handleHideEditForm]);
 
   useEffect(() => {
     if (!loading && adminUser) {
@@ -817,6 +933,132 @@ export default function StaffManagementPage() {
                   <button
                     type="button"
                     onClick={handleHideCreateForm}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Edit Staff Form */}
+          {showEditForm && editingStaff && (
+            <div className="bg-white shadow rounded-lg p-6 mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Edit Staff Member</h3>
+                <button
+                  onClick={handleHideEditForm}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <form onSubmit={handleUpdateStaff} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={editFormData.email}
+                      onChange={(e) => handleEditFormDataChange('email', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role *
+                    </label>
+                    <select
+                      value={editFormData.role}
+                      onChange={(e) => handleEditFormDataChange('role', e.target.value as UserRole)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select Role</option>
+                      {manageableRoles.map((role) => (
+                        <option key={role.id} value={role.name}>
+                          {role.name} - {role.description}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.firstName}
+                      onChange={(e) => handleEditFormDataChange('firstName', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.lastName}
+                      onChange={(e) => handleEditFormDataChange('lastName', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password (leave blank to keep current)
+                    </label>
+                    <input
+                      type="password"
+                      value={editFormData.password}
+                      onChange={(e) => handleEditFormDataChange('password', e.target.value)}
+                      placeholder="Enter new password or leave blank"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editFormData.phone}
+                      onChange={(e) => handleEditFormDataChange('phone', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={editFormData.isActive ? 'active' : 'inactive'}
+                      onChange={(e) => handleEditFormDataChange('isActive', e.target.value === 'active')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleHideEditForm}
                     className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-200"
                   >
                     Cancel
