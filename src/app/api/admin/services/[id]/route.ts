@@ -17,8 +17,8 @@ export async function PUT(
       name?: string;
       displayName?: string;
       description?: string;
-      pricingType?: 'BY_WEIGHT' | 'BY_PIECE';
-      pricingUnit?: 'KG' | 'PIECE';
+      pricingType?: string;
+      pricingUnit?: string;
       price?: string | number;
       unit?: string;
       turnaround?: string;

@@ -6,7 +6,9 @@ import { OrderStatus } from "@prisma/client";
 export async function POST(request: NextRequest) {
   try {
     const admin = await requireAuthenticatedAdmin();
-    const body = await request.json();
+    const body = await request.json() as {
+      orderId: number;
+    };
     
     const { orderId } = body;
 

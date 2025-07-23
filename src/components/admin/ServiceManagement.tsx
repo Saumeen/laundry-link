@@ -8,8 +8,8 @@ interface Service {
   name: string;
   displayName: string;
   description: string;
-  pricingType: 'BY_WEIGHT' | 'BY_PIECE';
-  pricingUnit: 'KG' | 'PIECE';
+  pricingType: string;
+  pricingUnit: string;
   price: number;
   unit: string;
   turnaround: string;
@@ -54,8 +54,8 @@ export default function ServiceManagement() {
       name: formData.get('name') as string,
       displayName: formData.get('displayName') as string,
       description: formData.get('description') as string,
-      pricingType: formData.get('pricingType') as 'BY_WEIGHT' | 'BY_PIECE',
-      pricingUnit: formData.get('pricingUnit') as 'KG' | 'PIECE',
+      pricingType: formData.get('pricingType') as string,
+      pricingUnit: formData.get('pricingUnit') as string,
       price: parseFloat(formData.get('price') as string),
       unit: formData.get('unit') as string,
       turnaround: formData.get('turnaround') as string,
@@ -117,15 +117,30 @@ export default function ServiceManagement() {
 
   return (
     <div className="p-6">
+      {/* Main Header */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Service Management</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Service Management</h2>
+          <p className="text-gray-600 mt-1">Manage laundry services, pricing, and availability</p>
+        </div>
         <button
           onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
         >
           Add New Service
         </button>
       </div>
+
+      {/* Breadcrumb for editing */}
+      {editingService && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center space-x-2 text-sm">
+            <span className="text-blue-600">Services</span>
+            <span className="text-gray-400">/</span>
+            <span className="text-blue-800 font-medium">Editing: {editingService.displayName}</span>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={`mb-4 p-3 rounded ${message.includes('successfully') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -135,97 +150,230 @@ export default function ServiceManagement() {
 
       {showForm && (
         <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-          <h3 className="text-lg font-medium mb-4">{editingService ? 'Edit Service' : 'Add New Service'}</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                name="name"
-                placeholder="Service Name (e.g., wash-fold)"
-                defaultValue={editingService?.name}
-                className="p-2 border rounded"
-                required
-              />
-              <input
-                name="displayName"
-                placeholder="Display Name (e.g., Wash & Fold)"
-                defaultValue={editingService?.displayName}
-                className="p-2 border rounded"
-                required
-              />
-              <textarea
-                name="description"
-                placeholder="Description"
-                defaultValue={editingService?.description}
-                className="p-2 border rounded"
-                required
-              />
-              <select name="pricingType" defaultValue={editingService?.pricingType} className="p-2 border rounded" required>
-                <option value="BY_WEIGHT">By Weight</option>
-                <option value="BY_PIECE">By Piece</option>
-              </select>
-              <select name="pricingUnit" defaultValue={editingService?.pricingUnit} className="p-2 border rounded" required>
-                <option value="KG">KG</option>
-                <option value="PIECE">Piece</option>
-              </select>
-              <input
-                name="price"
-                type="number"
-                step="0.001"
-                placeholder="Price"
-                defaultValue={editingService?.price}
-                className="p-2 border rounded"
-                required
-              />
-              <input
-                name="unit"
-                placeholder="Unit (e.g., per kg)"
-                defaultValue={editingService?.unit}
-                className="p-2 border rounded"
-                required
-              />
-              <input
-                name="turnaround"
-                placeholder="Turnaround (e.g., 24 hours)"
-                defaultValue={editingService?.turnaround}
-                className="p-2 border rounded"
-                required
-              />
-              <select name="category" defaultValue={editingService?.category} className="p-2 border rounded" required>
-                <option value="regular">Regular</option>
-                <option value="premium">Premium</option>
-              </select>
-              <input
-                name="features"
-                placeholder="Features (comma-separated)"
-                defaultValue={editingService?.features?.join(', ')}
-                className="p-2 border rounded"
-              />
-              <input
-                name="sortOrder"
-                type="number"
-                placeholder="Sort Order"
-                defaultValue={editingService?.sortOrder}
-                className="p-2 border rounded"
-                required
-              />
-              <select name="isActive" defaultValue={editingService?.isActive?.toString()} className="p-2 border rounded" required>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">
+                {editingService ? `Edit Service: ${editingService.displayName}` : 'Add New Service'}
+              </h3>
+              {editingService && (
+                <div className="mt-1 text-sm text-gray-600">
+                  <span className="mr-4">ID: {editingService.id}</span>
+                  <span className="mr-4">Status: {editingService.isActive ? 'Active' : 'Inactive'}</span>
+                  <span>Category: {editingService.category}</span>
+                </div>
+              )}
             </div>
-            <div className="flex space-x-2">
-              <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                {editingService ? 'Update' : 'Create'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setEditingService(null); }}
-                className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+            {editingService && (
+              <div className="text-right">
+                <div className="text-sm text-gray-500">Created</div>
+                <div className="text-xs text-gray-400">
+                  {new Date().toLocaleDateString()} {/* You can add actual creation date if available */}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Form Section */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-lg font-medium text-gray-900 mb-4">Service Details</h4>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Name *
+                  </label>
+                  <input
+                    name="name"
+                    placeholder="e.g., wash-fold"
+                    defaultValue={editingService?.name}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Internal identifier (lowercase, no spaces)</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Display Name *
+                  </label>
+                  <input
+                    name="displayName"
+                    placeholder="e.g., Wash & Fold"
+                    defaultValue={editingService?.displayName}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Name shown to customers</p>
+                </div>
+                
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    name="description"
+                    placeholder="Brief description of the service"
+                    defaultValue={editingService?.description}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={3}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Detailed description for customers</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pricing Type
+                  </label>
+                  <input
+                    name="pricingType"
+                    type="text"
+                    placeholder="e.g., By Weight, By Piece, By Item"
+                    defaultValue={editingService?.pricingType}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">How the service is priced</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Pricing Unit
+                  </label>
+                  <input
+                    name="pricingUnit"
+                    type="text"
+                    placeholder="e.g., KG, Piece, Item, Bag"
+                    defaultValue={editingService?.pricingUnit}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Unit of measurement for pricing</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Base Price (BD) *
+                  </label>
+                  <input
+                    name="price"
+                    type="number"
+                    step="0.001"
+                    placeholder="0.00"
+                    defaultValue={editingService?.price}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Base price in Bahraini Dinar</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Price Unit *
+                  </label>
+                  <input
+                    name="unit"
+                    placeholder="e.g., per kg, per item"
+                    defaultValue={editingService?.unit}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">How the price is displayed to customers</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Turnaround Time *
+                  </label>
+                  <input
+                    name="turnaround"
+                    placeholder="e.g., 24 hours, 48 hours"
+                    defaultValue={editingService?.turnaround}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Expected completion time</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Category *
+                  </label>
+                  <select 
+                    name="category" 
+                    defaultValue={editingService?.category} 
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    required
+                  >
+                    <option value="">Select category</option>
+                    <option value="regular">Regular</option>
+                    <option value="premium">Premium</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Service tier classification</p>
+                </div>
+                
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Features
+                  </label>
+                  <input
+                    name="features"
+                    placeholder="e.g., Stain treatment, Express service, Eco-friendly"
+                    defaultValue={editingService?.features?.join(', ')}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated list of service features</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sort Order *
+                  </label>
+                  <input
+                    name="sortOrder"
+                    type="number"
+                    placeholder="1"
+                    defaultValue={editingService?.sortOrder}
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Display order (lower numbers first)</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status *
+                  </label>
+                  <select 
+                    name="isActive" 
+                    defaultValue={editingService?.isActive?.toString()} 
+                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    required
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Whether the service is available to customers</p>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-200 pt-6">
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForm(false); setEditingService(null); }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                  >
+                    {editingService ? 'Update Service' : 'Create Service'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

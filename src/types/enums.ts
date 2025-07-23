@@ -4,9 +4,7 @@ import {
   DriverAssignmentStatus, 
   ProcessingStatus, 
   ItemStatus, 
-  IssueStatus,
-  PricingType,
-  PricingUnit 
+  IssueStatus
 } from "@prisma/client";
 
 // Re-export all enums for easy importing
@@ -16,9 +14,7 @@ export {
   DriverAssignmentStatus,
   ProcessingStatus,
   ItemStatus,
-  IssueStatus,
-  PricingType,
-  PricingUnit
+  IssueStatus
 };
 
 // Type definitions for API requests/responses

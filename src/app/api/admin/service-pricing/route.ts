@@ -103,7 +103,12 @@ export async function POST(request: Request) {
     // Require admin authentication
     await requireAuthenticatedAdmin();
 
-    const body = await request.json();
+    const body = await request.json() as {
+      serviceId: string | number;
+      pricingItemId: string | number;
+      isDefault?: boolean;
+      sortOrder?: number;
+    };
     const { serviceId, pricingItemId, isDefault = false, sortOrder = 0 } = body;
 
     if (!serviceId || !pricingItemId) {
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
     if (isDefault) {
       await prisma.servicePricingMapping.updateMany({
         where: {
-          serviceId: parseInt(serviceId),
+          serviceId: parseInt(serviceId.toString()),
           isDefault: true,
         },
         data: {
@@ -130,8 +135,8 @@ export async function POST(request: Request) {
     const mapping = await prisma.servicePricingMapping.upsert({
       where: {
         serviceId_pricingItemId: {
-          serviceId: parseInt(serviceId),
-          pricingItemId: parseInt(pricingItemId),
+          serviceId: parseInt(serviceId.toString()),
+          pricingItemId: parseInt(pricingItemId.toString()),
         },
       },
       update: {
@@ -141,8 +146,8 @@ export async function POST(request: Request) {
         updatedAt: new Date(),
       },
       create: {
-        serviceId: parseInt(serviceId),
-        pricingItemId: parseInt(pricingItemId),
+        serviceId: parseInt(serviceId.toString()),
+        pricingItemId: parseInt(pricingItemId.toString()),
         isDefault,
         sortOrder,
         isActive: true,

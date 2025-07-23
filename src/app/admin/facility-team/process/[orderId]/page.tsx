@@ -837,7 +837,7 @@ export default function ProcessOrderPage() {
                     >
                       <div className="font-medium text-gray-900">{mapping.service.displayName}</div>
                       <div className="text-sm text-gray-500 mt-1">
-                        {mapping.service.pricingType === 'BY_PIECE' ? 'Per Item' : 'Per KG'}
+                        {mapping.service.pricingType} {mapping.service.pricingUnit && `(${mapping.service.pricingUnit})`}
                       </div>
                       <div className="text-sm text-blue-600 mt-1">
                         Base Price: BD {mapping.service.price.toFixed(2)}

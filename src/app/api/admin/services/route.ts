@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminRole } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 
 // GET - Fetch all services
 export async function GET() {
   try {
-    // Note: Authentication will be handled by middleware or useAdminAuth hook
+    // Require SUPER_ADMIN role
+    await requireAdminRole('SUPER_ADMIN');
+
     const services = await prisma.service.findMany({
       orderBy: { sortOrder: 'asc' }
     });
@@ -12,6 +15,9 @@ export async function GET() {
     return NextResponse.json(services);
   } catch (error) {
     console.error('Error fetching services:', error);
+    if (error instanceof Error && error.message.includes('authentication')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -19,13 +25,15 @@ export async function GET() {
 // POST - Create new service
 export async function POST(request: NextRequest) {
   try {
-    // Note: Authentication will be handled by middleware or useAdminAuth hook
+    // Require SUPER_ADMIN role
+    await requireAdminRole('SUPER_ADMIN');
+
     const body = await request.json() as {
       name: string;
       displayName: string;
       description: string;
-      pricingType: 'BY_WEIGHT' | 'BY_PIECE';
-      pricingUnit: 'KG' | 'PIECE';
+      pricingType: string;
+      pricingUnit: string;
       price: string | number;
       unit: string;
       turnaround: string;
@@ -69,6 +77,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(service, { status: 201 });
   } catch (error) {
     console.error('Error creating service:', error);
+    if (error instanceof Error && error.message.includes('authentication')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

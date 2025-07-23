@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { requireAdminRole } from '@/lib/adminAuth';
+import prisma from '@/lib/prisma';
 
 // GET - Fetch all pricing categories
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.userType !== 'admin' || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require SUPER_ADMIN role
+    await requireAdminRole('SUPER_ADMIN');
 
     const categories = await prisma.pricingCategory.findMany({
       orderBy: { sortOrder: 'asc' },
@@ -24,6 +20,9 @@ export async function GET() {
     return NextResponse.json(categories);
   } catch (error) {
     console.error('Error fetching pricing categories:', error);
+    if (error instanceof Error && error.message.includes('authentication')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -31,13 +30,15 @@ export async function GET() {
 // POST - Create new pricing category
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.userType !== 'admin' || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require SUPER_ADMIN role
+    await requireAdminRole('SUPER_ADMIN');
 
-    const body = await request.json();
+    const body = await request.json() as {
+      name: string;
+      displayName: string;
+      description?: string;
+      sortOrder?: number;
+    };
     const { name, displayName, description, sortOrder } = body;
 
     // Validation
@@ -67,6 +68,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
     console.error('Error creating pricing category:', error);
+    if (error instanceof Error && error.message.includes('authentication')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

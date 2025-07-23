@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { requireAdminRole } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 
 // GET - Fetch all pricing items
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.userType !== 'admin' || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require SUPER_ADMIN role
+    await requireAdminRole('SUPER_ADMIN');
 
     const items = await prisma.pricingItem.findMany({
       orderBy: { sortOrder: 'asc' },
@@ -25,6 +21,9 @@ export async function GET() {
     return NextResponse.json(items);
   } catch (error) {
     console.error('Error fetching pricing items:', error);
+    if (error instanceof Error && error.message.includes('authentication')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -32,13 +31,17 @@ export async function GET() {
 // POST - Create new pricing item
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || session.userType !== 'admin' || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Require SUPER_ADMIN role
+    await requireAdminRole('SUPER_ADMIN');
 
-    const body = await request.json();
+    const body = await request.json() as {
+      name: string;
+      displayName: string;
+      price: string | number;
+      description?: string;
+      sortOrder?: number;
+      categoryId: string | number;
+    };
     const { name, displayName, price, description, sortOrder, categoryId } = body;
 
     // Validation
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if item name already exists
-    const existingItem = await prisma.pricingItem.findUnique({
+    const existingItem = await prisma.pricingItem.findFirst({
       where: { name }
     });
 
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Check if category exists
     const category = await prisma.pricingCategory.findUnique({
-      where: { id: parseInt(categoryId) }
+      where: { id: parseInt(categoryId.toString()) }
     });
 
     if (!category) {
@@ -68,10 +71,10 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         displayName,
-        price: parseFloat(price),
+        price: parseFloat(price.toString()),
         description: description || null,
         sortOrder: sortOrder || 0,
-        categoryId: parseInt(categoryId),
+        categoryId: parseInt(categoryId.toString()),
         isActive: true
       },
       include: {
@@ -82,6 +85,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     console.error('Error creating pricing item:', error);
+    if (error instanceof Error && error.message.includes('authentication')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

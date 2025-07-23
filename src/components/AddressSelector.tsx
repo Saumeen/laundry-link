@@ -375,7 +375,7 @@ export default function AddressSelector({
         
       case 'flat':
         if (address.building && address.floor) {
-          locationDetails = `Flat. ${address.building} and Flat ${address.floor}`;
+          locationDetails = `Flat. ${address.building} and Floor ${address.floor}`;
         }
         break;
         
@@ -388,7 +388,7 @@ export default function AddressSelector({
     
     // If we have both Google address and location details, show both
     if (address.googleAddress && locationDetails) {
-      return `${address.googleAddress} (${locationDetails})`;
+      return `${locationDetails} (${address.googleAddress})`;
     }
     
     // If we only have Google address
