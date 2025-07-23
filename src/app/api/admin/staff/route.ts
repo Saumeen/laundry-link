@@ -14,6 +14,16 @@ interface CreateStaffRequest {
   phone?: string;
 }
 
+interface UpdateStaffRequest {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  password?: string;
+  role?: string;
+  phone?: string;
+  isActive?: boolean;
+}
+
 export async function POST(req: Request) {
   try {  
     // Check if the current user is an authenticated admin
@@ -273,6 +283,147 @@ export async function DELETE(req: Request) {
     console.error("Error deleting staff member:", error);
     return NextResponse.json(
       { error: "Failed to delete staff member" },
+      { status: 500 }
+    );
+  }
+} 
+
+export async function PUT(req: Request) {
+  try {
+    // Check if the current user is an authenticated admin
+    const currentAdmin = await requireAuthenticatedAdmin();
+
+    // Get the staff member ID from the URL
+    const url = new URL(req.url);
+    const staffId = url.searchParams.get('id');
+
+    if (!staffId) {
+      return NextResponse.json(
+        { error: "Staff member ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const updateData: UpdateStaffRequest = await req.json();
+
+    // Get the staff member to check permissions
+    const staffMember = await prisma.staff.findUnique({
+      where: { id: parseInt(staffId) },
+      include: { role: true }
+    });
+
+    if (!staffMember) {
+      return NextResponse.json(
+        { error: "Staff member not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check if current admin can manage this staff member's role
+    if (!canManageRole(currentAdmin.role, staffMember.role.name as UserRole)) {
+      return NextResponse.json(
+        { error: `You don't have permission to update ${staffMember.role.name} users` },
+        { status: 403 }
+      );
+    }
+
+    // Prevent admin from deactivating themselves
+    if (staffMember.id === currentAdmin.id && updateData.isActive === false) {
+      return NextResponse.json(
+        { error: "You cannot deactivate your own account" },
+        { status: 400 }
+      );
+    }
+
+    // If role is being updated, check if current admin can create the new role
+    if (updateData.role && !canManageRole(currentAdmin.role, updateData.role as UserRole)) {
+      return NextResponse.json(
+        { error: `You don't have permission to assign ${updateData.role} role` },
+        { status: 403 }
+      );
+    }
+
+    // If email is being updated, check if it already exists
+    if (updateData.email && updateData.email !== staffMember.email) {
+      const existingStaff = await prisma.staff.findUnique({
+        where: { email: updateData.email.toLowerCase() }
+      });
+
+      if (existingStaff) {
+        return NextResponse.json(
+          { error: "Email already exists" },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Prepare update data
+    const dataToUpdate: any = {};
+
+    if (updateData.email !== undefined) {
+      dataToUpdate.email = updateData.email.toLowerCase();
+    }
+    if (updateData.firstName !== undefined) {
+      dataToUpdate.firstName = updateData.firstName;
+    }
+    if (updateData.lastName !== undefined) {
+      dataToUpdate.lastName = updateData.lastName;
+    }
+    if (updateData.phone !== undefined) {
+      dataToUpdate.phone = updateData.phone || null;
+    }
+    if (updateData.isActive !== undefined) {
+      dataToUpdate.isActive = updateData.isActive;
+    }
+
+    // Handle password update
+    if (updateData.password) {
+      dataToUpdate.password = await bcrypt.hash(updateData.password, 12);
+    }
+
+    // Handle role update
+    if (updateData.role) {
+      const roleRecord = await prisma.role.findUnique({
+        where: { name: updateData.role }
+      });
+
+      if (!roleRecord) {
+        return NextResponse.json(
+          { error: "Role not found" },
+          { status: 404 }
+        );
+      }
+
+      dataToUpdate.roleId = roleRecord.id;
+    }
+
+    // Update the staff member
+    const updatedStaff = await prisma.staff.update({
+      where: { id: parseInt(staffId) },
+      data: dataToUpdate,
+      include: {
+        role: true
+      }
+    });
+
+    return NextResponse.json({
+      message: "Staff member updated successfully",
+      staff: {
+        id: updatedStaff.id,
+        email: updatedStaff.email,
+        firstName: updatedStaff.firstName,
+        lastName: updatedStaff.lastName,
+        role: updatedStaff.role.name,
+        isActive: updatedStaff.isActive,
+        lastLoginAt: updatedStaff.lastLoginAt,
+        createdAt: updatedStaff.createdAt,
+        phone: updatedStaff.phone
+      }
+    });
+  } catch (error) {
+    console.error("Error updating staff member:", error);
+    return NextResponse.json(
+      { error: "Failed to update staff member" },
       { status: 500 }
     );
   }

@@ -49,6 +49,7 @@ export default function ServiceManagement() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    debugger
     const formData = new FormData(e.currentTarget);
     const serviceData = {
       name: formData.get('name') as string,

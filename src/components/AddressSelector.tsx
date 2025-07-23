@@ -387,8 +387,8 @@ export default function AddressSelector({
     }
     
     // If we have both Google address and location details, show both
-    if (address.googleAddress && locationDetails) {
-      return `${locationDetails} (${address.googleAddress})`;
+    if (locationDetails) {
+      return `${locationDetails}`;
     }
     
     // If we only have Google address
@@ -572,7 +572,7 @@ export default function AddressSelector({
                 />
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-gray-900">{address.label}</span>
+                    <span className="font-medium text-gray-900">{formatAddress(address)}</span>
                     <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 capitalize">
                       {address.locationType || 'flat'}
                     </span>
@@ -582,7 +582,7 @@ export default function AddressSelector({
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-600">{formatAddress(address)}</div>
+                  <div className="text-sm text-gray-600">{address.label}</div>
                   {address.contactNumber && (
                     <div className="text-sm text-gray-500">Contact: {address.contactNumber}</div>
                   )}

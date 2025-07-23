@@ -52,16 +52,16 @@ export async function PUT(
     const updatedService = await prisma.service.update({
       where: { id },
       data: {
-        name: name || existingService.name,
-        displayName: displayName || existingService.displayName,
-        description: description || existingService.description,
-        pricingType: pricingType || existingService.pricingType,
-        pricingUnit: pricingUnit || existingService.pricingUnit,
+        name: name ,
+        displayName: displayName ,
+        description: description,
+        pricingType: pricingType ,
+        pricingUnit: pricingUnit ,
         price: price !== undefined ? parseFloat(price.toString()) : existingService.price,
-        unit: unit || existingService.unit,
-        turnaround: turnaround || existingService.turnaround,
-        category: category || existingService.category,
-        features: features || existingService.features,
+        unit: unit ,
+        turnaround: turnaround ,
+        category: category ,
+        features: features ,
         sortOrder: sortOrder !== undefined ? sortOrder : existingService.sortOrder,
         isActive: isActive !== undefined ? isActive : existingService.isActive
       }
