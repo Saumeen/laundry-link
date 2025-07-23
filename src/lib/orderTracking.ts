@@ -276,6 +276,47 @@ export class OrderTrackingService {
     const { orderId, staffId, action, notes, metadata } = data;
 
     try {
+      // Handle generate_invoice action separately - only send email, don't change status
+      if (action === 'generate_invoice') {
+        // Send invoice email without changing order status
+        await this.sendInvoiceEmail(orderId);
+        
+        // Update order to mark invoice as generated
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { invoiceGenerated: true }
+        });
+        
+        // Add to order history for tracking
+        await this.addOrderNote(orderId, staffId, 'Invoice generated and sent to customer', metadata);
+        
+        return { success: true };
+      }
+
+      // Handle complete_processing action separately - send custom email with payment reminder
+      if (action === 'complete_processing') {
+        // Send processing completion email with payment reminder
+        await this.sendProcessingCompletedEmail(orderId);
+        
+        // Update order status
+        const result = await this.updateOrderStatus({
+          orderId,
+          newStatus: OrderStatus.PROCESSING_COMPLETED,
+          staffId,
+          notes,
+          metadata
+        });
+
+        if (!result.success) {
+          return result;
+        }
+
+        // Add to order history for tracking
+        await this.addOrderNote(orderId, staffId, 'Processing completed and customer notified', metadata);
+        
+        return { success: true };
+      }
+
       let newStatus: OrderStatus;
       let shouldSendEmail = true;
 
@@ -285,12 +326,6 @@ export class OrderTrackingService {
           break;
         case 'start_processing':
           newStatus = OrderStatus.PROCESSING_STARTED;
-          break;
-        case 'complete_processing':
-          newStatus = OrderStatus.PROCESSING_COMPLETED;
-          break;
-        case 'generate_invoice':
-          newStatus = OrderStatus.READY_FOR_DELIVERY;
           break;
         case 'assign_delivery_driver':
           newStatus = OrderStatus.DELIVERY_ASSIGNED;
@@ -312,12 +347,6 @@ export class OrderTrackingService {
 
       if (!result.success) {
         return result;
-      }
-
-      // Handle special cases
-      if (action === 'generate_invoice') {
-        // Send invoice email
-        await this.sendInvoiceEmail(orderId);
       }
 
       return { success: true };
@@ -534,22 +563,35 @@ export class OrderTrackingService {
         return;
       }
 
-      // Prepare invoice data
+      // Prepare invoice data - only individual order items
+      const invoiceItems: Array<{
+        serviceName: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        notes?: string;
+      }> = [];
+      
+      // Add only individual order items
+      order.orderServiceMappings.forEach(mapping => {
+        mapping.orderItems.forEach(item => {
+          invoiceItems.push({
+            serviceName: `${mapping.service.displayName} - ${item.itemName}`,
+            quantity: item.quantity,
+            unitPrice: item.pricePerItem,
+            totalPrice: item.totalPrice,
+            notes: item.notes || undefined
+          });
+        });
+      });
+      
       const invoiceData = {
         totalAmount: order.invoiceTotal || 0,
-        items: order.orderServiceMappings.map(mapping => ({
-          serviceName: mapping.service.displayName,
-          quantity: mapping.quantity,
-          unitPrice: mapping.price,
-          totalPrice: mapping.price * mapping.quantity,
-          notes: mapping.orderItems.length > 0 ? 
-            mapping.orderItems.map(item => item.itemName).join(', ') : 
-            undefined
-        }))
+        items: invoiceItems
       };
 
-      // Send invoice email
-      await emailService.sendDeliveryConfirmationWithInvoice(
+      // Send invoice generation notification email
+      await emailService.sendInvoiceGeneratedNotification(
         order,
         order.customer.email,
         `${order.customer.firstName} ${order.customer.lastName}`,
@@ -557,6 +599,67 @@ export class OrderTrackingService {
       );
     } catch (error) {
       console.error('Error sending invoice email:', error);
+    }
+  }
+
+  /**
+   * Send processing completed email with payment reminder
+   */
+  private static async sendProcessingCompletedEmail(orderId: number): Promise<void> {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          customer: true,
+          orderServiceMappings: {
+            include: {
+              service: true,
+              orderItems: true
+            }
+          }
+        }
+      });
+
+      if (!order || !order.customer?.email) {
+        return;
+      }
+
+      // Prepare invoice data for the email
+      const invoiceItems: Array<{
+        serviceName: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        notes?: string;
+      }> = [];
+      
+      // Add only individual order items
+      order.orderServiceMappings.forEach(mapping => {
+        mapping.orderItems.forEach(item => {
+          invoiceItems.push({
+            serviceName: `${mapping.service.displayName} - ${item.itemName}`,
+            quantity: item.quantity,
+            unitPrice: item.pricePerItem,
+            totalPrice: item.totalPrice,
+            notes: item.notes || undefined
+          });
+        });
+      });
+      
+      const invoiceData = {
+        totalAmount: order.invoiceTotal || 0,
+        items: invoiceItems
+      };
+
+      // Send processing completed email with payment reminder
+      await emailService.sendProcessingCompletedNotification(
+        order,
+        order.customer.email,
+        `${order.customer.firstName} ${order.customer.lastName}`,
+        invoiceData
+      );
+    } catch (error) {
+      console.error('Error sending processing completed email:', error);
     }
   }
 
