@@ -35,8 +35,12 @@ interface Order {
   orderNumber: string;
   status: string;
   invoiceTotal: number;
-  pickupTime: string;
-  deliveryTime?: string;
+  pickupStartTime: string;
+  pickupEndTime: string;
+  deliveryStartTime: string;
+  deliveryEndTime: string;
+  pickupTimeSlot?: string;
+  deliveryTimeSlot?: string;
   createdAt: string;
   updatedAt: string;
   customerFirstName: string;
@@ -400,32 +404,28 @@ export default function Tracking() {
               <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                 <div>
                   <p className='text-sm text-gray-600 mb-1'>Pickup Date</p>
-                  <p className='font-medium'>{formatDate(order.pickupTime)}</p>
+                  <p className='font-medium'>{formatDate(order.pickupStartTime)}</p>
                 </div>
                 <div>
-                  <p className='text-sm text-gray-600 mb-1'>Pickup Time</p>
-                  <p className='font-medium'>{formatTime(order.pickupTime)}</p>
+                  <p className='text-sm text-gray-600 mb-1'>Pickup Time Slot</p>
+                  <p className='font-medium'>{order.pickupTimeSlot || formatTime(order.pickupStartTime)}</p>
                 </div>
-                {order.deliveryTime && (
-                  <>
-                    <div>
-                      <p className='text-sm text-gray-600 mb-1'>
-                        Delivery Date
-                      </p>
-                      <p className='font-medium'>
-                        {formatDate(order.deliveryTime)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className='text-sm text-gray-600 mb-1'>
-                        Delivery Time
-                      </p>
-                      <p className='font-medium'>
-                        {formatTime(order.deliveryTime)}
-                      </p>
-                    </div>
-                  </>
-                )}
+                <div>
+                  <p className='text-sm text-gray-600 mb-1'>
+                    Delivery Date
+                  </p>
+                  <p className='font-medium'>
+                    {formatDate(order.deliveryStartTime)}
+                  </p>
+                </div>
+                <div>
+                  <p className='text-sm text-gray-600 mb-1'>
+                    Delivery Time Slot
+                  </p>
+                  <p className='font-medium'>
+                    {order.deliveryTimeSlot || formatTime(order.deliveryStartTime)}
+                  </p>
+                </div>
                 <div>
                   <p className='text-sm text-gray-600 mb-1'>Order Date</p>
                   <p className='font-medium'>{formatDate(order.createdAt)}</p>

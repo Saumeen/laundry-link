@@ -29,6 +29,8 @@ interface Order {
   status: string;
   pickupTime: string;
   deliveryTime: string;
+  pickupTimeSlot?: string;
+  deliveryTimeSlot?: string;
   createdAt: string;
   customer: {
     id: number;
@@ -409,13 +411,13 @@ function InvoiceTab({ order }: { order: Order; onRefresh: () => void }) {
             <div>
               <span className='text-gray-600'>Pickup:</span>
               <span className='ml-2 font-medium'>
-                {formatDateTime(order.pickupTime)}
+                {order.pickupTimeSlot || formatDateTime(order.pickupTime)}
               </span>
             </div>
             <div>
               <span className='text-gray-600'>Delivery:</span>
               <span className='ml-2 font-medium'>
-                {formatDateTime(order.deliveryTime)}
+                {order.deliveryTimeSlot || formatDateTime(order.deliveryTime)}
               </span>
             </div>
           </div>
@@ -1378,13 +1380,13 @@ function OrderOverviewTab({ order }: { order: Order; onRefresh: () => void }) {
             <div className='flex justify-between'>
               <span className='text-gray-600'>Pickup Time:</span>
               <span className='font-medium'>
-                {formatDate(order.pickupTime)}
+                {order.pickupTimeSlot || formatDate(order.pickupTime)}
               </span>
             </div>
             <div className='flex justify-between'>
               <span className='text-gray-600'>Delivery Time:</span>
               <span className='font-medium'>
-                {formatDate(order.deliveryTime)}
+                {order.deliveryTimeSlot || formatDate(order.deliveryTime)}
               </span>
             </div>
           </div>

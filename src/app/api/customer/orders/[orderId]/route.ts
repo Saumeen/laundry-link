@@ -49,14 +49,45 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Helper function to format timeslot display
+    const formatTimeSlot = (startTime: Date, endTime: Date) => {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      
+      // Format time directly from UTC to Bahrain time (UTC+3)
+      const startTimeStr = start.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Bahrain'
+      });
+      const endTimeStr = end.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Asia/Bahrain'
+      });
+      
+      return `${startTimeStr} - ${endTimeStr}`;
+    };
+
     // Transform the data to match the expected interface
     const transformedOrder = {
       id: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
       invoiceTotal: order.invoiceTotal || 0,
-      pickupTime: order.pickupTime.toISOString(),
-      deliveryTime: order.deliveryTime?.toISOString(),
+      pickupTime: order.pickupStartTime.toISOString(),
+      deliveryTime: order.deliveryStartTime?.toISOString(),
+      // Add full timeslot information
+      pickupStartTime: order.pickupStartTime.toISOString(),
+      pickupEndTime: order.pickupEndTime.toISOString(),
+      deliveryStartTime: order.deliveryStartTime?.toISOString(),
+      deliveryEndTime: order.deliveryEndTime?.toISOString(),
+      pickupTimeSlot: formatTimeSlot(order.pickupStartTime, order.pickupEndTime),
+      deliveryTimeSlot: order.deliveryStartTime && order.deliveryEndTime 
+        ? formatTimeSlot(order.deliveryStartTime, order.deliveryEndTime)
+        : null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       customerNotes: order.specialInstructions || null,

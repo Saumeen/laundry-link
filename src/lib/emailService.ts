@@ -46,8 +46,10 @@ interface OrderWithRelations {
   id: number;
   orderNumber: string;
   customerId: number;
-  pickupTime: Date;
-  deliveryTime: Date;
+  pickupStartTime: Date;
+  pickupEndTime: Date;
+  deliveryStartTime: Date;
+  deliveryEndTime: Date;
   specialInstructions?: string | null;
   customerAddress: string;
   customer: {
@@ -330,8 +332,8 @@ export default {
               <p><strong>Phone:</strong> ${customerDetails.phone}</p>
               <p><strong>Address:</strong> ${customerDetails.address}</p>
               <p><strong>Services:</strong> ${customerDetails.services.join(', ')}</p>
-              <p><strong>Pickup Time:</strong> ${new Date(order.pickupTime).toLocaleString()}</p>
-              <p><strong>Delivery Time:</strong> ${new Date(order.deliveryTime).toLocaleString()}</p>
+              <p><strong>Pickup Time:</strong> ${new Date(order.pickupStartTime).toLocaleString()}</p>
+              <p><strong>Delivery Time:</strong> ${new Date(order.deliveryStartTime).toLocaleString()}</p>
               ${order.specialInstructions ? `<p><strong>Special Instructions:</strong> ${order.specialInstructions}</p>` : ''}
             </div>
             

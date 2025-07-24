@@ -18,6 +18,7 @@ import MobileBottomNav from '@/components/MobileBottomNav';
 import FAB from '@/components/FAB';
 import OrderDetailsModal from '@/components/OrderDetailsModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
+import { OrderStatus } from '@prisma/client';
 
 interface Customer {
   id: number;
@@ -35,9 +36,11 @@ interface Order {
   status: string;
   invoiceTotal: number;
   pickupTime: string;
+  pickupTimeSlot?: string;
   serviceType: string;
   createdAt: string;
   deliveryTime?: string; // Added for delivery time
+  deliveryTimeSlot?: string;
 }
 
 interface Address {
@@ -104,8 +107,6 @@ const TAB_CONFIG = [
     description: 'View available packages',
   },
 ] as const;
-
-import { OrderStatus } from '@prisma/client';
 
 // Enhanced status configuration with better colors and icons
 const STATUS_CONFIG: Record<
@@ -195,6 +196,11 @@ const STATUS_CONFIG: Record<
     color: 'bg-red-50 text-red-700 border-red-200',
     icon: '❌',
     bgColor: 'bg-red-100',
+  },
+  [OrderStatus.DROPPED_OFF]: {
+    color: 'bg-purple-50 text-purple-700 border-purple-200',
+    icon: '📦',
+    bgColor: 'bg-purple-100',
   },
   [OrderStatus.REFUNDED]: {
     color: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -535,7 +541,7 @@ const DetailedOrderItem = memo(
               Pickup
             </p>
             <p className='text-sm font-medium text-gray-900'>
-              {formatDate(order.pickupTime)}
+              {order.pickupTimeSlot || formatDate(order.pickupTime)}
             </p>
           </div>
           <div className='bg-gray-50 rounded-lg p-3'>
@@ -1291,10 +1297,10 @@ function DashboardContent({ searchParams }: { searchParams: URLSearchParams }) {
 
                         <div className='flex items-center justify-between'>
                           <div className='flex items-center space-x-4 text-sm text-gray-600'>
-                            <span>Pickup: {formatDate(order.pickupTime)}</span>
+                            <span>Pickup: {order.pickupTimeSlot || formatDate(order.pickupTime)}</span>
                             {order.deliveryTime && (
                               <span>
-                                Delivery: {formatDate(order.deliveryTime)}
+                                Delivery: {order.deliveryTimeSlot || formatDate(order.deliveryTime)}
                               </span>
                             )}
                           </div>

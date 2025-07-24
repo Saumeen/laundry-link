@@ -206,7 +206,7 @@ export async function GET(req: Request) {
           },
         },
         orderBy: {
-          pickupTime: 'asc',
+          pickupStartTime: 'asc',
         },
         skip,
         take: limit,

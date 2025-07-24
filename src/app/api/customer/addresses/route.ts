@@ -31,8 +31,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      success: true,
-      data: addresses,
+      addresses,
     });
   } catch (error) {
     console.error('Error fetching addresses:', error);
