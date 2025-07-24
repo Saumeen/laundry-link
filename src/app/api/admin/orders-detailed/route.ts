@@ -16,7 +16,8 @@ const SORTABLE_FIELDS: Record<string, string> = {
 
 export async function GET(req: Request) {
   try {
-    await requireAuthenticatedAdmin();
+    const admin = await requireAuthenticatedAdmin();
+    console.log('Authenticated admin:', admin.email);
     const { searchParams } = new URL(req.url);
     const sortField = searchParams.get('sortField') || 'createdAt';
     const sortDirection =
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
 
     // Get total count for pagination
     const total = await prisma.order.count();
+    console.log('Total orders in database:', total);
 
     // Fetch paginated orders
     const orders = await prisma.order.findMany({
@@ -102,12 +104,17 @@ export async function GET(req: Request) {
       };
     });
 
+    console.log('Transformed orders count:', transformedOrders.length);
+    console.log('Sample order:', transformedOrders[0]);
+    
     return NextResponse.json({
-      orders: transformedOrders,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      data: transformedOrders,
+      pagination: {
+        page,
+        limit: pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     });
   } catch (error) {
     console.error('Error fetching detailed orders:', error);

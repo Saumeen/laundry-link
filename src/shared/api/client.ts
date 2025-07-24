@@ -33,6 +33,14 @@ class ApiClient {
         throw new Error(data.error || `HTTP ${response.status}`);
       }
 
+      // If the response doesn't have a success field, assume it's successful
+      if (data.success === undefined) {
+        return {
+          success: true,
+          data: data,
+        };
+      }
+
       return data;
     } catch (error) {
       return {

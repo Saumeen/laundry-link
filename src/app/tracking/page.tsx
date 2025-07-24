@@ -69,6 +69,8 @@ interface TimelineEvent {
   status: string;
   time: string;
   completed: boolean;
+  icon: string;
+  description: string;
 }
 
 export default function Tracking() {
@@ -148,14 +150,18 @@ export default function Tracking() {
       status: 'Order Placed',
       time: createdAt.toLocaleString(),
       completed: true,
+      icon: '📋',
+      description: 'Your order has been successfully placed'
     });
 
     // Driver Assigned for Pickup
     if (order.status !== 'ORDER_PLACED') {
       timeline.push({
-        status: 'Driver Assigned for Pickup',
+        status: 'Driver Assigned',
         time: new Date(createdAt.getTime() + 15 * 60000).toLocaleString(),
         completed: true,
+        icon: '🚗',
+        description: 'A driver has been assigned to pick up your order'
       });
     }
 
@@ -177,6 +183,8 @@ export default function Tracking() {
         status: 'Picked Up',
         time: new Date(createdAt.getTime() + 90 * 60000).toLocaleString(),
         completed: true,
+        icon: '📦',
+        description: 'Your items have been collected from your address'
       });
     }
 
@@ -197,24 +205,8 @@ export default function Tracking() {
         status: 'Processing',
         time: new Date(createdAt.getTime() + 3 * 3600000).toLocaleString(),
         completed: true,
-      });
-    }
-
-    // Processing Complete
-    if (
-      [
-        'PROCESSING_COMPLETED',
-        'QUALITY_CHECK',
-        'READY_FOR_DELIVERY',
-        'DELIVERY_ASSIGNED',
-        'DELIVERY_IN_PROGRESS',
-        'DELIVERED',
-      ].includes(order.status)
-    ) {
-      timeline.push({
-        status: 'Processing Complete',
-        time: new Date(updatedAt.getTime() - 2 * 3600000).toLocaleString(),
-        completed: true,
+        icon: '🧺',
+        description: 'Your items are being cleaned and processed'
       });
     }
 
@@ -230,30 +222,61 @@ export default function Tracking() {
     ) {
       timeline.push({
         status: 'Quality Check',
-        time: new Date(updatedAt.getTime() - 1.5 * 3600000).toLocaleString(),
+        time: new Date(createdAt.getTime() + 4 * 3600000).toLocaleString(),
         completed: true,
+        icon: '✅',
+        description: 'Your items have passed quality inspection'
+      });
+    }
+
+    // Ready for Delivery
+    if (
+      [
+        'READY_FOR_DELIVERY',
+        'DELIVERY_ASSIGNED',
+        'DELIVERY_IN_PROGRESS',
+        'DELIVERED',
+      ].includes(order.status)
+    ) {
+      timeline.push({
+        status: 'Ready for Delivery',
+        time: new Date(createdAt.getTime() + 5 * 3600000).toLocaleString(),
+        completed: true,
+        icon: '📦',
+        description: 'Your order is ready and waiting for delivery'
       });
     }
 
     // Driver Assigned for Delivery
     if (
-      ['DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS', 'DELIVERED'].includes(
-        order.status
-      )
+      [
+        'DELIVERY_ASSIGNED',
+        'DELIVERY_IN_PROGRESS',
+        'DELIVERED',
+      ].includes(order.status)
     ) {
       timeline.push({
-        status: 'Driver Assigned for Delivery',
-        time: new Date(updatedAt.getTime() - 1 * 3600000).toLocaleString(),
+        status: 'Driver Assigned',
+        time: new Date(createdAt.getTime() + 6 * 3600000).toLocaleString(),
         completed: true,
+        icon: '🚚',
+        description: 'A driver has been assigned to deliver your order'
       });
     }
 
     // Out for Delivery
-    if (order.status === 'DELIVERY_IN_PROGRESS') {
+    if (
+      [
+        'DELIVERY_IN_PROGRESS',
+        'DELIVERED',
+      ].includes(order.status)
+    ) {
       timeline.push({
         status: 'Out for Delivery',
-        time: new Date(updatedAt.getTime() - 30 * 60000).toLocaleString(),
+        time: new Date(createdAt.getTime() + 7 * 3600000).toLocaleString(),
         completed: true,
+        icon: '🚚',
+        description: 'Your order is on its way to you'
       });
     }
 
@@ -261,24 +284,42 @@ export default function Tracking() {
     if (order.status === 'DELIVERED') {
       timeline.push({
         status: 'Delivered',
-        time: updatedAt.toLocaleString(),
+        time: new Date(createdAt.getTime() + 8 * 3600000).toLocaleString(),
         completed: true,
-      });
-    } else {
-      timeline.push({
-        status: 'Delivered',
-        time: `Estimated: ${new Date(createdAt.getTime() + 48 * 3600000).toLocaleString()}`,
-        completed: false,
+        icon: '🎉',
+        description: 'Your order has been successfully delivered'
       });
     }
 
     return timeline;
   };
 
+  const getStatusColor = (status: string) => {
+    const statusColors: Record<string, string> = {
+      'ORDER_PLACED': 'bg-blue-100 text-blue-800',
+      'CONFIRMED': 'bg-green-100 text-green-800',
+      'PICKUP_ASSIGNED': 'bg-purple-100 text-purple-800',
+      'PICKUP_IN_PROGRESS': 'bg-orange-100 text-orange-800',
+      'PICKUP_COMPLETED': 'bg-teal-100 text-teal-800',
+      'DROPPED_OFF': 'bg-indigo-100 text-indigo-800',
+      'RECEIVED_AT_FACILITY': 'bg-cyan-100 text-cyan-800',
+      'PROCESSING_STARTED': 'bg-yellow-100 text-yellow-800',
+      'PROCESSING_COMPLETED': 'bg-emerald-100 text-emerald-800',
+      'QUALITY_CHECK': 'bg-violet-100 text-violet-800',
+      'READY_FOR_DELIVERY': 'bg-green-100 text-green-800',
+      'DELIVERY_ASSIGNED': 'bg-blue-100 text-blue-800',
+      'DELIVERY_IN_PROGRESS': 'bg-orange-100 text-orange-800',
+      'DELIVERED': 'bg-gray-100 text-gray-800',
+      'CANCELLED': 'bg-red-100 text-red-800',
+      'REFUNDED': 'bg-red-100 text-red-800',
+    };
+    return statusColors[status] || 'bg-gray-100 text-gray-800';
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     });
   };
@@ -290,302 +331,193 @@ export default function Tracking() {
     });
   };
 
+  const formatCurrency = (amount: number) => {
+    return `${amount.toFixed(3)} BD`;
+  };
+
   return (
     <MainLayout>
-      <div className='bg-blue-600 py-16'>
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-          <h1 className='text-3xl md:text-4xl font-bold text-white text-center'>
-            Track Your Order
-          </h1>
-          <p className='mt-4 text-xl text-blue-100 text-center max-w-3xl mx-auto'>
-            Follow the status of your laundry in real-time
-          </p>
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
+        {/* Header */}
+        <div className='bg-white shadow-sm border-b border-gray-200'>
+          <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+            <div className='text-center'>
+              <h1 className='text-3xl font-bold text-gray-900 mb-2'>Track Your Order</h1>
+              <p className='text-gray-600'>Enter your order number to track its progress</p>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12'>
-        {!order ? (
-          <div className='max-w-md mx-auto bg-white rounded-lg shadow-md p-8'>
-            <h2 className='text-2xl font-semibold text-gray-900 mb-6 text-center'>
-              Enter Your Order ID
-            </h2>
-            <form onSubmit={handleTrack}>
+        {/* Main Content */}
+        <div className='max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+          {/* Tracking Form */}
+          <div className='bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8'>
+            <form onSubmit={handleTrack} className='max-w-md mx-auto'>
               <div className='mb-6'>
-                <label
-                  htmlFor='tracking-id'
-                  className='block text-sm font-medium text-gray-700 mb-2'
-                >
-                  Order ID
+                <label htmlFor='trackingId' className='block text-sm font-medium text-gray-700 mb-2'>
+                  Order Number
                 </label>
                 <input
                   type='text'
-                  id='tracking-id'
-                  className='w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-                  placeholder='e.g., ORD12345'
+                  id='trackingId'
                   value={trackingId}
-                  onChange={e => setTrackingId(e.target.value)}
+                  onChange={(e) => setTrackingId(e.target.value)}
+                  placeholder='Enter your order number (e.g., ORD-123456)'
+                  className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors'
                   required
-                  disabled={loading}
                 />
               </div>
-              {error && (
-                <div className='mb-4 p-3 bg-red-50 border border-red-200 rounded-md'>
-                  <p className='text-red-600 text-sm'>{error}</p>
-                </div>
-              )}
               <button
                 type='submit'
-                className='w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
-                disabled={loading}
+                disabled={loading || !trackingId.trim()}
+                className='w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed'
               >
-                {loading ? 'Tracking...' : 'Track Order'}
+                {loading ? (
+                  <span className='flex items-center justify-center'>
+                    <div className='animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2'></div>
+                    Tracking...
+                  </span>
+                ) : (
+                  'Track Order'
+                )}
               </button>
             </form>
-            <div className='mt-8 text-center'>
-              <p className='text-gray-600'>Have an account?</p>
-              <Link
-                href='/registerlogin'
-                className='text-blue-600 hover:text-blue-800 font-medium'
-              >
-                Log in to view all your orders
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className='bg-white rounded-lg shadow-md overflow-hidden'>
-            <div className='p-6 border-b border-gray-200'>
-              <div className='flex justify-between items-start'>
-                <div>
-                  <h2 className='text-2xl font-semibold text-gray-900'>
-                    Order #{order.orderNumber}
-                  </h2>
-                  <p className='text-gray-600'>
-                    Customer: {order.customerFirstName} {order.customerLastName}
-                  </p>
-                </div>
-                <span className='bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full'>
-                  {order.status}
-                </span>
-              </div>
-            </div>
 
-            {/* Progress Bar */}
-            <div className='p-6 border-b border-gray-200'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Order Progress
-              </h3>
-              <div className='relative pt-1'>
-                <div className='flex mb-2 items-center justify-between'>
-                  <div>
-                    <span className='text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200'>
-                      In Progress
-                    </span>
+            {error && (
+              <div className='mt-6 p-4 bg-red-50 border border-red-200 rounded-lg'>
+                <div className='flex items-center'>
+                  <span className='text-red-500 text-xl mr-2'>❌</span>
+                  <p className='text-red-700 font-medium'>{error}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Order Details */}
+          {order && (
+            <div className='space-y-8'>
+              {/* Order Summary Card */}
+              <div className='bg-white rounded-2xl shadow-sm border border-gray-200 p-6'>
+                <div className='flex items-center justify-between mb-6'>
+                  <div className='flex items-center space-x-4'>
+                    <div className='w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center'>
+                      <span className='text-white font-bold text-lg'>
+                        #{order.orderNumber}
+                      </span>
+                    </div>
+                    <div>
+                      <h2 className='text-xl font-bold text-gray-900'>Order #{order.orderNumber}</h2>
+                      <p className='text-sm text-gray-600'>Placed on {formatDate(order.createdAt)}</p>
+                    </div>
                   </div>
                   <div className='text-right'>
-                    <span className='text-xs font-semibold inline-block text-blue-600'>
-                      {Math.round(getStatusPercentage(order))}%
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                      {order.status.replace(/_/g, ' ')}
                     </span>
+                    <p className='text-lg font-bold text-gray-900 mt-1'>
+                      {formatCurrency(order.invoiceTotal)}
+                    </p>
                   </div>
                 </div>
-                <div className='overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200'>
-                  <div
-                    style={{ width: `${getStatusPercentage(order)}%` }}
-                    className='shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-600'
-                  ></div>
+
+                {/* Progress Bar */}
+                <div className='mb-6'>
+                  <div className='flex items-center justify-between mb-2'>
+                    <span className='text-sm font-medium text-gray-700'>Order Progress</span>
+                    <span className='text-sm text-gray-500'>{Math.round(getStatusPercentage(order))}%</span>
+                  </div>
+                  <div className='w-full bg-gray-200 rounded-full h-2'>
+                    <div
+                      className='bg-blue-600 h-2 rounded-full transition-all duration-500'
+                      style={{ width: `${getStatusPercentage(order)}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Quick Info */}
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4 text-sm'>
+                  <div className='bg-gray-50 rounded-lg p-3'>
+                    <p className='text-gray-600'>Pickup Time</p>
+                    <p className='font-medium'>{order.pickupTimeSlot || 'Not scheduled'}</p>
+                  </div>
+                  <div className='bg-gray-50 rounded-lg p-3'>
+                    <p className='text-gray-600'>Delivery Time</p>
+                    <p className='font-medium'>{order.deliveryTimeSlot || 'Not scheduled'}</p>
+                  </div>
+                  <div className='bg-gray-50 rounded-lg p-3'>
+                    <p className='text-gray-600'>Services</p>
+                    <p className='font-medium'>{order.orderServiceMappings.length} items</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Order Details */}
-            <div className='p-6 border-b border-gray-200'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Order Details
-              </h3>
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-                <div>
-                  <p className='text-sm text-gray-600 mb-1'>Pickup Date</p>
-                  <p className='font-medium'>{formatDate(order.pickupStartTime)}</p>
-                </div>
-                <div>
-                  <p className='text-sm text-gray-600 mb-1'>Pickup Time Slot</p>
-                  <p className='font-medium'>{order.pickupTimeSlot || formatTime(order.pickupStartTime)}</p>
-                </div>
-                <div>
-                  <p className='text-sm text-gray-600 mb-1'>
-                    Delivery Date
-                  </p>
-                  <p className='font-medium'>
-                    {formatDate(order.deliveryStartTime)}
-                  </p>
-                </div>
-                <div>
-                  <p className='text-sm text-gray-600 mb-1'>
-                    Delivery Time Slot
-                  </p>
-                  <p className='font-medium'>
-                    {order.deliveryTimeSlot || formatTime(order.deliveryStartTime)}
-                  </p>
-                </div>
-                <div>
-                  <p className='text-sm text-gray-600 mb-1'>Order Date</p>
-                  <p className='font-medium'>{formatDate(order.createdAt)}</p>
-                </div>
-                <div>
-                  <p className='text-sm text-gray-600 mb-1'>Payment Status</p>
-                  <p className='font-medium'>{order.paymentStatus}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Order Items */}
-            <div className='p-6 border-b border-gray-200'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Order Items
-              </h3>
-              <table className='min-w-full divide-y divide-gray-200'>
-                <thead className='bg-gray-50'>
-                  <tr>
-                    <th
-                      scope='col'
-                      className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
-                    >
-                      Service
-                    </th>
-                    <th
-                      scope='col'
-                      className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
-                    >
-                      Quantity
-                    </th>
-                    <th
-                      scope='col'
-                      className='px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider'
-                    >
-                      Price
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className='bg-white divide-y divide-gray-200'>
-                  {order.orderServiceMappings.map((mapping, index) => (
-                    <tr key={index}>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
-                        {mapping.service.displayName}
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                        {mapping.quantity}
-                      </td>
-                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right'>
-                        {mapping.price.toFixed(3)} BD
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className='bg-gray-50'>
-                    <td
-                      colSpan={2}
-                      className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right'
-                    >
-                      Total
-                    </td>
-                    <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 text-right'>
-                      {order.invoiceTotal.toFixed(3)} BD
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Timeline */}
-            <div className='p-6'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Order Timeline
-              </h3>
-              <div className='flow-root'>
-                <ul className='-mb-8'>
+              {/* Timeline */}
+              <div className='bg-white rounded-2xl shadow-sm border border-gray-200 p-6'>
+                <h3 className='text-lg font-bold text-gray-900 mb-6'>Order Timeline</h3>
+                <div className='space-y-6'>
                   {generateTimeline(order).map((event, index) => (
-                    <li key={index}>
-                      <div className='relative pb-8'>
-                        {index !== generateTimeline(order).length - 1 ? (
-                          <span
-                            className='absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200'
-                            aria-hidden='true'
-                          ></span>
-                        ) : null}
-                        <div className='relative flex space-x-3'>
-                          <div>
-                            <span
-                              className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${event.completed ? 'bg-green-500' : 'bg-gray-300'}`}
-                            >
-                              {event.completed ? (
-                                <svg
-                                  className='h-5 w-5 text-white'
-                                  xmlns='http://www.w3.org/2000/svg'
-                                  viewBox='0 0 20 20'
-                                  fill='currentColor'
-                                  aria-hidden='true'
-                                >
-                                  <path
-                                    fillRule='evenodd'
-                                    d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
-                                    clipRule='evenodd'
-                                  />
-                                </svg>
-                              ) : (
-                                <svg
-                                  className='h-5 w-5 text-white'
-                                  xmlns='http://www.w3.org/2000/svg'
-                                  viewBox='0 0 20 20'
-                                  fill='currentColor'
-                                >
-                                  <path
-                                    fillRule='evenodd'
-                                    d='M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z'
-                                    clipRule='evenodd'
-                                  />
-                                </svg>
-                              )}
-                            </span>
-                          </div>
-                          <div className='min-w-0 flex-1 pt-1.5 flex justify-between space-x-4'>
-                            <div>
-                              <p
-                                className={`text-sm font-medium ${event.completed ? 'text-gray-900' : 'text-gray-500'}`}
-                              >
-                                {event.status}
-                              </p>
-                            </div>
-                            <div className='text-right text-sm text-gray-500'>
-                              <time>{event.time}</time>
-                            </div>
-                          </div>
-                        </div>
+                    <div key={index} className='flex items-start space-x-4'>
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                        event.completed ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        <span className='text-lg'>{event.icon}</span>
                       </div>
-                    </li>
+                      <div className='flex-1 min-w-0'>
+                        <div className='flex items-center space-x-2 mb-1'>
+                          <h4 className={`font-medium ${
+                            event.completed ? 'text-gray-900' : 'text-gray-500'
+                          }`}>
+                            {event.status}
+                          </h4>
+                          {event.completed && (
+                            <span className='text-green-500 text-sm'>✓</span>
+                          )}
+                        </div>
+                        <p className='text-sm text-gray-600 mb-1'>{event.description}</p>
+                        <p className='text-xs text-gray-500'>{event.time}</p>
+                      </div>
+                    </div>
                   ))}
-                </ul>
+                </div>
+              </div>
+
+              {/* Services */}
+              <div className='bg-white rounded-2xl shadow-sm border border-gray-200 p-6'>
+                <h3 className='text-lg font-bold text-gray-900 mb-6'>Services</h3>
+                <div className='space-y-4'>
+                  {order.orderServiceMappings.map((mapping, index) => (
+                    <div key={index} className='flex items-center justify-between p-4 bg-gray-50 rounded-lg'>
+                      <div>
+                        <h4 className='font-medium text-gray-900'>{mapping.service.displayName}</h4>
+                        <p className='text-sm text-gray-600'>Quantity: {mapping.quantity}</p>
+                      </div>
+                      <div className='text-right'>
+                        <p className='font-medium text-gray-900'>{formatCurrency(mapping.price)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className='bg-white rounded-2xl shadow-sm border border-gray-200 p-6'>
+                <h3 className='text-lg font-bold text-gray-900 mb-6'>Need Help?</h3>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+                  <div className='text-center p-4 bg-blue-50 rounded-lg'>
+                    <span className='text-2xl mb-2 block'>📞</span>
+                    <h4 className='font-medium text-gray-900 mb-1'>Call Us</h4>
+                    <p className='text-sm text-gray-600'>+973 1234 5678</p>
+                  </div>
+                  <div className='text-center p-4 bg-green-50 rounded-lg'>
+                    <span className='text-2xl mb-2 block'>💬</span>
+                    <h4 className='font-medium text-gray-900 mb-1'>Live Chat</h4>
+                    <p className='text-sm text-gray-600'>Available 24/7</p>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Actions */}
-            <div className='p-6 bg-gray-50 flex justify-between'>
-              <button
-                onClick={() => {
-                  setOrder(null);
-                  setError('');
-                  setTrackingId('');
-                }}
-                className='inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50'
-              >
-                Track Another Order
-              </button>
-              <Link
-                href='/contact'
-                className='inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700'
-              >
-                Need Help?
-              </Link>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </MainLayout>
   );
