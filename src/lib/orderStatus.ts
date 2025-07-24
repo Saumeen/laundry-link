@@ -1,13 +1,23 @@
-import { OrderStatus, PaymentStatus, DriverAssignmentStatus, ProcessingStatus, ItemStatus, IssueStatus } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  DriverAssignmentStatus,
+  ProcessingStatus,
+  ItemStatus,
+  IssueStatus,
+} from '@prisma/client';
 
 // ===== ORDER STATUS MAPPINGS =====
-export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
-  label: string;
-  description: string;
-  color: string;
-  icon: string;
-  canTransitionTo: OrderStatus[];
-}> = {
+export const ORDER_STATUS_CONFIG: Record<
+  OrderStatus,
+  {
+    label: string;
+    description: string;
+    color: string;
+    icon: string;
+    canTransitionTo: OrderStatus[];
+  }
+> = {
   [OrderStatus.ORDER_PLACED]: {
     label: 'Order Placed',
     description: 'Order has been placed by customer',
@@ -16,8 +26,8 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     canTransitionTo: [
       OrderStatus.CONFIRMED,
       OrderStatus.PICKUP_ASSIGNED,
-      OrderStatus.CANCELLED
-    ]
+      OrderStatus.CANCELLED,
+    ],
   },
   [OrderStatus.CONFIRMED]: {
     label: 'Confirmed',
@@ -27,8 +37,8 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     canTransitionTo: [
       OrderStatus.PICKUP_ASSIGNED,
       OrderStatus.CONFIRMED,
-      OrderStatus.CANCELLED
-    ]
+      OrderStatus.CANCELLED,
+    ],
   },
   [OrderStatus.PICKUP_ASSIGNED]: {
     label: 'Pickup Assigned',
@@ -39,46 +49,36 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
       OrderStatus.PICKUP_IN_PROGRESS,
       OrderStatus.CONFIRMED,
       OrderStatus.PICKUP_FAILED,
-      OrderStatus.CANCELLED
-    ]
+      OrderStatus.CANCELLED,
+    ],
   },
   [OrderStatus.PICKUP_IN_PROGRESS]: {
     label: 'Pickup In Progress',
     description: 'Driver is on the way for pickup',
     color: 'bg-orange-100 text-orange-800',
     icon: '🔄',
-    canTransitionTo: [
-      OrderStatus.PICKUP_COMPLETED,
-      OrderStatus.PICKUP_FAILED
-    ]
+    canTransitionTo: [OrderStatus.PICKUP_COMPLETED, OrderStatus.PICKUP_FAILED],
   },
   [OrderStatus.PICKUP_COMPLETED]: {
     label: 'Pickup Completed',
     description: 'Items have been picked up',
     color: 'bg-teal-100 text-teal-800',
     icon: '📦',
-    canTransitionTo: [
-      OrderStatus.RECEIVED_AT_FACILITY
-    ]
+    canTransitionTo: [OrderStatus.RECEIVED_AT_FACILITY],
   },
   [OrderStatus.PICKUP_FAILED]: {
     label: 'Pickup Failed',
     description: 'Pickup was unsuccessful',
     color: 'bg-red-100 text-red-800',
     icon: '❌',
-    canTransitionTo: [
-      OrderStatus.PICKUP_ASSIGNED,
-      OrderStatus.CANCELLED
-    ]
+    canTransitionTo: [OrderStatus.PICKUP_ASSIGNED, OrderStatus.CANCELLED],
   },
   [OrderStatus.RECEIVED_AT_FACILITY]: {
     label: 'Received at Facility',
     description: 'Items received at processing facility',
     color: 'bg-indigo-100 text-indigo-800',
     icon: '🏭',
-    canTransitionTo: [
-      OrderStatus.PROCESSING_STARTED
-    ]
+    canTransitionTo: [OrderStatus.PROCESSING_STARTED],
   },
   [OrderStatus.PROCESSING_STARTED]: {
     label: 'Processing Started',
@@ -87,8 +87,8 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '⚙️',
     canTransitionTo: [
       OrderStatus.PROCESSING_COMPLETED,
-      OrderStatus.QUALITY_CHECK
-    ]
+      OrderStatus.QUALITY_CHECK,
+    ],
   },
   [OrderStatus.PROCESSING_COMPLETED]: {
     label: 'Processing Completed',
@@ -97,8 +97,8 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '✅',
     canTransitionTo: [
       OrderStatus.QUALITY_CHECK,
-      OrderStatus.READY_FOR_DELIVERY
-    ]
+      OrderStatus.READY_FOR_DELIVERY,
+    ],
   },
   [OrderStatus.QUALITY_CHECK]: {
     label: 'Quality Check',
@@ -107,17 +107,15 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '🔍',
     canTransitionTo: [
       OrderStatus.READY_FOR_DELIVERY,
-      OrderStatus.PROCESSING_STARTED
-    ]
+      OrderStatus.PROCESSING_STARTED,
+    ],
   },
   [OrderStatus.READY_FOR_DELIVERY]: {
     label: 'Ready for Delivery',
     description: 'Items ready for delivery',
     color: 'bg-lime-100 text-lime-800',
     icon: '📦',
-    canTransitionTo: [
-      OrderStatus.DELIVERY_ASSIGNED
-    ]
+    canTransitionTo: [OrderStatus.DELIVERY_ASSIGNED],
   },
   [OrderStatus.DELIVERY_ASSIGNED]: {
     label: 'Delivery Assigned',
@@ -126,54 +124,44 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, {
     icon: '🚚',
     canTransitionTo: [
       OrderStatus.DELIVERY_IN_PROGRESS,
-      OrderStatus.DELIVERY_FAILED
-    ]
+      OrderStatus.DELIVERY_FAILED,
+    ],
   },
   [OrderStatus.DELIVERY_IN_PROGRESS]: {
     label: 'Delivery In Progress',
     description: 'Driver is on the way for delivery',
     color: 'bg-orange-100 text-orange-800',
     icon: '🔄',
-    canTransitionTo: [
-      OrderStatus.DELIVERED,
-      OrderStatus.DELIVERY_FAILED
-    ]
+    canTransitionTo: [OrderStatus.DELIVERED, OrderStatus.DELIVERY_FAILED],
   },
   [OrderStatus.DELIVERED]: {
     label: 'Delivered',
     description: 'Order has been delivered successfully',
     color: 'bg-green-100 text-green-800',
     icon: '🎉',
-    canTransitionTo: [
-      OrderStatus.REFUNDED
-    ]
+    canTransitionTo: [OrderStatus.REFUNDED],
   },
   [OrderStatus.DELIVERY_FAILED]: {
     label: 'Delivery Failed',
     description: 'Delivery was unsuccessful',
     color: 'bg-red-100 text-red-800',
     icon: '❌',
-    canTransitionTo: [
-      OrderStatus.DELIVERY_ASSIGNED,
-      OrderStatus.CANCELLED
-    ]
+    canTransitionTo: [OrderStatus.DELIVERY_ASSIGNED, OrderStatus.CANCELLED],
   },
   [OrderStatus.CANCELLED]: {
     label: 'Cancelled',
     description: 'Order has been cancelled',
     color: 'bg-gray-100 text-gray-800',
     icon: '🚫',
-    canTransitionTo: [
-      OrderStatus.REFUNDED
-    ]
+    canTransitionTo: [OrderStatus.REFUNDED],
   },
   [OrderStatus.REFUNDED]: {
     label: 'Refunded',
     description: 'Payment has been refunded',
     color: 'bg-pink-100 text-pink-800',
     icon: '💰',
-    canTransitionTo: []
-  }
+    canTransitionTo: [],
+  },
 };
 
 // ===== PAYMENT STATUS MAPPINGS =====
@@ -181,28 +169,28 @@ export const PAYMENT_STATUS_CONFIG = {
   [PaymentStatus.PENDING]: {
     label: 'Pending',
     color: 'bg-yellow-100 text-yellow-800',
-    icon: '⏳'
+    icon: '⏳',
   },
   [PaymentStatus.PAID]: {
     label: 'Paid',
     color: 'bg-green-100 text-green-800',
-    icon: '✅'
+    icon: '✅',
   },
   [PaymentStatus.FAILED]: {
     label: 'Failed',
     color: 'bg-red-100 text-red-800',
-    icon: '❌'
+    icon: '❌',
   },
   [PaymentStatus.REFUNDED]: {
     label: 'Refunded',
     color: 'bg-pink-100 text-pink-800',
-    icon: '💰'
+    icon: '💰',
   },
   [PaymentStatus.PARTIAL_REFUND]: {
     label: 'Partial Refund',
     color: 'bg-orange-100 text-orange-800',
-    icon: '💸'
-  }
+    icon: '💸',
+  },
 };
 
 // ===== DRIVER ASSIGNMENT STATUS MAPPINGS =====
@@ -211,38 +199,38 @@ export const DRIVER_ASSIGNMENT_STATUS_CONFIG = {
     label: 'Assigned',
     description: 'Driver assignment has been created',
     color: 'bg-blue-100 text-blue-800',
-    icon: '📋'
+    icon: '📋',
   },
   [DriverAssignmentStatus.IN_PROGRESS]: {
     label: 'In Progress',
     description: 'Driver is currently working on this assignment',
     color: 'bg-yellow-100 text-yellow-800',
-    icon: '🔄'
+    icon: '🔄',
   },
   [DriverAssignmentStatus.COMPLETED]: {
     label: 'Completed',
     description: 'Assignment has been completed successfully',
     color: 'bg-green-100 text-green-800',
-    icon: '✅'
+    icon: '✅',
   },
   [DriverAssignmentStatus.CANCELLED]: {
     label: 'Cancelled',
     description: 'Assignment has been cancelled',
     color: 'bg-red-100 text-red-800',
-    icon: '❌'
+    icon: '❌',
   },
   [DriverAssignmentStatus.RESCHEDULED]: {
     label: 'Rescheduled',
     description: 'Assignment has been rescheduled',
     color: 'bg-purple-100 text-purple-800',
-    icon: '📅'
+    icon: '📅',
   },
   [DriverAssignmentStatus.FAILED]: {
     label: 'Failed',
     description: 'Assignment failed to complete',
     color: 'bg-red-100 text-red-800',
-    icon: '💥'
-  }
+    icon: '💥',
+  },
 };
 
 // ===== PROCESSING STATUS MAPPINGS =====
@@ -251,38 +239,38 @@ export const PROCESSING_STATUS_CONFIG = {
     label: 'Pending',
     description: 'Processing is pending',
     color: 'bg-gray-100 text-gray-800',
-    icon: '⏳'
+    icon: '⏳',
   },
   [ProcessingStatus.IN_PROGRESS]: {
     label: 'In Progress',
     description: 'Items are being processed',
     color: 'bg-yellow-100 text-yellow-800',
-    icon: '⚙️'
+    icon: '⚙️',
   },
   [ProcessingStatus.COMPLETED]: {
     label: 'Completed',
     description: 'Processing has been completed',
     color: 'bg-green-100 text-green-800',
-    icon: '✅'
+    icon: '✅',
   },
   [ProcessingStatus.QUALITY_CHECK]: {
     label: 'Quality Check',
     description: 'Items undergoing quality inspection',
     color: 'bg-cyan-100 text-cyan-800',
-    icon: '🔍'
+    icon: '🔍',
   },
   [ProcessingStatus.READY_FOR_DELIVERY]: {
     label: 'Ready for Delivery',
     description: 'Items ready for delivery',
     color: 'bg-lime-100 text-lime-800',
-    icon: '📦'
+    icon: '📦',
   },
   [ProcessingStatus.ISSUE_REPORTED]: {
     label: 'Issue Reported',
     description: 'An issue has been reported during processing',
     color: 'bg-red-100 text-red-800',
-    icon: '⚠️'
-  }
+    icon: '⚠️',
+  },
 };
 
 // ===== ITEM STATUS MAPPINGS =====
@@ -291,26 +279,26 @@ export const ITEM_STATUS_CONFIG = {
     label: 'Pending',
     description: 'Item processing is pending',
     color: 'bg-gray-100 text-gray-800',
-    icon: '⏳'
+    icon: '⏳',
   },
   [ItemStatus.IN_PROGRESS]: {
     label: 'In Progress',
     description: 'Item is being processed',
     color: 'bg-yellow-100 text-yellow-800',
-    icon: '⚙️'
+    icon: '⚙️',
   },
   [ItemStatus.COMPLETED]: {
     label: 'Completed',
     description: 'Item processing completed',
     color: 'bg-green-100 text-green-800',
-    icon: '✅'
+    icon: '✅',
   },
   [ItemStatus.ISSUE_REPORTED]: {
     label: 'Issue Reported',
     description: 'An issue has been reported with this item',
     color: 'bg-red-100 text-red-800',
-    icon: '⚠️'
-  }
+    icon: '⚠️',
+  },
 };
 
 // ===== ISSUE STATUS MAPPINGS =====
@@ -319,26 +307,26 @@ export const ISSUE_STATUS_CONFIG = {
     label: 'Reported',
     description: 'Issue has been reported',
     color: 'bg-red-100 text-red-800',
-    icon: '🚨'
+    icon: '🚨',
   },
   [IssueStatus.INVESTIGATING]: {
     label: 'Investigating',
     description: 'Issue is being investigated',
     color: 'bg-yellow-100 text-yellow-800',
-    icon: '🔍'
+    icon: '🔍',
   },
   [IssueStatus.RESOLVED]: {
     label: 'Resolved',
     description: 'Issue has been resolved',
     color: 'bg-green-100 text-green-800',
-    icon: '✅'
+    icon: '✅',
   },
   [IssueStatus.ESCALATED]: {
     label: 'Escalated',
     description: 'Issue has been escalated',
     color: 'bg-orange-100 text-orange-800',
-    icon: '📈'
-  }
+    icon: '📈',
+  },
 };
 
 // ===== HELPER FUNCTIONS =====
@@ -350,7 +338,10 @@ export function getPaymentStatusConfig(status: PaymentStatus) {
   return PAYMENT_STATUS_CONFIG[status];
 }
 
-export function canTransitionOrderStatus(from: OrderStatus, to: OrderStatus): boolean {
+export function canTransitionOrderStatus(
+  from: OrderStatus,
+  to: OrderStatus
+): boolean {
   const config = ORDER_STATUS_CONFIG[from];
   return config?.canTransitionTo.includes(to) || false;
 }
@@ -363,7 +354,9 @@ export function getPaymentStatusLabel(status: PaymentStatus): string {
   return PAYMENT_STATUS_CONFIG[status]?.label || status;
 }
 
-export function getDriverAssignmentStatusConfig(status: DriverAssignmentStatus) {
+export function getDriverAssignmentStatusConfig(
+  status: DriverAssignmentStatus
+) {
   return DRIVER_ASSIGNMENT_STATUS_CONFIG[status];
 }
 
@@ -379,7 +372,9 @@ export function getIssueStatusConfig(status: IssueStatus) {
   return ISSUE_STATUS_CONFIG[status];
 }
 
-export function getDriverAssignmentStatusLabel(status: DriverAssignmentStatus): string {
+export function getDriverAssignmentStatusLabel(
+  status: DriverAssignmentStatus
+): string {
   return DRIVER_ASSIGNMENT_STATUS_CONFIG[status]?.label || status;
 }
 
@@ -413,7 +408,7 @@ export const ORDER_STATUS_FLOW: OrderStatus[] = [
   OrderStatus.DELIVERY_FAILED,
   OrderStatus.DELIVERED,
   OrderStatus.CANCELLED,
-  OrderStatus.REFUNDED
+  OrderStatus.REFUNDED,
 ];
 
 export function getNextStatus(currentStatus: OrderStatus): OrderStatus | null {
@@ -424,7 +419,9 @@ export function getNextStatus(currentStatus: OrderStatus): OrderStatus | null {
   return ORDER_STATUS_FLOW[currentIndex + 1];
 }
 
-export function getPreviousStatus(currentStatus: OrderStatus): OrderStatus | null {
+export function getPreviousStatus(
+  currentStatus: OrderStatus
+): OrderStatus | null {
   const currentIndex = ORDER_STATUS_FLOW.indexOf(currentStatus);
   if (currentIndex <= 0) {
     return null;
@@ -441,11 +438,17 @@ export function isValidPaymentStatus(status: string): status is PaymentStatus {
   return Object.values(PaymentStatus).includes(status as PaymentStatus);
 }
 
-export function isValidDriverAssignmentStatus(status: string): status is DriverAssignmentStatus {
-  return Object.values(DriverAssignmentStatus).includes(status as DriverAssignmentStatus);
+export function isValidDriverAssignmentStatus(
+  status: string
+): status is DriverAssignmentStatus {
+  return Object.values(DriverAssignmentStatus).includes(
+    status as DriverAssignmentStatus
+  );
 }
 
-export function isValidProcessingStatus(status: string): status is ProcessingStatus {
+export function isValidProcessingStatus(
+  status: string
+): status is ProcessingStatus {
   return Object.values(ProcessingStatus).includes(status as ProcessingStatus);
 }
 
@@ -474,7 +477,7 @@ export function createOrderHistoryEntry(
     oldValue: oldValue ? JSON.stringify(oldValue) : null,
     newValue: newValue ? JSON.stringify(newValue) : null,
     description,
-    metadata: metadata ? JSON.stringify(metadata) : null
+    metadata: metadata ? JSON.stringify(metadata) : null,
   };
 }
 
@@ -488,7 +491,7 @@ export function validateStatusChange(
   if (!canTransitionOrderStatus(currentStatus, newStatus)) {
     return {
       isValid: false,
-      message: `Cannot transition from ${getOrderStatusLabel(currentStatus)} to ${getOrderStatusLabel(newStatus)}`
+      message: `Cannot transition from ${getOrderStatusLabel(currentStatus)} to ${getOrderStatusLabel(newStatus)}`,
     };
   }
 
@@ -498,7 +501,7 @@ export function validateStatusChange(
     if (!rolePermissions.includes(newStatus)) {
       return {
         isValid: false,
-        message: `Your role (${userRole}) does not have permission to set status to ${getOrderStatusLabel(newStatus)}`
+        message: `Your role (${userRole}) does not have permission to set status to ${getOrderStatusLabel(newStatus)}`,
       };
     }
   }
@@ -527,7 +530,7 @@ function getRolePermissions(role: string): OrderStatus[] {
         OrderStatus.DELIVERY_FAILED,
         OrderStatus.DELIVERED,
         OrderStatus.CANCELLED,
-        OrderStatus.REFUNDED
+        OrderStatus.REFUNDED,
       ];
     case 'OPERATION_MANAGER':
       return [
@@ -546,7 +549,7 @@ function getRolePermissions(role: string): OrderStatus[] {
         OrderStatus.DELIVERY_FAILED,
         OrderStatus.DELIVERED,
         OrderStatus.CANCELLED,
-        OrderStatus.REFUNDED
+        OrderStatus.REFUNDED,
       ];
     case 'DRIVER':
       return [
@@ -555,16 +558,16 @@ function getRolePermissions(role: string): OrderStatus[] {
         OrderStatus.PICKUP_FAILED,
         OrderStatus.DELIVERY_IN_PROGRESS,
         OrderStatus.DELIVERED,
-        OrderStatus.DELIVERY_FAILED
+        OrderStatus.DELIVERY_FAILED,
       ];
     case 'FACILITY_TEAM':
       return [
         OrderStatus.PROCESSING_STARTED,
         OrderStatus.PROCESSING_COMPLETED,
         OrderStatus.QUALITY_CHECK,
-        OrderStatus.READY_FOR_DELIVERY
+        OrderStatus.READY_FOR_DELIVERY,
       ];
     default:
       return [];
   }
-} 
+}

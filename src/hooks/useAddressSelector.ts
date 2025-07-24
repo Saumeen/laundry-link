@@ -51,14 +51,15 @@ export const useAddressSelector = (
     const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
     return phoneRegex.test(phone.replace(/\s/g, ''));
   };
-  
+
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [currentView, setCurrentView] = useState<'select' | 'create'>('select');
-  const [selectedAddress, setSelectedAddress] = useState<GeocodingResult | null>(null);
+  const [selectedAddress, setSelectedAddress] =
+    useState<GeocodingResult | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
 
   // Memoized form data
@@ -92,7 +93,7 @@ export const useAddressSelector = (
   // Memoized function to fetch addresses
   const fetchAddresses = useCallback(async () => {
     if (!session?.user?.email) return;
-    
+
     setLoading(true);
     try {
       const response = await customerApi.getAddresses();
@@ -109,8 +110,10 @@ export const useAddressSelector = (
   const handleNewAddressSelect = useCallback(async (suggestion: any) => {
     try {
       setAddressLoading(true);
-      const geocodingResult = await googleMapsService.geocodePlaceId(suggestion.place_id);
-      
+      const geocodingResult = await googleMapsService.geocodePlaceId(
+        suggestion.place_id
+      );
+
       if (geocodingResult) {
         setSelectedAddress(geocodingResult);
         setFormData(prev => ({
@@ -127,7 +130,7 @@ export const useAddressSelector = (
           flatNumber: '',
           officeNumber: '',
         }));
-        
+
         // Clear the googleAddress error when a valid address is selected
         setErrors(prev => {
           const newErrors = { ...prev };
@@ -143,19 +146,22 @@ export const useAddressSelector = (
   }, []);
 
   // Memoized function to handle input changes
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear the error for this field when user starts typing
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  }, [errors]);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+      setFormData(prev => ({ ...prev, [name]: value }));
+
+      // Clear the error for this field when user starts typing
+      if (errors[name]) {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    },
+    [errors]
+  );
 
   // Memoized function to reset form
   const resetForm = useCallback(() => {
@@ -195,71 +201,86 @@ export const useAddressSelector = (
   }, [resetForm]);
 
   // Memoized function to save address
-  const saveAddress = useCallback(async (addressData: any) => {
-    setSaving(true);
-    try {
-      const response = await customerApi.createAddress(addressData);
-      const newAddress = await parseJsonResponse<Address>(response);
-      
-      setMessage('✅ Address created successfully!');
-      setAddresses(prev => [...prev, newAddress]);
-      
-      if (onAddressCreate) {
-        onAddressCreate(newAddress);
+  const saveAddress = useCallback(
+    async (addressData: any) => {
+      setSaving(true);
+      try {
+        const response = await customerApi.createAddress(addressData);
+        const newAddress = await parseJsonResponse<Address>(response);
+
+        setMessage('✅ Address created successfully!');
+        setAddresses(prev => [...prev, newAddress]);
+
+        if (onAddressCreate) {
+          onAddressCreate(newAddress);
+        }
+
+        // Reset form and go back to select view
+        resetForm();
+        setCurrentView('select');
+      } catch (error) {
+        console.error('Error creating address:', error);
+        setMessage('❌ Failed to create address');
+      } finally {
+        setSaving(false);
       }
-      
-      // Reset form and go back to select view
-      resetForm();
-      setCurrentView('select');
-    } catch (error) {
-      console.error('Error creating address:', error);
-      setMessage('❌ Failed to create address');
-    } finally {
-      setSaving(false);
-    }
-  }, [onAddressCreate, resetForm]);
+    },
+    [onAddressCreate, resetForm]
+  );
 
   // Memoized function to handle save
   const handleSave = useCallback(async () => {
     // Clear previous errors
     setErrors({});
-    
+
     // Validation
-    const newErrors: {[key: string]: string} = {};
+    const newErrors: { [key: string]: string } = {};
 
     if (!formData.googleAddress.trim()) {
       newErrors.googleAddress = 'Address is required';
     }
-    
+
     if (!formData.contactNumber.trim()) {
       newErrors.contactNumber = 'Contact number is required';
     } else if (!isValidPhoneNumber(formData.contactNumber)) {
       newErrors.contactNumber = 'Please enter a valid phone number';
     }
-    
+
     // Only validate location-specific fields if they are filled in
-    if (formData.locationType === 'hotel' && (formData.hotelName.trim() || formData.roomNumber.trim())) {
+    if (
+      formData.locationType === 'hotel' &&
+      (formData.hotelName.trim() || formData.roomNumber.trim())
+    ) {
       if (!formData.hotelName.trim()) {
         newErrors.hotelName = 'Hotel name is required';
       }
       if (!formData.roomNumber.trim()) {
         newErrors.roomNumber = 'Room number is required';
       }
-    } else if (formData.locationType === 'home' && (formData.house.trim() || formData.road.trim())) {
+    } else if (
+      formData.locationType === 'home' &&
+      (formData.house.trim() || formData.road.trim())
+    ) {
       if (!formData.house.trim()) {
         newErrors.house = 'House is required';
       }
       if (!formData.road.trim()) {
         newErrors.road = 'Road is required';
       }
-    } else if (formData.locationType === 'flat' && (formData.building.trim() || formData.road.trim())) {
+    } else if (
+      formData.locationType === 'flat' &&
+      (formData.building.trim() || formData.road.trim())
+    ) {
       if (!formData.building.trim()) {
         newErrors.building = 'Building is required';
       }
       if (!formData.road.trim()) {
         newErrors.road = 'Road is required';
       }
-    } else if (formData.locationType === 'office' && (formData.building.trim() || formData.road.trim())) {
+    } else if (
+      formData.locationType === 'office' &&
+      (formData.building.trim() || formData.road.trim())
+    ) {
       if (!formData.building.trim()) {
         newErrors.building = 'Building is required';
       }
@@ -294,7 +315,13 @@ export const useAddressSelector = (
     } catch (error) {
       setMessage('❌ Failed to save address');
     }
-  }, [formData, selectedAddress, session?.user?.email, saveAddress, isValidPhoneNumber]);
+  }, [
+    formData,
+    selectedAddress,
+    session?.user?.email,
+    saveAddress,
+    isValidPhoneNumber,
+  ]);
 
   // Memoized function to format address for display
   const formatAddress = useCallback((address: Address) => {
@@ -329,7 +356,7 @@ export const useAddressSelector = (
     formData,
     isProcessing,
     hasAddresses,
-    
+
     // Actions
     fetchAddresses,
     handleNewAddressSelect,
@@ -339,10 +366,10 @@ export const useAddressSelector = (
     goBackToSelect,
     handleSave,
     formatAddress,
-    
+
     // Setters
     setFormData,
     setMessage,
     setErrors,
   };
-}; 
+};

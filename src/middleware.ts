@@ -1,16 +1,17 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 export async function middleware(request: NextRequest) {
   // Get the pathname of the request (e.g. /, /protected)
-  const path = request.nextUrl.pathname
+  const path = request.nextUrl.pathname;
 
   // Define public paths that don't require authentication
-  const isPublicPath = path === '/' || 
-    path === '/register' || 
-    path === '/registerlogin' || 
-    path === '/login' || 
+  const isPublicPath =
+    path === '/' ||
+    path === '/register' ||
+    path === '/registerlogin' ||
+    path === '/login' ||
     path === '/admin/login' ||
     path.startsWith('/api/') ||
     path.startsWith('/_next/') ||
@@ -20,41 +21,41 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/schedule') ||
     path.startsWith('/tracking') ||
     path.startsWith('/faq') ||
-    path.startsWith('/order-success/')
+    path.startsWith('/order-success/');
 
   // Check if the path is public
   if (isPublicPath) {
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
   // Get the token to check authentication and user type
-  const token = await getToken({ req: request })
+  const token = await getToken({ req: request });
 
   // Check for admin routes
   if (path.startsWith('/admin/') && path !== '/admin/login') {
     // Admin routes require admin authentication
     if (!token || token.userType !== 'admin') {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
+      return NextResponse.redirect(new URL('/admin/login', request.url));
     }
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
   // Check for customer routes
   if (path.startsWith('/customer/')) {
     // Customer routes require customer authentication
     if (!token || token.userType !== 'customer') {
-      return NextResponse.redirect(new URL('/registerlogin', request.url))
+      return NextResponse.redirect(new URL('/registerlogin', request.url));
     }
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
   // For other protected routes, check for NextAuth session
   if (!token) {
     // Redirect to login if no valid session
-    return NextResponse.redirect(new URL('/registerlogin', request.url))
+    return NextResponse.redirect(new URL('/registerlogin', request.url));
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
 // Configure which paths the middleware should run on
@@ -69,4 +70,4 @@ export const config = {
      */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
-} 
+};

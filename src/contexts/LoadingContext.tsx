@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useCallback,
+} from 'react';
 import LoadingOverlay from '../components/ui/LoadingOverlay';
 
 interface LoadingContextType {
@@ -51,4 +57,4 @@ export function LoadingProvider({ children }: LoadingProviderProps) {
       <LoadingOverlay isVisible={isLoading} message={loadingMessage} />
     </LoadingContext.Provider>
   );
-} 
+}

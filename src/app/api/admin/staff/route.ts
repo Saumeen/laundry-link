@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse, createAdminForbiddenErrorResponse, canManageRole } from "@/lib/adminAuth";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-import { UserRole } from "@/types/global";
+import { NextResponse } from 'next/server';
+import { requireAuthenticatedAdmin, canManageRole } from '@/lib/adminAuth';
+import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
+import { UserRole } from '@/types/global';
 
 // Define the request body type
 interface CreateStaffRequest {
@@ -25,27 +25,36 @@ interface UpdateStaffRequest {
 }
 
 export async function POST(req: Request) {
-  try {  
+  try {
     // Check if the current user is an authenticated admin
     const currentAdmin = await requireAuthenticatedAdmin();
 
-    const { email, firstName, lastName, password, role, phone }: CreateStaffRequest = await req.json();
+    const {
+      email,
+      firstName,
+      lastName,
+      password,
+      role,
+      phone,
+    }: CreateStaffRequest = await req.json();
 
     // Validate required fields
     if (!email || !firstName || !lastName || !password || !role) {
       return NextResponse.json(
-        { error: "All required fields must be provided" },
+        { error: 'All required fields must be provided' },
         { status: 400 }
       );
     }
 
     // Validate role
-    const validRoles: UserRole[] = ['SUPER_ADMIN', 'OPERATION_MANAGER', 'DRIVER', 'FACILITY_TEAM'];
+    const validRoles: UserRole[] = [
+      'SUPER_ADMIN',
+      'OPERATION_MANAGER',
+      'DRIVER',
+      'FACILITY_TEAM',
+    ];
     if (!validRoles.includes(role as UserRole)) {
-      return NextResponse.json(
-        { error: "Invalid role" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
     // Check if current admin can create this role
@@ -58,26 +67,23 @@ export async function POST(req: Request) {
 
     // Check if email already exists
     const existingStaff = await prisma.staff.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
     });
 
     if (existingStaff) {
       return NextResponse.json(
-        { error: "Email already exists" },
+        { error: 'Email already exists' },
         { status: 409 }
       );
     }
 
     // Get the role ID
     const roleRecord = await prisma.role.findUnique({
-      where: { name: role }
+      where: { name: role },
     });
 
     if (!roleRecord) {
-      return NextResponse.json(
-        { error: "Role not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Role not found' }, { status: 404 });
     }
 
     // Hash password
@@ -92,15 +98,15 @@ export async function POST(req: Request) {
         password: hashedPassword,
         roleId: roleRecord.id,
         phone: phone || null,
-        isActive: true
+        isActive: true,
       },
       include: {
-        role: true
-      }
+        role: true,
+      },
     });
 
     return NextResponse.json({
-      message: "Staff member created successfully",
+      message: 'Staff member created successfully',
       staff: {
         id: newStaff.id,
         email: newStaff.email,
@@ -108,13 +114,13 @@ export async function POST(req: Request) {
         lastName: newStaff.lastName,
         role: newStaff.role.name,
         isActive: newStaff.isActive,
-        createdAt: newStaff.createdAt
-      }
+        createdAt: newStaff.createdAt,
+      },
     });
   } catch (error) {
-    console.error("Error creating staff member:", error);
+    console.error('Error creating staff member:', error);
     return NextResponse.json(
-      { error: "Failed to create staff member" },
+      { error: 'Failed to create staff member' },
       { status: 500 }
     );
   }
@@ -139,18 +145,21 @@ export async function GET(req: Request) {
     const manageableRoles = await prisma.role.findMany({
       where: {
         name: {
-          in: ['SUPER_ADMIN', 'OPERATION_MANAGER', 'DRIVER', 'FACILITY_TEAM'].filter(role => 
-            canManageRole(currentAdmin.role, role as UserRole)
-          )
-        }
-      }
+          in: [
+            'SUPER_ADMIN',
+            'OPERATION_MANAGER',
+            'DRIVER',
+            'FACILITY_TEAM',
+          ].filter(role => canManageRole(currentAdmin.role, role as UserRole)),
+        },
+      },
     });
 
     // Build where clause for filtering
-    const where: any = {
+    const where: Record<string, unknown> = {
       roleId: {
-        in: manageableRoles.map((role: any) => role.id)
-      }
+        in: manageableRoles.map((role: { id: number }) => role.id),
+      },
     };
 
     // Add search filter
@@ -164,7 +173,9 @@ export async function GET(req: Request) {
 
     // Add role filter
     if (role) {
-      const roleRecord = manageableRoles.find((r: any) => r.name === role);
+      const roleRecord = manageableRoles.find(
+        (r: { name: string }) => r.name === role
+      );
       if (roleRecord) {
         where.roleId = roleRecord.id;
       }
@@ -183,48 +194,61 @@ export async function GET(req: Request) {
     const staffMembers = await prisma.staff.findMany({
       where,
       include: {
-        role: true
+        role: true,
       },
       orderBy: {
-        createdAt: 'desc'
+        createdAt: 'desc',
       },
       skip,
-      take: limit
+      take: limit,
     });
 
     return NextResponse.json({
       success: true,
-      staff: staffMembers.map((staff: any) => ({
-        id: staff.id,
-        email: staff.email,
-        firstName: staff.firstName,
-        lastName: staff.lastName,
-        role: staff.role.name,
-        isActive: staff.isActive,
-        lastLoginAt: staff.lastLoginAt,
-        createdAt: staff.createdAt,
-        phone: staff.phone
-      })),
-      manageableRoles: manageableRoles.map((role: any) => ({
-        id: role.id,
-        name: role.name,
-        description: role.description
-      })),
+      staff: staffMembers.map(
+        (staff: {
+          id: number;
+          firstName: string;
+          lastName: string;
+          email: string;
+          phone: string | null;
+          isActive: boolean;
+          lastLoginAt: string | null;
+          role: { name: string };
+        }) => ({
+          id: staff.id,
+          email: staff.email,
+          firstName: staff.firstName,
+          lastName: staff.lastName,
+          role: staff.role.name,
+          isActive: staff.isActive,
+          lastLoginAt: staff.lastLoginAt,
+          createdAt: staff.createdAt,
+          phone: staff.phone,
+        })
+      ),
+      manageableRoles: manageableRoles.map(
+        (role: { id: number; name: string; description: string | null }) => ({
+          id: role.id,
+          name: role.name,
+          description: role.description,
+        })
+      ),
       pagination: {
         page,
         limit,
         total,
         totalPages,
-      }
+      },
     });
   } catch (error) {
-    console.error("Error fetching staff members:", error);
+    console.error('Error fetching staff members:', error);
     return NextResponse.json(
-      { error: "Failed to fetch staff members" },
+      { error: 'Failed to fetch staff members' },
       { status: 500 }
     );
   }
-} 
+}
 
 export async function DELETE(req: Request) {
   try {
@@ -237,7 +261,7 @@ export async function DELETE(req: Request) {
 
     if (!staffId) {
       return NextResponse.json(
-        { error: "Staff member ID is required" },
+        { error: 'Staff member ID is required' },
         { status: 400 }
       );
     }
@@ -245,12 +269,12 @@ export async function DELETE(req: Request) {
     // Get the staff member to check permissions
     const staffMember = await prisma.staff.findUnique({
       where: { id: parseInt(staffId) },
-      include: { role: true }
+      include: { role: true },
     });
 
     if (!staffMember) {
       return NextResponse.json(
-        { error: "Staff member not found" },
+        { error: 'Staff member not found' },
         { status: 404 }
       );
     }
@@ -258,7 +282,9 @@ export async function DELETE(req: Request) {
     // Check if current admin can manage this staff member's role
     if (!canManageRole(currentAdmin.role, staffMember.role.name as UserRole)) {
       return NextResponse.json(
-        { error: `You don't have permission to delete ${staffMember.role.name} users` },
+        {
+          error: `You don't have permission to delete ${staffMember.role.name} users`,
+        },
         { status: 403 }
       );
     }
@@ -266,27 +292,27 @@ export async function DELETE(req: Request) {
     // Prevent admin from deleting themselves
     if (staffMember.id === currentAdmin.id) {
       return NextResponse.json(
-        { error: "You cannot delete your own account" },
+        { error: 'You cannot delete your own account' },
         { status: 400 }
       );
     }
 
     // Delete the staff member
     await prisma.staff.delete({
-      where: { id: parseInt(staffId) }
+      where: { id: parseInt(staffId) },
     });
 
     return NextResponse.json({
-      message: "Staff member deleted successfully"
+      message: 'Staff member deleted successfully',
     });
   } catch (error) {
-    console.error("Error deleting staff member:", error);
+    console.error('Error deleting staff member:', error);
     return NextResponse.json(
-      { error: "Failed to delete staff member" },
+      { error: 'Failed to delete staff member' },
       { status: 500 }
     );
   }
-} 
+}
 
 export async function PUT(req: Request) {
   try {
@@ -299,7 +325,7 @@ export async function PUT(req: Request) {
 
     if (!staffId) {
       return NextResponse.json(
-        { error: "Staff member ID is required" },
+        { error: 'Staff member ID is required' },
         { status: 400 }
       );
     }
@@ -309,12 +335,12 @@ export async function PUT(req: Request) {
     // Get the staff member to check permissions
     const staffMember = await prisma.staff.findUnique({
       where: { id: parseInt(staffId) },
-      include: { role: true }
+      include: { role: true },
     });
 
     if (!staffMember) {
       return NextResponse.json(
-        { error: "Staff member not found" },
+        { error: 'Staff member not found' },
         { status: 404 }
       );
     }
@@ -322,7 +348,9 @@ export async function PUT(req: Request) {
     // Check if current admin can manage this staff member's role
     if (!canManageRole(currentAdmin.role, staffMember.role.name as UserRole)) {
       return NextResponse.json(
-        { error: `You don't have permission to update ${staffMember.role.name} users` },
+        {
+          error: `You don't have permission to update ${staffMember.role.name} users`,
+        },
         { status: 403 }
       );
     }
@@ -330,15 +358,20 @@ export async function PUT(req: Request) {
     // Prevent admin from deactivating themselves
     if (staffMember.id === currentAdmin.id && updateData.isActive === false) {
       return NextResponse.json(
-        { error: "You cannot deactivate your own account" },
+        { error: 'You cannot deactivate your own account' },
         { status: 400 }
       );
     }
 
     // If role is being updated, check if current admin can create the new role
-    if (updateData.role && !canManageRole(currentAdmin.role, updateData.role as UserRole)) {
+    if (
+      updateData.role &&
+      !canManageRole(currentAdmin.role, updateData.role as UserRole)
+    ) {
       return NextResponse.json(
-        { error: `You don't have permission to assign ${updateData.role} role` },
+        {
+          error: `You don't have permission to assign ${updateData.role} role`,
+        },
         { status: 403 }
       );
     }
@@ -346,19 +379,19 @@ export async function PUT(req: Request) {
     // If email is being updated, check if it already exists
     if (updateData.email && updateData.email !== staffMember.email) {
       const existingStaff = await prisma.staff.findUnique({
-        where: { email: updateData.email.toLowerCase() }
+        where: { email: updateData.email.toLowerCase() },
       });
 
       if (existingStaff) {
         return NextResponse.json(
-          { error: "Email already exists" },
+          { error: 'Email already exists' },
           { status: 409 }
         );
       }
     }
 
     // Prepare update data
-    const dataToUpdate: any = {};
+    const dataToUpdate: Record<string, unknown> = {};
 
     if (updateData.email !== undefined) {
       dataToUpdate.email = updateData.email.toLowerCase();
@@ -384,14 +417,11 @@ export async function PUT(req: Request) {
     // Handle role update
     if (updateData.role) {
       const roleRecord = await prisma.role.findUnique({
-        where: { name: updateData.role }
+        where: { name: updateData.role },
       });
 
       if (!roleRecord) {
-        return NextResponse.json(
-          { error: "Role not found" },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Role not found' }, { status: 404 });
       }
 
       dataToUpdate.roleId = roleRecord.id;
@@ -402,12 +432,12 @@ export async function PUT(req: Request) {
       where: { id: parseInt(staffId) },
       data: dataToUpdate,
       include: {
-        role: true
-      }
+        role: true,
+      },
     });
 
     return NextResponse.json({
-      message: "Staff member updated successfully",
+      message: 'Staff member updated successfully',
       staff: {
         id: updatedStaff.id,
         email: updatedStaff.email,
@@ -417,14 +447,14 @@ export async function PUT(req: Request) {
         isActive: updatedStaff.isActive,
         lastLoginAt: updatedStaff.lastLoginAt,
         createdAt: updatedStaff.createdAt,
-        phone: updatedStaff.phone
-      }
+        phone: updatedStaff.phone,
+      },
     });
   } catch (error) {
-    console.error("Error updating staff member:", error);
+    console.error('Error updating staff member:', error);
     return NextResponse.json(
-      { error: "Failed to update staff member" },
+      { error: 'Failed to update staff member' },
       { status: 500 }
     );
   }
-} 
+}

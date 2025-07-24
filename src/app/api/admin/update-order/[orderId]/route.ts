@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
-import { 
-  OrderStatus, 
-  PaymentStatus, 
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import {
+  OrderStatus,
+  PaymentStatus,
   ProcessingStatus,
   DriverAssignmentStatus,
   ItemStatus,
-  IssueStatus 
-} from "@prisma/client";
+  IssueStatus,
+} from '@prisma/client';
 
 interface UpdateOrderRequest {
   status?: OrderStatus;
@@ -28,14 +28,14 @@ export async function PUT(
     const admin = await requireAuthenticatedAdmin();
     const { orderId } = await params;
     const body: UpdateOrderRequest = await request.json();
-    const { 
-      status, 
-      paymentStatus, 
-      processingStatus, 
-      driverStatus, 
-      itemStatus, 
+    const {
+      status,
+      paymentStatus,
+      processingStatus,
+      driverStatus,
+      itemStatus,
       issueStatus,
-      notes 
+      notes,
     } = body;
 
     // Validate enum values
@@ -47,27 +47,45 @@ export async function PUT(
     const validIssueStatuses = Object.values(IssueStatus);
 
     if (status && !validStatuses.includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
     if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
-      return NextResponse.json({ error: "Invalid payment status" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid payment status' },
+        { status: 400 }
+      );
     }
 
-    if (processingStatus && !validProcessingStatuses.includes(processingStatus)) {
-      return NextResponse.json({ error: "Invalid processing status" }, { status: 400 });
+    if (
+      processingStatus &&
+      !validProcessingStatuses.includes(processingStatus)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid processing status' },
+        { status: 400 }
+      );
     }
 
     if (driverStatus && !validDriverStatuses.includes(driverStatus)) {
-      return NextResponse.json({ error: "Invalid driver status" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid driver status' },
+        { status: 400 }
+      );
     }
 
     if (itemStatus && !validItemStatuses.includes(itemStatus)) {
-      return NextResponse.json({ error: "Invalid item status" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid item status' },
+        { status: 400 }
+      );
     }
 
     if (issueStatus && !validIssueStatuses.includes(issueStatus)) {
-      return NextResponse.json({ error: "Invalid issue status" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid issue status' },
+        { status: 400 }
+      );
     }
 
     // Get current order
@@ -75,19 +93,19 @@ export async function PUT(
       where: { id: parseInt(orderId) },
       include: {
         orderProcessing: true,
-        driverAssignments: true
-      }
+        driverAssignments: true,
+      },
     });
 
     if (!currentOrder) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Update order status if provided
     if (status) {
       await prisma.order.update({
         where: { id: parseInt(orderId) },
-        data: { status: status as OrderStatus }
+        data: { status: status as OrderStatus },
       });
 
       // Create order update record
@@ -97,8 +115,8 @@ export async function PUT(
           staffId: admin.id,
           oldStatus: currentOrder.status,
           newStatus: status as OrderStatus,
-          notes
-        }
+          notes,
+        },
       });
     }
 
@@ -106,7 +124,7 @@ export async function PUT(
     if (paymentStatus) {
       await prisma.order.update({
         where: { id: parseInt(orderId) },
-        data: { paymentStatus: paymentStatus as PaymentStatus }
+        data: { paymentStatus: paymentStatus as PaymentStatus },
       });
     }
 
@@ -114,10 +132,10 @@ export async function PUT(
     if (processingStatus && currentOrder.orderProcessing) {
       await prisma.orderProcessing.update({
         where: { orderId: parseInt(orderId) },
-        data: { 
+        data: {
           processingStatus: processingStatus as ProcessingStatus,
-          processingNotes: notes
-        }
+          processingNotes: notes,
+        },
       });
     }
 
@@ -125,19 +143,19 @@ export async function PUT(
     if (driverStatus && currentOrder.driverAssignments.length > 0) {
       await prisma.driverAssignment.updateMany({
         where: { orderId: parseInt(orderId) },
-        data: { status: driverStatus as DriverAssignmentStatus }
+        data: { status: driverStatus as DriverAssignmentStatus },
       });
     }
 
     // Update processing items if item status provided
     if (itemStatus && currentOrder.orderProcessing) {
       await prisma.processingItem.updateMany({
-        where: { 
+        where: {
           orderServiceMapping: {
-            orderId: parseInt(orderId)
-          }
+            orderId: parseInt(orderId),
+          },
         },
-        data: { status: itemStatus as ItemStatus }
+        data: { status: itemStatus as ItemStatus },
       });
     }
 
@@ -145,20 +163,19 @@ export async function PUT(
     if (issueStatus && currentOrder.orderProcessing) {
       await prisma.issueReport.updateMany({
         where: { orderProcessingId: currentOrder.orderProcessing.id },
-        data: { status: issueStatus as IssueStatus }
+        data: { status: issueStatus as IssueStatus },
       });
     }
 
-    return NextResponse.json({ 
-      message: "Order updated successfully",
-      orderId: parseInt(orderId)
+    return NextResponse.json({
+      message: 'Order updated successfully',
+      orderId: parseInt(orderId),
     });
-
   } catch (error) {
-    console.error("Error updating order:", error);
+    console.error('Error updating order:', error);
     return NextResponse.json(
-      { error: "Failed to update order" },
+      { error: 'Failed to update order' },
       { status: 500 }
     );
   }
-} 
+}

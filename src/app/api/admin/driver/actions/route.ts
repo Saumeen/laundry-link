@@ -1,51 +1,55 @@
-import { NextResponse } from "next/server";
-import { OrderTrackingService } from "@/lib/orderTracking";
-import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
-import prisma from "@/lib/prisma";
-import { DriverAssignmentStatus } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { OrderTrackingService } from '@/lib/orderTracking';
+import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import prisma from '@/lib/prisma';
+import { DriverAssignmentStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
   try {
     // Get authenticated admin from session
     const admin = await requireAuthenticatedAdmin();
-    
+
     const body = await req.json();
-    const { 
-      orderId, 
-      action, 
-      photoUrl, 
-      notes 
-    } = body as {
+    const { orderId, action, photoUrl, notes } = body as {
       orderId: number;
-      action: 'start_pickup' | 'complete_pickup' | 'fail_pickup' | 'drop_off' | 'start_delivery' | 'complete_delivery' | 'fail_delivery';
+      action:
+        | 'start_pickup'
+        | 'complete_pickup'
+        | 'fail_pickup'
+        | 'drop_off'
+        | 'start_delivery'
+        | 'complete_delivery'
+        | 'fail_delivery';
       photoUrl?: string;
       notes?: string;
     };
 
     if (!orderId || !action) {
       return NextResponse.json(
-        { error: "Order ID and action are required" },
+        { error: 'Order ID and action are required' },
         { status: 400 }
       );
     }
 
     // Validate action
     const validActions = [
-      'start_pickup', 'complete_pickup', 'fail_pickup', 'drop_off', 
-      'start_delivery', 'complete_delivery', 'fail_delivery'
+      'start_pickup',
+      'complete_pickup',
+      'fail_pickup',
+      'drop_off',
+      'start_delivery',
+      'complete_delivery',
+      'fail_delivery',
     ];
 
     if (!validActions.includes(action)) {
-      return NextResponse.json(
-        { error: "Invalid action" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     // Map action to driver assignment status
     let assignmentStatus: DriverAssignmentStatus;
     let assignmentType: 'pickup' | 'delivery';
-    
+
     switch (action) {
       case 'start_pickup':
         assignmentStatus = 'IN_PROGRESS';
@@ -85,8 +89,8 @@ export async function POST(req: Request) {
       where: {
         orderId,
         driverId: admin.id,
-        assignmentType
-      }
+        assignmentType,
+      },
     });
 
     if (assignment) {
@@ -95,8 +99,8 @@ export async function POST(req: Request) {
         data: {
           status: assignmentStatus,
           notes: notes || null,
-          actualTime: new Date()
-        }
+          actualTime: new Date(),
+        },
       });
     }
 
@@ -107,8 +111,8 @@ export async function POST(req: Request) {
           driverAssignmentId: assignment.id,
           photoUrl,
           photoType: `${action}_photo`,
-          description: `Photo taken during ${action.replace('_', ' ')}`
-        }
+          description: `Photo taken during ${action.replace('_', ' ')}`,
+        },
       });
     }
 
@@ -118,28 +122,30 @@ export async function POST(req: Request) {
       driverId: admin.id, // Get driver ID from backend session
       action,
       photoUrl,
-      notes
+      notes,
     });
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.message || "Failed to handle driver action" },
+        { error: result.message || 'Failed to handle driver action' },
         { status: 400 }
       );
     }
 
-    console.log(`Driver action completed: ${action} for order ${orderId} by driver ${admin.id}`);
+    console.log(
+      `Driver action completed: ${action} for order ${orderId} by driver ${admin.id}`
+    );
 
     return NextResponse.json({
-      message: "Driver action completed successfully",
+      message: 'Driver action completed successfully',
       action,
-      orderId
+      orderId,
     });
   } catch (error) {
-    console.error("Error handling driver action:", error);
+    console.error('Error handling driver action:', error);
     return NextResponse.json(
-      { error: "Failed to handle driver action" },
+      { error: 'Failed to handle driver action' },
       { status: 500 }
     );
   }
-} 
+}

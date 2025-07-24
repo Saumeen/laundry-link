@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
 
 interface PhoneInputProps {
   value: string;
@@ -52,14 +58,16 @@ const countries = [
 export default function PhoneInput({
   value,
   onChange,
-  placeholder = "Enter phone number",
-  className = "",
+  placeholder = 'Enter phone number',
+  className = '',
   error,
   disabled = false,
   required = false,
-  label
+  label,
 }: PhoneInputProps) {
-  const [selectedCountry, setSelectedCountry] = useState(countries.find(c => c.code === 'BH') || countries[0]);
+  const [selectedCountry, setSelectedCountry] = useState(
+    countries.find(c => c.code === 'BH') || countries[0]
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -67,7 +75,10 @@ export default function PhoneInput({
 
   // Close dropdown when clicking outside
   const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    if (
+      dropdownRef.current &&
+      !dropdownRef.current.contains(event.target as Node)
+    ) {
       setIsOpen(false);
       setSearchQuery('');
     }
@@ -90,36 +101,45 @@ export default function PhoneInput({
   }, [isOpen]);
 
   // Filter countries based on search query
-  const filteredCountries = useMemo(() => 
-    countries.filter(country =>
-      country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      country.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      country.dialCode.includes(searchQuery)
-    ), [searchQuery]
+  const filteredCountries = useMemo(
+    () =>
+      countries.filter(
+        country =>
+          country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          country.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          country.dialCode.includes(searchQuery)
+      ),
+    [searchQuery]
   );
 
-  const handleCountryChange = useCallback((country: typeof countries[0]) => {
-    setSelectedCountry(country);
-    // Update the phone number with new country code
-    const phoneNumber = value.replace(/^\+\d+/, '');
-    onChange(`${country.dialCode}${phoneNumber}`);
-    setIsOpen(false);
-    setSearchQuery('');
-  }, [value, onChange]);
+  const handleCountryChange = useCallback(
+    (country: (typeof countries)[0]) => {
+      setSelectedCountry(country);
+      // Update the phone number with new country code
+      const phoneNumber = value.replace(/^\+\d+/, '');
+      onChange(`${country.dialCode}${phoneNumber}`);
+      setIsOpen(false);
+      setSearchQuery('');
+    },
+    [value, onChange]
+  );
 
-  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value;
-    // Remove any non-digit characters except +
-    const cleaned = input.replace(/[^\d+]/g, '');
-    
-    // If it starts with a country code, use it as is
-    if (cleaned.startsWith('+')) {
-      onChange(cleaned);
-    } else {
-      // Otherwise, prepend the selected country code
-      onChange(`${selectedCountry.dialCode}${cleaned}`);
-    }
-  }, [selectedCountry.dialCode, onChange]);
+  const handlePhoneChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const input = e.target.value;
+      // Remove any non-digit characters except +
+      const cleaned = input.replace(/[^\d+]/g, '');
+
+      // If it starts with a country code, use it as is
+      if (cleaned.startsWith('+')) {
+        onChange(cleaned);
+      } else {
+        // Otherwise, prepend the selected country code
+        onChange(`${selectedCountry.dialCode}${cleaned}`);
+      }
+    },
+    [selectedCountry.dialCode, onChange]
+  );
 
   const getDisplayValue = useCallback(() => {
     if (!value) return '';
@@ -141,59 +161,73 @@ export default function PhoneInput({
   return (
     <div className={`w-full ${className}`}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
+        <label className='block text-sm font-medium text-gray-700 mb-1'>
+          {label} {required && <span className='text-red-500'>*</span>}
         </label>
       )}
-      
-      <div className="relative" ref={dropdownRef}>
+
+      <div className='relative' ref={dropdownRef}>
         {/* Country Selector */}
-        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10">
+        <div className='absolute left-3 top-1/2 transform -translate-y-1/2 z-10'>
           <button
-            type="button"
+            type='button'
             onClick={handleDropdownToggle}
             disabled={disabled}
-            className="flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50 font-medium"
+            className='flex items-center space-x-1 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50 font-medium'
           >
-            <span className="font-medium">{selectedCountry.code}</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <span className='font-medium'>{selectedCountry.code}</span>
+            <svg
+              className='w-4 h-4'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M19 9l-7 7-7-7'
+              />
             </svg>
           </button>
-          
+
           {/* Country Dropdown */}
           {isOpen && (
-            <div className="absolute top-full left-0 mt-1 w-64 max-h-60 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg z-20">
+            <div className='absolute top-full left-0 mt-1 w-64 max-h-60 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg z-20'>
               {/* Search Input */}
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-2">
+              <div className='sticky top-0 bg-white border-b border-gray-200 p-2'>
                 <input
                   ref={searchInputRef}
-                  type="text"
-                  placeholder="Search countries..."
+                  type='text'
+                  placeholder='Search countries...'
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className='w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500'
                 />
               </div>
-              
+
               {/* Country List */}
-              <div className="max-h-48 overflow-y-auto">
+              <div className='max-h-48 overflow-y-auto'>
                 {filteredCountries.length > 0 ? (
-                  filteredCountries.map((country) => (
+                  filteredCountries.map(country => (
                     <button
                       key={country.code}
-                      type="button"
+                      type='button'
                       onClick={() => handleCountryChange(country)}
                       className={`w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center justify-between ${
-                        selectedCountry.code === country.code ? 'bg-blue-50 text-blue-700' : ''
+                        selectedCountry.code === country.code
+                          ? 'bg-blue-50 text-blue-700'
+                          : ''
                       }`}
                     >
-                      <span className="text-sm">{country.name}</span>
-                      <span className="text-xs text-gray-500">{country.dialCode}</span>
+                      <span className='text-sm'>{country.name}</span>
+                      <span className='text-xs text-gray-500'>
+                        {country.dialCode}
+                      </span>
                     </button>
                   ))
                 ) : (
-                  <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                  <div className='px-3 py-2 text-sm text-gray-500 text-center'>
                     No countries found
                   </div>
                 )}
@@ -204,7 +238,7 @@ export default function PhoneInput({
 
         {/* Phone Input */}
         <input
-          type="tel"
+          type='tel'
           value={getDisplayValue()}
           onChange={handlePhoneChange}
           placeholder={placeholder}
@@ -217,12 +251,8 @@ export default function PhoneInput({
           `}
         />
       </div>
-      
-      {error && (
-        <p className="mt-1 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+
+      {error && <p className='mt-1 text-sm text-red-600'>{error}</p>}
     </div>
   );
-} 
+}

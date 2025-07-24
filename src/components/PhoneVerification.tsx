@@ -14,9 +14,11 @@ const PhoneVerification = ({
   phoneNumber,
   onVerificationSuccess,
   onVerificationError,
-  onCancel
+  onCancel,
 }: PhoneVerificationProps) => {
-  const [step, setStep] = useState<'sending' | 'verifying' | 'success'>('sending');
+  const [step, setStep] = useState<'sending' | 'verifying' | 'success'>(
+    'sending'
+  );
   const [verificationCode, setVerificationCode] = useState('');
   const [retryCount, setRetryCount] = useState(0);
   const [isAutoRetrying, setIsAutoRetrying] = useState(false);
@@ -30,7 +32,7 @@ const PhoneVerification = ({
     initializeRecaptcha,
     sendVerificationCode,
     verifyCode,
-    clearRecaptcha
+    clearRecaptcha,
   } = usePhoneVerification();
 
   // Calculate backoff delay: 2s, 4s, 8s
@@ -47,57 +49,60 @@ const PhoneVerification = ({
       }
 
       await initializeRecaptcha('recaptcha-container');
-    } catch (error) {
+    } catch {
       onVerificationError('Failed to initialize phone verification');
     }
   }, [initializeRecaptcha, onVerificationError, phoneNumber]);
 
   // Attempt to send verification code
-  const attemptSendCode = useCallback(async (isRetry: boolean = false) => {
-    try {
-      const result = await sendVerificationCode(phoneNumber);
-      if (result.success) {
-        setStep('verifying');
-        setIsAutoRetrying(false);
-        setRetryCount(0);
-        setNextRetryTime(null);
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-          retryTimeoutRef.current = null;
+  const attemptSendCode = useCallback(
+    async (isRetry: boolean = false) => {
+      try {
+        const result = await sendVerificationCode(phoneNumber);
+        if (result.success) {
+          setStep('verifying');
+          setIsAutoRetrying(false);
+          setRetryCount(0);
+          setNextRetryTime(null);
+          if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
+          }
+        } else {
+          // If it's a retry and we haven't exceeded max attempts, schedule next retry
+          if (isRetry && retryCount < 2) {
+            const nextAttempt = retryCount + 1;
+            const delay = getBackoffDelay(nextAttempt);
+            setRetryCount(nextAttempt);
+            setNextRetryTime(Date.now() + delay);
+
+            retryTimeoutRef.current = setTimeout(() => {
+              attemptSendCode(true);
+            }, delay);
+          } else if (isRetry && retryCount >= 2) {
+            // Max retries reached, stop auto-retrying
+            setIsAutoRetrying(false);
+            setNextRetryTime(null);
+          }
         }
-      } else {
-        // If it's a retry and we haven't exceeded max attempts, schedule next retry
+      } catch (error) {
         if (isRetry && retryCount < 2) {
           const nextAttempt = retryCount + 1;
           const delay = getBackoffDelay(nextAttempt);
           setRetryCount(nextAttempt);
           setNextRetryTime(Date.now() + delay);
-          
+
           retryTimeoutRef.current = setTimeout(() => {
             attemptSendCode(true);
           }, delay);
         } else if (isRetry && retryCount >= 2) {
-          // Max retries reached, stop auto-retrying
           setIsAutoRetrying(false);
           setNextRetryTime(null);
         }
       }
-    } catch (error) {
-      if (isRetry && retryCount < 2) {
-        const nextAttempt = retryCount + 1;
-        const delay = getBackoffDelay(nextAttempt);
-        setRetryCount(nextAttempt);
-        setNextRetryTime(Date.now() + delay);
-        
-        retryTimeoutRef.current = setTimeout(() => {
-          attemptSendCode(true);
-        }, delay);
-      } else if (isRetry && retryCount >= 2) {
-        setIsAutoRetrying(false);
-        setNextRetryTime(null);
-      }
-    }
-  }, [phoneNumber, sendVerificationCode, retryCount]);
+    },
+    [phoneNumber, sendVerificationCode, retryCount]
+  );
 
   // Start verification when component mounts
   useEffect(() => {
@@ -108,7 +113,7 @@ const PhoneVerification = ({
       // Start first attempt immediately
       attemptSendCode(true);
     };
-    
+
     startVerification();
 
     // Cleanup on unmount
@@ -126,11 +131,11 @@ const PhoneVerification = ({
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
-    
+
     setIsAutoRetrying(true);
     setRetryCount(0);
     setNextRetryTime(null);
-    
+
     // Start fresh retry attempts
     attemptSendCode(true);
   }, [attemptSendCode]);
@@ -153,7 +158,13 @@ const PhoneVerification = ({
     } catch (error) {
       onVerificationError('Failed to verify code');
     }
-  }, [verificationCode, verifyCode, onVerificationSuccess, onVerificationError, phoneNumber]);
+  }, [
+    verificationCode,
+    verifyCode,
+    onVerificationSuccess,
+    onVerificationError,
+    phoneNumber,
+  ]);
 
   // Handle resend code
   const handleResendCode = useCallback(async () => {
@@ -162,13 +173,13 @@ const PhoneVerification = ({
     setRetryCount(0);
     setIsAutoRetrying(true);
     setNextRetryTime(null);
-    
+
     // Clear any existing retry attempts
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
-    
+
     await initializeRecaptchaLocal(); // Re-initialize reCAPTCHA for resend
     attemptSendCode(true); // Start fresh retry attempts
   }, [initializeRecaptchaLocal, attemptSendCode]);
@@ -186,60 +197,66 @@ const PhoneVerification = ({
   // Format countdown timer
   const formatCountdown = () => {
     if (!nextRetryTime) return '';
-    const remaining = Math.max(0, Math.ceil((nextRetryTime - Date.now()) / 1000));
+    const remaining = Math.max(
+      0,
+      Math.ceil((nextRetryTime - Date.now()) / 1000)
+    );
     return remaining > 0 ? `${remaining}s` : '';
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-lg font-semibold mb-4">Verify Phone Number</h3>
-        
+    <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+      <div className='bg-white rounded-lg p-6 max-w-md w-full mx-4'>
+        <h3 className='text-lg font-semibold mb-4'>Verify Phone Number</h3>
+
         {/* reCAPTCHA container */}
-        <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
+        <div id='recaptcha-container' ref={recaptchaContainerRef}></div>
 
         {step === 'sending' && (
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 mb-4">
+          <div className='text-center'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4'></div>
+            <p className='text-gray-600 mb-4'>
               Sending verification code to {phoneNumber}...
             </p>
-            
+
             {isAutoRetrying && retryCount > 0 && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-500">
+              <div className='mb-4'>
+                <p className='text-sm text-gray-500'>
                   Attempt {retryCount + 1} of 3
                 </p>
                 {nextRetryTime && (
-                  <p className="text-sm text-blue-600">
+                  <p className='text-sm text-blue-600'>
                     Next attempt in {formatCountdown()}
                   </p>
                 )}
               </div>
             )}
-            
-            <p className="text-xs text-gray-500 mb-4">
-              {isAutoRetrying ? 
-                'Automatically retrying...' : 
-                'If the verification doesn\'t start automatically, click the button below.'
-              }
+
+            <p className='text-xs text-gray-500 mb-4'>
+              {isAutoRetrying
+                ? 'Automatically retrying...'
+                : "If the verification doesn't start automatically, click the button below."}
             </p>
-            
+
             <button
               onClick={handleManualTrigger}
               disabled={isLoading || isAutoRetrying}
-              className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+              className='bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mb-4'
             >
-              {isLoading ? 'Sending...' : isAutoRetrying ? 'Retrying Automatically...' : 'Send Code Manually'}
+              {isLoading
+                ? 'Sending...'
+                : isAutoRetrying
+                  ? 'Retrying Automatically...'
+                  : 'Send Code Manually'}
             </button>
-            
+
             {error && (
-              <div className="mb-4">
-                <p className="text-red-600 text-sm mb-2">{error}</p>
+              <div className='mb-4'>
+                <p className='text-red-600 text-sm mb-2'>{error}</p>
                 <button
                   onClick={handleCancel}
                   disabled={isLoading}
-                  className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 underline"
+                  className='text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 underline'
                 >
                   Go back and change phone number
                 </button>
@@ -250,29 +267,34 @@ const PhoneVerification = ({
 
         {step === 'verifying' && (
           <div>
-            <p className="text-gray-600 mb-4">
-              Enter the 6-digit verification code sent to {phoneNumber}. Phone verification is required to create your account.
+            <p className='text-gray-600 mb-4'>
+              Enter the 6-digit verification code sent to {phoneNumber}. Phone
+              verification is required to create your account.
             </p>
-            
-            <div className="mb-4">
+
+            <div className='mb-4'>
               <input
-                type="text"
+                type='text'
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit code"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={e =>
+                  setVerificationCode(
+                    e.target.value.replace(/\D/g, '').slice(0, 6)
+                  )
+                }
+                placeholder='Enter 6-digit code'
+                className='w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500'
                 maxLength={6}
                 disabled={isLoading}
               />
             </div>
 
             {error && (
-              <div className="mb-4">
-                <p className="text-red-600 text-sm mb-2">{error}</p>
+              <div className='mb-4'>
+                <p className='text-red-600 text-sm mb-2'>{error}</p>
                 <button
                   onClick={handleCancel}
                   disabled={isLoading}
-                  className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 underline"
+                  className='text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 underline'
                 >
                   Go back and change phone number
                 </button>
@@ -282,16 +304,16 @@ const PhoneVerification = ({
             <button
               onClick={handleVerifyCode}
               disabled={isLoading || !verificationCode.trim()}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className='w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
             >
               {isLoading ? 'Verifying...' : 'Verify Code'}
             </button>
 
-            <div className="mt-4 text-center">
+            <div className='mt-4 text-center'>
               <button
                 onClick={handleResendCode}
                 disabled={isLoading}
-                className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50"
+                className='text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50'
               >
                 Resend Code
               </button>
@@ -300,14 +322,14 @@ const PhoneVerification = ({
         )}
 
         {step === 'success' && (
-          <div className="text-center">
-            <div className="text-green-600 text-4xl mb-4">✓</div>
-            <p className="text-gray-600 mb-4">
+          <div className='text-center'>
+            <div className='text-green-600 text-4xl mb-4'>✓</div>
+            <p className='text-gray-600 mb-4'>
               Phone number verified successfully!
             </p>
             <button
               onClick={() => onVerificationSuccess(phoneNumber)}
-              className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700"
+              className='bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700'
             >
               Continue
             </button>
@@ -318,4 +340,4 @@ const PhoneVerification = ({
   );
 };
 
-export default PhoneVerification; 
+export default PhoneVerification;

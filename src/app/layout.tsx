@@ -1,13 +1,13 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import Providers from "./providers";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import Providers from './providers';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Laundry Link",
-  description: "Schedule laundry pickup and delivery with real-time tracking",
+  title: 'Laundry Link',
+  description: 'Schedule laundry pickup and delivery with real-time tracking',
 };
 
 export default function RootLayout({
@@ -16,12 +16,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang='en'>
       <body className={inter.className}>
         <Providers>
-          <div className="min-h-screen bg-gray-50">
-            {children}
-          </div>
+          <div className='min-h-screen bg-gray-50'>{children}</div>
         </Providers>
       </body>
     </html>

@@ -1,7 +1,10 @@
 // src/app/api/admin/update-order-item/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
 
 interface UpdateOrderItemRequest {
   orderItemId: number;
@@ -17,19 +20,13 @@ export async function PUT(req: Request) {
     // Require admin authentication
     await requireAuthenticatedAdmin();
 
-    const body = await req.json() as UpdateOrderItemRequest;
-    const { 
-      orderItemId, 
-      itemName, 
-      itemType, 
-      quantity, 
-      pricePerItem, 
-      notes 
-    } = body;
+    const body = (await req.json()) as UpdateOrderItemRequest;
+    const { orderItemId, itemName, itemType, quantity, pricePerItem, notes } =
+      body;
 
     if (!orderItemId) {
       return NextResponse.json(
-        { error: "Order item ID is required" },
+        { error: 'Order item ID is required' },
         { status: 400 }
       );
     }
@@ -49,14 +46,16 @@ export async function PUT(req: Request) {
 
     if (!existingItem) {
       return NextResponse.json(
-        { error: "Order item not found" },
+        { error: 'Order item not found' },
         { status: 404 }
       );
     }
 
     // Calculate new total price if quantity or price changes
-    const newQuantity = quantity !== undefined ? quantity : existingItem.quantity;
-    const newPricePerItem = pricePerItem !== undefined ? pricePerItem : existingItem.pricePerItem;
+    const newQuantity =
+      quantity !== undefined ? quantity : existingItem.quantity;
+    const newPricePerItem =
+      pricePerItem !== undefined ? pricePerItem : existingItem.pricePerItem;
     const newTotalPrice = newQuantity * newPricePerItem;
 
     // Update the order item
@@ -100,7 +99,10 @@ export async function PUT(req: Request) {
       },
     });
 
-    const newOrderTotal = allOrderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const newOrderTotal = allOrderItems.reduce(
+      (sum, item) => sum + item.totalPrice,
+      0
+    );
 
     // Update order with new invoice total
     await prisma.order.update({
@@ -111,7 +113,7 @@ export async function PUT(req: Request) {
     });
 
     return NextResponse.json({
-      message: "Order item updated successfully",
+      message: 'Order item updated successfully',
       orderItem: {
         id: updatedItem.id,
         orderServiceMappingId: updatedItem.orderServiceMappingId,
@@ -126,14 +128,17 @@ export async function PUT(req: Request) {
       newOrderTotal,
     });
   } catch (error) {
-    console.error("Error updating order item:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    console.error('Error updating order item:', error);
+
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to update order item" },
+      { error: 'Failed to update order item' },
       { status: 500 }
     );
   }
@@ -149,7 +154,7 @@ export async function DELETE(req: Request) {
 
     if (!orderItemId) {
       return NextResponse.json(
-        { error: "Order item ID is required" },
+        { error: 'Order item ID is required' },
         { status: 400 }
       );
     }
@@ -168,7 +173,7 @@ export async function DELETE(req: Request) {
 
     if (!existingItem) {
       return NextResponse.json(
-        { error: "Order item not found" },
+        { error: 'Order item not found' },
         { status: 404 }
       );
     }
@@ -192,7 +197,10 @@ export async function DELETE(req: Request) {
       },
     });
 
-    const newOrderTotal = allOrderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const newOrderTotal = allOrderItems.reduce(
+      (sum, item) => sum + item.totalPrice,
+      0
+    );
 
     // Update order with new invoice total
     await prisma.order.update({
@@ -203,19 +211,22 @@ export async function DELETE(req: Request) {
     });
 
     return NextResponse.json({
-      message: "Order item deleted successfully",
+      message: 'Order item deleted successfully',
       newOrderTotal,
     });
   } catch (error) {
-    console.error("Error deleting order item:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    console.error('Error deleting order item:', error);
+
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to delete order item" },
+      { error: 'Failed to delete order item' },
       { status: 500 }
     );
   }
-} 
+}

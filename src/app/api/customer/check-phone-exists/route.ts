@@ -7,7 +7,7 @@ interface CheckPhoneRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const { phoneNumber } = await request.json() as CheckPhoneRequest;
+    const { phoneNumber } = (await request.json()) as CheckPhoneRequest;
 
     if (!phoneNumber) {
       return NextResponse.json(
@@ -20,21 +20,20 @@ export async function POST(request: NextRequest) {
     const existingCustomer = await prisma.customer.findFirst({
       where: {
         phone: phoneNumber,
-        isActive: true
+        isActive: true,
       },
       select: {
         id: true,
-        email: true
-      }
+        email: true,
+      },
     });
 
     return NextResponse.json({
       exists: !!existingCustomer,
-      message: existingCustomer 
-        ? 'Phone number already registered' 
-        : 'Phone number available'
+      message: existingCustomer
+        ? 'Phone number already registered'
+        : 'Phone number available',
     });
-
   } catch (error) {
     console.error('Error checking phone number existence:', error);
     return NextResponse.json(
@@ -42,4 +41,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

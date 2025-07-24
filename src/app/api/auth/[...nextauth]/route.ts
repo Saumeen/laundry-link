@@ -1,12 +1,12 @@
-import NextAuth, { SessionStrategy, NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import FacebookProvider from "next-auth/providers/facebook";
-import CredentialsProvider from "next-auth/providers/credentials";
-import AppleProvider from "next-auth/providers/apple";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
-import { UserRole } from "@/types/global";
+import NextAuth, { SessionStrategy, NextAuthOptions } from 'next-auth';
+import GoogleProvider from 'next-auth/providers/google';
+import FacebookProvider from 'next-auth/providers/facebook';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import AppleProvider from 'next-auth/providers/apple';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
+import { UserRole } from '@/types/global';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -24,22 +24,30 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.APPLE_CLIENT_SECRET!,
     }),
     CredentialsProvider({
-      id: "customer-credentials",
-      name: "customer-credentials",
+      id: 'customer-credentials',
+      name: 'customer-credentials',
       credentials: {
-        username: { label: "Email", type: "text", placeholder: "jsmith@example.com" },
-        password: { label: "Password", type: "password" },
-        name: { label: "Full Name", type: "text", placeholder: "John Smith" },
-        phoneNumber: { label: "Phone Number", type: "text", placeholder: "+973 3344 0841" }
+        username: {
+          label: 'Email',
+          type: 'text',
+          placeholder: 'jsmith@example.com',
+        },
+        password: { label: 'Password', type: 'password' },
+        name: { label: 'Full Name', type: 'text', placeholder: 'John Smith' },
+        phoneNumber: {
+          label: 'Phone Number',
+          type: 'text',
+          placeholder: '+973 3344 0841',
+        },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
           return null;
         }
 
         // Try to find the user by email
         let user = await prisma.customer.findUnique({
-          where: { email: credentials.username }
+          where: { email: credentials.username },
         });
 
         if (user) {
@@ -47,22 +55,28 @@ export const authOptions: NextAuthOptions = {
           if (!user.password) {
             return null;
           }
-          const isValid = await bcrypt.compare(credentials.password, user.password);
+          const isValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
           if (!isValid) return null;
-          
+
           // Update phone number if provided and different
-          if (credentials.phoneNumber && user.phone !== credentials.phoneNumber) {
+          if (
+            credentials.phoneNumber &&
+            user.phone !== credentials.phoneNumber
+          ) {
             await prisma.customer.update({
               where: { id: user.id },
-              data: { phone: credentials.phoneNumber }
+              data: { phone: credentials.phoneNumber },
             });
           }
-          
+
           const result = {
             id: user.id.toString(),
             name: `${user.firstName} ${user.lastName}`,
             email: user.email,
-            userType: "customer" as const
+            userType: 'customer' as const,
           };
           return result;
         } else {
@@ -72,18 +86,21 @@ export const authOptions: NextAuthOptions = {
             const existingPhoneUser = await prisma.customer.findFirst({
               where: {
                 phone: credentials.phoneNumber,
-                isActive: true
-              }
+                isActive: true,
+              },
             });
 
             if (existingPhoneUser) {
-              console.error('Phone number already exists:', credentials.phoneNumber);
+              console.error(
+                'Phone number already exists:',
+                credentials.phoneNumber
+              );
               return null;
             }
 
             // Hash password
             const hashedPassword = await bcrypt.hash(credentials.password, 10);
-            
+
             // Create new user
             user = await prisma.customer.create({
               data: {
@@ -93,8 +110,8 @@ export const authOptions: NextAuthOptions = {
                 lastName: credentials.name.split(' ').slice(1).join(' ') || '',
                 phone: credentials.phoneNumber,
                 isActive: true,
-                walletBalance: 0
-              }
+                walletBalance: 0,
+              },
             });
           } else {
             return null;
@@ -104,21 +121,24 @@ export const authOptions: NextAuthOptions = {
             id: user.id.toString(),
             name: `${user.firstName} ${user.lastName}`,
             email: user.email,
-            userType: "customer" as const
+            userType: 'customer' as const,
           };
           return result;
         }
-      }
+      },
     }),
     CredentialsProvider({
-      id: "admin-credentials",
-      name: "admin-credentials",
+      id: 'admin-credentials',
+      name: 'admin-credentials',
       credentials: {
-        username: { label: "Email", type: "text", placeholder: "admin@example.com" },
-        password: { label: "Password", type: "password" }
+        username: {
+          label: 'Email',
+          type: 'text',
+          placeholder: 'admin@example.com',
+        },
+        password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials, req) {
-
+      async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
           return null;
         }
@@ -128,8 +148,8 @@ export const authOptions: NextAuthOptions = {
           const staff = await prisma.staff.findUnique({
             where: { email: credentials.username },
             include: {
-              role: true
-            }
+              role: true,
+            },
           });
 
           if (!staff || !staff.isActive) {
@@ -137,7 +157,10 @@ export const authOptions: NextAuthOptions = {
           }
 
           // Verify password
-          const isValidPassword = await bcrypt.compare(credentials.password, staff.password);
+          const isValidPassword = await bcrypt.compare(
+            credentials.password,
+            staff.password
+          );
 
           if (!isValidPassword) {
             return null;
@@ -146,36 +169,40 @@ export const authOptions: NextAuthOptions = {
           // Update last login time
           await prisma.staff.update({
             where: { id: staff.id },
-            data: { lastLoginAt: new Date() }
+            data: { lastLoginAt: new Date() },
           });
 
           const user = {
             id: staff.id.toString(),
             name: `${staff.firstName} ${staff.lastName}`,
             email: staff.email,
-            userType: "admin" as const,
+            userType: 'admin' as const,
             role: staff.role.name as UserRole,
-            isActive: staff.isActive
+            isActive: staff.isActive,
           };
 
           return user;
         } catch (error) {
-          console.error("Admin credentials provider error:", error);
+          console.error('Admin credentials provider error:', error);
           return null;
         }
-      }
-    })
+      },
+    }),
   ],
   session: {
-    strategy: "jwt" as SessionStrategy,
+    strategy: 'jwt' as SessionStrategy,
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider === "google" || account?.provider === "facebook" || account?.provider === "apple") {
+    async signIn({ user, account }) {
+      if (
+        account?.provider === 'google' ||
+        account?.provider === 'facebook' ||
+        account?.provider === 'apple'
+      ) {
         try {
           // Check if customer already exists
           let customer = await prisma.customer.findUnique({
-            where: { email: user.email! }
+            where: { email: user.email! },
           });
 
           if (!customer) {
@@ -187,7 +214,7 @@ export const authOptions: NextAuthOptions = {
                 lastName: user.name?.split(' ').slice(1).join(' ') || '',
                 isActive: true,
                 walletBalance: 0,
-              }
+              },
             });
           }
 
@@ -200,33 +227,37 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, account }) {
-      
       if (user) {
         // Add user type and role to token
         token.userType = user.userType;
-        if (user.userType === "admin") {
+        if (user.userType === 'admin') {
           token.role = user.role;
           token.isActive = user.isActive;
           token.adminId = user.id ? parseInt(user.id) : undefined;
-        } else if (user.userType === "customer" && user.id) {
+        } else if (user.userType === 'customer' && user.id) {
           // For customer credentials, the user.id is the customer ID
           token.customerId = parseInt(user.id);
         }
       }
 
       // Handle OAuth users (Google, Facebook, Apple) - they don't have userType set initially
-      if (account?.provider && (account.provider === "google" || account.provider === "facebook" || account.provider === "apple")) {
+      if (
+        account?.provider &&
+        (account.provider === 'google' ||
+          account.provider === 'facebook' ||
+          account.provider === 'apple')
+      ) {
         if (!token.userType) {
-          token.userType = "customer";
+          token.userType = 'customer';
         }
       }
 
       // Only fetch customer data if we don't already have customerId
-      if (token.userType === "customer" && !token.customerId) {
+      if (token.userType === 'customer' && !token.customerId) {
         try {
           // Get customer record
           const customer = await prisma.customer.findUnique({
-            where: { email: token.email! }
+            where: { email: token.email! },
           });
 
           if (customer) {
@@ -238,34 +269,32 @@ export const authOptions: NextAuthOptions = {
           console.error('Error updating JWT token:', error);
         }
       }
-      
+
       return token;
     },
     async session({ session, token }) {
-      
       // Add user type and role to session
-      session.userType = token.userType as "admin" | "customer";
-      
-      if (token.userType === "admin") {
+      session.userType = token.userType as 'admin' | 'customer';
+
+      if (token.userType === 'admin') {
         session.role = token.role as UserRole;
         session.isActive = token.isActive as boolean;
         session.adminId = token.adminId as number;
-      } else if (token.userType === "customer") {
+      } else if (token.userType === 'customer') {
         session.customerId = token.customerId as number;
         session.walletBalance = token.walletBalance as number;
       }
-      
+
       return session;
-    }
+    },
   },
   pages: {
     signIn: '/registerlogin',
     error: '/registerlogin',
   },
-  debug: process.env.NODE_ENV === "development",
+  debug: process.env.NODE_ENV === 'development',
 };
 
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
-

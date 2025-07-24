@@ -1,28 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { DriverAssignmentStatus, ProcessingStatus, OrderStatus } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
+import { ProcessingStatus, OrderStatus } from '@prisma/client';
 
 // GET - Fetch orders ready for facility team processing
 export async function GET(req: Request) {
   try {
     await requireAuthenticatedAdmin();
-    
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') || 'all';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
-    
+
     const skip = (page - 1) * limit;
 
     // Build where clause based on status
-    const whereClause: any = {
+    const whereClause: {
+      OR?: Array<Record<string, unknown>>;
+      AND?: Array<Record<string, unknown>>;
+    } = {
       // Show orders that have been picked up by driver (PICKUP_COMPLETED status)
       // OR orders that are already at the facility
       OR: [
         {
-          status: OrderStatus.PICKUP_COMPLETED
+          status: OrderStatus.PICKUP_COMPLETED,
         },
         {
           status: {
@@ -31,62 +37,78 @@ export async function GET(req: Request) {
               OrderStatus.PROCESSING_STARTED,
               OrderStatus.PROCESSING_COMPLETED,
               OrderStatus.QUALITY_CHECK,
-              OrderStatus.READY_FOR_DELIVERY
-            ]
-          }
-        }
-      ]
+              OrderStatus.READY_FOR_DELIVERY,
+            ],
+          },
+        },
+      ],
     };
 
     // Filter by processing status if specified
     if (status !== 'all') {
       if (status === 'picked_up') {
-        whereClause.AND = [{
-          status: OrderStatus.PICKUP_COMPLETED,
-          orderProcessing: null // No processing record exists yet
-        }];
+        whereClause.AND = [
+          {
+            status: OrderStatus.PICKUP_COMPLETED,
+            orderProcessing: null, // No processing record exists yet
+          },
+        ];
       } else if (status === 'received') {
-        whereClause.AND = [{
-          status: OrderStatus.RECEIVED_AT_FACILITY,
-          orderProcessing: null // No processing record exists yet
-        }];
+        whereClause.AND = [
+          {
+            status: OrderStatus.RECEIVED_AT_FACILITY,
+            orderProcessing: null, // No processing record exists yet
+          },
+        ];
       } else if (status === 'ready_for_processing') {
-        whereClause.AND = [{
-          status: OrderStatus.RECEIVED_AT_FACILITY,
-          orderProcessing: null // No processing record exists
-        }];
+        whereClause.AND = [
+          {
+            status: OrderStatus.RECEIVED_AT_FACILITY,
+            orderProcessing: null, // No processing record exists
+          },
+        ];
       } else if (status === 'in_processing') {
-        whereClause.AND = [{
-          orderProcessing: {
-            processingStatus: {
-              in: [ProcessingStatus.PENDING, ProcessingStatus.IN_PROGRESS]
-            }
-          }
-        }];
+        whereClause.AND = [
+          {
+            orderProcessing: {
+              processingStatus: {
+                in: [ProcessingStatus.PENDING, ProcessingStatus.IN_PROGRESS],
+              },
+            },
+          },
+        ];
       } else if (status === 'ready_for_delivery') {
-        whereClause.AND = [{
-          orderProcessing: {
-            processingStatus: ProcessingStatus.READY_FOR_DELIVERY
-          }
-        }];
+        whereClause.AND = [
+          {
+            orderProcessing: {
+              processingStatus: ProcessingStatus.READY_FOR_DELIVERY,
+            },
+          },
+        ];
       } else if (status === 'completed') {
-        whereClause.AND = [{
-          orderProcessing: {
-            processingStatus: ProcessingStatus.READY_FOR_DELIVERY
-          }
-        }];
+        whereClause.AND = [
+          {
+            orderProcessing: {
+              processingStatus: ProcessingStatus.READY_FOR_DELIVERY,
+            },
+          },
+        ];
       } else if (status === 'quality_check') {
-        whereClause.AND = [{
-          orderProcessing: {
-            processingStatus: OrderStatus.QUALITY_CHECK
-          }
-        }];
+        whereClause.AND = [
+          {
+            orderProcessing: {
+              processingStatus: OrderStatus.QUALITY_CHECK,
+            },
+          },
+        ];
       } else if (status === 'issue_reported') {
-        whereClause.AND = [{
-          orderProcessing: {
-            processingStatus: ProcessingStatus.ISSUE_REPORTED
-          }
-        }];
+        whereClause.AND = [
+          {
+            orderProcessing: {
+              processingStatus: ProcessingStatus.ISSUE_REPORTED,
+            },
+          },
+        ];
       }
     }
 
@@ -97,10 +119,10 @@ export async function GET(req: Request) {
           { orderNumber: { contains: search, mode: 'insensitive' } },
           { customerFirstName: { contains: search, mode: 'insensitive' } },
           { customerLastName: { contains: search, mode: 'insensitive' } },
-          { customerEmail: { contains: search, mode: 'insensitive' } }
-        ]
+          { customerEmail: { contains: search, mode: 'insensitive' } },
+        ],
       };
-      
+
       if (whereClause.AND) {
         whereClause.AND.push(searchClause);
       } else {
@@ -118,14 +140,14 @@ export async function GET(req: Request) {
               firstName: true,
               lastName: true,
               email: true,
-              phone: true
-            }
+              phone: true,
+            },
           },
           orderServiceMappings: {
             include: {
               service: true,
-              orderItems: true // Include individual order items
-            }
+              orderItems: true, // Include individual order items
+            },
           },
           orderProcessing: {
             include: {
@@ -133,23 +155,23 @@ export async function GET(req: Request) {
                 select: {
                   id: true,
                   firstName: true,
-                  lastName: true
-                }
+                  lastName: true,
+                },
               },
               processingItems: {
                 include: {
                   orderServiceMapping: {
                     include: {
                       service: true,
-                      orderItems: true // Include order items
-                    }
+                      orderItems: true, // Include order items
+                    },
                   },
                   processingItemDetails: {
                     include: {
-                      orderItem: true // Include order item details
-                    }
-                  }
-                }
+                      orderItem: true, // Include order item details
+                    },
+                  },
+                },
               },
               issueReports: {
                 include: {
@@ -157,41 +179,41 @@ export async function GET(req: Request) {
                     select: {
                       id: true,
                       firstName: true,
-                      lastName: true
-                    }
-                  }
-                }
-              }
-            }
+                      lastName: true,
+                    },
+                  },
+                },
+              },
+            },
           },
           driverAssignments: {
             where: {
-              assignmentType: 'pickup'
+              assignmentType: 'pickup',
             },
             include: {
               driver: {
                 select: {
                   id: true,
                   firstName: true,
-                  lastName: true
-                }
-              }
+                  lastName: true,
+                },
+              },
             },
             orderBy: {
-              createdAt: 'desc'
+              createdAt: 'desc',
             },
-            take: 1
-          }
+            take: 1,
+          },
         },
         orderBy: {
-          pickupTime: 'asc'
+          pickupTime: 'asc',
         },
         skip,
-        take: limit
+        take: limit,
       }),
       prisma.order.count({
-        where: whereClause
-      })
+        where: whereClause,
+      }),
     ]);
 
     return NextResponse.json({
@@ -201,17 +223,20 @@ export async function GET(req: Request) {
         page,
         limit,
         total: totalCount,
-        totalPages: Math.ceil(totalCount / limit)
-      }
+        totalPages: Math.ceil(totalCount / limit),
+      },
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to fetch orders" },
+      { error: 'Failed to fetch orders' },
       { status: 500 }
     );
   }
-} 
+}

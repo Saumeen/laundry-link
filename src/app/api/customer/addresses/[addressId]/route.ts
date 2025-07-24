@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
+import {
+  requireAuthenticatedCustomer,
+  createAuthErrorResponse,
+} from '@/lib/auth';
 
 export async function PUT(
   req: Request,
@@ -9,37 +12,31 @@ export async function PUT(
   try {
     // Get authenticated customer
     const customer = await requireAuthenticatedCustomer();
-    const body = await req.json() as any;
+    const body = (await req.json()) as Record<string, unknown>;
     const addressId = parseInt(params.addressId);
 
     // Validate address exists and belongs to customer
     const existingAddress = await prisma.address.findFirst({
-      where: { 
+      where: {
         id: addressId,
-        customerId: customer.id 
-      }
+        customerId: customer.id,
+      },
     });
 
     if (!existingAddress) {
-      return NextResponse.json(
-        { error: "Address not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Address not found' }, { status: 404 });
     }
 
     // Validate required fields
     const { label, locationType, contactNumber } = body;
-    
+
     if (!label?.trim()) {
-      return NextResponse.json(
-        { error: "Label is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Label is required' }, { status: 400 });
     }
 
     if (!contactNumber?.trim()) {
       return NextResponse.json(
-        { error: "Contact number is required" },
+        { error: 'Contact number is required' },
         { status: 400 }
       );
     }
@@ -60,7 +57,7 @@ export async function PUT(
         case 'hotel':
           if (!body.hotelName?.trim() || !body.roomNumber?.trim()) {
             return NextResponse.json(
-              { error: "Hotel name and room number are required" },
+              { error: 'Hotel name and room number are required' },
               { status: 400 }
             );
           }
@@ -73,7 +70,7 @@ export async function PUT(
         case 'home':
           if (!body.house?.trim() || !body.road?.trim()) {
             return NextResponse.json(
-              { error: "House and road are required" },
+              { error: 'House and road are required' },
               { status: 400 }
             );
           }
@@ -86,7 +83,7 @@ export async function PUT(
         case 'flat':
           if (!body.building?.trim() || !body.flatNumber?.trim()) {
             return NextResponse.json(
-              { error: "Building and flat number are required" },
+              { error: 'Building and flat number are required' },
               { status: 400 }
             );
           }
@@ -103,7 +100,7 @@ export async function PUT(
         case 'office':
           if (!body.building?.trim() || !body.officeNumber?.trim()) {
             return NextResponse.json(
-              { error: "Building and office number are required" },
+              { error: 'Building and office number are required' },
               { status: 400 }
             );
           }
@@ -119,7 +116,7 @@ export async function PUT(
 
         default:
           return NextResponse.json(
-            { error: "Invalid location type" },
+            { error: 'Invalid location type' },
             { status: 400 }
           );
       }
@@ -141,24 +138,23 @@ export async function PUT(
         apartment: body.officeNumber?.trim() || null,
         latitude: body.latitude || null,
         longitude: body.longitude || null,
-      }
+      },
     });
 
     return NextResponse.json({
       success: true,
       address: updatedAddress,
-      message: "Address updated successfully"
+      message: 'Address updated successfully',
     });
-
   } catch (error) {
-    console.error("Error updating address:", error);
-    
+    console.error('Error updating address:', error);
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to update address" },
+      { error: 'Failed to update address' },
       { status: 500 }
     );
   }
@@ -175,46 +171,45 @@ export async function DELETE(
 
     // Validate address exists and belongs to customer
     const existingAddress = await prisma.address.findFirst({
-      where: { 
+      where: {
         id: addressId,
-        customerId: customer.id 
-      }
+        customerId: customer.id,
+      },
     });
 
     if (!existingAddress) {
-      return NextResponse.json(
-        { error: "Address not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Address not found' }, { status: 404 });
     }
 
     // Check if this is the default address
     if (existingAddress.isDefault) {
       return NextResponse.json(
-        { error: "Cannot delete default address. Please set another address as default first." },
+        {
+          error:
+            'Cannot delete default address. Please set another address as default first.',
+        },
         { status: 400 }
       );
     }
 
     // Delete the address
     await prisma.address.delete({
-      where: { id: addressId }
+      where: { id: addressId },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Address deleted successfully"
+      message: 'Address deleted successfully',
     });
-
   } catch (error) {
-    console.error("Error deleting address:", error);
-    
+    console.error('Error deleting address:', error);
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to delete address" },
+      { error: 'Failed to delete address' },
       { status: 500 }
     );
   }

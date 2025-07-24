@@ -13,10 +13,8 @@ export default function Providers({ children }: ProvidersProps) {
   return (
     <SessionProvider>
       <LoadingProvider>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <ToastProvider>{children}</ToastProvider>
       </LoadingProvider>
     </SessionProvider>
   );
-} 
+}

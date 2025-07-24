@@ -1,6 +1,9 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +15,7 @@ export async function GET(request: Request) {
 
     if (!serviceId) {
       return NextResponse.json(
-        { error: "Service ID is required" },
+        { error: 'Service ID is required' },
         { status: 400 }
       );
     }
@@ -20,7 +23,7 @@ export async function GET(request: Request) {
     const serviceIdInt = parseInt(serviceId);
     if (isNaN(serviceIdInt)) {
       return NextResponse.json(
-        { error: "Invalid service ID" },
+        { error: 'Invalid service ID' },
         { status: 400 }
       );
     }
@@ -46,36 +49,44 @@ export async function GET(request: Request) {
     });
 
     // Group by category for better organization
-    const groupedPricing = servicePricingMappings.reduce((acc, mapping) => {
-      const category = mapping.pricingItem.category;
-      const categoryKey = category.id.toString();
-      
-      if (!acc[categoryKey]) {
-        acc[categoryKey] = {
-          id: category.id,
-          name: category.name,
-          displayName: category.displayName,
-          items: [],
-        };
-      }
-      
-      acc[categoryKey].items.push({
-        id: mapping.pricingItem.id,
-        name: mapping.pricingItem.name,
-        displayName: mapping.pricingItem.displayName,
-        price: mapping.pricingItem.price,
-        isDefault: mapping.isDefault,
-        sortOrder: mapping.sortOrder,
-      });
-      
-      return acc;
-    }, {} as Record<string, any>);
+    const groupedPricing = servicePricingMappings.reduce(
+      (acc, mapping) => {
+        const category = mapping.pricingItem.category;
+        const categoryKey = category.id.toString();
+
+        if (!acc[categoryKey]) {
+          acc[categoryKey] = {
+            id: category.id,
+            name: category.name,
+            displayName: category.displayName,
+            items: [],
+          };
+        }
+
+        acc[categoryKey].items.push({
+          id: mapping.pricingItem.id,
+          name: mapping.pricingItem.name,
+          displayName: mapping.pricingItem.displayName,
+          price: mapping.pricingItem.price,
+          isDefault: mapping.isDefault,
+          sortOrder: mapping.sortOrder,
+        });
+
+        return acc;
+      },
+      {} as Record<string, any>
+    );
 
     // Convert to array and sort categories
-    const result = Object.values(groupedPricing).sort((a: any, b: any) => {
-      // Sort by category sort order if available, otherwise by display name
-      return (a.sortOrder || 0) - (b.sortOrder || 0) || a.displayName.localeCompare(b.displayName);
-    });
+    const result = Object.values(groupedPricing).sort(
+      (a: { sortOrder: number }, b: { sortOrder: number }) => {
+        // Sort by category sort order if available, otherwise by display name
+        return (
+          (a.sortOrder || 0) - (b.sortOrder || 0) ||
+          a.displayName.localeCompare(b.displayName)
+        );
+      }
+    );
 
     return NextResponse.json({
       success: true,
@@ -85,14 +96,17 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Error fetching service pricing:", error);
+    console.error('Error fetching service pricing:', error);
 
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
 
     return NextResponse.json(
-      { error: "Failed to fetch service pricing" },
+      { error: 'Failed to fetch service pricing' },
       { status: 500 }
     );
   }
@@ -103,7 +117,7 @@ export async function POST(request: Request) {
     // Require admin authentication
     await requireAuthenticatedAdmin();
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       serviceId: string | number;
       pricingItemId: string | number;
       isDefault?: boolean;
@@ -113,7 +127,7 @@ export async function POST(request: Request) {
 
     if (!serviceId || !pricingItemId) {
       return NextResponse.json(
-        { error: "Service ID and pricing item ID are required" },
+        { error: 'Service ID and pricing item ID are required' },
         { status: 400 }
       );
     }
@@ -159,14 +173,17 @@ export async function POST(request: Request) {
       data: mapping,
     });
   } catch (error) {
-    console.error("Error creating service pricing mapping:", error);
+    console.error('Error creating service pricing mapping:', error);
 
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
 
     return NextResponse.json(
-      { error: "Failed to create service pricing mapping" },
+      { error: 'Failed to create service pricing mapping' },
       { status: 500 }
     );
   }
@@ -183,7 +200,7 @@ export async function DELETE(request: Request) {
 
     if (!serviceId || !pricingItemId) {
       return NextResponse.json(
-        { error: "Service ID and pricing item ID are required" },
+        { error: 'Service ID and pricing item ID are required' },
         { status: 400 }
       );
     }
@@ -202,18 +219,21 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Service pricing mapping deleted successfully",
+      message: 'Service pricing mapping deleted successfully',
     });
   } catch (error) {
-    console.error("Error deleting service pricing mapping:", error);
+    console.error('Error deleting service pricing mapping:', error);
 
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
 
     return NextResponse.json(
-      { error: "Failed to delete service pricing mapping" },
+      { error: 'Failed to delete service pricing mapping' },
       { status: 500 }
     );
   }
-} 
+}

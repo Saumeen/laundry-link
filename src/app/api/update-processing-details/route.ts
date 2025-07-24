@@ -1,18 +1,18 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { OrderTrackingService } from "@/lib/orderTracking";
-import { ProcessingStatus } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { OrderTrackingService } from '@/lib/orderTracking';
+import { ProcessingStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { 
-      orderId, 
-      numberOfPieces, 
-      weight, 
-      processingNotes, 
+    const {
+      orderId,
+      numberOfPieces,
+      weight,
+      processingNotes,
       processingStatus,
-      staffId 
+      staffId,
     } = body as {
       orderId: string | number;
       numberOfPieces?: string | number;
@@ -24,29 +24,31 @@ export async function POST(req: Request) {
 
     if (!orderId) {
       return NextResponse.json(
-        { error: "Order ID is required" },
+        { error: 'Order ID is required' },
         { status: 400 }
       );
     }
 
     // Update or create order processing record
     const processingData = {
-      totalPieces: numberOfPieces ? parseInt(numberOfPieces.toString()) : undefined,
+      totalPieces: numberOfPieces
+        ? parseInt(numberOfPieces.toString())
+        : undefined,
       totalWeight: weight ? parseFloat(weight.toString()) : undefined,
       processingNotes: processingNotes,
-      processingStatus: processingStatus || ProcessingStatus.IN_PROGRESS
+      processingStatus: processingStatus || ProcessingStatus.IN_PROGRESS,
     };
 
     const orderProcessing = await prisma.orderProcessing.upsert({
       where: {
-        orderId: parseInt(orderId.toString())
+        orderId: parseInt(orderId.toString()),
       },
       update: processingData,
       create: {
         orderId: parseInt(orderId.toString()),
         staffId: staffId || 1, // Default staff ID if not provided
-        ...processingData
-      }
+        ...processingData,
+      },
     });
 
     // Track the processing update
@@ -60,13 +62,13 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
-      message: "Processing details updated successfully",
-      processing: orderProcessing
+      message: 'Processing details updated successfully',
+      processing: orderProcessing,
     });
   } catch (error) {
-    console.error("Error updating processing details:", error);
+    console.error('Error updating processing details:', error);
     return NextResponse.json(
-      { error: "Failed to update processing details" },
+      { error: 'Failed to update processing details' },
       { status: 500 }
     );
   }

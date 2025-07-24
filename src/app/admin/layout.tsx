@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Admin Panel",
+  title: 'Admin Panel',
 };
 
 export default function AdminLayout({
@@ -7,9 +7,5 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div>
-      {children}
-    </div>
-  );
+  return <div>{children}</div>;
 }

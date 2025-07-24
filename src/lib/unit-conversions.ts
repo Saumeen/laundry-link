@@ -12,7 +12,7 @@ export function formatBDCurrency(amount: number): string {
     style: 'currency',
     currency: 'BHD',
     minimumFractionDigits: 3,
-    maximumFractionDigits: 3
+    maximumFractionDigits: 3,
   }).format(amount);
 }
 

@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: Request) {
   try {
@@ -8,14 +8,14 @@ export async function POST(req: Request) {
 
     if (!token || !password) {
       return NextResponse.json(
-        { error: "Token and password are required" },
+        { error: 'Token and password are required' },
         { status: 400 }
       );
     }
 
     if (password.length < 6) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters long" },
+        { error: 'Password must be at least 6 characters long' },
         { status: 400 }
       );
     }
@@ -29,14 +29,14 @@ export async function POST(req: Request) {
 
     if (!customer) {
       return NextResponse.json(
-        { error: "Invalid or expired token" },
+        { error: 'Invalid or expired token' },
         { status: 404 }
       );
     }
 
     if (customer.isActive) {
       return NextResponse.json(
-        { error: "Account is already activated" },
+        { error: 'Account is already activated' },
         { status: 400 }
       );
     }
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      message: "Account setup completed successfully",
+      message: 'Account setup completed successfully',
       customer: {
         id: updatedCustomer.id,
         firstName: updatedCustomer.firstName,
@@ -66,9 +66,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error("Error setting up account:", error);
+    console.error('Error setting up account:', error);
     return NextResponse.json(
-      { error: "Failed to set up account" },
+      { error: 'Failed to set up account' },
       { status: 500 }
     );
   }

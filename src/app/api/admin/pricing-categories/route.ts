@@ -12,9 +12,9 @@ export async function GET() {
       orderBy: { sortOrder: 'asc' },
       include: {
         _count: {
-          select: { items: true }
-        }
-      }
+          select: { items: true },
+        },
+      },
     });
 
     return NextResponse.json(categories);
@@ -23,7 +23,10 @@ export async function GET() {
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Require SUPER_ADMIN role
     await requireAdminRole('SUPER_ADMIN');
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       name: string;
       displayName: string;
       description?: string;
@@ -43,16 +46,22 @@ export async function POST(request: NextRequest) {
 
     // Validation
     if (!name || !displayName) {
-      return NextResponse.json({ error: 'Name and display name are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Name and display name are required' },
+        { status: 400 }
+      );
     }
 
     // Check if category name already exists
     const existingCategory = await prisma.pricingCategory.findUnique({
-      where: { name }
+      where: { name },
     });
 
     if (existingCategory) {
-      return NextResponse.json({ error: 'Category name already exists' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Category name already exists' },
+        { status: 400 }
+      );
     }
 
     const category = await prisma.pricingCategory.create({
@@ -61,8 +70,8 @@ export async function POST(request: NextRequest) {
         displayName,
         description: description || null,
         sortOrder: sortOrder || 0,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     return NextResponse.json(category, { status: 201 });
@@ -71,6 +80,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
-} 
+}

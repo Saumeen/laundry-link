@@ -1,5 +1,5 @@
 import * as sgMail from '@sendgrid/mail';
-import  prisma from './prisma';
+import prisma from './prisma';
 import { OrderStatus } from '@prisma/client';
 
 // Type definitions
@@ -86,18 +86,18 @@ export default {
     try {
       // Convert service IDs to integers to ensure proper type handling
       const numericServiceIds = serviceIds.map(id => parseInt(id.toString()));
-      
+
       const services = await prisma.service.findMany({
         where: {
           id: {
-            in: numericServiceIds
-          }
+            in: numericServiceIds,
+          },
         },
         select: {
           id: true,
           displayName: true,
-          name: true
-        }
+          name: true,
+        },
       });
 
       // Create mapping of service ID to display name
@@ -111,11 +111,11 @@ export default {
       console.error('Error fetching service names:', error);
       // Fallback to hardcoded mapping
       return {
-        1: "Wash (by weight)",
-        2: "Wash & Iron (by piece)", 
-        3: "Dry Clean (by piece)",
-        4: "Duvet & Bulky Items (by piece)",
-        5: "Carpet Cleaning (by square meter)"
+        1: 'Wash (by weight)',
+        2: 'Wash & Iron (by piece)',
+        3: 'Dry Clean (by piece)',
+        4: 'Duvet & Bulky Items (by piece)',
+        5: 'Carpet Cleaning (by square meter)',
       };
     }
   },
@@ -124,21 +124,26 @@ export default {
    * Send order confirmation to customer
    */
   async sendOrderConfirmationToCustomer(
-    order: OrderWithRelations, 
-    customerEmail: string, 
-    customerName: string, 
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
     orderDetails: OrderDetails
   ): Promise<boolean> {
     try {
       // Get proper service names
       const serviceNames = await this.getServiceNames(orderDetails.services);
-      
-      const servicesHtml = orderDetails.services.map(serviceId => 
-        `<li>${serviceNames[serviceId] || `Service ${serviceId}`}</li>`
-      ).join('');
 
-      const hasSpecialItems = orderDetails.services.some(service => 
-        ['duvet_bulky', 'carpet', 'dry_clean', '4', '5', '3'].includes(service.toString())
+      const servicesHtml = orderDetails.services
+        .map(
+          serviceId =>
+            `<li>${serviceNames[serviceId] || `Service ${serviceId}`}</li>`
+        )
+        .join('');
+
+      const hasSpecialItems = orderDetails.services.some(service =>
+        ['duvet_bulky', 'carpet', 'dry_clean', '4', '5', '3'].includes(
+          service.toString()
+        )
       );
 
       const msg = {
@@ -159,22 +164,28 @@ export default {
               <h3 style="color: #1f2937; margin-top: 0;">Order Details</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
               <p><strong>Customer Name:</strong> ${customerName}</p>
-              <p><strong>Pickup Date/Time:</strong> ${orderDetails.pickupDateTime.toLocaleString('en-GB', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</p>
-              <p><strong>Delivery Date/Time:</strong> ${orderDetails.deliveryDateTime.toLocaleString('en-GB', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</p>
+              <p><strong>Pickup Date/Time:</strong> ${orderDetails.pickupDateTime.toLocaleString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              )}</p>
+              <p><strong>Delivery Date/Time:</strong> ${orderDetails.deliveryDateTime.toLocaleString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              )}</p>
               
               <h4 style="color: #1f2937; margin-bottom: 10px;">Services Selected:</h4>
               <ul style="margin: 0; padding-left: 20px;">
@@ -185,11 +196,15 @@ export default {
               ${order.specialInstructions ? `<p><strong>Special Instructions:</strong> ${order.specialInstructions}</p>` : ''}
             </div>
             
-            ${hasSpecialItems ? `
+            ${
+              hasSpecialItems
+                ? `
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <p style="margin: 0; color: #92400e;"><strong>Please Note:</strong> Duvet, carpet, and dry clean items usually take 72 hours of processing, so the delivery timing might be different from your selected time.</p>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0;">
               <p style="margin: 0; color: #0277bd;"><strong>Important:</strong> The invoice and service value will be available to view once the items are sorted in our facility.</p>
@@ -206,11 +221,13 @@ export default {
               <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
             </div>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
-      console.log(`Order confirmation email sent to customer: ${customerEmail}`);
+      console.log(
+        `Order confirmation email sent to customer: ${customerEmail}`
+      );
       return true;
     } catch (error) {
       console.error('Error sending order confirmation email:', error);
@@ -222,9 +239,9 @@ export default {
    * Send welcome email with login credentials
    */
   async sendWelcomeEmailWithCredentials(
-    customer: any, 
-    customerName: string, 
-    email: string, 
+    customer: any,
+    customerName: string,
+    email: string,
     password: string
   ): Promise<boolean> {
     try {
@@ -274,9 +291,9 @@ export default {
               <p style="color: #6b7280; font-size: 14px;">If you have any questions, feel free to contact us!</p>
             </div>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
       console.log(`Welcome email sent to customer: ${email}`);
       return true;
@@ -290,12 +307,12 @@ export default {
    * Send new order notification to admin
    */
   async sendOrderNotificationToAdmin(
-    order: OrderWithRelations, 
+    order: OrderWithRelations,
     customerDetails: CustomerDetails
   ): Promise<boolean> {
     try {
       const adminEmail = process.env.ADMIN_EMAIL || 'admin@laundrylink.net';
-      
+
       const msg = {
         to: adminEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
@@ -320,9 +337,9 @@ export default {
             
             <p>Please process this order in the admin panel.</p>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
       console.log(`Order notification email sent to admin: ${adminEmail}`);
       return true;
@@ -336,116 +353,129 @@ export default {
    * Send comprehensive status update to customer
    */
   async sendStatusUpdateToCustomer(
-    order: OrderWithRelations, 
-    customerEmail: string, 
-    customerName: string, 
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
     newStatus: string
   ): Promise<boolean> {
     try {
       const statusMessages: Record<string, StatusMessage> = {
         ORDER_PLACED: {
-          subject: "Order Confirmation",
-          message: "We have received your order and it's being prepared for pickup.",
-          color: "#3b82f6",
-          icon: "📋"
+          subject: 'Order Confirmation',
+          message:
+            "We have received your order and it's being prepared for pickup.",
+          color: '#3b82f6',
+          icon: '📋',
         },
         CONFIRMED: {
-          subject: "Order Confirmed",
-          message: "Your order has been confirmed and is being processed.",
-          color: "#10b981",
-          icon: "✅"
+          subject: 'Order Confirmed',
+          message: 'Your order has been confirmed and is being processed.',
+          color: '#10b981',
+          icon: '✅',
         },
         PICKUP_ASSIGNED: {
-          subject: "Pickup Driver Assigned",
-          message: "A driver has been assigned to collect your items.",
-          color: "#8b5cf6",
-          icon: "🚚"
+          subject: 'Pickup Driver Assigned',
+          message: 'A driver has been assigned to collect your items.',
+          color: '#8b5cf6',
+          icon: '🚚',
         },
         PICKUP_IN_PROGRESS: {
-          subject: "Driver on the way for Pickup",
-          message: "Your driver is on the way to collect your laundry. Please have your items ready.",
-          color: "#f59e0b",
-          icon: "🔄"
+          subject: 'Driver on the way for Pickup',
+          message:
+            'Your driver is on the way to collect your laundry. Please have your items ready.',
+          color: '#f59e0b',
+          icon: '🔄',
         },
         PICKUP_COMPLETED: {
-          subject: "Items Picked Up Successfully",
-          message: "Your items have been collected and are on their way to our facility.",
-          color: "#06b6d4",
-          icon: "📦"
+          subject: 'Items Picked Up Successfully',
+          message:
+            'Your items have been collected and are on their way to our facility.',
+          color: '#06b6d4',
+          icon: '📦',
         },
         PICKUP_FAILED: {
-          subject: "Pickup Failed",
-          message: "We were unable to collect your items. We'll reschedule and contact you shortly.",
-          color: "#ef4444",
-          icon: "❌"
+          subject: 'Pickup Failed',
+          message:
+            "We were unable to collect your items. We'll reschedule and contact you shortly.",
+          color: '#ef4444',
+          icon: '❌',
         },
         RECEIVED_AT_FACILITY: {
-          subject: "Items Received at Facility",
-          message: "Your items have been received at our processing facility and are being sorted.",
-          color: "#6366f1",
-          icon: "🏭"
+          subject: 'Items Received at Facility',
+          message:
+            'Your items have been received at our processing facility and are being sorted.',
+          color: '#6366f1',
+          icon: '🏭',
         },
         PROCESSING_STARTED: {
-          subject: "Processing Started",
-          message: "Your items are now being processed. Our facility team is sorting and organizing your laundry items.",
-          color: "#f59e0b",
-          icon: "⚙️"
+          subject: 'Processing Started',
+          message:
+            'Your items are now being processed. Our facility team is sorting and organizing your laundry items.',
+          color: '#f59e0b',
+          icon: '⚙️',
         },
         PROCESSING_COMPLETED: {
-          subject: "Processing Completed",
-          message: "Your items have been processed and are ready for quality check.",
-          color: "#10b981",
-          icon: "✅"
+          subject: 'Processing Completed',
+          message:
+            'Your items have been processed and are ready for quality check.',
+          color: '#10b981',
+          icon: '✅',
         },
         QUALITY_CHECK: {
-          subject: "Quality Check in Progress",
-          message: "Your items are undergoing quality inspection to ensure the best results.",
-          color: "#06b6d4",
-          icon: "🔍"
+          subject: 'Quality Check in Progress',
+          message:
+            'Your items are undergoing quality inspection to ensure the best results.',
+          color: '#06b6d4',
+          icon: '🔍',
         },
         READY_FOR_DELIVERY: {
-          subject: "Invoice Generated - Ready for Delivery",
-          message: "Your items are ready for delivery! Please check your invoice and arrange payment if not already paid.",
-          color: "#059669",
-          icon: "📦"
+          subject: 'Invoice Generated - Ready for Delivery',
+          message:
+            'Your items are ready for delivery! Please check your invoice and arrange payment if not already paid.',
+          color: '#059669',
+          icon: '📦',
         },
         DELIVERY_ASSIGNED: {
-          subject: "Delivery Driver Assigned",
-          message: "A driver has been assigned to deliver your items.",
-          color: "#8b5cf6",
-          icon: "🚚"
+          subject: 'Delivery Driver Assigned',
+          message: 'A driver has been assigned to deliver your items.',
+          color: '#8b5cf6',
+          icon: '🚚',
         },
         DELIVERY_IN_PROGRESS: {
-          subject: "Driver on the way for Delivery",
-          message: "Your driver is on the way to deliver your items. Please be available to receive them.",
-          color: "#f59e0b",
-          icon: "🔄"
+          subject: 'Driver on the way for Delivery',
+          message:
+            'Your driver is on the way to deliver your items. Please be available to receive them.',
+          color: '#f59e0b',
+          icon: '🔄',
         },
         DELIVERED: {
-          subject: "Order Delivered Successfully",
-          message: "Your order has been delivered successfully! Thank you for choosing Laundry Link.",
-          color: "#059669",
-          icon: "🎉"
+          subject: 'Order Delivered Successfully',
+          message:
+            'Your order has been delivered successfully! Thank you for choosing Laundry Link.',
+          color: '#059669',
+          icon: '🎉',
         },
         DELIVERY_FAILED: {
-          subject: "Delivery Failed",
-          message: "We were unable to deliver your items. We'll reschedule and contact you shortly.",
-          color: "#ef4444",
-          icon: "❌"
+          subject: 'Delivery Failed',
+          message:
+            "We were unable to deliver your items. We'll reschedule and contact you shortly.",
+          color: '#ef4444',
+          icon: '❌',
         },
         CANCELLED: {
-          subject: "Order Cancelled",
-          message: "Your order has been cancelled. If you have any questions, please contact us.",
-          color: "#6b7280",
-          icon: "🚫"
-        }
+          subject: 'Order Cancelled',
+          message:
+            'Your order has been cancelled. If you have any questions, please contact us.',
+          color: '#6b7280',
+          icon: '🚫',
+        },
       };
 
       const statusInfo = statusMessages[newStatus] || {
-        subject: "Order Status Update",
+        subject: 'Order Status Update',
         message: `Your order status has been updated to: ${newStatus.replace(/_/g, ' ')}`,
-        color: "#6b7280",
-        icon: "📋"
+        color: '#6b7280',
+        icon: '📋',
       };
 
       const msg = {
@@ -471,14 +501,18 @@ export default {
               <p><strong>Updated:</strong> ${new Date().toLocaleString('en-GB')}</p>
             </div>
             
-            ${newStatus === 'READY_FOR_DELIVERY' ? `
+            ${
+              newStatus === 'READY_FOR_DELIVERY'
+                ? `
             <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0277bd;">
               <h4 style="margin: 0; color: #0277bd;">💳 Payment Information</h4>
               <p style="margin: 10px 0 0 0; color: #0277bd;">
                 Your invoice has been generated. Please check your dashboard to view the invoice and arrange payment if not already paid.
               </p>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://laundrylink.net'}/customer/dashboard" 
@@ -498,11 +532,13 @@ export default {
               <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
             </div>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
-      console.log(`Status update email sent to customer: ${customerEmail} for status: ${newStatus}`);
+      console.log(
+        `Status update email sent to customer: ${customerEmail} for status: ${newStatus}`
+      );
       return true;
     } catch (error) {
       console.error('Error sending status update email:', error);
@@ -514,9 +550,9 @@ export default {
    * Send delivery confirmation with invoice to customer
    */
   async sendDeliveryConfirmationWithInvoice(
-    order: OrderWithRelations, 
-    customerEmail: string, 
-    customerName: string, 
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
     invoiceData: InvoiceData
   ): Promise<boolean> {
     try {
@@ -542,20 +578,27 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString('en-GB', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric'
-              })}</p>
+              <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                }
+              )}</p>
               <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
             </div>
 
-            ${invoiceData?.items && invoiceData.items.length > 0 ? `
+            ${
+              invoiceData?.items && invoiceData.items.length > 0
+                ? `
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Invoice Details</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${invoiceData.items.map(item => `
+                ${invoiceData.items
+                  .map(
+                    item => `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
                     <div>
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
@@ -567,14 +610,18 @@ export default {
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
                     </div>
                   </div>
-                `).join('')}
+                `
+                  )
+                  .join('')}
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
                 <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
               </div>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0277bd;">
               <h4 style="margin: 0; color: #0277bd;">💳 Payment Information</h4>
@@ -608,11 +655,13 @@ export default {
               <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
             </div>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
-      console.log(`Delivery confirmation email with invoice sent to customer: ${customerEmail}`);
+      console.log(
+        `Delivery confirmation email with invoice sent to customer: ${customerEmail}`
+      );
       return true;
     } catch (error) {
       console.error('Error sending delivery confirmation email:', error);
@@ -624,9 +673,9 @@ export default {
    * Send invoice generation notification to customer
    */
   async sendInvoiceGeneratedNotification(
-    order: OrderWithRelations, 
-    customerEmail: string, 
-    customerName: string, 
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
     invoiceData: InvoiceData
   ): Promise<boolean> {
     try {
@@ -652,20 +701,27 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Invoice Date:</strong> ${new Date().toLocaleDateString('en-GB', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric'
-              })}</p>
+              <p><strong>Invoice Date:</strong> ${new Date().toLocaleDateString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                }
+              )}</p>
               <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
             </div>
 
-            ${invoiceData?.items && invoiceData.items.length > 0 ? `
+            ${
+              invoiceData?.items && invoiceData.items.length > 0
+                ? `
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Invoice Details</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${invoiceData.items.map(item => `
+                ${invoiceData.items
+                  .map(
+                    item => `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
                     <div>
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
@@ -677,14 +733,18 @@ export default {
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
                     </div>
                   </div>
-                `).join('')}
+                `
+                  )
+                  .join('')}
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
                 <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
               </div>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h4 style="margin: 0; color: #92400e;">💰 Account Balance Reminder</h4>
@@ -718,11 +778,13 @@ export default {
               <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
             </div>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
-      console.log(`Invoice generation notification sent to customer: ${customerEmail}`);
+      console.log(
+        `Invoice generation notification sent to customer: ${customerEmail}`
+      );
       return true;
     } catch (error) {
       console.error('Error sending invoice generation notification:', error);
@@ -734,9 +796,9 @@ export default {
    * Send processing completed notification to customer
    */
   async sendProcessingCompletedNotification(
-    order: OrderWithRelations, 
-    customerEmail: string, 
-    customerName: string, 
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
     invoiceData: InvoiceData
   ): Promise<boolean> {
     try {
@@ -762,20 +824,27 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Processing Completed:</strong> ${new Date().toLocaleDateString('en-GB', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric'
-              })}</p>
+              <p><strong>Processing Completed:</strong> ${new Date().toLocaleDateString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                }
+              )}</p>
               <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
             </div>
 
-            ${invoiceData?.items && invoiceData.items.length > 0 ? `
+            ${
+              invoiceData?.items && invoiceData.items.length > 0
+                ? `
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Order Details</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${invoiceData.items.map(item => `
+                ${invoiceData.items
+                  .map(
+                    item => `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
                     <div>
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
@@ -787,14 +856,18 @@ export default {
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
                     </div>
                   </div>
-                `).join('')}
+                `
+                  )
+                  .join('')}
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
                 <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
               </div>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h4 style="margin: 0; color: #92400e;">💰 Payment Required for Delivery</h4>
@@ -828,11 +901,13 @@ export default {
               <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
             </div>
           </div>
-        `
+        `,
       };
-      
+
       await sgMail.send(msg);
-      console.log(`Processing completed notification sent to customer: ${customerEmail}`);
+      console.log(
+        `Processing completed notification sent to customer: ${customerEmail}`
+      );
       return true;
     } catch (error) {
       console.error('Error sending processing completed notification:', error);
@@ -843,9 +918,17 @@ export default {
   /**
    * Send welcome email (legacy function for compatibility)
    */
-  async sendWelcomeEmail(customer: any, customerName: string): Promise<boolean> {
+  async sendWelcomeEmail(
+    customer: any,
+    customerName: string
+  ): Promise<boolean> {
     // This is kept for backward compatibility
     // New orders should use sendWelcomeEmailWithCredentials instead
-    return this.sendWelcomeEmailWithCredentials(customer, customerName, customer.email, 'Please contact support for password');
-  }
-}; 
+    return this.sendWelcomeEmailWithCredentials(
+      customer,
+      customerName,
+      customer.email,
+      'Please contact support for password'
+    );
+  },
+};

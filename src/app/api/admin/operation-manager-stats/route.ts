@@ -1,101 +1,101 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAdminRole, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { UserRole } from "@/types/global";
-import { OrderStatus } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // Require OPERATION_MANAGER role
-    await requireAdminRole("OPERATION_MANAGER");
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get admin user to check role
+    const adminUser = await prisma.staff.findUnique({
+      where: { email: session.user.email },
+      include: { role: true },
+    });
+
+    if (
+      !adminUser ||
+      (adminUser.role.name !== 'OPERATION_MANAGER' &&
+        adminUser.role.name !== 'SUPER_ADMIN')
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
     // Get today's date range
     const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Fetch pending orders count
-    const pendingOrders = await prisma.order.count({
-      where: {
-        status: {
-          in: [OrderStatus.ORDER_PLACED, OrderStatus.PROCESSING_STARTED, OrderStatus.READY_FOR_DELIVERY]
-        }
-      }
-    });
+    // Fetch statistics
+    const [pendingOrders, completedOrders, activeDrivers, avgProcessingTime] =
+      await Promise.all([
+        // Pending orders (today)
+        prisma.order.count({
+          where: {
+            createdAt: { gte: today, lt: tomorrow },
+            status: {
+              in: [
+                'ORDER_PLACED',
+                'CONFIRMED',
+                'PICKUP_ASSIGNED',
+                'PICKUP_IN_PROGRESS',
+              ],
+            },
+          },
+        }),
 
-    // Fetch completed orders today
-    const completedToday = await prisma.order.count({
-      where: {
-        status: OrderStatus.DELIVERED,
-        updatedAt: {
-          gte: startOfDay,
-          lte: endOfDay
-        }
-      }
-    });
+        // Completed orders (today)
+        prisma.order.count({
+          where: {
+            createdAt: { gte: today, lt: tomorrow },
+            status: 'DELIVERED',
+          },
+        }),
 
-    // Calculate average processing time (simplified - using time between order creation and delivery)
-    const completedOrders = await prisma.order.findMany({
-      where: {
-        status: OrderStatus.DELIVERED,
-        updatedAt: {
-          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
-        }
-      },
-      select: {
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+        // Active drivers
+        prisma.staff.count({
+          where: {
+            role: { name: 'DRIVER' },
+            isActive: true,
+          },
+        }),
 
-    let avgProcessingTime = 0;
-    if (completedOrders.length > 0) {
-      const totalTime = completedOrders.reduce((acc: number, order: { updatedAt: Date; createdAt: Date }) => {
-        const processingTime = order.updatedAt.getTime() - order.createdAt.getTime();
-        return acc + processingTime;
-      }, 0);
-      avgProcessingTime = totalTime / completedOrders.length / (1000 * 60 * 60); // Convert to hours
-    }
+        // Average processing time (placeholder - would need more complex calculation)
+        Promise.resolve(45), // Placeholder value
+      ]);
 
-    // Fetch active drivers count
-    const activeDrivers = await prisma.staff.count({
-      where: {
-        role: {
-          name: "DRIVER"
-        },
-        isActive: true
-      }
-    });
-
-    // Fetch recent orders
-    const recentOrders = await prisma.order.findMany({
-      take: 10,
-      orderBy: {
-        createdAt: 'desc'
-      },
-      include: {
-        customer: true,
-      }
-    });
+    const stats = {
+      totalOrders: pendingOrders + completedOrders,
+      totalCustomers: 0, // Not needed for operation manager
+      totalRevenue: 0, // Not needed for operation manager
+      activeStaff: 0, // Not needed for operation manager
+      pendingOrders,
+      completedOrders,
+      activeDrivers,
+      avgProcessingTime,
+      averageDeliveryTime: 30, // Placeholder value
+    };
 
     return NextResponse.json({
-      stats: {
-        pendingOrders,
-        completedToday,
-        avgProcessingTime: Math.round(avgProcessingTime * 10) / 10, // Round to 1 decimal
-        activeDrivers
-      },
-      recentOrders
+      success: true,
+      data: stats,
     });
   } catch (error) {
-    console.error('Error fetching operation manager stats:', error || 'Unknown error');
-    
-    if (error instanceof Error && (error.message === 'Admin authentication required' || error.message.includes('Access denied'))) {
-      return createAdminAuthErrorResponse();
-    }
-    
+    console.error('Error fetching operation manager stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch stats' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
-} 
+}

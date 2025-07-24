@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from '@/lib/adminAuth';
+
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
 
 // GET - List all customers with pagination and search
 export async function GET(req: Request) {
@@ -16,8 +19,8 @@ export async function GET(req: Request) {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {};
-    
+    const where: Record<string, unknown> = {};
+
     if (search) {
       where.OR = [
         { email: { contains: search, mode: 'insensitive' } },
@@ -80,7 +83,10 @@ export async function GET(req: Request) {
     });
   } catch (error: unknown) {
     console.error('Error in customers API:', error);
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
     return NextResponse.json(
@@ -94,7 +100,10 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   try {
     await requireAuthenticatedAdmin();
-    const body = await req.json() as { customerId: number; updates: any };
+    const body = (await req.json()) as {
+      customerId: number;
+      updates: Record<string, unknown>;
+    };
     const { customerId, updates } = body;
 
     if (!customerId) {
@@ -105,8 +114,14 @@ export async function PUT(req: Request) {
     }
 
     // Validate updates
-    const allowedFields = ['firstName', 'lastName', 'email', 'phone', 'isActive'];
-    const validUpdates: any = {};
+    const allowedFields = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'isActive',
+    ];
+    const validUpdates: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(updates)) {
       if (allowedFields.includes(key)) {
@@ -155,7 +170,10 @@ export async function PUT(req: Request) {
     });
   } catch (error: unknown) {
     console.error('Error updating customer:', error);
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
     return NextResponse.json(
@@ -191,7 +209,10 @@ export async function DELETE(req: Request) {
     });
   } catch (error: unknown) {
     console.error('Error deactivating customer:', error);
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
     return NextResponse.json(
@@ -199,4 +220,4 @@ export async function DELETE(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

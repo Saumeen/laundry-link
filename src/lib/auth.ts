@@ -1,7 +1,6 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { NextRequest } from "next/server";
-import prisma from "@/lib/prisma";
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
 
 export interface AuthenticatedCustomer {
   id: number;
@@ -19,13 +18,13 @@ export interface AuthenticatedCustomer {
 export async function getAuthenticatedCustomer(): Promise<AuthenticatedCustomer | null> {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.email) {
       return null;
     }
 
     const customer = await prisma.customer.findUnique({
-      where: { email: session.user.email }
+      where: { email: session.user.email },
     });
 
     if (!customer || !customer.isActive) {
@@ -52,11 +51,11 @@ export async function getAuthenticatedCustomer(): Promise<AuthenticatedCustomer 
  */
 export async function requireAuthenticatedCustomer(): Promise<AuthenticatedCustomer> {
   const customer = await getAuthenticatedCustomer();
-  
+
   if (!customer) {
     throw new Error('Authentication required');
   }
-  
+
   return customer;
 }
 
@@ -77,40 +76,38 @@ export async function validateResourceOwnership(
   resourceCustomerId: number
 ): Promise<AuthenticatedCustomer> {
   const customer = await requireAuthenticatedCustomer();
-  
+
   if (customer.id !== resourceCustomerId) {
     throw new Error('Access denied');
   }
-  
+
   return customer;
 }
 
 /**
  * Helper function to create error responses for authentication failures
  */
-export function createAuthErrorResponse(message: string = 'Authentication required') {
-  return new Response(
-    JSON.stringify({ error: message }),
-    {
-      status: 401,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }
-  );
+export function createAuthErrorResponse(
+  message: string = 'Authentication required'
+) {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 }
 
 /**
  * Helper function to create error responses for authorization failures
  */
-export function createForbiddenErrorResponse(message: string = 'Access denied') {
-  return new Response(
-    JSON.stringify({ error: message }),
-    {
-      status: 403,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-} 
+export function createForbiddenErrorResponse(
+  message: string = 'Access denied'
+) {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 403,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+}

@@ -1,7 +1,10 @@
 // src/app/api/admin/order-details/[orderId]/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
 
 export async function GET(
   request: Request,
@@ -12,18 +15,20 @@ export async function GET(
     await requireAuthenticatedAdmin();
 
     const { orderId } = await params;
-    const orderIdOrNumber = orderId;  
+    const orderIdOrNumber = orderId;
     const isNumeric = !isNaN(Number(orderIdOrNumber)) && orderIdOrNumber !== '';
 
     if (!orderIdOrNumber) {
       return NextResponse.json(
-        { error: "Invalid order ID or order number" },
+        { error: 'Invalid order ID or order number' },
         { status: 400 }
       );
     }
 
     const order = await prisma.order.findUnique({
-      where: isNumeric ? { id: parseInt(orderIdOrNumber) } : { orderNumber: orderIdOrNumber },
+      where: isNumeric
+        ? { id: parseInt(orderIdOrNumber) }
+        : { orderNumber: orderIdOrNumber },
       include: {
         customer: true,
         address: true,
@@ -63,25 +68,23 @@ export async function GET(
     });
 
     if (!order) {
-      return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     return NextResponse.json({ order });
   } catch (error) {
-    console.error("Error fetching order details:", error);
+    console.error('Error fetching order details:', error);
 
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
 
     return NextResponse.json(
-      { error: "Failed to fetch order details" },
+      { error: 'Failed to fetch order details' },
       { status: 500 }
     );
   }
 }
-
-

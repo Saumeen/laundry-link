@@ -1,5 +1,11 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, connectAuthEmulator, Auth, browserLocalPersistence, setPersistence } from "firebase/auth";
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import {
+  getAuth,
+  connectAuthEmulator,
+  Auth,
+  browserLocalPersistence,
+  setPersistence,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,8 +17,6 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-
-
 // Debug Firebase configuration (only in development)
 if (process.env.NODE_ENV === 'development') {
   // Debug configuration status without logging sensitive data
@@ -22,23 +26,32 @@ if (process.env.NODE_ENV === 'development') {
 const validateFirebaseConfig = () => {
   const requiredFields = [
     'apiKey',
-    'authDomain', 
+    'authDomain',
     'projectId',
     'storageBucket',
     'messagingSenderId',
-    'appId'
+    'appId',
   ];
-  
-  const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
-  
+
+  const missingFields = requiredFields.filter(
+    field => !firebaseConfig[field as keyof typeof firebaseConfig]
+  );
+
   if (missingFields.length > 0) {
     console.error('Missing Firebase configuration fields:', missingFields);
-    console.error('Please check your .env.local file and ensure all Firebase environment variables are set.');
-    throw new Error(`Missing Firebase configuration: ${missingFields.join(', ')}`);
+    console.error(
+      'Please check your .env.local file and ensure all Firebase environment variables are set.'
+    );
+    throw new Error(
+      `Missing Firebase configuration: ${missingFields.join(', ')}`
+    );
   }
 
   // Additional validation for common issues
-  if (firebaseConfig.authDomain && !firebaseConfig.authDomain.includes('.firebaseapp.com')) {
+  if (
+    firebaseConfig.authDomain &&
+    !firebaseConfig.authDomain.includes('.firebaseapp.com')
+  ) {
     console.warn('Warning: authDomain should end with .firebaseapp.com');
   }
 
@@ -53,7 +66,7 @@ let auth: Auth;
 
 try {
   validateFirebaseConfig();
-  
+
   // Check if Firebase is already initialized
   const existingApps = getApps();
   if (existingApps.length > 0) {
@@ -61,12 +74,11 @@ try {
   } else {
     app = initializeApp(firebaseConfig);
   }
-  
+
   auth = getAuth(app);
-  
+
   // Enable persistence for better user experience
   setPersistence(auth, browserLocalPersistence);
-  
 } catch (error) {
   console.error('Firebase initialization error:', error);
   console.error('Please check:');

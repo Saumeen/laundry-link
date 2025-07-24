@@ -16,60 +16,62 @@ export async function GET(
     }
 
     // Get comprehensive order timeline
-    const [history, updates, driverAssignments, processing] = await Promise.all([
-      prisma.orderHistory.findMany({
-        where: { orderId },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.orderUpdate.findMany({
-        where: { orderId },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.driverAssignment.findMany({
-        where: { orderId },
-        include: {
-          driver: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.orderProcessing.findMany({
-        where: { orderId },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true
-            }
-          }
-        },
-        orderBy: { createdAt: 'desc' }
-      })
-    ]);
+    const [history, updates, driverAssignments, processing] = await Promise.all(
+      [
+        prisma.orderHistory.findMany({
+          where: { orderId },
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.orderUpdate.findMany({
+          where: { orderId },
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.driverAssignment.findMany({
+          where: { orderId },
+          include: {
+            driver: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.orderProcessing.findMany({
+          where: { orderId },
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]
+    );
 
     // Transform and combine all events
     const timeline = [
@@ -82,7 +84,7 @@ export async function GET(
         metadata: h.metadata,
         action: h.action,
         oldValue: h.oldValue,
-        newValue: h.newValue
+        newValue: h.newValue,
       })),
       ...updates.map(u => ({
         id: `update-${u.id}`,
@@ -93,7 +95,7 @@ export async function GET(
         metadata: { notes: u.notes },
         oldStatus: u.oldStatus,
         newStatus: u.newStatus,
-        notes: u.notes
+        notes: u.notes,
       })),
       ...driverAssignments.map(d => ({
         id: `driver-${d.id}`,
@@ -106,8 +108,8 @@ export async function GET(
           status: d.status,
           estimatedTime: d.estimatedTime,
           actualTime: d.actualTime,
-          notes: d.notes
-        }
+          notes: d.notes,
+        },
       })),
       ...processing.map(p => ({
         id: `processing-${p.id}`,
@@ -120,13 +122,15 @@ export async function GET(
           totalPieces: p.totalPieces,
           totalWeight: p.totalWeight,
           processingNotes: p.processingNotes,
-          qualityScore: p.qualityScore
-        }
-      }))
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          qualityScore: p.qualityScore,
+        },
+      })),
+    ].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     return NextResponse.json(timeline);
-
   } catch (error) {
     console.error('Error fetching order history:', error);
     return NextResponse.json(
@@ -149,7 +153,11 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
-    const body = await request.json() as { action?: string; description?: string; metadata?: any };
+    const body = (await request.json()) as {
+      action?: string;
+      description?: string;
+      metadata?: Record<string, unknown>;
+    };
 
     if (!body.action || !body.description) {
       return NextResponse.json(
@@ -165,21 +173,20 @@ export async function POST(
         staffId: admin.id,
         action: body.action,
         description: body.description,
-        metadata: body.metadata ? JSON.stringify(body.metadata) : null
+        metadata: body.metadata ? JSON.stringify(body.metadata) : null,
       },
       include: {
         staff: {
           select: {
             firstName: true,
             lastName: true,
-            email: true
-          }
-        }
-      }
+            email: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(historyEntry);
-
   } catch (error) {
     console.error('Error creating order history entry:', error);
     return NextResponse.json(
@@ -187,4 +194,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

@@ -44,7 +44,8 @@ class GoogleMapsService {
 
     // Check if Google Maps is already loaded
     if (window.google?.maps?.places?.AutocompleteService) {
-      this.autocompleteService = new window.google.maps.places.AutocompleteService();
+      this.autocompleteService =
+        new window.google.maps.places.AutocompleteService();
       this.geocoder = new window.google.maps.Geocoder();
       this.isInitialized = true;
       return;
@@ -63,10 +64,11 @@ class GoogleMapsService {
     // Check if script is already being loaded
     if (document.querySelector('script[src*="maps.googleapis.com"]')) {
       // Wait for existing script to load
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const checkGoogleMaps = () => {
           if (window.google?.maps?.places?.AutocompleteService) {
-            this.autocompleteService = new window.google.maps.places.AutocompleteService();
+            this.autocompleteService =
+              new window.google.maps.places.AutocompleteService();
             this.geocoder = new window.google.maps.Geocoder();
             this.isInitialized = true;
             resolve();
@@ -83,18 +85,19 @@ class GoogleMapsService {
       script.src = `https://maps.googleapis.com/maps/api/js?key=${this.apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
-      
+
       script.onload = () => {
-        this.autocompleteService = new window.google.maps.places.AutocompleteService();
+        this.autocompleteService =
+          new window.google.maps.places.AutocompleteService();
         this.geocoder = new window.google.maps.Geocoder();
         this.isInitialized = true;
         resolve();
       };
-      
+
       script.onerror = () => {
         reject(new Error('Failed to load Google Maps script'));
       };
-      
+
       document.head.appendChild(script);
     });
   }
@@ -102,7 +105,7 @@ class GoogleMapsService {
   // Get address suggestions for autocomplete
   async getAddressSuggestions(input: string): Promise<GoogleMapsAddress[]> {
     await this.initialize();
-    
+
     return new Promise((resolve, reject) => {
       if (!this.autocompleteService) {
         reject(new Error('Autocomplete service not available'));
@@ -112,21 +115,24 @@ class GoogleMapsService {
       const request = {
         input,
         componentRestrictions: { country: 'BH' }, // Restrict to Bahrain
-        types: ['geocode'] // Use geocode for all address types
+        types: ['geocode'], // Use geocode for all address types
       };
-      
+
       this.autocompleteService.getPlacePredictions(
         request,
         (predictions: any, status: any) => {
           if (status === 'OK' && predictions) {
-            const formattedPredictions: GoogleMapsAddress[] = predictions.map((prediction: any) => ({
-              place_id: prediction.place_id,
-              description: prediction.description,
-              structured_formatting: {
-                main_text: prediction.structured_formatting.main_text,
-                secondary_text: prediction.structured_formatting.secondary_text
-              }
-            }));
+            const formattedPredictions: GoogleMapsAddress[] = predictions.map(
+              (prediction: any) => ({
+                place_id: prediction.place_id,
+                description: prediction.description,
+                structured_formatting: {
+                  main_text: prediction.structured_formatting.main_text,
+                  secondary_text:
+                    prediction.structured_formatting.secondary_text,
+                },
+              })
+            );
             resolve(formattedPredictions);
           } else {
             resolve([]);
@@ -146,50 +152,65 @@ class GoogleMapsService {
         return;
       }
 
-      this.geocoder.geocode(
-        { placeId },
-        (results: any, status: any) => {
-          if (status === 'OK' && results && results[0]) {
-            const result = results[0];
-            const addressComponents = result.address_components;
-            
-            // Extract address components
-            const streetNumber = this.getAddressComponent(addressComponents, 'street_number');
-            const route = this.getAddressComponent(addressComponents, 'route');
-            const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
-            const locality = this.getAddressComponent(addressComponents, 'locality');
-            const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
-            const establishment = this.getAddressComponent(addressComponents, 'establishment');
-            
-            // Determine location type based on place types only (do not mix with address components)
-            let locationType = 'flat';
-            if (result.types?.includes('lodging') || result.types?.includes('establishment')) {
-              locationType = 'hotel';
-            } else if (result.types?.includes('premise')) {
-              locationType = 'office';
-            } else if (result.types?.includes('street_address')) {
-              locationType = 'home';
-            }
+      this.geocoder.geocode({ placeId }, (results: any, status: any) => {
+        if (status === 'OK' && results && results[0]) {
+          const result = results[0];
+          const addressComponents = result.address_components;
 
-            const geocodingResult: GeocodingResult = {
-              address: `${streetNumber || ''} ${route || ''}`.trim(),
-              city: locality || administrativeArea || 'Bahrain',
-              area: route || sublocality || '',
-              building: streetNumber || establishment || '',
-              floor: '',
-              apartment: '',
-              latitude: result.geometry.location.lat(),
-              longitude: result.geometry.location.lng(),
-              formatted_address: result.formatted_address,
-              locationType: locationType
-            };
+          // Extract address components
+          const streetNumber = this.getAddressComponent(
+            addressComponents,
+            'street_number'
+          );
+          const route = this.getAddressComponent(addressComponents, 'route');
+          const sublocality = this.getAddressComponent(
+            addressComponents,
+            'sublocality'
+          );
+          const locality = this.getAddressComponent(
+            addressComponents,
+            'locality'
+          );
+          const administrativeArea = this.getAddressComponent(
+            addressComponents,
+            'administrative_area_level_1'
+          );
+          const establishment = this.getAddressComponent(
+            addressComponents,
+            'establishment'
+          );
 
-            resolve(geocodingResult);
-          } else {
-            resolve(null);
+          // Determine location type based on place types only (do not mix with address components)
+          let locationType = 'flat';
+          if (
+            result.types?.includes('lodging') ||
+            result.types?.includes('establishment')
+          ) {
+            locationType = 'hotel';
+          } else if (result.types?.includes('premise')) {
+            locationType = 'office';
+          } else if (result.types?.includes('street_address')) {
+            locationType = 'home';
           }
+
+          const geocodingResult: GeocodingResult = {
+            address: `${streetNumber || ''} ${route || ''}`.trim(),
+            city: locality || administrativeArea || 'Bahrain',
+            area: route || sublocality || '',
+            building: streetNumber || establishment || '',
+            floor: '',
+            apartment: '',
+            latitude: result.geometry.location.lat(),
+            longitude: result.geometry.location.lng(),
+            formatted_address: result.formatted_address,
+            locationType: locationType,
+          };
+
+          resolve(geocodingResult);
+        } else {
+          resolve(null);
         }
-      );
+      });
     });
   }
 
@@ -205,7 +226,9 @@ class GoogleMapsService {
   }
 
   // Helper method to remove duplicate predictions based on place_id
-  private removeDuplicatePredictions(predictions: GoogleMapsAddress[]): GoogleMapsAddress[] {
+  private removeDuplicatePredictions(
+    predictions: GoogleMapsAddress[]
+  ): GoogleMapsAddress[] {
     const seen = new Set<string>();
     return predictions.filter(prediction => {
       if (seen.has(prediction.place_id)) {
@@ -217,7 +240,10 @@ class GoogleMapsService {
   }
 
   // Reverse geocoding from coordinates
-  async reverseGeocode(lat: number, lng: number): Promise<GeocodingResult | null> {
+  async reverseGeocode(
+    lat: number,
+    lng: number
+  ): Promise<GeocodingResult | null> {
     await this.initialize();
 
     return new Promise((resolve, reject) => {
@@ -232,17 +258,35 @@ class GoogleMapsService {
           if (status === 'OK' && results && results[0]) {
             const result = results[0];
             const addressComponents = result.address_components;
-            
-            const streetNumber = this.getAddressComponent(addressComponents, 'street_number');
+
+            const streetNumber = this.getAddressComponent(
+              addressComponents,
+              'street_number'
+            );
             const route = this.getAddressComponent(addressComponents, 'route');
-            const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
-            const locality = this.getAddressComponent(addressComponents, 'locality');
-            const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
-            const establishment = this.getAddressComponent(addressComponents, 'establishment');
+            const sublocality = this.getAddressComponent(
+              addressComponents,
+              'sublocality'
+            );
+            const locality = this.getAddressComponent(
+              addressComponents,
+              'locality'
+            );
+            const administrativeArea = this.getAddressComponent(
+              addressComponents,
+              'administrative_area_level_1'
+            );
+            const establishment = this.getAddressComponent(
+              addressComponents,
+              'establishment'
+            );
 
             // Determine location type based on place types only (do not mix with address components)
             let locationType = 'flat';
-            if (result.types?.includes('lodging') || result.types?.includes('establishment')) {
+            if (
+              result.types?.includes('lodging') ||
+              result.types?.includes('establishment')
+            ) {
               locationType = 'hotel';
             } else if (result.types?.includes('premise')) {
               locationType = 'office';
@@ -260,7 +304,7 @@ class GoogleMapsService {
               latitude: lat,
               longitude: lng,
               formatted_address: result.formatted_address,
-              locationType: locationType
+              locationType: locationType,
             };
 
             resolve(geocodingResult);
@@ -276,4 +320,4 @@ class GoogleMapsService {
 // Create singleton instance
 const googleMapsService = new GoogleMapsService();
 
-export default googleMapsService; 
+export default googleMapsService;

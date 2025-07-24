@@ -13,9 +13,9 @@ export async function GET() {
       include: {
         category: true,
         _count: {
-          select: { servicePricingMappings: true }
-        }
-      }
+          select: { servicePricingMappings: true },
+        },
+      },
     });
 
     return NextResponse.json(items);
@@ -24,7 +24,10 @@ export async function GET() {
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -34,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Require SUPER_ADMIN role
     await requireAdminRole('SUPER_ADMIN');
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       name: string;
       displayName: string;
       price: string | number;
@@ -42,29 +45,39 @@ export async function POST(request: NextRequest) {
       sortOrder?: number;
       categoryId: string | number;
     };
-    const { name, displayName, price, description, sortOrder, categoryId } = body;
+    const { name, displayName, price, description, sortOrder, categoryId } =
+      body;
 
     // Validation
     if (!name || !displayName || !price || !categoryId) {
-      return NextResponse.json({ error: 'Name, display name, price, and category are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Name, display name, price, and category are required' },
+        { status: 400 }
+      );
     }
 
     // Check if item name already exists
     const existingItem = await prisma.pricingItem.findFirst({
-      where: { name }
+      where: { name },
     });
 
     if (existingItem) {
-      return NextResponse.json({ error: 'Item name already exists' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Item name already exists' },
+        { status: 400 }
+      );
     }
 
     // Check if category exists
     const category = await prisma.pricingCategory.findUnique({
-      where: { id: parseInt(categoryId.toString()) }
+      where: { id: parseInt(categoryId.toString()) },
     });
 
     if (!category) {
-      return NextResponse.json({ error: 'Category not found' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Category not found' },
+        { status: 400 }
+      );
     }
 
     const item = await prisma.pricingItem.create({
@@ -75,11 +88,11 @@ export async function POST(request: NextRequest) {
         description: description || null,
         sortOrder: sortOrder || 0,
         categoryId: parseInt(categoryId.toString()),
-        isActive: true
+        isActive: true,
       },
       include: {
-        category: true
-      }
+        category: true,
+      },
     });
 
     return NextResponse.json(item, { status: 201 });
@@ -88,6 +101,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
-} 
+}

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, memo } from "react";
-import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
-import { AdminUser, UserRole } from "@/types/global";
-import PageTransition from "@/components/ui/PageTransition";
-import AnalyticsDashboard from "@/components/admin/AnalyticsDashboard";
+import { useState, useEffect, useCallback, memo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
+import { AdminUser, UserRole } from '@/types/global';
+import PageTransition from '@/components/ui/PageTransition';
+import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 
 interface ReportData {
   // Revenue Analytics
@@ -19,7 +19,7 @@ interface ReportData {
       fill?: boolean;
     }>;
   };
-  
+
   // Order Analytics
   orderStatusData: {
     labels: string[];
@@ -30,7 +30,7 @@ interface ReportData {
       borderWidth: number;
     }>;
   };
-  
+
   // Customer Analytics
   customerGrowthData: {
     labels: string[];
@@ -42,7 +42,7 @@ interface ReportData {
       fill?: boolean;
     }>;
   };
-  
+
   // Service Analytics
   serviceUsageData: {
     labels: string[];
@@ -54,7 +54,7 @@ interface ReportData {
       borderWidth: number;
     }>;
   };
-  
+
   // Staff Performance
   staffPerformanceData: {
     labels: string[];
@@ -78,7 +78,7 @@ interface ReportData {
       borderWidth: number;
     }>;
   };
-  
+
   // Summary Stats
   summaryStats: {
     totalRevenue: number;
@@ -93,33 +93,61 @@ interface ReportData {
 }
 
 // Export Button Component
-const ExportButton = memo(({ 
-  onClick, 
-  isLoading = false 
-}: {
-  onClick: () => void;
-  isLoading?: boolean;
-}) => (
-  <button
-    onClick={onClick}
-    disabled={isLoading}
-    className={`bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-200 flex items-center space-x-2 ${
-      isLoading ? 'opacity-75 cursor-not-allowed' : ''
-    }`}
-  >
-    {isLoading ? (
-      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-    ) : (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    )}
-    <span>{isLoading ? 'Exporting...' : 'Export Report'}</span>
-  </button>
-));
+const ExportButton = memo(
+  ({
+    onClick,
+    isLoading = false,
+  }: {
+    onClick: () => void;
+    isLoading?: boolean;
+  }) => (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className={`bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-200 flex items-center space-x-2 ${
+        isLoading ? 'opacity-75 cursor-not-allowed' : ''
+      }`}
+    >
+      {isLoading ? (
+        <svg
+          className='animate-spin -ml-1 mr-2 h-4 w-4 text-white'
+          xmlns='http://www.w3.org/2000/svg'
+          fill='none'
+          viewBox='0 0 24 24'
+        >
+          <circle
+            className='opacity-25'
+            cx='12'
+            cy='12'
+            r='10'
+            stroke='currentColor'
+            strokeWidth='4'
+          ></circle>
+          <path
+            className='opacity-75'
+            fill='currentColor'
+            d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+          ></path>
+        </svg>
+      ) : (
+        <svg
+          className='w-4 h-4'
+          fill='none'
+          stroke='currentColor'
+          viewBox='0 0 24 24'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={2}
+            d='M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+          />
+        </svg>
+      )}
+      <span>{isLoading ? 'Exporting...' : 'Export Report'}</span>
+    </button>
+  )
+);
 
 ExportButton.displayName = 'ExportButton';
 
@@ -138,7 +166,9 @@ export default function ReportsPage() {
   const fetchReports = useCallback(async () => {
     try {
       setDataLoading(true);
-      const response = await fetch(`/api/admin/super-admin/reports?range=${dateRange}`);
+      const response = await fetch(
+        `/api/admin/super-admin/reports?range=${dateRange}`
+      );
       if (response.ok) {
         const data: ReportData = await response.json();
         // Validate the data structure before setting it
@@ -152,8 +182,7 @@ export default function ReportsPage() {
         // Handle failed request
         setReportData(null);
       }
-    } catch (error) {
-      // Handle network error
+    } catch {
       setReportData(null);
     } finally {
       setDataLoading(false);
@@ -162,7 +191,7 @@ export default function ReportsPage() {
 
   // Memoized logout handler
   const handleLogout = useCallback(() => {
-    signOut({ callbackUrl: "/admin/login" });
+    signOut({ callbackUrl: '/admin/login' });
   }, []);
 
   // Memoized navigation handler
@@ -174,10 +203,13 @@ export default function ReportsPage() {
   const handleExportReport = useCallback(async () => {
     try {
       setExportLoading(true);
-      const response = await fetch(`/api/admin/super-admin/reports/export?range=${dateRange}&format=${exportFormat}`, {
-        method: 'POST',
-      });
-      
+      const response = await fetch(
+        `/api/admin/super-admin/reports/export?range=${dateRange}&format=${exportFormat}`,
+        {
+          method: 'POST',
+        }
+      );
+
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -193,37 +225,36 @@ export default function ReportsPage() {
         // Handle export failure
         console.error('Export failed:', response.statusText);
       }
-    } catch (error) {
-      // Handle export error
-      console.error('Export error:', error);
+    } catch {
+      console.error('Export error');
     } finally {
       setExportLoading(false);
     }
   }, [dateRange, exportFormat]);
 
   useEffect(() => {
-    if (status === "loading") {
+    if (status === 'loading') {
       return;
     }
 
-    if (status === "unauthenticated") {
-      router.push("/admin/login");
+    if (status === 'unauthenticated') {
+      router.push('/admin/login');
       return;
     }
 
-    if (session?.userType !== "admin" || session?.role !== "SUPER_ADMIN") {
-      router.push("/admin/login");
+    if (session?.userType !== 'admin' || session?.role !== 'SUPER_ADMIN') {
+      router.push('/admin/login');
       return;
     }
 
     const user: AdminUser = {
       id: session.adminId || 0,
-      email: session.user?.email || "",
-      firstName: session.user?.name?.split(" ")[0] || "",
-      lastName: session.user?.name?.split(" ").slice(1).join(" ") || "",
+      email: session.user?.email || '',
+      firstName: session.user?.name?.split(' ')[0] || '',
+      lastName: session.user?.name?.split(' ').slice(1).join(' ') || '',
       role: session.role as UserRole,
       isActive: session.isActive || false,
-      lastLoginAt: undefined
+      lastLoginAt: undefined,
     };
 
     setAdminUser(user);
@@ -236,10 +267,10 @@ export default function ReportsPage() {
     }
   }, [loading, adminUser, fetchReports]);
 
-  if (loading || status === "loading") {
+  if (loading || status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className='min-h-screen flex items-center justify-center'>
+        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600'></div>
       </div>
     );
   }
@@ -250,48 +281,63 @@ export default function ReportsPage() {
 
   return (
     <PageTransition>
-      <div className="min-h-screen bg-gray-100">
+      <div className='min-h-screen bg-gray-100'>
         {/* Header */}
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center space-x-4">
+        <header className='bg-white shadow-sm border-b'>
+          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+            <div className='flex justify-between items-center h-16'>
+              <div className='flex items-center space-x-4'>
                 <button
                   onClick={handleBackToDashboard}
-                  className="text-gray-600 hover:text-gray-900"
+                  className='text-gray-600 hover:text-gray-900'
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  <svg
+                    className='w-6 h-6'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M15 19l-7-7 7-7'
+                    />
                   </svg>
                 </button>
-                <h1 className="text-2xl font-bold text-gray-900">Analytics & Reports</h1>
+                <h1 className='text-2xl font-bold text-gray-900'>
+                  Analytics & Reports
+                </h1>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className='flex items-center space-x-4'>
                 <select
                   value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  onChange={e => setDateRange(e.target.value)}
+                  className='border border-gray-300 rounded-md px-3 py-2 text-sm'
                 >
-                  <option value="7">Last 7 days</option>
-                  <option value="30">Last 30 days</option>
-                  <option value="90">Last 90 days</option>
-                  <option value="365">Last year</option>
+                  <option value='7'>Last 7 days</option>
+                  <option value='30'>Last 30 days</option>
+                  <option value='90'>Last 90 days</option>
+                  <option value='365'>Last year</option>
                 </select>
                 <select
                   value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value)}
-                  className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  onChange={e => setExportFormat(e.target.value)}
+                  className='border border-gray-300 rounded-md px-3 py-2 text-sm'
                 >
-                  <option value="csv">CSV Export</option>
-                  <option value="json">JSON Export</option>
+                  <option value='csv'>CSV Export</option>
+                  <option value='json'>JSON Export</option>
                 </select>
-                <ExportButton onClick={handleExportReport} isLoading={exportLoading} />
-                <span className="text-sm text-gray-600">
+                <ExportButton
+                  onClick={handleExportReport}
+                  isLoading={exportLoading}
+                />
+                <span className='text-sm text-gray-600'>
                   Welcome, {adminUser.firstName} {adminUser.lastName}
                 </span>
                 <button
                   onClick={handleLogout}
-                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                  className='bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700'
                 >
                   Logout
                 </button>
@@ -301,17 +347,17 @@ export default function ReportsPage() {
         </header>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <AnalyticsDashboard 
+        <main className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
+          <div className='px-4 py-6 sm:px-0'>
+            <AnalyticsDashboard
               key={`dashboard-${dateRange}`}
-              data={reportData || {}} 
-              isLoading={dataLoading} 
-              dateRange={dateRange} 
+              data={reportData || {}}
+              isLoading={dataLoading}
+              dateRange={dateRange}
             />
           </div>
         </main>
       </div>
     </PageTransition>
   );
-} 
+}
