@@ -459,6 +459,25 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    // Filter out delivery assignments where order status is DELIVERED and delivery is completed
+    where.OR = [
+      // Include all non-delivery assignments
+      { assignmentType: { not: 'delivery' } },
+      // Include delivery assignments that are not completed
+      { 
+        assignmentType: 'delivery',
+        status: { not: 'COMPLETED' }
+      },
+      // Include delivery assignments that are completed but order is not delivered
+      {
+        assignmentType: 'delivery',
+        status: 'COMPLETED',
+        order: {
+          status: { not: 'DELIVERED' }
+        }
+      }
+    ];
+
     const assignments = await prisma.driverAssignment.findMany({
       where,
       include: {

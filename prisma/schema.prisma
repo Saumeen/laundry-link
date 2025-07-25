@@ -300,6 +300,7 @@ model ProcessingItemDetail {
   // Relations
   processingItem      ProcessingItem @relation(fields: [processingItemId], references: [id], onDelete: Cascade)
   orderItem           OrderItem @relation(fields: [orderItemId], references: [id])
+  issueReports        IssueReport[]
 
   @@map("processing_item_details")
 }
@@ -308,18 +309,20 @@ model IssueReport {
   id                  Int      @id @default(autoincrement())
   orderProcessingId   Int
   staffId             Int
+  processingItemDetailId Int?  // Link to specific processing item detail
   issueType           String   // 'damage', 'stain', 'missing_item', 'wrong_item', 'other'
   description         String
   severity            String   // 'low', 'medium', 'high', 'critical'
   status              IssueStatus @default(REPORTED)
   resolution          String?
-  photoUrl            String?
+  images              String[] // Array of image URLs for issue photos
   reportedAt          DateTime @default(now())
   resolvedAt          DateTime?
   
   // Relations
   orderProcessing     OrderProcessing @relation(fields: [orderProcessingId], references: [id], onDelete: Cascade)
   staff               Staff    @relation(fields: [staffId], references: [id])
+  processingItemDetail ProcessingItemDetail? @relation(fields: [processingItemDetailId], references: [id], onDelete: Cascade)
 
   @@map("issue_reports")
 }

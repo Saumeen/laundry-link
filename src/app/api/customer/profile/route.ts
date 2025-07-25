@@ -22,6 +22,7 @@ export async function GET() {
         walletBalance: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
       },
     });
 
@@ -98,6 +99,7 @@ export async function PUT(request: Request) {
         walletBalance: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
       },
     });
 

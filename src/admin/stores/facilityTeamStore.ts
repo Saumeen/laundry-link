@@ -22,6 +22,19 @@ export interface ProcessingItemDetail {
   processingNotes?: string;
   qualityScore?: number;
   orderItem: OrderItem;
+  issueReports?: Array<{
+    id: number;
+    issueType: string;
+    description: string;
+    severity: string;
+    status: string;
+    images: string[];
+    reportedAt: string;
+    staff: {
+      firstName: string;
+      lastName: string;
+    };
+  }>;
 }
 
 export interface Service {
@@ -104,6 +117,10 @@ export interface ItemProcessingData {
   status: string;
   processingNotes: string;
   qualityScore: string;
+  issueImages?: string[]; // Array of base64 image strings
+  issueType?: string;
+  issueDescription?: string;
+  issueSeverity?: string;
 }
 
 export interface FacilityTeamState {
@@ -138,6 +155,14 @@ export interface FacilityTeamState {
     processingItemDetailId: number,
     data: ItemProcessingData
   ) => Promise<void>;
+  uploadIssueImages: (
+    processingItemDetailId: number,
+    images: string[],
+    issueType: string,
+    description: string,
+    severity: string
+  ) => Promise<void>;
+  fetchIssueReports: (processingItemDetailId: number) => Promise<void>;
   startProcessing: (orderId: number) => Promise<void>;
   markAsReadyForDelivery: (orderId: number) => Promise<void>;
   generateInvoice: (orderId: number) => Promise<void>;
@@ -360,6 +385,83 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
               success: false,
             },
           });
+        }
+      },
+
+      uploadIssueImages: async (
+        processingItemDetailId: number,
+        images: string[],
+        issueType: string,
+        description: string,
+        severity: string
+      ) => {
+        set({ itemForm: { loading: true, error: null, success: false } });
+        try {
+          const response = await fetch('/api/admin/facility-team/issue-images', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              processingItemDetailId,
+              images,
+              issueType,
+              description,
+              severity,
+            }),
+          });
+
+          if (response.ok) {
+            set({
+              itemForm: { loading: false, error: null, success: true },
+              showItemModal: false,
+            });
+            // Refresh the order to get updated data
+            const order = get().order;
+            if (order) {
+              await get().fetchOrder(order.id.toString());
+            }
+          } else {
+            const errorData = await response.json() as { error?: string };
+            set({
+              itemForm: {
+                loading: false,
+                error: errorData.error || 'Failed to upload issue images',
+                success: false,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Error uploading issue images:', error);
+          set({
+            itemForm: {
+              loading: false,
+              error: 'An error occurred while uploading issue images',
+              success: false,
+            },
+          });
+        }
+      },
+
+      fetchIssueReports: async (processingItemDetailId: number) => {
+        try {
+          const response = await fetch(`/api/admin/facility-team/issue-reports/${processingItemDetailId}`);
+          
+          if (response.ok) {
+            const data = await response.json() as { issueReports: any[] };
+            // Update the selected item detail with issue reports
+            const currentSelectedItemDetail = get().selectedItemDetail;
+            if (currentSelectedItemDetail && currentSelectedItemDetail.id === processingItemDetailId) {
+              set({
+                selectedItemDetail: {
+                  ...currentSelectedItemDetail,
+                  issueReports: data.issueReports,
+                },
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching issue reports:', error);
         }
       },
 

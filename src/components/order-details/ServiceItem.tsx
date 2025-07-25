@@ -31,6 +31,24 @@ export function ServiceItem({ item, isVerified = false }: ServiceItemProps) {
         {item.notes && (
           <p className='text-sm text-gray-600 mt-1 italic'>"{item.notes}"</p>
         )}
+        
+        {/* Show pricing details only for invoice items */}
+        {isVerified && (
+          <div className='mt-3 flex items-center space-x-4 text-sm'>
+            <div className='flex items-center space-x-2'>
+              <span className='text-gray-500'>Qty:</span>
+              <span className='font-medium text-gray-700'>{item.quantity}</span>
+            </div>
+            <div className='flex items-center space-x-2'>
+              <span className='text-gray-500'>Unit Price:</span>
+              <span className='font-medium text-gray-700'>{item.unitPrice.toFixed(3)} BD</span>
+            </div>
+            <div className='flex items-center space-x-2'>
+              <span className='text-gray-500'>Total:</span>
+              <span className='font-semibold text-blue-600'>{item.totalPrice.toFixed(3)} BD</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

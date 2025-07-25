@@ -191,7 +191,7 @@ export const formatDateOnly = (dateString: string | Date): string => {
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'BHD',
   }).format(amount);
 };
 

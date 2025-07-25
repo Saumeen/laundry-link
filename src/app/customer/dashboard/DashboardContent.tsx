@@ -199,8 +199,8 @@ const DashboardContent: React.FC = () => {
                   <div className='flex items-center'>
                     <div className='flex-shrink-0'>
                       <div className='h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center'>
-                        <span className='text-white font-semibold text-xs'>
-                          #{order.orderNumber}
+                        <span className='text-white font-semibold text-lg'>
+                          📦
                         </span>
                       </div>
                     </div>

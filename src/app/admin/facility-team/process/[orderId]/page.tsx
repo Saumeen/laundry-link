@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Plus, CheckCircle, AlertCircle, Clock } from 'lucide-react';
@@ -19,6 +19,10 @@ export default function ProcessOrderPage() {
   const { data: session, status } = useSession();
   const { showToast } = useToast();
   const { user, isLoading: authLoading, isAuthorized } = useFacilityTeamAuth();
+
+  // State for image uploads
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
 
   // Zustand store
   const {
@@ -39,6 +43,8 @@ export default function ProcessOrderPage() {
     fetchServicePricing,
     addOrderItem,
     updateItemProcessing,
+    uploadIssueImages,
+    fetchIssueReports,
     startProcessing,
     markAsReadyForDelivery,
     generateInvoice,
@@ -180,19 +186,77 @@ export default function ProcessOrderPage() {
     }
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedImages((prev: File[]) => [...prev, ...files]);
+    
+    // Create preview URLs
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreviewUrls((prev: string[]) => [...prev, e.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev: File[]) => prev.filter((_: File, i: number) => i !== index));
+    setImagePreviewUrls((prev: string[]) => prev.filter((_: string, i: number) => i !== index));
+  };
+
+  const convertImagesToBase64 = async (files: File[]): Promise<string[]> => {
+    return Promise.all(
+      files.map(file => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            resolve(e.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+        });
+      })
+    );
+  };
+
   const handleUpdateItemProcessing = async () => {
     if (!selectedItemDetail || !order?.id) return;
 
     try {
-      await updateItemProcessing(
-        orderId,
-        selectedItemDetail.id,
-        itemProcessingData
-      );
-      showToast('Item processing updated successfully!', 'success');
+      // If status is ISSUE_REPORTED and images are selected, upload them first
+      if (itemProcessingData.status === 'ISSUE_REPORTED' && selectedImages.length > 0) {
+        const base64Images = await convertImagesToBase64(selectedImages);
+        await uploadIssueImages(
+          selectedItemDetail.id,
+          base64Images,
+          itemProcessingData.issueType || 'damage',
+          itemProcessingData.issueDescription || itemProcessingData.processingNotes || 'Issue reported',
+          itemProcessingData.issueSeverity || 'medium'
+        );
+        showToast('Issue report with images uploaded successfully!', 'success');
+      } else {
+        // Regular update without images
+        await updateItemProcessing(
+          orderId,
+          selectedItemDetail.id,
+          itemProcessingData
+        );
+        showToast('Item processing updated successfully!', 'success');
+      }
+      
+      // Clear image state
+      setSelectedImages([]);
+      setImagePreviewUrls([]);
     } catch (error) {
       showToast('Failed to update item processing. Please try again.', 'error');
     }
+  };
+
+  // Clear image state when modal is closed
+  const handleCloseItemModal = () => {
+    closeItemModal();
+    setSelectedImages([]);
+    setImagePreviewUrls([]);
   };
 
   const handleGenerateInvoice = async () => {
@@ -261,6 +325,8 @@ export default function ProcessOrderPage() {
       if (processingDetail) {
         // Open the modal for the newly created processing detail
         openItemModal(processingDetail);
+        // Fetch issue reports for this item
+        await fetchIssueReports(processingDetail.id);
       } else {
         showToast(
           'Failed to create processing item for this order item',
@@ -332,13 +398,7 @@ export default function ProcessOrderPage() {
     return order?.invoiceGenerated === true;
   };
 
-  const canGenerateInvoice = () => {
-    // Can generate invoice if order is received at facility or processing has started
-    return (
-      order?.status === 'RECEIVED_AT_FACILITY' ||
-      (order?.orderProcessing && order.orderProcessing.processingStatus)
-    );
-  };
+
 
   const canMarkProcessingCompleted = () => {
     return (
@@ -604,8 +664,8 @@ export default function ProcessOrderPage() {
                   </ul>
                 </div>
 
-                {/* Invoice Generation Section - Always visible when order is at facility */}
-                {canGenerateInvoice() && (
+                {/* Invoice Generation Section - Always visible when order has items */}
+                {hasOrderItems() && (
                   <div className='bg-blue-50 p-4 rounded-lg'>
                     <h3 className='font-medium text-gray-900 mb-2 flex items-center'>
                       <span>Invoice Management</span>
@@ -834,11 +894,14 @@ export default function ProcessOrderPage() {
                                 </span>
                               )}
                               <button
-                                onClick={() =>
-                                  processingDetail
-                                    ? openItemModal(processingDetail)
-                                    : startProcessingForItem(item)
-                                }
+                                onClick={async () => {
+                                  if (processingDetail) {
+                                    openItemModal(processingDetail);
+                                    await fetchIssueReports(processingDetail.id);
+                                  } else {
+                                    await startProcessingForItem(item);
+                                  }
+                                }}
                                 disabled={itemForm.loading}
                                 className='text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed'
                               >
@@ -1181,6 +1244,60 @@ export default function ProcessOrderPage() {
                     {selectedItemDetail.orderItem.itemName}
                   </p>
                 </div>
+
+                {/* Existing Issue Reports */}
+                {selectedItemDetail.issueReports && selectedItemDetail.issueReports.length > 0 && (
+                  <div>
+                    <label className='block text-sm font-medium text-gray-700 mb-2'>
+                      Existing Issue Reports
+                    </label>
+                    <div className='space-y-3 max-h-32 overflow-y-auto'>
+                      {selectedItemDetail.issueReports.map((report, index) => (
+                        <div key={report.id} className='bg-red-50 border border-red-200 rounded-md p-3'>
+                          <div className='flex justify-between items-start'>
+                            <div className='flex-1'>
+                              <div className='flex items-center space-x-2 mb-1'>
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  report.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                                  report.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                                  report.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {report.severity.toUpperCase()}
+                                </span>
+                                <span className='text-xs text-gray-500'>
+                                  {report.issueType.replace('_', ' ')}
+                                </span>
+                              </div>
+                              <p className='text-sm text-gray-700 mb-2'>{report.description}</p>
+                              <p className='text-xs text-gray-500'>
+                                Reported by {report.staff.firstName} {report.staff.lastName} on{' '}
+                                {new Date(report.reportedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Issue Images */}
+                          {report.images && report.images.length > 0 && (
+                            <div className='mt-2'>
+                              <p className='text-xs text-gray-600 mb-1'>Images ({report.images.length}):</p>
+                              <div className='grid grid-cols-3 gap-1'>
+                                {report.images.map((image, imgIndex) => (
+                                  <img
+                                    key={imgIndex}
+                                    src={image}
+                                    alt={`Issue ${index + 1} - Image ${imgIndex + 1}`}
+                                    className='w-full h-12 object-cover rounded border'
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className='block text-sm font-medium text-gray-700'>
                     Processed Quantity
@@ -1256,10 +1373,119 @@ export default function ProcessOrderPage() {
                     className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   />
                 </div>
+
+                {/* Issue Report Fields - Only show when status is ISSUE_REPORTED */}
+                {itemProcessingData.status === 'ISSUE_REPORTED' && (
+                  <>
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700'>
+                        Issue Type
+                      </label>
+                      <select
+                        value={itemProcessingData.issueType || 'damage'}
+                        onChange={e =>
+                          setItemProcessingData({
+                            ...itemProcessingData,
+                            issueType: e.target.value,
+                          })
+                        }
+                        className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      >
+                        <option value='damage'>Damage</option>
+                        <option value='stain'>Stain</option>
+                        <option value='missing_item'>Missing Item</option>
+                        <option value='wrong_item'>Wrong Item</option>
+                        <option value='other'>Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700'>
+                        Issue Severity
+                      </label>
+                      <select
+                        value={itemProcessingData.issueSeverity || 'medium'}
+                        onChange={e =>
+                          setItemProcessingData({
+                            ...itemProcessingData,
+                            issueSeverity: e.target.value,
+                          })
+                        }
+                        className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      >
+                        <option value='low'>Low</option>
+                        <option value='medium'>Medium</option>
+                        <option value='high'>High</option>
+                        <option value='critical'>Critical</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700'>
+                        Issue Description
+                      </label>
+                      <textarea
+                        value={itemProcessingData.issueDescription || ''}
+                        onChange={e =>
+                          setItemProcessingData({
+                            ...itemProcessingData,
+                            issueDescription: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        placeholder='Describe the issue in detail...'
+                        className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      />
+                    </div>
+
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700'>
+                        Upload Issue Images
+                      </label>
+                      <input
+                        type='file'
+                        multiple
+                        accept='image/*'
+                        onChange={handleImageUpload}
+                        className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      />
+                      <p className='mt-1 text-xs text-gray-500'>
+                        You can select multiple images. Images will be stored directly in the database.
+                      </p>
+                    </div>
+
+                    {/* Image Previews */}
+                    {imagePreviewUrls.length > 0 && (
+                      <div>
+                        <label className='block text-sm font-medium text-gray-700 mb-2'>
+                          Selected Images ({imagePreviewUrls.length})
+                        </label>
+                        <div className='grid grid-cols-2 gap-2 max-h-40 overflow-y-auto'>
+                          {imagePreviewUrls.map((url, index) => (
+                            <div key={index} className='relative'>
+                              <img
+                                src={url}
+                                alt={`Preview ${index + 1}`}
+                                className='w-full h-20 object-cover rounded border'
+                              />
+                              <button
+                                type='button'
+                                onClick={() => removeImage(index)}
+                                className='absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600'
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               <div className='flex justify-end space-x-3 mt-6'>
                 <button
-                  onClick={closeItemModal}
+                  onClick={handleCloseItemModal}
                   disabled={itemForm.loading}
                   className='px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'
                 >

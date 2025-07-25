@@ -2,12 +2,25 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/layouts/main-layout';
 import { useServices } from '@/hooks/useServices';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Services() {
   const [activeTab, setActiveTab] = useState('all');
   const { services, loading, error } = useServices();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Handle schedule pickup click
+  const handleSchedulePickup = () => {
+    if (isAuthenticated) {
+      router.push('/customer/schedule');
+    } else {
+      router.push('/registerlogin');
+    }
+  };
 
   // Filter services based on category
   const filteredServices =
@@ -164,12 +177,13 @@ export default function Services() {
                   </div>
                 )}
                 <div className='mt-6'>
-                  <Link
-                    href='/schedule'
-                    className='block w-full bg-blue-600 text-white text-center py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200'
+                  <button
+                    onClick={handleSchedulePickup}
+                    disabled={authLoading}
+                    className='block w-full bg-blue-600 text-white text-center py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed'
                   >
-                    Schedule Pickup
-                  </Link>
+                    {authLoading ? 'Loading...' : isAuthenticated ? 'Schedule Pickup' : 'Login to Schedule'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -234,12 +248,13 @@ export default function Services() {
           </div>
 
           <div className='mt-12 text-center'>
-            <Link
-              href='/schedule'
-              className='inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700'
+            <button
+              onClick={handleSchedulePickup}
+              disabled={authLoading}
+              className='inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              Schedule Your Pickup Now
-            </Link>
+              {authLoading ? 'Loading...' : isAuthenticated ? 'Schedule Your Pickup Now' : 'Login to Schedule Pickup'}
+            </button>
           </div>
         </div>
       </div>

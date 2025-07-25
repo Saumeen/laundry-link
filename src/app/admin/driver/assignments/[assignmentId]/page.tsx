@@ -96,12 +96,12 @@ export default function DriverAssignmentDetailPage() {
     try {
       await updateAssignmentStatus(assignment.id, newStatus, notes);
       
-      // Only redirect if the status is DROPPED_OFF (final status)
-      if (newStatus === 'DROPPED_OFF') {
+      // Only redirect if the status is DROPPED_OFF (final status for pickup) or COMPLETED (final status for delivery)
+      if (newStatus === 'DROPPED_OFF' || (newStatus === 'COMPLETED' && assignment.assignmentType === 'delivery')) {
         // Show redirecting state immediately
         setIsRedirecting(true);
         
-        // Redirect immediately after successful drop off
+        // Redirect immediately after successful completion
         // Don't wait for fetchAssignments as the assignment will be removed from the list
         router.push('/admin/driver/assignments');
       } else {
@@ -138,12 +138,12 @@ export default function DriverAssignmentDetailPage() {
       setPhotoData(null);
       setPendingStatusUpdate(null);
       
-      // Only redirect if the status is DROPPED_OFF (final status)
-      if (pendingStatusUpdate === 'DROPPED_OFF') {
+      // Only redirect if the status is DROPPED_OFF (final status for pickup) or COMPLETED (final status for delivery)
+      if (pendingStatusUpdate === 'DROPPED_OFF' || (pendingStatusUpdate === 'COMPLETED' && assignment.assignmentType === 'delivery')) {
         // Show redirecting state immediately
         setIsRedirecting(true);
         
-        // Redirect immediately after successful drop off
+        // Redirect immediately after successful completion
         // Don't wait for fetchAssignments as the assignment will be removed from the list
         router.push('/admin/driver/assignments');
       } else {
@@ -450,7 +450,7 @@ export default function DriverAssignmentDetailPage() {
                   </button>
                 )}
                 
-                {assignment.status === 'COMPLETED' && (
+                {assignment.status === 'COMPLETED' && assignment.assignmentType === 'pickup' && (
                   <button
                     onClick={() => handleStatusUpdate('DROPPED_OFF')}
                     disabled={statusUpdateLoading}
@@ -467,6 +467,12 @@ export default function DriverAssignmentDetailPage() {
                       </>
                     )}
                   </button>
+                )}
+                
+                {assignment.status === 'COMPLETED' && assignment.assignmentType === 'delivery' && (
+                  <div className='w-full px-4 py-4 bg-green-100 text-green-800 rounded-lg text-center text-base font-medium'>
+                    ✓ Delivery Completed
+                  </div>
                 )}
                 
                 {(assignment.status === 'ASSIGNED' || assignment.status === 'IN_PROGRESS') && (
@@ -721,7 +727,7 @@ export default function DriverAssignmentDetailPage() {
                     </button>
                   )}
                   
-                  {assignment.status === 'COMPLETED' && (
+                  {assignment.status === 'COMPLETED' && assignment.assignmentType === 'pickup' && (
                     <button
                       onClick={() => handleStatusUpdate('DROPPED_OFF')}
                       disabled={statusUpdateLoading}
@@ -738,6 +744,12 @@ export default function DriverAssignmentDetailPage() {
                         </>
                       )}
                     </button>
+                  )}
+                  
+                  {assignment.status === 'COMPLETED' && assignment.assignmentType === 'delivery' && (
+                    <div className='w-full px-4 py-2 bg-green-100 text-green-800 rounded-md text-center text-sm font-medium'>
+                      ✓ Delivery Completed
+                    </div>
                   )}
                   
                   {(assignment.status === 'ASSIGNED' || assignment.status === 'IN_PROGRESS') && (

@@ -23,6 +23,7 @@ interface OrderDetails {
   invoiceItems?: any[];
   items?: any[];
   processingDetails?: any;
+  invoiceGenerated?: boolean;
 }
 
 interface ServicesTabProps {
@@ -55,8 +56,8 @@ export function ServicesTab({ orderDetails }: ServicesTabProps) {
           </div>
         </div>
 
-        {/* Verified items */}
-        {orderDetails.invoiceItems && orderDetails.invoiceItems.length > 0 && (
+        {/* Verified items - only show when invoice has been generated */}
+        {orderDetails.invoiceGenerated && orderDetails.invoiceItems && orderDetails.invoiceItems.length > 0 && (
           <div className='border-t-2 border-gray-200 pt-8'>
             <h4 className='text-lg font-semibold text-gray-800 mb-4 flex items-center'>
               <span className='mr-2'>✅</span>
@@ -84,14 +85,19 @@ export function ServicesTab({ orderDetails }: ServicesTabProps) {
           </div>
         )}
 
-        {/* No verified items yet */}
-        {(!orderDetails.invoiceItems || orderDetails.invoiceItems.length === 0) && (
+        {/* No verified items yet - show different messages based on invoice generation status */}
+        {(!orderDetails.invoiceGenerated || !orderDetails.invoiceItems || orderDetails.invoiceItems.length === 0) && (
           <div className='border-t-2 border-gray-200 pt-8'>
             <div className='text-center py-12 text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200'>
               <div className='text-4xl mb-4'>⏳</div>
-              <p className='font-medium text-lg'>Items being sorted</p>
+              <p className='font-medium text-lg'>
+                {orderDetails.invoiceGenerated ? 'Invoice not available yet' : 'Items being sorted'}
+              </p>
               <p className='text-sm mt-2 max-w-md mx-auto'>
-                Our team is currently sorting and counting your items. You'll see the detailed list here once processing begins.
+                {orderDetails.invoiceGenerated 
+                  ? 'Current status: DELIVERED. Invoice will be available when your order is ready for delivery.'
+                  : 'Our team is currently sorting and counting your items. You\'ll see the detailed list here once processing begins.'
+                }
               </p>
             </div>
           </div>

@@ -136,6 +136,70 @@ export function CustomerDashboard() {
         </div>
       </div>
 
+      {/* Navigation Bar */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex space-x-8 overflow-x-auto">
+            <Link
+              href="/customer/dashboard"
+              className="flex items-center px-3 py-4 text-sm font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap"
+            >
+              <span className="mr-2">📊</span>
+              Dashboard
+            </Link>
+            <Link
+              href="/customer/orders"
+              className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+            >
+              <span className="mr-2">📦</span>
+              Orders
+            </Link>
+                          <Link
+                href="/customer/schedule"
+                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+              >
+              <span className="mr-2">📅</span>
+              Schedule
+            </Link>
+            <Link
+              href="/services"
+              className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+            >
+              <span className="mr-2">🧺</span>
+              Services
+            </Link>
+            <Link
+              href="/pricing"
+              className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+            >
+              <span className="mr-2">💰</span>
+              Pricing
+            </Link>
+            <Link
+              href="/customer/addresses"
+              className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+            >
+              <span className="mr-2">📍</span>
+              Addresses
+            </Link>
+            <Link
+              href="/customer/profile"
+              className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+            >
+              <span className="mr-2">👤</span>
+              Profile
+            </Link>
+            <Link
+              href="/faq"
+              className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+            >
+              <span className="mr-2">❓</span>
+              FAQ
+            </Link>
+          </nav>
+        </div>
+      </div>
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
@@ -144,7 +208,7 @@ export function CustomerDashboard() {
             <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link 
-                href="/schedule" 
+                href="/customer/schedule" 
                 className="flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer border border-blue-200"
               >
                 <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
@@ -236,7 +300,7 @@ export function CustomerDashboard() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Recent Orders</h2>
               <Link 
-                href="/customer/dashboard" 
+                href="/customer/orders" 
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 View All Orders
@@ -251,7 +315,7 @@ export function CustomerDashboard() {
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
                 <p className="text-gray-600 mb-6">Start by placing your first order</p>
                 <Link 
-                  href="/schedule"
+                  href="/customer/schedule"
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   Place Order
@@ -259,10 +323,11 @@ export function CustomerDashboard() {
               </div>
             ) : (
               orders.slice(0, 5).map((order) => (
-                <div
+                <button
                   key={order.id}
-                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="w-full text-left px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => handleOrderClick(order)}
+                  type="button"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -284,7 +349,7 @@ export function CustomerDashboard() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -292,7 +357,7 @@ export function CustomerDashboard() {
           {orders.length > 5 && (
             <div className="px-6 py-4 border-t border-gray-200">
               <Link 
-                href="/customer/dashboard"
+                href="/customer/orders"
                 className="w-full text-center text-blue-600 hover:text-blue-700 font-medium"
               >
                 View all {orders.length} orders

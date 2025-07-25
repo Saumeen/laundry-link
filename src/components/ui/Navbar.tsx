@@ -59,7 +59,7 @@ export default function Navbar() {
                 Services
               </Link>
               <Link
-                href='/schedule'
+                href='/customer/schedule'
                 className='text-gray-500 hover:text-blue-700'
               >
                 Schedule Pickup
@@ -299,7 +299,7 @@ export default function Navbar() {
             Services
           </Link>
           <Link
-            href='/schedule'
+            href='/customer/schedule'
             className='block py-2 text-gray-700 hover:text-blue-700'
             onClick={() => setIsMenuOpen(false)}
           >

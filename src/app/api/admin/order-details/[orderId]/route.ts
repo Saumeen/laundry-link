@@ -57,7 +57,16 @@ export async function GET(
                 },
               },
             },
-            issueReports: true,
+            issueReports: {
+              include: {
+                staff: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
           },
         },
         driverAssignments: {
@@ -83,7 +92,7 @@ export async function GET(
 
     return NextResponse.json({ order: mappedOrder });
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    console.error('Error fetching order details:', error || 'Unknown error');
 
     if (
       error instanceof Error &&

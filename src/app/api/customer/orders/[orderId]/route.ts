@@ -78,6 +78,7 @@ export async function GET(
       customerPhone: order.customerPhone,
       customerAddress: order.customerAddress,
       specialInstructions: order.specialInstructions,
+      invoiceGenerated: order.invoiceGenerated,
 
       // Transform orderServiceMappings to items (for services tab)
       items: order.orderServiceMappings.map(mapping => ({
