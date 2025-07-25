@@ -40,6 +40,7 @@ const AdminOrdersPage: React.FC = () => {
     }
   }, [adminUser]);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     filterOrders();
   }, [orders, statusFilter, paymentFilter, searchTerm]);
@@ -54,6 +55,39 @@ const AdminOrdersPage: React.FC = () => {
       } else {
         // Handle error silently or show user-friendly message
         setOrders([]);
+=======
+  // Get the appropriate dashboard URL based on user role
+  const getDashboardUrl = () => {
+    if (!user?.role?.name) return '/admin';
+    
+    switch (user.role.name) {
+      case 'SUPER_ADMIN':
+        return '/admin/super-admin';
+      case 'OPERATION_MANAGER':
+        return '/admin/operation-manager';
+      case 'DRIVER':
+        return '/admin/driver';
+      case 'FACILITY_TEAM':
+        return '/admin/facility-team';
+      default:
+        return '/admin';
+    }
+  };
+
+  // Handle back button click
+  const handleBackClick = () => {
+    router.push(getDashboardUrl());
+  };
+
+
+  
+  // Memoized filtered orders to improve performance
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => {
+      // Status filter
+      if (filters.status && filters.status !== 'ALL') {
+        if (order.status !== filters.status) return false;
+>>>>>>> Stashed changes
       }
     } catch (error) {
       // Handle error silently or show user-friendly message
@@ -103,9 +137,52 @@ const AdminOrdersPage: React.FC = () => {
       } else {
         // Handle error silently or show user-friendly message
       }
+<<<<<<< Updated upstream
     } catch (error) {
       // Handle error silently or show user-friendly message
     }
+=======
+
+      // Search filter
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        const matchesSearch =
+          order.orderNumber.toLowerCase().includes(searchTerm) ||
+          order.customer?.firstName?.toLowerCase().includes(searchTerm) ||
+          order.customer?.lastName?.toLowerCase().includes(searchTerm) ||
+          order.customer?.email?.toLowerCase().includes(searchTerm) ||
+          order.customer?.phone?.includes(searchTerm);
+
+        if (!matchesSearch) return false;
+      }
+
+      return true;
+    });
+  }, [orders, filters]);
+
+  // Memoized stats calculations
+  const stats = useMemo(
+    () => ({
+      total: orders.length,
+      pending: orders.filter(order => 
+        ['ORDER_PLACED', 'CONFIRMED', 'PICKUP_ASSIGNED'].includes(order.status)
+      ).length,
+      processing: orders.filter(order => 
+        ['PICKUP_IN_PROGRESS', 'PICKUP_COMPLETED', 'DROPPED_OFF', 'RECEIVED_AT_FACILITY', 
+         'PROCESSING_STARTED', 'PROCESSING_COMPLETED', 'QUALITY_CHECK', 
+         'READY_FOR_DELIVERY', 'DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS'].includes(order.status)
+      ).length,
+      completed: orders.filter(order => 
+        ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(order.status)
+      ).length,
+    }),
+    [orders]
+  );
+
+  // Navigation handlers
+  const handleNavigateToOrderDetails = (orderId: number) => {
+    router.push(`/admin/orders/${orderId}`);
+>>>>>>> Stashed changes
   };
 
   const getBackUrl = () => {
@@ -134,6 +211,7 @@ const AdminOrdersPage: React.FC = () => {
   }
 
   return (
+<<<<<<< Updated upstream
     <div className="min-h-screen bg-gray-50">
       <AdminHeader
         title="Order Management"
@@ -145,12 +223,71 @@ const AdminOrdersPage: React.FC = () => {
             <span className="text-sm text-gray-600">
               {adminUser?.role?.replace('_', ' ')}
             </span>
+=======
+    <div className='min-h-screen bg-gray-50'>
+      {/* Header */}
+      <div className='bg-white shadow'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='flex justify-between items-center py-6'>
+            <div>
+              <h1 className='text-3xl font-bold text-gray-900'>
+                Order Management
+              </h1>
+              <p className='mt-1 text-sm text-gray-500'>
+                Manage and track all orders
+              </p>
+            </div>
+            <div className='flex items-center space-x-4'>
+              <span className='text-sm text-gray-500'>
+                Welcome, {user?.firstName} {user?.lastName}
+              </span>
+              <button
+                onClick={handleBackClick}
+                className='flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200'
+              >
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M10 19l-7-7m0 0l7-7m-7 7h18'
+                  />
+                </svg>
+                <span>Back to Dashboard</span>
+              </button>
+              <button
+                onClick={logout}
+                className='flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200'
+              >
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'
+                  />
+                </svg>
+                <span>Logout</span>
+              </button>
+            </div>
+>>>>>>> Stashed changes
           </div>
         }
       />
       
       <div className="container mx-auto px-4 py-8">
         {/* Filters */}
+<<<<<<< Updated upstream
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
@@ -185,6 +322,84 @@ const AdminOrdersPage: React.FC = () => {
                 ))}
               </select>
             </div>
+=======
+        <div className='bg-white shadow rounded-lg mb-8'>
+          <div className='px-6 py-4 border-b border-gray-200'>
+            <h3 className='text-lg font-medium text-gray-900'>
+              Filters & Search
+            </h3>
+          </div>
+          <div className='px-6 py-4'>
+            <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+              {/* Status Filter */}
+              <div>
+                <label
+                  htmlFor='status-filter'
+                  className='block text-sm font-medium text-gray-700 mb-2'
+                >
+                  Status
+                </label>
+                <select
+                  id='status-filter'
+                  value={filters.status || 'ALL'}
+                  onChange={e =>
+                    handleStatusFilterChange(
+                      e.target.value as OrderStatus | 'ALL'
+                    )
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                  aria-label='Filter by order status'
+                >
+                  <option value='ALL'>All Statuses</option>
+                  <option value='ORDER_PLACED'>Order Placed</option>
+                  <option value='CONFIRMED'>Confirmed</option>
+                  <option value='PICKUP_ASSIGNED'>Pickup Assigned</option>
+                  <option value='PICKUP_IN_PROGRESS'>Pickup In Progress</option>
+                  <option value='PICKUP_COMPLETED'>Pickup Completed</option>
+                  <option value='PICKUP_FAILED'>Pickup Failed</option>
+                  <option value='DROPPED_OFF'>Dropped Off</option>
+                  <option value='RECEIVED_AT_FACILITY'>Received at Facility</option>
+                  <option value='PROCESSING_STARTED'>Processing Started</option>
+                  <option value='PROCESSING_COMPLETED'>Processing Completed</option>
+                  <option value='QUALITY_CHECK'>Quality Check</option>
+                  <option value='READY_FOR_DELIVERY'>Ready for Delivery</option>
+                  <option value='DELIVERY_ASSIGNED'>Delivery Assigned</option>
+                  <option value='DELIVERY_IN_PROGRESS'>Delivery In Progress</option>
+                  <option value='DELIVERED'>Delivered</option>
+                  <option value='DELIVERY_FAILED'>Delivery Failed</option>
+                  <option value='CANCELLED'>Cancelled</option>
+                  <option value='REFUNDED'>Refunded</option>
+                </select>
+              </div>
+
+              {/* Payment Status Filter */}
+              <div>
+                <label
+                  htmlFor='payment-status-filter'
+                  className='block text-sm font-medium text-gray-700 mb-2'
+                >
+                  Payment Status
+                </label>
+                <select
+                  id='payment-status-filter'
+                  value={filters.paymentStatus || 'ALL'}
+                  onChange={e =>
+                    handlePaymentStatusFilterChange(
+                      e.target.value as PaymentStatus | 'ALL'
+                    )
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                  aria-label='Filter by payment status'
+                >
+                  <option value='ALL'>All Payment Statuses</option>
+                  <option value='PENDING'>Pending</option>
+                  <option value='PAID'>Paid</option>
+                  <option value='FAILED'>Failed</option>
+                  <option value='REFUNDED'>Refunded</option>
+                  <option value='PARTIAL_REFUND'>Partial Refund</option>
+                </select>
+              </div>
+>>>>>>> Stashed changes
 
             {/* Payment Filter */}
             <div>

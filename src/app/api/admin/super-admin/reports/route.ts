@@ -3,6 +3,31 @@ import prisma from "@/lib/prisma";
 import { requireAdminRoles, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 import { OrderStatus } from "@prisma/client";
 
+// Utility function to convert BigInt to number for JSON serialization
+function convertBigIntToNumber(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj === 'bigint') {
+    return Number(obj);
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(convertBigIntToNumber);
+  }
+  
+  if (typeof obj === 'object') {
+    const converted: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertBigIntToNumber(value);
+    }
+    return converted;
+  }
+  
+  return obj;
+}
+
 export async function GET(request: Request) {
   try {
     // Require SUPER_ADMIN role
@@ -34,7 +59,7 @@ export async function GET(request: Request) {
       const result = await prisma.$queryRaw`
         SELECT 
           DATE("createdAt") as date,
-          COALESCE(SUM("invoiceTotal"), 0) as daily_revenue
+          COALESCE(CAST(SUM("invoiceTotal") AS DECIMAL(10,2)), 0) as daily_revenue
         FROM orders 
         WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
         GROUP BY DATE("createdAt")
@@ -73,7 +98,7 @@ export async function GET(request: Request) {
       const result = await prisma.$queryRaw`
         SELECT 
           DATE("createdAt") as date,
-          COUNT(*) as new_customers
+          CAST(COUNT(*) AS INTEGER) as new_customers
         FROM customers 
         WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
         GROUP BY DATE("createdAt")
@@ -241,7 +266,11 @@ export async function GET(request: Request) {
     let customerSatisfaction = 95.5; // Default value
 
     try {
+<<<<<<< Updated upstream
       const revenueResult = await prisma.order.aggregate({
+=======
+      const rawSummaryStats = await prisma.order.aggregate({
+>>>>>>> Stashed changes
         where: {
           createdAt: {
             gte: startDate,
@@ -252,6 +281,7 @@ export async function GET(request: Request) {
           invoiceTotal: true
         }
       });
+<<<<<<< Updated upstream
       totalRevenue = { _sum: { invoiceTotal: revenueResult._sum.invoiceTotal || 0 } };
     } catch (error: any) {
       console.error('Error calculating total revenue:', error?.message || error || 'Unknown error');
@@ -341,6 +371,84 @@ export async function GET(request: Request) {
     // Process order status data for chart
     const orderStatusLabels = (orderStatusData || []).map(item => item.status);
     const orderStatusValues = (orderStatusData || []).map(item => item._count.status);
+=======
+      
+      // Convert BigInt to number to avoid serialization issues
+      let invoiceTotal = null;
+      if (rawSummaryStats._sum.invoiceTotal) {
+        invoiceTotal = Number(rawSummaryStats._sum.invoiceTotal);
+      }
+      
+      summaryStats = {
+        _sum: {
+          invoiceTotal: invoiceTotal,
+        },
+        _count: {
+          id: Number(rawSummaryStats._count.id),
+        },
+      };
+    } catch (error) {
+      console.error('Error calculating total revenue:', error);
+      summaryStats = { _sum: { invoiceTotal: 0 }, _count: { id: 0 } };
+    }
+
+    // Calculate additional stats
+    const completedOrders = Number(await prisma.order.count({
+      where: {
+        status: OrderStatus.DELIVERED,
+        createdAt: { gte: startDate, lte: endDate },
+      },
+    }));
+
+    const totalCustomers = Number(await prisma.customer.count({
+      where: {
+        createdAt: { gte: startDate, lte: endDate },
+      },
+    }));
+
+    const activeDrivers = Number(await prisma.staff.count({
+      where: {
+        role: { name: 'DRIVER' },
+        isActive: true,
+      },
+    }));
+
+    const totalRevenue = summaryStats?._sum.invoiceTotal || 0;
+    const totalOrders = summaryStats?._count.id || 0;
+    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const completionRate =
+      totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+
+    // Process data for charts
+    const revenueLabels = (revenueData || []).map(
+      (item: { date: string; daily_revenue: string; daily_orders: number }) =>
+        new Date(item.date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        })
+    );
+    const revenueValues = (revenueData || []).map(
+      (item: { date: string; daily_revenue: string; daily_orders: number }) =>
+        parseFloat(item.daily_revenue)
+    );
+
+    const customerLabels = (customerGrowthData || []).map(
+      (item: { date: string; new_customers: number }) =>
+        new Date(item.date).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        })
+    );
+    const customerValues = (customerGrowthData || []).map(
+      (item: { date: string; new_customers: number }) => item.new_customers
+    );
+
+    // Process order status data for chart
+    const orderStatusLabels = (orderStatusData || []).map(item => item.status);
+    const orderStatusValues = (orderStatusData || []).map(
+      item => Number(item._count.status)
+    );
+>>>>>>> Stashed changes
     const orderStatusColors = [
       '#3B82F6', // blue
       '#10B981', // green
@@ -355,21 +463,39 @@ export async function GET(request: Request) {
       const service = (services || []).find(s => s.id === item.serviceId);
       return service ? service.displayName : `Service ${item.serviceId}`;
     });
+<<<<<<< Updated upstream
     const serviceValues = (serviceUsageData || []).map(item => item._sum.quantity || 0);
+=======
+    const serviceValues = (serviceUsageData || []).map(
+      item => Number(item._count.serviceId) || 0
+    );
+>>>>>>> Stashed changes
 
     // Process staff performance data for chart
     const staffLabels = (staffPerformanceData || []).map(item => {
       const staff = (staffMembers || []).find(s => s.id === item.staffId);
       return staff ? `${staff.firstName} ${staff.lastName}` : `Staff ${item.staffId}`;
     });
+<<<<<<< Updated upstream
     const staffValues = (staffPerformanceData || []).map(item => item._count.staffId);
+=======
+    const staffValues = (staffPerformanceData || []).map(
+      item => Number(item._count.staffId)
+    );
+>>>>>>> Stashed changes
 
     // Process driver performance data for chart
     const driverLabels = (driverPerformanceData || []).map(item => {
       const driver = (drivers || []).find(d => d.id === item.driverId);
       return driver ? `${driver.firstName} ${driver.lastName}` : `Driver ${item.driverId}`;
     });
+<<<<<<< Updated upstream
     const driverValues = (driverPerformanceData || []).map(item => item._count.driverId);
+=======
+    const driverValues = (driverPerformanceData || []).map(
+      item => Number(item._count.driverId)
+    );
+>>>>>>> Stashed changes
 
     const reportData = {
       revenueData: {
@@ -462,7 +588,10 @@ export async function GET(request: Request) {
       throw new Error('Failed to generate report data');
     }
 
-    return NextResponse.json(reportData);
+    // Convert any remaining BigInt values to numbers for JSON serialization
+    const serializableReportData = convertBigIntToNumber(reportData);
+
+    return NextResponse.json(serializableReportData);
   } catch (error: any) {
     console.error('Error fetching reports:', error?.message || error || 'Unknown error');
     

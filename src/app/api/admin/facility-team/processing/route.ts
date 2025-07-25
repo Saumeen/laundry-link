@@ -179,9 +179,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order status based on processing status
+<<<<<<< Updated upstream
     let orderStatus: string | undefined;
     let oldStatus: string | undefined;
     
+=======
+    let orderStatus: OrderStatus | undefined;
+
+>>>>>>> Stashed changes
     // Get current order status
     const currentOrder = await prisma.order.findUnique({
       where: { id: orderId },
