@@ -1,59 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { OrderStatus } from '@prisma/client';
+import { ORDER_STATUS_CONFIG } from '@/lib/orderStatus';
 import { formatUTCForDisplay } from '@/lib/utils/timezone';
-
-interface OrderHistoryEntry {
-  id: number;
-  orderId: number;
-  status: string;
-  previousStatus?: string;
-  notes?: string;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface DriverAssignment {
-  id: number;
-  driverId: number;
-  orderId: number;
-  status: string;
-  assignedAt: string;
-  driver?: {
-    id: number;
-    firstName: string;
-    lastName: string;
-    phone: string;
-  };
-}
+import { useOrderHistoryStore } from '@/admin/stores/orderHistoryStore';
+import { useToast } from '@/components/ui/Toast';
+import ImageGallery from './ImageGallery';
 
 interface Order {
   id: number;
   orderNumber: string;
-  status: string;
+  status: OrderStatus;
   createdAt: string;
   updatedAt: string;
-  orderHistory?: OrderHistoryEntry[];
-  driverAssignments?: DriverAssignment[];
   specialInstructions?: string;
-}
-
-interface TimelineEvent {
-  id: string | number;
-  type: string;
-  status: string;
-  timestamp: string;
-  description: string;
-  icon: React.ReactElement;
-  previousStatus?: string;
-  createdBy?: string;
-  driver?: {
-    id: number;
-    firstName: string;
-    lastName: string;
-    phone: string;
-  };
 }
 
 interface OrderHistoryTabProps {
@@ -62,213 +23,203 @@ interface OrderHistoryTabProps {
 }
 
 export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
-  const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
+  const {
+    timeline,
+    loading,
+    error,
+    addHistoryForm,
+    uploadPhotoForm,
+    fetchOrderHistory,
+    addHistoryEntry,
+    uploadDriverPhoto,
+  } = useOrderHistoryStore();
+
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoDescription, setPhotoDescription] = useState('');
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchOrderHistory();
-  }, [order.id]);
+    fetchOrderHistory(order.id);
+  }, [order.id, fetchOrderHistory]);
 
-  const fetchOrderHistory = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/admin/order-history/${order.id}`);
-      if (response.ok) {
-        const data = await response.json() as { history: OrderHistoryEntry[] };
-        setHistory(data.history || []);
-      }
-    } catch (error) {
-      console.error('Error fetching order history:', error);
-    } finally {
-      setLoading(false);
-    }
+  const getStatusColor = (status: OrderStatus) => {
+    const config = ORDER_STATUS_CONFIG[status];
+    return config?.color || 'bg-gray-100 text-gray-800';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800';
-      case 'processing':
-        return 'bg-purple-100 text-purple-800';
-      case 'ready_for_pickup':
-        return 'bg-orange-100 text-orange-800';
-      case 'picked_up':
-        return 'bg-indigo-100 text-indigo-800';
-      case 'in_transit':
-        return 'bg-cyan-100 text-cyan-800';
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusDisplayName = (status: OrderStatus) => {
+    const config = ORDER_STATUS_CONFIG[status];
+    return config?.label || status;
   };
 
-  const getStatusDisplayName = (status: string) => {
-    const statusMap: { [key: string]: string } = {
-      'pending': 'Pending',
-      'confirmed': 'Confirmed',
-      'processing': 'Processing',
-      'ready_for_pickup': 'Ready for Pickup',
-      'picked_up': 'Picked Up',
-      'in_transit': 'In Transit',
-      'delivered': 'Delivered',
-      'cancelled': 'Cancelled',
-    };
-    return statusMap[status] || status;
+  const getStatusIcon = (status: OrderStatus) => {
+    const config = ORDER_STATUS_CONFIG[status];
+    return config?.icon || '📋';
   };
 
-  const getTimelineIcon = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return (
-          <div className='flex-shrink-0 w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-yellow-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' />
-            </svg>
-          </div>
-        );
-      case 'confirmed':
-        return (
-          <div className='flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-blue-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' />
-            </svg>
-          </div>
-        );
-      case 'processing':
-        return (
-          <div className='flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-purple-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' />
-            </svg>
-          </div>
-        );
-      case 'ready_for_pickup':
-        return (
-          <div className='flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-orange-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-            </svg>
-          </div>
-        );
-      case 'picked_up':
-        return (
-          <div className='flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-indigo-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M7 16l-4-4m0 0l4-4m-4 4h18' />
-            </svg>
-          </div>
-        );
-      case 'in_transit':
-        return (
-          <div className='flex-shrink-0 w-8 h-8 bg-cyan-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-cyan-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 10V3L4 14h7v7l9-11h-7z' />
-            </svg>
-          </div>
-        );
-      case 'delivered':
+  const getTimelineIcon = (type: string, status?: string) => {
+    switch (type) {
+      case 'order_created':
         return (
           <div className='flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-            </svg>
+            <span className='text-green-600 text-sm'>📋</span>
           </div>
         );
-      case 'cancelled':
+      case 'status_change':
+        return (
+          <div className='flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center'>
+            <span className='text-blue-600 text-sm'>🔄</span>
+          </div>
+        );
+      case 'driver_assignment':
+        return (
+          <div className='flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center'>
+            <span className='text-purple-600 text-sm'>🚚</span>
+          </div>
+        );
+      case 'processing_update':
+        return (
+          <div className='flex-shrink-0 w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center'>
+            <span className='text-yellow-600 text-sm'>⚙️</span>
+          </div>
+        );
+      case 'issue_reported':
         return (
           <div className='flex-shrink-0 w-8 h-8 bg-red-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
-            </svg>
+            <span className='text-red-600 text-sm'>⚠️</span>
+          </div>
+        );
+      case 'photo_uploaded':
+        return (
+          <div className='flex-shrink-0 w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center'>
+            <span className='text-indigo-600 text-sm'>📸</span>
           </div>
         );
       default:
         return (
           <div className='flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center'>
-            <svg className='w-4 h-4 text-gray-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
-            </svg>
+            <span className='text-gray-600 text-sm'>📋</span>
           </div>
         );
     }
   };
 
-  // Create a combined timeline with order history and driver assignments
-  const createTimeline = (): TimelineEvent[] => {
-    const timeline: TimelineEvent[] = [];
-
-    // Add order creation
-    timeline.push({
-      id: 'creation',
-      type: 'order_created',
-      status: 'Order Created',
-      timestamp: order.createdAt,
-      description: 'Order was created by customer',
-      icon: (
-        <div className='flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center'>
-          <svg className='w-4 h-4 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 6v6m0 0v6m0-6h6m-6 0H6' />
-          </svg>
-        </div>
-      ),
-    });
-
-    // Add order history entries
-    if (history.length > 0) {
-      history.forEach((entry) => {
-        timeline.push({
-          id: entry.id,
-          type: 'status_change',
-          status: getStatusDisplayName(entry.status),
-          previousStatus: entry.previousStatus ? getStatusDisplayName(entry.previousStatus) : undefined,
-          timestamp: entry.createdAt,
-          description: entry.notes || `Status changed to ${getStatusDisplayName(entry.status)}`,
-          createdBy: entry.createdBy,
-          icon: getTimelineIcon(entry.status),
-        });
-      });
+  const handleAddNote = async () => {
+    if (!newNote.trim()) {
+      showToast('Please enter a note', 'error');
+      return;
     }
 
-    // Add driver assignments
-    if (order.driverAssignments && order.driverAssignments.length > 0) {
-      order.driverAssignments.forEach((assignment) => {
-        timeline.push({
-          id: `driver-${assignment.id}`,
-          type: 'driver_assignment',
-          status: `Driver ${assignment.status}`,
-          timestamp: assignment.assignedAt,
-          description: assignment.driver 
-            ? `Driver ${assignment.driver.firstName} ${assignment.driver.lastName} assigned`
-            : 'Driver assigned',
-          driver: assignment.driver,
-          icon: (
-            <div className='flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center'>
-              <svg className='w-4 h-4 text-blue-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' />
-              </svg>
-            </div>
-          ),
-        });
+    try {
+      await addHistoryEntry(order.id, {
+        action: 'note_added',
+        description: newNote,
+        metadata: { type: 'manual_note' },
       });
+      
+      setNewNote('');
+      setShowAddNoteModal(false);
+      showToast('Note added successfully', 'success');
+    } catch (error) {
+      showToast('Failed to add note', 'error');
     }
-
-    // Sort by timestamp
-    return timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   };
 
-  const timeline = createTimeline();
+  const handlePhotoUpload = async () => {
+    if (!selectedPhoto || !selectedAssignmentId) {
+      showToast('Please select a photo and assignment', 'error');
+      return;
+    }
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const photoUrl = e.target?.result as string;
+        
+        await uploadDriverPhoto(selectedAssignmentId, {
+          photoUrl,
+          photoType: 'manual_upload',
+          description: photoDescription || 'Photo uploaded by admin',
+        });
+        
+        setSelectedPhoto(null);
+        setPhotoDescription('');
+        setSelectedAssignmentId(null);
+        setShowPhotoUploadModal(false);
+        showToast('Photo uploaded successfully', 'success');
+      };
+      reader.readAsDataURL(selectedPhoto);
+    } catch (error) {
+      showToast('Failed to upload photo', 'error');
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        showToast('File size must be less than 5MB', 'error');
+        return;
+      }
+      setSelectedPhoto(file);
+    }
+  };
+
+  // Get driver assignments for photo upload
+  const driverAssignments = timeline
+    .filter(event => event.type === 'driver_assignment')
+    .map(event => ({
+      id: event.id,
+      driver: event.driver,
+      type: event.status,
+    }));
 
   if (loading) {
     return (
       <div className='space-y-6'>
-        <h3 className='text-lg font-semibold text-gray-900'>Order History</h3>
+        <div className='flex items-center justify-between'>
+          <h3 className='text-lg font-semibold text-gray-900'>Order History</h3>
+          <div className='flex items-center space-x-2'>
+            <button
+              onClick={() => setShowAddNoteModal(true)}
+              className='px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700'
+            >
+              Add Note
+            </button>
+            <button
+              onClick={() => setShowPhotoUploadModal(true)}
+              className='px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700'
+            >
+              Upload Photo
+            </button>
+          </div>
+        </div>
         <div className='flex items-center justify-center py-8'>
           <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='space-y-6'>
+        <div className='flex items-center justify-between'>
+          <h3 className='text-lg font-semibold text-gray-900'>Order History</h3>
+        </div>
+        <div className='bg-red-50 border border-red-200 rounded-lg p-4'>
+          <p className='text-red-800'>Error: {error}</p>
+          <button
+            onClick={() => fetchOrderHistory(order.id)}
+            className='mt-2 px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700'
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -280,9 +231,23 @@ export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
         <h3 className='text-lg font-semibold text-gray-900'>
           Order History & Timeline
         </h3>
-        <span className='text-sm text-gray-500'>
-          {timeline.length} events
-        </span>
+        <div className='flex items-center space-x-2'>
+          <span className='text-sm text-gray-500'>
+            {timeline.length} events
+          </span>
+          <button
+            onClick={() => setShowAddNoteModal(true)}
+            className='px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700'
+          >
+            Add Note
+          </button>
+          <button
+            onClick={() => setShowPhotoUploadModal(true)}
+            className='px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700'
+          >
+            Upload Photo
+          </button>
+        </div>
       </div>
 
       {/* Current Status */}
@@ -290,9 +255,12 @@ export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
         <div className='flex items-center justify-between'>
           <div>
             <h4 className='text-lg font-semibold text-gray-900 mb-2'>Current Status</h4>
-            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(order.status)}`}>
-              {getStatusDisplayName(order.status)}
-            </span>
+            <div className='flex items-center space-x-2'>
+              <span className='text-2xl'>{getStatusIcon(order.status)}</span>
+              <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                {getStatusDisplayName(order.status)}
+              </span>
+            </div>
           </div>
           <div className='text-right'>
             <div className='text-sm text-gray-600'>Last Updated</div>
@@ -327,9 +295,9 @@ export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
                       />
                     ) : null}
                     <div className='relative flex space-x-3'>
-                      {event.icon}
+                      {getTimelineIcon(event.type, event.status)}
                       <div className='min-w-0 flex-1 pt-1.5 flex justify-between space-x-4'>
-                        <div>
+                        <div className='flex-1'>
                           <p className='text-sm text-gray-900 font-medium'>
                             {event.status}
                           </p>
@@ -350,6 +318,65 @@ export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
                             <p className='text-xs text-gray-400 mt-1'>
                               Driver: {event.driver.firstName} {event.driver.lastName} ({event.driver.phone})
                             </p>
+                          )}
+                          
+                          {/* Display Photos */}
+                          {event.photos && event.photos.length > 0 && (
+                            <ImageGallery images={event.photos} title="Driver Photos" showLocation={true} />
+                          )}
+                          
+                          {/* Display Issue Report */}
+                          {event.issueReport && (
+                            <div className='mt-3 p-3 bg-red-50 border border-red-200 rounded-lg'>
+                              <p className='text-sm font-medium text-red-800'>
+                                Issue: {event.issueReport.issueType}
+                              </p>
+                              <p className='text-sm text-red-700 mt-1'>
+                                {event.issueReport.description}
+                              </p>
+                              <p className='text-xs text-red-600 mt-1'>
+                                Severity: {event.issueReport.severity}
+                              </p>
+                              {event.issueReport.photoUrl && (
+                                <div className='mt-2'>
+                                  <ImageGallery 
+                                    images={[{
+                                      id: event.issueReport.id,
+                                      photoUrl: event.issueReport.photoUrl,
+                                      photoType: 'issue_photo',
+                                      description: event.issueReport.description,
+                                      createdAt: event.issueReport.reportedAt,
+                                    }]} 
+                                    title="Issue Photo" 
+                                    maxDisplay={1}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Display Processing Details */}
+                          {event.processing && (
+                            <div className='mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg'>
+                              <p className='text-sm font-medium text-blue-800'>
+                                Processing: {event.processing.processingStatus}
+                              </p>
+                              {event.processing.totalPieces && (
+                                <p className='text-sm text-blue-700 mt-1'>
+                                  Pieces: {event.processing.totalPieces}
+                                </p>
+                              )}
+                              {event.processing.totalWeight && (
+                                <p className='text-sm text-blue-700'>
+                                  Weight: {event.processing.totalWeight}kg
+                                </p>
+                              )}
+                              {event.processing.processingNotes && (
+                                <p className='text-sm text-blue-700 mt-1'>
+                                  Notes: {event.processing.processingNotes}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                         <div className='text-right text-sm whitespace-nowrap text-gray-500'>
@@ -375,36 +402,109 @@ export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
         </div>
       )}
 
-      {/* Driver Assignments Summary */}
-      {order.driverAssignments && order.driverAssignments.length > 0 && (
-        <div className='bg-white border border-gray-200 rounded-lg p-6'>
-          <h4 className='text-lg font-semibold text-gray-900 mb-4'>Driver Assignments</h4>
-          <div className='space-y-3'>
-            {order.driverAssignments.map((assignment) => (
-              <div key={assignment.id} className='flex items-center justify-between p-3 bg-gray-50 rounded-lg'>
-                <div>
-                  <div className='font-medium text-gray-900'>
-                    {assignment.driver 
-                      ? `${assignment.driver.firstName} ${assignment.driver.lastName}`
-                      : 'Driver Assigned'
-                    }
-                  </div>
-                  <div className='text-sm text-gray-500'>
-                    Status: {assignment.status}
-                  </div>
-                </div>
-                <div className='text-right'>
-                  <div className='text-sm text-gray-500'>
-                    {formatUTCForDisplay(assignment.assignedAt)}
-                  </div>
-                  {assignment.driver && (
-                    <div className='text-sm text-gray-500'>
-                      {assignment.driver.phone}
-                    </div>
-                  )}
-                </div>
+      {/* Add Note Modal */}
+      {showAddNoteModal && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-lg p-6 w-full max-w-md'>
+            <h3 className='text-lg font-semibold mb-4'>Add Note</h3>
+            <textarea
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder='Enter your note...'
+              className='w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+              rows={4}
+            />
+            <div className='flex justify-end space-x-2 mt-4'>
+              <button
+                onClick={() => setShowAddNoteModal(false)}
+                className='px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50'
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddNote}
+                disabled={addHistoryForm.loading}
+                className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
+              >
+                {addHistoryForm.loading ? 'Adding...' : 'Add Note'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Upload Modal */}
+      {showPhotoUploadModal && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-white rounded-lg p-6 w-full max-w-md'>
+            <h3 className='text-lg font-semibold mb-4'>Upload Photo</h3>
+            
+            <div className='space-y-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Select Assignment
+                </label>
+                <select
+                  value={selectedAssignmentId || ''}
+                  onChange={(e) => setSelectedAssignmentId(Number(e.target.value) || null)}
+                  className='w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                >
+                  <option value=''>Select a driver assignment...</option>
+                  {driverAssignments.map((assignment) => (
+                    <option key={assignment.id} value={assignment.id}>
+                      {assignment.driver ? `${assignment.driver.firstName} ${assignment.driver.lastName}` : 'Driver'} - {assignment.type}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))}
+              
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Select Photo
+                </label>
+                <input
+                  type='file'
+                  accept='image/*'
+                  onChange={handleFileSelect}
+                  className='w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                />
+                <p className='text-xs text-gray-500 mt-1'>Maximum file size: 5MB</p>
+              </div>
+              
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={photoDescription}
+                  onChange={(e) => setPhotoDescription(e.target.value)}
+                  placeholder='Describe the photo...'
+                  className='w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                  rows={3}
+                />
+              </div>
+            </div>
+            
+            <div className='flex justify-end space-x-2 mt-6'>
+              <button
+                onClick={() => {
+                  setShowPhotoUploadModal(false);
+                  setSelectedPhoto(null);
+                  setPhotoDescription('');
+                  setSelectedAssignmentId(null);
+                }}
+                className='px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50'
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePhotoUpload}
+                disabled={uploadPhotoForm.loading || !selectedPhoto || !selectedAssignmentId}
+                className='px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50'
+              >
+                {uploadPhotoForm.loading ? 'Uploading...' : 'Upload Photo'}
+              </button>
+            </div>
           </div>
         </div>
       )}

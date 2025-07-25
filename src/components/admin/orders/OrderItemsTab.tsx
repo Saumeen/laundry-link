@@ -1,45 +1,111 @@
 'use client';
 
 import React, { useState } from 'react';
+import OrderProcessingManager from './OrderProcessingManager';
 
 interface OrderItem {
   id: number;
-  name: string;
+  itemName: string;
+  itemType: string;
   quantity: number;
-  unitPrice: number;
+  pricePerItem: number;
   totalPrice: number;
-  processingStatus?: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+}
+
+interface Service {
+  id: number;
+  name: string;
+  displayName: string;
+  pricingType: string;
+  pricingUnit: string;
+  price: number;
 }
 
 interface OrderServiceMapping {
   id: number;
-  serviceId: number;
   quantity: number;
-  price: number;
-  service: {
-    id: number;
-    name: string;
-    displayName: string;
-    description: string;
-    price: number;
-    unit: string;
-  };
+  service: Service;
   orderItems: OrderItem[];
 }
 
 interface Order {
+  id: number;
+  orderNumber: string;
+  status: string;
+  invoiceGenerated?: boolean;
   orderServiceMappings: OrderServiceMapping[];
+  orderProcessing?: {
+    id: number;
+    processingStatus: string;
+    totalPieces?: number;
+    totalWeight?: number;
+    processingNotes?: string;
+    qualityScore?: number;
+    processingItems: Array<{
+      id: number;
+      quantity: number;
+      status: string;
+      orderServiceMapping: {
+        service: {
+          id: number;
+          name: string;
+          displayName: string;
+          pricingType: string;
+          pricingUnit: string;
+          price: number;
+        };
+        orderItems: Array<{
+          id: number;
+          itemName: string;
+          itemType: string;
+          quantity: number;
+          pricePerItem: number;
+          totalPrice: number;
+          notes?: string;
+        }>;
+      };
+      processingItemDetails: Array<{
+        id: number;
+        quantity: number;
+        processedQuantity: number;
+        status: string;
+        processingNotes?: string;
+        qualityScore?: number;
+        orderItem: {
+          id: number;
+          itemName: string;
+          itemType: string;
+          quantity: number;
+          pricePerItem: number;
+          totalPrice: number;
+          notes?: string;
+        };
+        issueReports?: Array<{
+          id: number;
+          issueType: string;
+          description: string;
+          severity: string;
+          status: string;
+          images: string[];
+          reportedAt: string;
+          staff: {
+            firstName: string;
+            lastName: string;
+          };
+        }>;
+      }>;
+    }>;
+  };
 }
 
 interface OrderItemsTabProps {
   order: Order;
   onRefresh: () => void;
+  isSuperAdmin?: boolean;
 }
 
-export default function OrderItemsTab({ order }: OrderItemsTabProps) {
+export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }: OrderItemsTabProps) {
   const [selectedService, setSelectedService] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -55,7 +121,7 @@ export default function OrderItemsTab({ order }: OrderItemsTabProps) {
   // Filter items based on selected service and search term
   const filteredItems = allOrderItems.filter(item => {
     const matchesService = selectedService === 'all' || item.serviceId.toString() === selectedService;
-    const matchesSearch = (item.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (item.itemName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                          (item.serviceName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     return matchesService && matchesSearch;
   });
@@ -84,7 +150,7 @@ export default function OrderItemsTab({ order }: OrderItemsTabProps) {
   const totalValue = allOrderItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 
   const getItemName = (item: OrderItem) => {
-    return item.name || `Item ${item.id}`;
+    return item.itemName || `Item ${item.id}`;
   };
 
   const getItemQuantity = (item: OrderItem) => {
@@ -92,18 +158,158 @@ export default function OrderItemsTab({ order }: OrderItemsTabProps) {
   };
 
   const getItemUnitPrice = (item: OrderItem) => {
-    return item.unitPrice || 0;
+    return item.pricePerItem || 0;
   };
 
   const getItemTotalPrice = (item: OrderItem) => {
     return item.totalPrice || 0;
   };
 
+  // API functions for super admin
+  const handleAddOrderItem = async (orderId: number, itemData: any): Promise<void> => {
+    const response = await fetch('/api/admin/add-order-item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, ...itemData }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to add order item');
+    }
+    
+    await response.json();
+  };
+
+  const handleUpdateItemProcessing = async (orderId: string, processingItemDetailId: number, data: any): Promise<void> => {
+    const response = await fetch(`/api/admin/facility-team/processing?orderId=${orderId}&action=updateItem`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        processingItemDetailId,
+        processedQuantity: parseInt(data.processedQuantity) || 0,
+        status: data.status,
+        processingNotes: data.processingNotes,
+        qualityScore: data.qualityScore ? parseInt(data.qualityScore) : undefined,
+        updateParentStatus: true,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update item processing');
+    }
+    
+    await response.json();
+  };
+
+  const handleStartProcessing = async (orderId: number): Promise<void> => {
+    const response = await fetch('/api/admin/facility-team/processing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        processingStatus: 'IN_PROGRESS',
+        totalPieces: 0,
+        totalWeight: 0,
+        processingNotes: 'Processing started by super admin',
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to start processing');
+    }
+    
+    await response.json();
+  };
+
+  const handleMarkAsReadyForDelivery = async (orderId: number): Promise<void> => {
+    const response = await fetch('/api/admin/facility/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        action: 'mark_ready_for_delivery',
+        notes: 'Order marked as ready for delivery by super admin',
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to mark as ready for delivery');
+    }
+    
+    await response.json();
+  };
+
+  const handleGenerateInvoice = async (orderId: number): Promise<void> => {
+    const response = await fetch('/api/admin/facility/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        action: 'generate_invoice',
+        notes: 'Invoice generated by super admin',
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to generate invoice');
+    }
+    
+    await response.json();
+  };
+
+  const handleMarkProcessingCompleted = async (orderId: number): Promise<void> => {
+    const response = await fetch('/api/admin/facility/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        action: 'complete_processing',
+        notes: 'Processing completed by super admin',
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to mark processing as completed');
+    }
+    
+    await response.json();
+  };
+
+  const handleUploadIssueImages = async (processingItemDetailId: number, images: string[], issueType: string, description: string, severity: string): Promise<void> => {
+    const response = await fetch('/api/admin/facility-team/issue-reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        processingItemDetailId,
+        images,
+        issueType,
+        description,
+        severity,
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload issue images');
+    }
+    
+    await response.json();
+  };
+
+  const handleFetchIssueReports = async (processingItemDetailId: number): Promise<void> => {
+    const response = await fetch(`/api/admin/facility-team/issue-reports?processingItemDetailId=${processingItemDetailId}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch issue reports');
+    }
+    
+    await response.json();
+  };
+
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
         <h3 className='text-lg font-semibold text-gray-900'>
-          Order Items
+          Order Items & Processing
         </h3>
         <span className='text-sm text-gray-500'>
           {totalItems} items
@@ -163,6 +369,22 @@ export default function OrderItemsTab({ order }: OrderItemsTabProps) {
         </div>
       </div>
 
+      {/* Processing Manager */}
+      <OrderProcessingManager
+        order={order}
+        onRefresh={onRefresh}
+        isSuperAdmin={isSuperAdmin}
+        onAddOrderItem={handleAddOrderItem}
+        onUpdateItemProcessing={handleUpdateItemProcessing}
+        onStartProcessing={handleStartProcessing}
+        onMarkAsReadyForDelivery={handleMarkAsReadyForDelivery}
+        onGenerateInvoice={handleGenerateInvoice}
+        onMarkProcessingCompleted={handleMarkProcessingCompleted}
+        onUploadIssueImages={handleUploadIssueImages}
+        onFetchIssueReports={handleFetchIssueReports}
+      />
+
+      {/* Items Table */}
       {filteredItems.length === 0 ? (
         <div className='text-center py-8'>
           <div className='text-gray-400 mb-2'>
@@ -237,8 +459,8 @@ export default function OrderItemsTab({ order }: OrderItemsTabProps) {
                       </div>
                     </td>
                     <td className='px-6 py-4 whitespace-nowrap'>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.processingStatus || '')}`}>
-                        {getStatusDisplayName(item.processingStatus || '')}
+                      <span className='inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800'>
+                        Active
                       </span>
                     </td>
                   </tr>

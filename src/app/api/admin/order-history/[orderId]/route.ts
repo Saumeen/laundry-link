@@ -16,122 +16,122 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
-    // Get comprehensive order timeline
-    const [history, updates, driverAssignments, processing] = await Promise.all(
-      [
-        prisma.orderHistory.findMany({
-          where: { orderId: orderIdNumber },
-          include: {
-            staff: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
+    // Get comprehensive order timeline with all related data
+    const [history, updates, driverAssignments, orderProcessing, issueReports] = await Promise.all([
+      // Order history entries
+      prisma.orderHistory.findMany({
+        where: { orderId: orderIdNumber },
+        include: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.orderUpdate.findMany({
-          where: { orderId: orderIdNumber },
-          include: {
-            staff: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      
+      // Order updates (status changes)
+      prisma.orderUpdate.findMany({
+        where: { orderId: orderIdNumber },
+        include: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.driverAssignment.findMany({
-          where: { orderId: orderIdNumber },
-          include: {
-            driver: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      
+      // Driver assignments with photos
+      prisma.driverAssignment.findMany({
+        where: { orderId: orderIdNumber },
+        include: {
+          driver: {
+            select: {
+              firstName: true,
+              lastName: true,
+              phone: true,
+              email: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.orderProcessing.findMany({
-          where: { orderId: orderIdNumber },
-          include: {
-            staff: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
+          photos: {
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      
+      // Order processing details
+      prisma.orderProcessing.findMany({
+        where: { orderId: orderIdNumber },
+        include: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      
+      // Issue reports with photos
+      prisma.issueReport.findMany({
+        where: {
+          orderProcessing: {
+            orderId: orderIdNumber,
+          },
+        },
+        include: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { reportedAt: 'desc' },
+      }),
+    ]);
+
+    // Transform order updates into history format for consistency
+    const transformedUpdates = updates.map(update => ({
+      id: update.id,
+      orderId: update.orderId,
+      staffId: update.staffId,
+      action: 'status_change',
+      oldValue: update.oldStatus,
+      newValue: update.newStatus,
+      description: update.notes || `Status changed from ${update.oldStatus} to ${update.newStatus}`,
+      metadata: null,
+      createdAt: update.createdAt.toISOString(),
+      staff: update.staff,
+    }));
+
+    // Combine and sort all history entries
+    const combinedHistory = [...history, ...transformedUpdates].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    // Transform and combine all events
-    const timeline = [
-      ...history.map(h => ({
-        id: `history-${h.id}`,
-        type: 'history' as const,
-        createdAt: h.createdAt,
-        description: h.description,
-        staff: h.staff,
-        metadata: h.metadata,
-        action: h.action,
-        oldValue: h.oldValue,
-        newValue: h.newValue,
-      })),
-      ...updates.map(u => ({
-        id: `update-${u.id}`,
-        type: 'update' as const,
-        createdAt: u.createdAt,
-        description: `Status updated from ${u.oldStatus} to ${u.newStatus}`,
-        staff: u.staff,
-        metadata: { notes: u.notes },
-        oldStatus: u.oldStatus,
-        newStatus: u.newStatus,
-        notes: u.notes,
-      })),
-      ...driverAssignments.map(d => ({
-        id: `driver-${d.id}`,
-        type: 'driver_assignment' as const,
-        createdAt: d.createdAt,
-        description: `Driver assignment for ${d.assignmentType} - ${d.status}`,
-        staff: d.driver,
-        metadata: {
-          assignmentType: d.assignmentType,
-          status: d.status,
-          estimatedTime: d.estimatedTime,
-          actualTime: d.actualTime,
-          notes: d.notes,
-        },
-      })),
-      ...processing.map(p => ({
-        id: `processing-${p.id}`,
-        type: 'processing' as const,
-        createdAt: p.createdAt,
-        description: `Processing status: ${p.processingStatus}`,
-        staff: p.staff,
-        metadata: {
-          processingStatus: p.processingStatus,
-          totalPieces: p.totalPieces,
-          totalWeight: p.totalWeight,
-          processingNotes: p.processingNotes,
-          qualityScore: p.qualityScore,
-        },
-      })),
-    ].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    return NextResponse.json(timeline);
+    return NextResponse.json({
+      success: true,
+      history: combinedHistory,
+      driverAssignments,
+      orderProcessing,
+      issueReports,
+      timeline: {
+        totalEvents: combinedHistory.length + driverAssignments.length + orderProcessing.length + issueReports.length,
+        lastUpdated: combinedHistory[0]?.createdAt || null,
+      },
+    });
   } catch (error) {
     console.error('Error fetching order history:', error);
     return NextResponse.json(
@@ -188,7 +188,10 @@ export async function POST(
       },
     });
 
-    return NextResponse.json(historyEntry);
+    return NextResponse.json({
+      success: true,
+      historyEntry,
+    });
   } catch (error) {
     console.error('Error creating order history entry:', error);
     return NextResponse.json(

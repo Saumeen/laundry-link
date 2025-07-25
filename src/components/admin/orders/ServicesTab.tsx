@@ -28,14 +28,6 @@ interface ServicesTabProps {
 }
 
 export default function ServicesTab({ order }: ServicesTabProps) {
-  const calculateServiceTotal = (mapping: OrderServiceMapping) => {
-    return mapping.quantity * mapping.price;
-  };
-
-  const getTotalItems = (mapping: OrderServiceMapping) => {
-    return mapping.orderItems?.reduce((total, item) => total + (item.quantity || 0), 0) || 0;
-  };
-
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
@@ -60,91 +52,18 @@ export default function ServicesTab({ order }: ServicesTabProps) {
         <div className='space-y-4'>
           {order.orderServiceMappings.map((mapping) => (
             <div key={mapping.id} className='bg-white border border-gray-200 rounded-lg p-6 shadow-sm'>
-              <div className='flex items-start justify-between mb-4'>
+              <div className='flex items-start'>
                 <div className='flex-1'>
                   <h4 className='text-lg font-semibold text-gray-900 mb-1'>
                     {mapping.service.displayName}
                   </h4>
-                  <p className='text-sm text-gray-600 mb-2'>
+                  <p className='text-sm text-gray-600'>
                     {mapping.service.description}
                   </p>
-                  <div className='flex items-center space-x-4 text-sm text-gray-500'>
-                    <span>Service ID: {mapping.service.id}</span>
-                    <span>Unit: {mapping.service.unit}</span>
-                  </div>
-                </div>
-                <div className='text-right'>
-                  <div className='text-2xl font-bold text-blue-600'>
-                    {calculateServiceTotal(mapping).toFixed(3)} BD
-                  </div>
-                  <div className='text-sm text-gray-500'>
-                    {mapping.quantity} × {mapping.price.toFixed(3)} BD
-                  </div>
                 </div>
               </div>
-
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100'>
-                <div className='text-center'>
-                  <div className='text-sm text-gray-600'>Quantity</div>
-                  <div className='text-lg font-semibold text-gray-900'>
-                    {mapping.quantity}
-                  </div>
-                </div>
-                <div className='text-center'>
-                  <div className='text-sm text-gray-600'>Unit Price</div>
-                  <div className='text-lg font-semibold text-gray-900'>
-                    {mapping.price.toFixed(3)} BD
-                  </div>
-                </div>
-                <div className='text-center'>
-                  <div className='text-sm text-gray-600'>Total Items</div>
-                  <div className='text-lg font-semibold text-gray-900'>
-                    {getTotalItems(mapping)}
-                  </div>
-                </div>
-              </div>
-
-              {mapping.orderItems && mapping.orderItems.length > 0 && (
-                <div className='mt-4 pt-4 border-t border-gray-100'>
-                  <h5 className='font-medium text-gray-900 mb-3'>Order Items</h5>
-                  <div className='space-y-2'>
-                    {mapping.orderItems.map((item, index) => (
-                      <div key={index} className='flex justify-between items-center text-sm'>
-                        <span className='text-gray-600'>
-                          {item.name || `Item ${item.id || index + 1}`}
-                        </span>
-                        <span className='font-medium'>
-                          {item.quantity || 0} × {(item.unitPrice || 0).toFixed(3)} BD
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Summary */}
-      {order.orderServiceMappings && order.orderServiceMappings.length > 0 && (
-        <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
-          <div className='flex items-center justify-between'>
-            <div>
-              <h4 className='font-semibold text-blue-900'>Order Summary</h4>
-              <p className='text-sm text-blue-700'>
-                Total services: {order.orderServiceMappings.length}
-              </p>
-            </div>
-            <div className='text-right'>
-              <div className='text-lg font-bold text-blue-900'>
-                {order.orderServiceMappings
-                  .reduce((total, mapping) => total + calculateServiceTotal(mapping), 0)
-                  .toFixed(3)} BD
-              </div>
-              <div className='text-sm text-blue-700'>Total Amount</div>
-            </div>
-          </div>
         </div>
       )}
     </div>

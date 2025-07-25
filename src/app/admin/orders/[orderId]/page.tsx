@@ -11,30 +11,13 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
+import type { OrderStatus } from '@/shared/types';
 
-// Import the new modular components
-import {
-  DriverAssignmentsTab,
-  OrderEditTab,
-  OrderOverviewTab
-} from '@/components/admin/orders';
-import ServicesTab from '@/components/admin/orders/ServicesTab';
-import OrderItemsTab from '@/components/admin/orders/OrderItemsTab';
-import InvoiceTab from '@/components/admin/orders/InvoiceTab';
-import OrderHistoryTab from '@/components/admin/orders/OrderHistoryTab';
-
-// Constants
-const ALLOWED_ROLES = [
-  'SUPER_ADMIN',
-  'OPERATION_MANAGER',
-  'DRIVER',
-  'FACILITY_TEAM',
-] as const;
-
-interface Order {
+// Order interface matching API response
+interface OrderWithRelations {
   id: number;
   orderNumber: string;
-  status: string;
+  status: OrderStatus;
   pickupTime: string;
   deliveryTime: string;
   pickupStartTime: string;
@@ -77,21 +60,52 @@ interface Order {
       name: string;
       displayName: string;
       description: string;
+      pricingType: string;
+      pricingUnit: string;
       price: number;
       unit: string;
     };
-    orderItems: any[];
+    orderItems: Array<{
+      id: number;
+      itemName: string;
+      itemType: string;
+      quantity: number;
+      pricePerItem: number;
+      totalPrice: number;
+      notes?: string;
+    }>;
   }>;
   driverAssignments?: any[];
-  specialInstructions?: string;
-  invoiceTotal?: number;
-  minimumOrderApplied?: boolean;
+  specialInstructions?: string | null;
+  invoiceTotal?: number | null;
+  minimumOrderApplied?: boolean | null;
   orderProcessing?: any;
 }
 
+// Import the new modular components
+import {
+  DriverAssignmentsTab,
+  OrderEditTab,
+  OrderOverviewTab
+} from '@/components/admin/orders';
+import ServicesTab from '@/components/admin/orders/ServicesTab';
+import OrderItemsTab from '@/components/admin/orders/OrderItemsTab';
+import InvoiceTab from '@/components/admin/orders/InvoiceTab';
+import OrderHistoryTab from '@/components/admin/orders/OrderHistoryTab';
+
+// Constants
+const ALLOWED_ROLES = [
+  'SUPER_ADMIN',
+  'OPERATION_MANAGER',
+  'DRIVER',
+  'FACILITY_TEAM',
+] as const;
+
+
+
 // API Response interfaces
 interface OrderResponse {
-  order: Order;
+  order: OrderWithRelations;
 }
 
 interface ErrorResponse {
@@ -140,7 +154,7 @@ function OrderEditPageContent() {
   const params = useParams();
   const { data: session, status } = useSession();
 
-  const [order, setOrder] = useState<Order | null>(null);
+  const [order, setOrder] = useState<OrderWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -227,7 +241,7 @@ function OrderEditPageContent() {
     return getStatusBadgeColor(status);
   }, []);
 
-  const getOrderTotal = (order: Order): number => {
+  const getOrderTotal = (order: OrderWithRelations): number => {
     if (!order) return 0;
 
     let subtotal = 0;
@@ -458,25 +472,25 @@ function OrderEditPageContent() {
           {/* Tab Content */}
           <div className='p-6'>
             {activeTab === 'overview' && (
-              <OrderOverviewTab order={order} onRefresh={fetchOrder} />
+              <OrderOverviewTab order={order as any} onRefresh={fetchOrder} />
             )}
             {activeTab === 'edit' && (
-              <OrderEditTab order={order} onUpdate={fetchOrder} />
+              <OrderEditTab order={order as any} onUpdate={fetchOrder} />
             )}
             {activeTab === 'assignments' && (
-              <DriverAssignmentsTab order={order} onRefresh={fetchOrder} />
+              <DriverAssignmentsTab order={order as any} onRefresh={fetchOrder} />
             )}
             {activeTab === 'services' && (
-              <ServicesTab order={order} onRefresh={fetchOrder} />
+              <ServicesTab order={order as any} onRefresh={fetchOrder} />
             )}
             {activeTab === 'order-items' && (
-              <OrderItemsTab order={order} onRefresh={fetchOrder} />
+              <OrderItemsTab order={order as any} onRefresh={fetchOrder} />
             )}
             {activeTab === 'invoice' && (
-              <InvoiceTab order={order} onRefresh={fetchOrder} />
+              <InvoiceTab order={order as any} onRefresh={fetchOrder} />
             )}
             {activeTab === 'history' && (
-              <OrderHistoryTab order={order} onRefresh={fetchOrder} />
+              <OrderHistoryTab order={order as any} onRefresh={fetchOrder} />
             )}
           </div>
         </div>
