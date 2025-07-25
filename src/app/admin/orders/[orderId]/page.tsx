@@ -18,6 +18,10 @@ import {
   OrderEditTab,
   OrderOverviewTab
 } from '@/components/admin/orders';
+import ServicesTab from '@/components/admin/orders/ServicesTab';
+import OrderItemsTab from '@/components/admin/orders/OrderItemsTab';
+import InvoiceTab from '@/components/admin/orders/InvoiceTab';
+import OrderHistoryTab from '@/components/admin/orders/OrderHistoryTab';
 
 // Constants
 const ALLOWED_ROLES = [
@@ -40,6 +44,7 @@ interface Order {
   pickupTimeSlot?: string;
   deliveryTimeSlot?: string;
   createdAt: string;
+  updatedAt: string;
   customer: {
     id: number;
     firstName: string;
@@ -462,24 +467,16 @@ function OrderEditPageContent() {
               <DriverAssignmentsTab order={order} onRefresh={fetchOrder} />
             )}
             {activeTab === 'services' && (
-              <div className='text-center py-8'>
-                <p className='text-gray-500'>Services tab - Coming soon</p>
-              </div>
+              <ServicesTab order={order} onRefresh={fetchOrder} />
             )}
             {activeTab === 'order-items' && (
-              <div className='text-center py-8'>
-                <p className='text-gray-500'>Order Items tab - Coming soon</p>
-              </div>
+              <OrderItemsTab order={order} onRefresh={fetchOrder} />
             )}
             {activeTab === 'invoice' && (
-              <div className='text-center py-8'>
-                <p className='text-gray-500'>Invoice tab - Coming soon</p>
-              </div>
+              <InvoiceTab order={order} onRefresh={fetchOrder} />
             )}
             {activeTab === 'history' && (
-              <div className='text-center py-8'>
-                <p className='text-gray-500'>Order History tab - Coming soon</p>
-              </div>
+              <OrderHistoryTab order={order} onRefresh={fetchOrder} />
             )}
           </div>
         </div>
