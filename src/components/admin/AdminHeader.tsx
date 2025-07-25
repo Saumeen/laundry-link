@@ -20,6 +20,28 @@ export default function AdminHeader({
   rightContent
 }: AdminHeaderProps) {
   const router = useRouter();
+<<<<<<< Updated upstream
+=======
+  const { logout, user } = useAdminAuth();
+
+  // Get the appropriate dashboard URL based on user role
+  const getDashboardUrl = () => {
+    if (!user?.role?.name) return '/admin';
+    
+    switch (user.role.name) {
+      case 'SUPER_ADMIN':
+        return '/admin/super-admin';
+      case 'OPERATION_MANAGER':
+        return '/admin/operation-manager';
+      case 'DRIVER':
+        return '/admin/driver';
+      case 'FACILITY_TEAM':
+        return '/admin/facility-team';
+      default:
+        return '/admin';
+    }
+  };
+>>>>>>> Stashed changes
 
   const handleBack = () => {
     if (onBack) {
@@ -27,7 +49,8 @@ export default function AdminHeader({
     } else if (backUrl) {
       router.push(backUrl);
     } else {
-      router.back();
+      // Navigate to role-specific dashboard instead of browser back
+      router.push(getDashboardUrl());
     }
   };
 
@@ -54,7 +77,11 @@ export default function AdminHeader({
                     d="M15 19l-7-7 7-7" 
                   />
                 </svg>
+<<<<<<< Updated upstream
                 <span className="text-sm font-medium">Back</span>
+=======
+                <span className='text-sm font-medium'>Back to Dashboard</span>
+>>>>>>> Stashed changes
               </button>
             )}
             

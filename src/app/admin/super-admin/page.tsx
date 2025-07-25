@@ -148,9 +148,30 @@ export default function SuperAdminDashboard() {
     router.push('/admin/super-admin/service-pricing');
   };
 
+<<<<<<< Updated upstream
   useEffect(() => {
     if (status === "loading") {
       return; // Still loading
+=======
+
+
+
+
+  // Stats card click handlers
+  const handleStatsCardClick = (statType: string) => {
+    switch (statType) {
+      case 'totalOrders':
+        handleNavigateToOrders();
+        break;
+      case 'totalCustomers':
+        handleNavigateToCustomers();
+        break;
+      case 'activeStaff':
+        handleNavigateToStaff();
+        break;
+      default:
+        break;
+>>>>>>> Stashed changes
     }
 
     if (status === "unauthenticated") {
@@ -342,12 +363,36 @@ export default function SuperAdminDashboard() {
                 onClick={handleNavigateToReports}
                 bgColor="bg-yellow-600"
               />
+<<<<<<< Updated upstream
+=======
+            </div>
+          </div>
+
+          {/* Additional Management Sections */}
+          <div className='grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6'>
+            <div className='bg-white rounded-lg shadow p-6'>
+              <h3 className='text-lg font-medium text-gray-900 mb-4'>
+                Service & Pricing
+              </h3>
+              <p className='text-gray-600 mb-4'>
+                Manage services, pricing categories, and service-pricing
+                mappings.
+              </p>
+>>>>>>> Stashed changes
               <QuickActionButton
                 title="Manage Service & Pricing"
                 onClick={handleNavigateToServicePricing}
+<<<<<<< Updated upstream
                 bgColor="bg-indigo-600"
               />
             </div>
+=======
+                bgColor='bg-indigo-600 hover:bg-indigo-700'
+              />
+            </div>
+
+
+>>>>>>> Stashed changes
           </div>
         </div>
       </main>

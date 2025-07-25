@@ -1,7 +1,17 @@
 // src/app/api/admin/order-details/[orderId]/route.ts
+<<<<<<< Updated upstream
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+=======
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
+import { formatTimeSlotRange } from '@/lib/utils/timezone';
+>>>>>>> Stashed changes
 
 export async function GET(
   request: Request,
@@ -69,7 +79,16 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ order });
+    // Map the time fields to match frontend expectations with Bahrain timezone
+    const mappedOrder = {
+      ...order,
+      pickupTime: order.pickupStartTime,
+      deliveryTime: order.deliveryStartTime,
+      pickupTimeSlot: formatTimeSlotRange(order.pickupStartTime, order.pickupEndTime),
+      deliveryTimeSlot: formatTimeSlotRange(order.deliveryStartTime, order.deliveryEndTime),
+    };
+
+    return NextResponse.json({ order: mappedOrder });
   } catch (error) {
     console.error("Error fetching order details:", error);
 

@@ -55,7 +55,12 @@ export const OrderHistoryTimeline: React.FC<OrderHistoryTimelineProps> = ({
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
+<<<<<<< Updated upstream
       minute: '2-digit'
+=======
+      minute: '2-digit',
+      timeZone: 'Asia/Bahrain',
+>>>>>>> Stashed changes
     }).format(new Date(date));
   };
 

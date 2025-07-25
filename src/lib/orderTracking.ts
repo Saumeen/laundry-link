@@ -51,6 +51,7 @@ export interface OperationsActionData {
   staffId: number;
   action: 'confirm_order' | 'assign_pickup_driver' | 'assign_delivery_driver';
   driverId?: number;
+  estimatedTime?: string;
   notes?: string;
 }
 
@@ -359,8 +360,15 @@ export class OrderTrackingService {
   /**
    * Handle operations team actions
    */
+<<<<<<< Updated upstream
   static async handleOperationsAction(data: OperationsActionData): Promise<{ success: boolean; message?: string }> {
     const { orderId, staffId, action, driverId, notes } = data;
+=======
+  static async handleOperationsAction(
+    data: OperationsActionData
+  ): Promise<{ success: boolean; message?: string }> {
+    const { orderId, staffId, action, driverId, estimatedTime, notes } = data;
+>>>>>>> Stashed changes
 
     try {
       let newStatus: OrderStatus;
@@ -396,8 +404,22 @@ export class OrderTrackingService {
       }
 
       // Create driver assignment if driver is provided
+<<<<<<< Updated upstream
       if (driverId && (action === 'assign_pickup_driver' || action === 'assign_delivery_driver')) {
         await this.createDriverAssignment(orderId, driverId, action === 'assign_pickup_driver' ? 'pickup' : 'delivery');
+=======
+      if (
+        driverId &&
+        (action === 'assign_pickup_driver' ||
+          action === 'assign_delivery_driver')
+      ) {
+        await this.createDriverAssignment(
+          orderId,
+          driverId,
+          action === 'assign_pickup_driver' ? 'pickup' : 'delivery',
+          estimatedTime
+        );
+>>>>>>> Stashed changes
       }
 
       return { success: true };
@@ -689,7 +711,8 @@ export class OrderTrackingService {
   private static async createDriverAssignment(
     orderId: number,
     driverId: number,
-    assignmentType: 'pickup' | 'delivery'
+    assignmentType: 'pickup' | 'delivery',
+    estimatedTime?: string
   ): Promise<void> {
     try {
       await prisma.driverAssignment.create({
@@ -697,8 +720,14 @@ export class OrderTrackingService {
           orderId,
           driverId,
           assignmentType,
+<<<<<<< Updated upstream
           status: DriverAssignmentStatus.ASSIGNED
         }
+=======
+          status: DriverAssignmentStatus.ASSIGNED,
+          estimatedTime: estimatedTime ? new Date(estimatedTime) : null,
+        },
+>>>>>>> Stashed changes
       });
     } catch (error) {
       console.error('Error creating driver assignment:', error);

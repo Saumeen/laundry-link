@@ -1,5 +1,6 @@
 "use client";
 
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -44,6 +45,34 @@ const defaultCenter = {
   lat: 26.0667,
   lng: 50.5577
 };
+=======
+import { getStatusBadgeColor, getStatusDisplayName } from '@/admin/utils/orderUtils';
+import AdminHeader from '@/components/admin/AdminHeader';
+import { ToastProvider } from '@/components/ui/Toast';
+import {
+  formatUTCForDisplay,
+  formatUTCForTimeDisplay
+} from '@/lib/utils/timezone';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useState } from 'react';
+
+// Import the new modular components
+import {
+  DriverAssignmentsTab,
+  OrderEditTab,
+  OrderOverviewTab
+} from '@/components/admin/orders';
+
+// Constants
+const ALLOWED_ROLES = [
+  'SUPER_ADMIN',
+  'OPERATION_MANAGER',
+  'DRIVER',
+  'FACILITY_TEAM',
+] as const;
+>>>>>>> Stashed changes
 
 interface Order {
   id: number;
@@ -51,6 +80,15 @@ interface Order {
   status: string;
   pickupTime: string;
   deliveryTime: string;
+<<<<<<< Updated upstream
+=======
+  pickupStartTime: string;
+  pickupEndTime: string;
+  deliveryStartTime: string;
+  deliveryEndTime: string;
+  pickupTimeSlot?: string;
+  deliveryTimeSlot?: string;
+>>>>>>> Stashed changes
   createdAt: string;
   customer: {
     id: number;
@@ -87,13 +125,14 @@ interface Order {
       price: number;
       unit: string;
     };
-    orderItems: OrderItem[];
+    orderItems: any[];
   }>;
-  driverAssignments?: DriverAssignment[];
+  driverAssignments?: any[];
   specialInstructions?: string;
   invoiceTotal?: number;
   minimumOrderApplied?: boolean;
   orderProcessing?: any;
+<<<<<<< Updated upstream
 }
 
 interface OrderItem {
@@ -142,6 +181,8 @@ interface Driver {
   phone?: string;
   lastLoginAt?: string;
   createdAt: string;
+=======
+>>>>>>> Stashed changes
 }
 
 // API Response interfaces
@@ -153,6 +194,7 @@ interface ErrorResponse {
   error: string;
 }
 
+<<<<<<< Updated upstream
 interface DriversResponse {
   drivers: Driver[];
 }
@@ -165,6 +207,8 @@ interface OrderItemsResponse {
   orderItems: OrderItem[];
 }
 
+=======
+>>>>>>> Stashed changes
 type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items' | 'invoice' | 'history';
 
 // Tab Button Component
@@ -198,6 +242,7 @@ const TabButton = React.memo(({
   </button>
 ));
 
+<<<<<<< Updated upstream
 // Invoice Tab Component
 function InvoiceTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
   const { showToast } = useToast();
@@ -870,18 +915,27 @@ function OrderHistoryTab({ order, onRefresh }: { order: Order; onRefresh: () => 
 }
 
 
+=======
+>>>>>>> Stashed changes
 function OrderEditPageContent() {
   const router = useRouter();
   const params = useParams();
   const { data: session, status } = useSession();
+<<<<<<< Updated upstream
   
   // Remove useToast from here since it will be used in child components
   
+=======
+
+>>>>>>> Stashed changes
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+<<<<<<< Updated upstream
   const [saving, setSaving] = useState(false);
+=======
+>>>>>>> Stashed changes
   const [orderId, setOrderId] = useState<string>('');
 
   // Memoized tab click handlers
@@ -935,15 +989,21 @@ function OrderEditPageContent() {
     }
 
     // Check if user has appropriate role to view orders
+<<<<<<< Updated upstream
     const allowedRoles = ['SUPER_ADMIN', 'OPERATION_MANAGER', 'DRIVER', 'FACILITY_TEAM'];
     if (session?.role && !allowedRoles.includes(session.role as string)) {
       router.push("/admin/login");
+=======
+    if (session?.role && !ALLOWED_ROLES.includes(session.role as any)) {
+      router.push('/admin/login');
+>>>>>>> Stashed changes
       return;
     }
 
     fetchOrder();
   }, [status, session, router, fetchOrder]);
 
+<<<<<<< Updated upstream
   const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -953,25 +1013,39 @@ function OrderEditPageContent() {
       minute: '2-digit'
     });
   }, []);
+=======
+  // Get the appropriate dashboard URL based on user role
+  const getDashboardUrl = useCallback(() => {
+    if (!session?.role) return '/admin';
+    
+    switch (session.role) {
+      case 'SUPER_ADMIN':
+        return '/admin/super-admin';
+      case 'OPERATION_MANAGER':
+        return '/admin/operation-manager';
+      case 'DRIVER':
+        return '/admin/driver';
+      case 'FACILITY_TEAM':
+        return '/admin/facility-team';
+      default:
+        return '/admin';
+    }
+  }, [session?.role]);
+>>>>>>> Stashed changes
 
   const getStatusColor = useCallback((status: string) => {
-    const colors: { [key: string]: string } = {
-      'Order Placed': 'bg-blue-100 text-blue-800',
-      'Picked Up': 'bg-yellow-100 text-yellow-800',
-      'In Process': 'bg-purple-100 text-purple-800',
-      'Ready for Delivery': 'bg-green-100 text-green-800',
-      [OrderStatus.DELIVERED]: 'bg-gray-100 text-gray-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return getStatusBadgeColor(status);
   }, []);
 
-  // Calculate total for the summary card
-  const calculateTotal = useCallback(() => {
+  const getOrderTotal = (order: Order): number => {
     if (!order) return 0;
     
     let subtotal = 0;
+<<<<<<< Updated upstream
     
     // Add order items costs
+=======
+>>>>>>> Stashed changes
     if (order.orderServiceMappings) {
       order.orderServiceMappings.forEach(mapping => {
         if (mapping.orderItems) {
@@ -983,9 +1057,9 @@ function OrderEditPageContent() {
     }
     
     return order.invoiceTotal || subtotal;
-  }, [order]);
+  };
 
-  const total = calculateTotal();
+  const total = getOrderTotal(order!);
 
   if (loading) {
     return (
@@ -1009,10 +1083,15 @@ function OrderEditPageContent() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Order Not Found</h2>
             <p className="text-gray-600 mb-6">{error || 'The requested order could not be found.'}</p>
             <Link
+<<<<<<< Updated upstream
               href="/admin/orders"
               className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+=======
+              href={getDashboardUrl()}
+              className='bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700'
+>>>>>>> Stashed changes
             >
-              Back to Orders
+              Back to Dashboard
             </Link>
           </div>
         </div>
@@ -1031,13 +1110,18 @@ function OrderEditPageContent() {
             <div>
               <div className="flex items-center space-x-4">
                 <Link
+<<<<<<< Updated upstream
                   href="/admin/orders"
                   className="text-blue-600 hover:text-blue-700 flex items-center"
+=======
+                  href={getDashboardUrl()}
+                  className='text-blue-600 hover:text-blue-700 flex items-center'
+>>>>>>> Stashed changes
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  Back to Orders
+                  Back to Dashboard
                 </Link>
                 <h1 className="text-3xl font-bold text-gray-900">
                   Order #{order.orderNumber}
@@ -1046,6 +1130,7 @@ function OrderEditPageContent() {
               <div className="mt-2 text-gray-600">
                 Customer: {order.customer.firstName} {order.customer.lastName} | {order.customer.email}
               </div>
+<<<<<<< Updated upstream
               <div className="text-sm text-gray-500">
                 Created: {formatDate(order.createdAt)}
               </div>
@@ -1053,6 +1138,17 @@ function OrderEditPageContent() {
             <div className="text-right">
               <span className={`px-3 py-1 text-sm rounded-full ${getStatusColor(order.status)}`}>
                 {order.status}
+=======
+              <div className='text-sm text-gray-500'>
+                Created: {formatUTCForDisplay(order.createdAt)}
+              </div>
+            </div>
+            <div className='text-right'>
+              <span
+                className={`px-3 py-1 text-sm rounded-full ${getStatusColor(order.status)}`}
+              >
+                {getStatusDisplayName(order.status)}
+>>>>>>> Stashed changes
               </span>
               {order.invoiceTotal && (
                 <p className="text-2xl font-bold text-gray-900 mt-2">
@@ -1082,6 +1178,33 @@ function OrderEditPageContent() {
               <div className="text-sm text-gray-600">Items</div>
               <div className="font-semibold text-gray-900">
                 {order.orderServiceMappings?.reduce((total, mapping) => total + (mapping.orderItems?.length || 0), 0) || 0}
+              </div>
+            </div>
+          </div>
+          {/* Time Information */}
+          <div className='mt-4 pt-4 border-t border-blue-200'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4 text-center'>
+              <div>
+                <div className='text-sm text-gray-600'>Pickup Date & Time</div>
+                <div className='font-semibold text-gray-900'>
+                  {formatUTCForDisplay(order.pickupTime)}
+                </div>
+                {order.pickupTimeSlot && (
+                  <div className='text-sm text-blue-600'>
+                    Slot: {order.pickupTimeSlot}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className='text-sm text-gray-600'>Delivery Date & Time</div>
+                <div className='font-semibold text-gray-900'>
+                  {formatUTCForDisplay(order.deliveryTime)}
+                </div>
+                {order.deliveryTimeSlot && (
+                  <div className='text-sm text-blue-600'>
+                    Slot: {order.deliveryTimeSlot}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1151,16 +1274,24 @@ function OrderEditPageContent() {
               <DriverAssignmentsTab order={order} onRefresh={fetchOrder} />
             )}
             {activeTab === 'services' && (
-              <ServicesRequestedTab order={order} onRefresh={fetchOrder} />
+              <div className='text-center py-8'>
+                <p className='text-gray-500'>Services tab - Coming soon</p>
+              </div>
             )}
             {activeTab === 'order-items' && (
-              <OrderItemsTab order={order} onRefresh={fetchOrder} />
+              <div className='text-center py-8'>
+                <p className='text-gray-500'>Order Items tab - Coming soon</p>
+              </div>
             )}
             {activeTab === 'invoice' && (
-              <InvoiceTab order={order} onRefresh={fetchOrder} />
+              <div className='text-center py-8'>
+                <p className='text-gray-500'>Invoice tab - Coming soon</p>
+              </div>
             )}
             {activeTab === 'history' && (
-              <OrderHistoryTab order={order} onRefresh={fetchOrder} />
+              <div className='text-center py-8'>
+                <p className='text-gray-500'>Order History tab - Coming soon</p>
+              </div>
             )}
           </div>
         </div>
@@ -1169,6 +1300,7 @@ function OrderEditPageContent() {
   );
 }
 
+<<<<<<< Updated upstream
 // Overview Tab Component
 function OrderOverviewTab({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
   const formatDate = useCallback((dateString: string) => {
@@ -3811,6 +3943,8 @@ function OrderItemsTab({ order, onRefresh }: { order: Order; onRefresh: () => vo
   );
 } 
 
+=======
+>>>>>>> Stashed changes
 export default function OrderEditPage() {
   return (
     <ToastProvider>
