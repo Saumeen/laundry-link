@@ -4,14 +4,15 @@ import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
     // Verify admin authentication
     const admin = await requireAuthenticatedAdmin();
 
-    const orderId = parseInt(params.orderId);
-    if (isNaN(orderId)) {
+    const { orderId } = await params;
+    const orderIdNumber = parseInt(orderId);
+    if (isNaN(orderIdNumber)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
@@ -19,7 +20,7 @@ export async function GET(
     const [history, updates, driverAssignments, processing] = await Promise.all(
       [
         prisma.orderHistory.findMany({
-          where: { orderId },
+          where: { orderId: orderIdNumber },
           include: {
             staff: {
               select: {
@@ -32,7 +33,7 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
         }),
         prisma.orderUpdate.findMany({
-          where: { orderId },
+          where: { orderId: orderIdNumber },
           include: {
             staff: {
               select: {
@@ -45,7 +46,7 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
         }),
         prisma.driverAssignment.findMany({
-          where: { orderId },
+          where: { orderId: orderIdNumber },
           include: {
             driver: {
               select: {
@@ -58,7 +59,7 @@ export async function GET(
           orderBy: { createdAt: 'desc' },
         }),
         prisma.orderProcessing.findMany({
-          where: { orderId },
+          where: { orderId: orderIdNumber },
           include: {
             staff: {
               select: {
@@ -142,14 +143,15 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
     // Verify admin authentication
     const admin = await requireAuthenticatedAdmin();
 
-    const orderId = parseInt(params.orderId);
-    if (isNaN(orderId)) {
+    const { orderId } = await params;
+    const orderIdNumber = parseInt(orderId);
+    if (isNaN(orderIdNumber)) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
@@ -169,7 +171,7 @@ export async function POST(
     // Create history entry
     const historyEntry = await prisma.orderHistory.create({
       data: {
-        orderId,
+        orderId: orderIdNumber,
         staffId: admin.id,
         action: body.action,
         description: body.description,
