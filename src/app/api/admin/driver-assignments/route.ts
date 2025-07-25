@@ -20,11 +20,19 @@ interface UpdateDriverAssignmentRequest {
     | 'ASSIGNED'
     | 'IN_PROGRESS'
     | 'COMPLETED'
+    | 'DROPPED_OFF'
     | 'CANCELLED'
     | 'RESCHEDULED'
     | 'FAILED';
   estimatedTime?: string;
   actualTime?: string;
+  notes?: string;
+}
+
+interface ReassignDriverAssignmentRequest {
+  assignmentId: string;
+  newDriverId: string;
+  estimatedTime?: string;
   notes?: string;
 }
 
@@ -288,12 +296,16 @@ export async function PUT(req: Request) {
           newOrderStatus = OrderStatus.PICKUP_IN_PROGRESS;
         else if (status === 'COMPLETED')
           newOrderStatus = OrderStatus.PICKUP_COMPLETED;
+        else if (status === 'DROPPED_OFF')
+          newOrderStatus = OrderStatus.DROPPED_OFF;
         else if (status === 'FAILED')
           newOrderStatus = OrderStatus.PICKUP_FAILED;
       } else if (assignment.assignmentType === 'delivery') {
         if (status === 'IN_PROGRESS')
           newOrderStatus = OrderStatus.DELIVERY_IN_PROGRESS;
         else if (status === 'COMPLETED') newOrderStatus = OrderStatus.DELIVERED;
+        else if (status === 'DROPPED_OFF')
+          newOrderStatus = OrderStatus.DROPPED_OFF;
         else if (status === 'FAILED')
           newOrderStatus = OrderStatus.DELIVERY_FAILED;
       }
@@ -438,7 +450,7 @@ export async function DELETE(req: Request) {
 
     // For pickup assignments, check if order is still in early stages
     if (assignmentType === 'pickup') {
-      const nonCancellablePickupStatuses = [
+      const nonCancellablePickupStatuses : OrderStatus[] = [
         OrderStatus.PICKUP_COMPLETED,
         OrderStatus.RECEIVED_AT_FACILITY,
         OrderStatus.PROCESSING_STARTED,
@@ -450,7 +462,7 @@ export async function DELETE(req: Request) {
         OrderStatus.DELIVERED,
       ];
 
-      if (nonCancellablePickupStatuses.includes(orderStatus as OrderStatus)) {
+      if (nonCancellablePickupStatuses.includes(orderStatus)) {
         return NextResponse.json(
           {
             error: `Cannot cancel pickup assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}`,
@@ -462,12 +474,12 @@ export async function DELETE(req: Request) {
 
     // For delivery assignments, check if order is still in processing stages
     if (assignmentType === 'delivery') {
-      const nonCancellableDeliveryStatuses = [
+      const nonCancellableDeliveryStatuses: OrderStatus[] = [
         OrderStatus.DELIVERY_IN_PROGRESS,
         OrderStatus.DELIVERED,
       ];
 
-      if (nonCancellableDeliveryStatuses.includes(orderStatus as OrderStatus)) {
+      if (nonCancellableDeliveryStatuses.includes(orderStatus)) {
         return NextResponse.json(
           {
             error: `Cannot cancel delivery assignment. Order is already ${orderStatus.replace(/_/g, ' ').toLowerCase()}`,
@@ -507,6 +519,150 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json(
       { error: 'Failed to process driver assignment' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH - Reassign failed driver assignment to a new driver
+export async function PATCH(req: Request) {
+  try {
+    await requireAuthenticatedAdmin();
+
+    const { assignmentId, newDriverId, estimatedTime, notes }: ReassignDriverAssignmentRequest = await req.json();
+
+    if (!assignmentId || !newDriverId) {
+      return NextResponse.json(
+        { error: 'Assignment ID and new driver ID are required' },
+        { status: 400 }
+      );
+    }
+
+    // Get the existing assignment
+    const existingAssignment = await prisma.driverAssignment.findUnique({
+      where: { id: parseInt(assignmentId) },
+      include: {
+        order: true,
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!existingAssignment) {
+      return NextResponse.json(
+        { error: 'Driver assignment not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if the assignment is in a failed state
+    if (existingAssignment.status !== 'FAILED') {
+      return NextResponse.json(
+        { error: 'Only failed assignments can be reassigned' },
+        { status: 400 }
+      );
+    }
+
+    // Check if the new driver exists and is active
+    const newDriver = await prisma.staff.findFirst({
+      where: {
+        id: parseInt(newDriverId.toString()),
+        isActive: true,
+        role: {
+          name: 'DRIVER',
+        },
+      },
+    });
+
+    if (!newDriver) {
+      return NextResponse.json(
+        { error: 'New driver not found or not active' },
+        { status: 404 }
+      );
+    }
+
+    // Check if there's already an active assignment for this order and type
+    const activeAssignment = await prisma.driverAssignment.findFirst({
+      where: {
+        orderId: existingAssignment.orderId,
+        assignmentType: existingAssignment.assignmentType,
+        status: {
+          in: ['ASSIGNED', 'IN_PROGRESS'],
+        },
+      },
+    });
+
+    if (activeAssignment) {
+      return NextResponse.json(
+        { error: 'There is already an active assignment for this order and type' },
+        { status: 409 }
+      );
+    }
+
+    // Update the assignment with new driver and reset status
+    const updatedAssignment = await prisma.driverAssignment.update({
+      where: { id: parseInt(assignmentId) },
+      data: {
+        driverId: parseInt(newDriverId.toString()),
+        status: 'ASSIGNED',
+        estimatedTime: estimatedTime ? new Date(estimatedTime) : existingAssignment.estimatedTime,
+        notes: notes || existingAssignment.notes,
+        actualTime: null, // Reset actual time since it's a new assignment
+      },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+        order: true,
+      },
+    });
+
+    // Update order status based on assignment type
+    let newOrderStatus: OrderStatus;
+    if (updatedAssignment.assignmentType === 'pickup') {
+      newOrderStatus = OrderStatus.PICKUP_ASSIGNED;
+    } else if (updatedAssignment.assignmentType === 'delivery') {
+      newOrderStatus = OrderStatus.DELIVERY_ASSIGNED;
+    } else {
+      newOrderStatus = OrderStatus.PICKUP_ASSIGNED; // fallback
+    }
+
+    await OrderTrackingService.updateOrderStatus({
+      orderId: updatedAssignment.orderId,
+      newStatus: newOrderStatus,
+      notes: `Driver reassigned for ${updatedAssignment.assignmentType} - Previous driver: ${existingAssignment.driver.firstName} ${existingAssignment.driver.lastName}, New driver: ${updatedAssignment.driver.firstName} ${updatedAssignment.driver.lastName}`,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Driver assignment reassigned successfully',
+      assignment: updatedAssignment,
+    });
+  } catch (error) {
+    console.error('Error reassigning driver assignment:', error);
+
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
+      return createAdminAuthErrorResponse();
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to reassign driver assignment' },
       { status: 500 }
     );
   }

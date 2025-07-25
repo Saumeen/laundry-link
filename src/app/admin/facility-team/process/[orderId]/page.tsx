@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Plus, CheckCircle, AlertCircle, Clock } from 'lucide-react';
@@ -8,231 +8,100 @@ import { useToast } from '@/components/ui/Toast';
 import AdminHeader from '@/components/admin/AdminHeader';
 import Link from 'next/link';
 import { OrderStatus } from '@prisma/client';
+import { useFacilityTeamStore } from '@/admin/stores/facilityTeamStore';
+import { useFacilityTeamAuth } from '@/admin/hooks/useAdminAuth';
 
-interface OrderItem {
-  id: number;
-  itemName: string;
-  itemType: string;
-  quantity: number;
-  pricePerItem: number;
-  totalPrice: number;
-  notes?: string;
-}
-
-interface ProcessingItemDetail {
-  id: number;
-  quantity: number;
-  processedQuantity: number;
-  status: string;
-  processingNotes?: string;
-  qualityScore?: number;
-  orderItem: OrderItem;
-}
-
-interface Service {
-  id: number;
-  name: string;
-  displayName: string;
-  pricingType: string;
-  pricingUnit: string;
-  price: number;
-}
-
-interface OrderServiceMapping {
-  id: number;
-  quantity: number;
-  service: Service;
-  orderItems: OrderItem[];
-}
-
-interface AddOrderItemResponse {
-  message: string;
-  orderItem: OrderItem;
-  processingItemDetail?: ProcessingItemDetail;
-  newTotalAmount: number;
-}
-
-interface OrderResponse {
-  order: Order;
-}
-
-interface Order {
-  id: number;
-  orderNumber: string;
-  customer?: {
-    id: number;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-  };
-  status: string;
-  invoiceGenerated?: boolean;
-  orderServiceMappings: OrderServiceMapping[];
-  orderProcessing?: {
-    id: number;
-    processingStatus: string;
-    totalPieces?: number;
-    totalWeight?: number;
-    processingNotes?: string;
-    qualityScore?: number;
-    processingItems: Array<{
-      id: number;
-      quantity: number;
-      status: string;
-      orderServiceMapping: {
-        service: Service;
-        orderItems: OrderItem[];
-      };
-      processingItemDetails: ProcessingItemDetail[];
-    }>;
-  };
-}
+// Types are now imported from the store
 
 export default function ProcessOrderPage() {
   const router = useRouter();
   const params = useParams();
   const { data: session, status } = useSession();
   const { showToast } = useToast();
+  const { user, isLoading: authLoading, isAuthorized } = useFacilityTeamAuth();
 
-  const [order, setOrder] = useState<Order | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'add-item'>(
-    'overview'
-  );
-  const [itemProcessingData, setItemProcessingData] = useState({
-    processedQuantity: '',
-    status: 'PENDING',
-    processingNotes: '',
-    qualityScore: '',
-  });
-  const [newItemData, setNewItemData] = useState({
-    orderServiceMappingId: 0,
-    itemName: '',
-    itemType: 'clothing',
-    quantity: 1,
-    pricePerItem: 0,
-    notes: '',
-  });
-  const [servicePricing, setServicePricing] = useState<{
-    serviceId: number;
-    categories: Array<{
-      id: number;
-      name: string;
-      displayName: string;
-      items: Array<{
-        id: number;
-        name: string;
-        displayName: string;
-        price: number;
-        isDefault: boolean;
-        sortOrder: number;
-      }>;
-    }>;
-  } | null>(null);
-  const [selectedItemDetail, setSelectedItemDetail] =
-    useState<ProcessingItemDetail | null>(null);
-  const [showItemModal, setShowItemModal] = useState(false);
-  const [showWarningModal, setShowWarningModal] = useState(false);
-  const [showInvoiceWarningModal, setShowInvoiceWarningModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInvoiceLoading, setIsInvoiceLoading] = useState(false);
-  const [isProcessingLoading, setIsProcessingLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Zustand store
+  const {
+    order,
+    servicePricing,
+    selectedItemDetail,
+    activeTab,
+    newItemData,
+    itemProcessingData,
+    showItemModal,
+    showWarningModal,
+    showInvoiceWarningModal,
+    orderForm,
+    processingForm,
+    invoiceForm,
+    itemForm,
+    fetchOrder,
+    fetchServicePricing,
+    addOrderItem,
+    updateItemProcessing,
+    startProcessing,
+    markAsReadyForDelivery,
+    generateInvoice,
+    markProcessingCompleted,
+    setActiveTab,
+    setNewItemData,
+    setItemProcessingData,
+    selectItemDetail,
+    openItemModal,
+    closeItemModal,
+    setShowWarningModal,
+    setShowInvoiceWarningModal,
+  } = useFacilityTeamStore();
 
   const orderId = params.orderId as string;
 
-  const fetchServicePricing = useCallback(async (serviceId: number) => {
-    try {
-      const response = await fetch(
-        `/api/admin/service-pricing?serviceId=${serviceId}`
-      );
-      if (response.ok) {
-        const data = (await response.json()) as {
-          success: boolean;
-          data?: {
-            serviceId: number;
-            categories: {
-              id: number;
-              name: string;
-              displayName: string;
-              items: {
-                id: number;
-                name: string;
-                displayName: string;
-                price: number;
-                isDefault: boolean;
-                sortOrder: number;
-              }[];
-            }[];
-          };
-        };
-        setServicePricing(data.data || null);
-      }
-    } catch {
-      // Handle error silently
-    }
-  }, []);
-
   // Reset item name when service changes and fetch service pricing
   useEffect(() => {
-    setNewItemData(prev => ({
-      ...prev,
+    setNewItemData({
       itemName: '',
       pricePerItem: 0,
-    }));
+    });
 
     // Fetch pricing for the selected service
     if (newItemData.orderServiceMappingId && order) {
       const selectedService = order.orderServiceMappings.find(
-        mapping => mapping.id === newItemData.orderServiceMappingId
+        (mapping: any) => mapping.id === newItemData.orderServiceMappingId
       );
       if (selectedService) {
         fetchServicePricing(selectedService.service.id);
       }
     }
-  }, [newItemData.orderServiceMappingId, order, fetchServicePricing]);
-
-  const fetchOrder = async () => {
-    try {
-      const response = await fetch(`/api/admin/order-details/${orderId}`);
-      if (response.ok) {
-        const data = (await response.json()) as OrderResponse;
-        setOrder(data.order);
-        if (data.order.orderServiceMappings?.length > 0) {
-          setNewItemData(prev => ({
-            ...prev,
-            orderServiceMappingId: data.order.orderServiceMappings[0].id,
-          }));
-        }
-      } else {
-        showToast('Failed to fetch order details', 'error');
-        router.push('/admin/facility-team');
-      }
-    } catch {
-      // Handle error silently
-      showToast('Failed to fetch order details', 'error');
-      router.push('/admin/facility-team');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [newItemData.orderServiceMappingId, order, fetchServicePricing, setNewItemData]);
 
   useEffect(() => {
-    if (status === 'loading') return;
+    console.log('Order fetch effect:', { authLoading, isAuthorized, orderId });
+    
+    // Wait for authentication to be determined
+    if (authLoading) {
+      console.log('Order fetch: Waiting for auth to load...');
+      return;
+    }
 
-    if (
-      !session ||
-      session.userType !== 'admin' ||
-      session.role !== 'FACILITY_TEAM'
-    ) {
+    // If not authorized, redirect to login
+    if (!isAuthorized) {
+      console.log('Order fetch: Not authorized, redirecting to login');
       router.push('/admin/login');
       return;
     }
 
-    if (orderId) {
-      fetchOrder();
+    // If authorized and we have an orderId, fetch the order
+    if (orderId && isAuthorized) {
+      console.log('Order fetch: Authorized, fetching order:', orderId);
+      fetchOrder(orderId);
     }
-  }, [session, status, router, orderId, fetchOrder]);
+  }, [authLoading, isAuthorized, router, orderId, fetchOrder]);
+
+  // Show error toast when order fetching fails
+  useEffect(() => {
+    if (orderForm.error && !orderForm.loading) {
+      showToast(`Failed to load order: ${orderForm.error}`, 'error');
+    }
+  }, [orderForm.error, orderForm.loading, showToast]);
 
   // Auto-populate price when service or item changes
   useEffect(() => {
@@ -243,31 +112,29 @@ export default function ProcessOrderPage() {
       servicePricing
     ) {
       const selectedService = order.orderServiceMappings.find(
-        mapping => mapping.id === newItemData.orderServiceMappingId
+        (mapping: any) => mapping.id === newItemData.orderServiceMappingId
       );
 
       if (selectedService) {
         // Find the pricing item that matches the selected item name
         const pricingItem = servicePricing.categories
-          .flatMap(category => category.items)
+          .flatMap((category: any) => category.items)
           .find(
-            item =>
+            (item: any) =>
               item.displayName.toLowerCase() ===
                 newItemData.itemName.toLowerCase() ||
               item.name.toLowerCase() === newItemData.itemName.toLowerCase()
           );
 
         if (pricingItem) {
-          setNewItemData(prev => ({
-            ...prev,
+          setNewItemData({
             pricePerItem: pricingItem.price,
-          }));
+          });
         } else {
           // If no exact match found, use the service's default price
-          setNewItemData(prev => ({
-            ...prev,
+          setNewItemData({
             pricePerItem: selectedService.service.price || 0,
-          }));
+          });
         }
       }
     }
@@ -276,6 +143,7 @@ export default function ProcessOrderPage() {
     newItemData.orderServiceMappingId,
     servicePricing,
     order,
+    setNewItemData,
   ]);
 
   const handleAddOrderItem = async (e?: React.MouseEvent) => {
@@ -285,7 +153,7 @@ export default function ProcessOrderPage() {
     }
 
     // Prevent duplicate submissions
-    if (isLoading) {
+    if (itemForm.loading) {
       return;
     }
 
@@ -298,118 +166,32 @@ export default function ProcessOrderPage() {
       return;
     }
 
-    setIsLoading(true);
+    if (!order?.id) {
+      showToast('Order not found', 'error');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/admin/add-order-item', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order?.id,
-          ...newItemData,
-        }),
-      });
-
-      if (response.ok) {
-        const result = (await response.json()) as AddOrderItemResponse;
-        showToast('Item added successfully!', 'success');
-
-        // If processing has already started and a processing item detail was created,
-        // we can optionally open the processing modal for the new item
-        if (result.processingItemDetail && order?.orderProcessing) {
-          // Refresh order data to get the updated structure
-          await fetchOrder();
-
-          // Find the newly created processing detail
-          const orderResponse = await fetch(
-            `/api/admin/order-details/${orderId}`
-          );
-          if (orderResponse.ok) {
-            const updatedOrderData =
-              (await orderResponse.json()) as OrderResponse;
-            const processingDetail =
-              updatedOrderData.order.orderProcessing?.processingItems
-                .flatMap(pi => pi.processingItemDetails)
-                .find(detail => detail.orderItem.id === result.orderItem.id);
-
-            if (processingDetail) {
-              // Show success message and open the modal for the new item
-              showToast(
-                'Item added and processing started automatically!',
-                'success'
-              );
-              openItemModal(processingDetail);
-            }
-          }
-        } else {
-          // Just refresh order data normally
-          await fetchOrder();
-        }
-
-        // Reset form
-        setNewItemData({
-          orderServiceMappingId: order?.orderServiceMappings[0]?.id || 0,
-          itemName: '',
-          itemType: 'clothing',
-          quantity: 1,
-          pricePerItem: 0,
-          notes: '',
-        });
-        setActiveTab('items');
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        showToast(errorData.error || 'Failed to add item', 'error');
-      }
-    } catch {
+      const result = await addOrderItem(order.id, newItemData);
+      showToast('Item added successfully!', 'success');
+      setActiveTab('items');
+    } catch (error) {
       showToast('Failed to add item. Please try again.', 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleUpdateItemProcessing = async () => {
-    if (!selectedItemDetail) return;
+    if (!selectedItemDetail || !order?.id) return;
 
-    setIsLoading(true);
     try {
-      const response = await fetch(
-        `/api/admin/facility-team/processing?orderId=${orderId}&action=updateItem`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            processingItemDetailId: selectedItemDetail.id,
-            processedQuantity:
-              parseInt(itemProcessingData.processedQuantity) || 0,
-            status: itemProcessingData.status,
-            processingNotes: itemProcessingData.processingNotes,
-            qualityScore: itemProcessingData.qualityScore
-              ? parseInt(itemProcessingData.qualityScore)
-              : undefined,
-            updateParentStatus: true,
-          }),
-        }
+      await updateItemProcessing(
+        orderId,
+        selectedItemDetail.id,
+        itemProcessingData
       );
-
-      if (response.ok) {
-        showToast('Item processing updated successfully!', 'success');
-        setShowItemModal(false);
-        await fetchOrder();
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        showToast(
-          errorData.error || 'Failed to update item processing',
-          'error'
-        );
-      }
-    } catch {
-      // Handle error silently
+      showToast('Item processing updated successfully!', 'success');
+    } catch (error) {
       showToast('Failed to update item processing. Please try again.', 'error');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -426,159 +208,71 @@ export default function ProcessOrderPage() {
       return;
     }
 
-    await generateInvoice();
-  };
+    if (!order?.id) {
+      showToast('Order not found', 'error');
+      return;
+    }
 
-  const generateInvoice = async () => {
-    setIsInvoiceLoading(true);
     try {
-      const response = await fetch('/api/admin/facility/actions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order?.id,
-          action: 'generate_invoice',
-          notes: 'Invoice generated by facility team',
-        }),
-      });
-
-      if (response.ok) {
-        showToast('Invoice generated and email sent to customer!', 'success');
-        await fetchOrder();
-        setShowInvoiceWarningModal(false);
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        showToast(errorData.error || 'Failed to generate invoice', 'error');
-      }
-    } catch {
+      await generateInvoice(order.id);
+      showToast('Invoice generated and email sent to customer!', 'success');
+    } catch (error) {
       showToast('Failed to generate invoice. Please try again.', 'error');
-    } finally {
-      setIsInvoiceLoading(false);
     }
   };
 
   const handleMarkAsReadyForDelivery = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/admin/facility-team/processing?orderId=${orderId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            processingStatus: OrderStatus.READY_FOR_DELIVERY,
-            processingNotes:
-              order?.orderProcessing?.processingNotes ||
-              'Order completed and ready for delivery',
-          }),
-        }
-      );
+    if (!order?.id) {
+      showToast('Order not found', 'error');
+      return;
+    }
 
-      if (response.ok) {
-        showToast('Order marked as ready for delivery!', 'success');
-        await fetchOrder();
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        showToast(
-          errorData.error || 'Failed to mark order as ready for delivery',
-          'error'
-        );
-      }
+    try {
+      await markAsReadyForDelivery(order.id);
+      showToast('Order marked as ready for delivery!', 'success');
     } catch (error) {
-      console.error('Error marking order as ready for delivery:', error);
       showToast(
         'Failed to mark order as ready for delivery. Please try again.',
         'error'
       );
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const startProcessingForItem = async (item: OrderItem) => {
-    setIsLoading(true);
+  const startProcessingForItem = async (item: any) => {
+    if (!order?.id) {
+      showToast('Order not found', 'error');
+      return;
+    }
+
     try {
       // First, check if processing has been started for this order
       if (!order?.orderProcessing) {
-        // Start processing for the entire order
-        const startResponse = await fetch(
-          '/api/admin/facility-team/processing',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              orderId: order?.id,
-              processingStatus: 'IN_PROGRESS',
-              totalPieces: 0,
-              totalWeight: 0,
-              processingNotes: 'Processing started by facility team',
-            }),
-          }
-        );
-
-        if (!startResponse.ok) {
-          const errorData = (await startResponse.json()) as { error?: string };
-          showToast(errorData.error || 'Failed to start processing', 'error');
-          return;
-        }
+        await startProcessing(order.id);
       }
 
       // Now refresh the order data to get the new processing items
-      await fetchOrder();
+      await fetchOrder(orderId);
 
       // Find the processing detail for this item in the updated order data
       const processingDetail = order?.orderProcessing?.processingItems
-        .flatMap(pi => pi.processingItemDetails)
-        .find(detail => detail.orderItem.id === item.id);
+        .flatMap((pi: any) => pi.processingItemDetails)
+        .find((detail: any) => detail.orderItem.id === item.id);
 
       if (processingDetail) {
         // Open the modal for the newly created processing detail
         openItemModal(processingDetail);
       } else {
-        // Add some debugging to understand what's happening
-        console.log('Order processing:', order?.orderProcessing);
-        console.log(
-          'Processing items:',
-          order?.orderProcessing?.processingItems
-        );
-        console.log('Looking for item ID:', item.id);
-        console.log(
-          'Available processing details:',
-          order?.orderProcessing?.processingItems?.flatMap(
-            pi => pi.processingItemDetails
-          )
-        );
         showToast(
           'Failed to create processing item for this order item',
           'error'
         );
       }
     } catch (error) {
-      console.error('Error starting processing for item:', error);
       showToast(
         'Failed to start processing for item. Please try again.',
         'error'
       );
-    } finally {
-      setIsLoading(false);
     }
-  };
-
-  const openItemModal = (itemDetail: ProcessingItemDetail) => {
-    setSelectedItemDetail(itemDetail);
-    setItemProcessingData({
-      processedQuantity: itemDetail.processedQuantity.toString(),
-      status: itemDetail.status,
-      processingNotes: itemDetail.processingNotes || '',
-      qualityScore: itemDetail.qualityScore?.toString() || '',
-    });
-    setShowItemModal(true);
   };
 
   const getStatusIcon = (status: string) => {
@@ -658,81 +352,30 @@ export default function ProcessOrderPage() {
     if (!hasOrderItems()) {
       setShowWarningModal(true);
     } else {
-      startProcessing();
-    }
-  };
-
-  const startProcessing = async () => {
-    if (!order) return;
-
-    setIsProcessingLoading(true);
-    try {
-      const response = await fetch('/api/admin/facility-team/processing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order.id,
-          processingStatus: 'IN_PROGRESS',
-          totalPieces: 0,
-          totalWeight: 0,
-          processingNotes: 'Processing started by facility team',
-        }),
-      });
-
-      if (response.ok) {
-        showToast('Processing started successfully!', 'success');
-        await fetchOrder();
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        showToast(errorData.error || 'Failed to start processing', 'error');
+      if (order?.id) {
+        startProcessing(order.id);
       }
-    } catch (error) {
-      console.error('Error starting processing:', error);
-      showToast('Failed to start processing. Please try again.', 'error');
-    } finally {
-      setIsProcessingLoading(false);
     }
   };
 
   const handleMarkProcessingCompleted = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/admin/facility/actions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order?.id,
-          action: 'complete_processing',
-          notes: 'Processing completed by facility team',
-        }),
-      });
+    if (!order?.id) {
+      showToast('Order not found', 'error');
+      return;
+    }
 
-      if (response.ok) {
-        showToast('Processing marked as completed!', 'success');
-        await fetchOrder();
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        showToast(
-          errorData.error || 'Failed to mark processing as completed',
-          'error'
-        );
-      }
+    try {
+      await markProcessingCompleted(order.id);
+      showToast('Processing marked as completed!', 'success');
     } catch (error) {
-      console.error('Error marking processing as completed:', error);
       showToast(
         'Failed to mark processing as completed. Please try again.',
         'error'
       );
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  if (loading) {
+  if (authLoading || orderForm.loading) {
     return (
       <div className='min-h-screen bg-gray-50'>
         <AdminHeader title='Loading Order...' />
@@ -740,7 +383,14 @@ export default function ProcessOrderPage() {
           <div className='flex items-center justify-center py-12'>
             <div className='text-center'>
               <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto'></div>
-              <p className='mt-4 text-gray-600'>Loading order details...</p>
+              <p className='mt-4 text-gray-600'>
+                {authLoading ? 'Checking authentication...' : 'Loading order details...'}
+              </p>
+              {authLoading && (
+                <p className='mt-2 text-sm text-gray-500'>
+                  Please wait while we verify your access...
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -890,10 +540,10 @@ export default function ProcessOrderPage() {
                   {!order.orderProcessing && (
                     <button
                       onClick={handleStartProcessingClick}
-                      disabled={isProcessingLoading}
+                      disabled={processingForm.loading}
                       className='mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
                     >
-                      {isProcessingLoading ? 'Starting...' : 'Start Processing'}
+                      {processingForm.loading ? 'Starting...' : 'Start Processing'}
                     </button>
                   )}
                   {order.orderProcessing && (
@@ -986,10 +636,10 @@ export default function ProcessOrderPage() {
                         </p>
                         <button
                           onClick={handleGenerateInvoice}
-                          disabled={isInvoiceLoading}
+                          disabled={invoiceForm.loading}
                           className='mt-3 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                         >
-                          {isInvoiceLoading
+                          {invoiceForm.loading
                             ? 'Generating...'
                             : '🔄 Regenerate Invoice & Send Email'}
                         </button>
@@ -1006,10 +656,10 @@ export default function ProcessOrderPage() {
                         </p>
                         <button
                           onClick={handleGenerateInvoice}
-                          disabled={isInvoiceLoading}
+                          disabled={invoiceForm.loading}
                           className='mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                         >
-                          {isInvoiceLoading
+                          {invoiceForm.loading
                             ? 'Generating...'
                             : 'Generate Invoice & Send Email'}
                         </button>
@@ -1047,10 +697,10 @@ export default function ProcessOrderPage() {
                         </p>
                         <button
                           onClick={handleMarkAsReadyForDelivery}
-                          disabled={isLoading}
+                          disabled={itemForm.loading}
                           className='mt-3 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                         >
-                          {isLoading
+                          {itemForm.loading
                             ? 'Marking...'
                             : 'Mark as Ready for Delivery'}
                         </button>
@@ -1066,10 +716,10 @@ export default function ProcessOrderPage() {
                         </p>
                         <button
                           onClick={handleMarkProcessingCompleted}
-                          disabled={isLoading}
+                          disabled={itemForm.loading}
                           className='mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                         >
-                          {isLoading
+                          {itemForm.loading
                             ? 'Marking...'
                             : 'Mark Processing as Completed'}
                         </button>
@@ -1085,10 +735,10 @@ export default function ProcessOrderPage() {
                         </p>
                         <button
                           onClick={handleMarkAsReadyForDelivery}
-                          disabled={isLoading}
+                          disabled={itemForm.loading}
                           className='mt-3 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                         >
-                          {isLoading
+                          {itemForm.loading
                             ? 'Marking...'
                             : 'Mark as Ready for Delivery'}
                         </button>
@@ -1189,10 +839,10 @@ export default function ProcessOrderPage() {
                                     ? openItemModal(processingDetail)
                                     : startProcessingForItem(item)
                                 }
-                                disabled={isLoading}
+                                disabled={itemForm.loading}
                                 className='text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed'
                               >
-                                {isLoading
+                                {itemForm.loading
                                   ? processingDetail
                                     ? 'Updating...'
                                     : 'Starting...'
@@ -1491,10 +1141,10 @@ export default function ProcessOrderPage() {
                     <div className='bg-white border border-gray-200 rounded-lg p-6'>
                       <button
                         onClick={handleAddOrderItem}
-                        disabled={isLoading}
+                        disabled={itemForm.loading}
                         className='w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-lg hover:shadow-xl'
                       >
-                        {isLoading ? (
+                        {itemForm.loading ? (
                           <div className='flex items-center justify-center'>
                             <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2'></div>
                             Adding Item...
@@ -1609,18 +1259,18 @@ export default function ProcessOrderPage() {
               </div>
               <div className='flex justify-end space-x-3 mt-6'>
                 <button
-                  onClick={() => setShowItemModal(false)}
-                  disabled={isLoading}
+                  onClick={closeItemModal}
+                  disabled={itemForm.loading}
                   className='px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdateItemProcessing}
-                  disabled={isLoading}
+                  disabled={itemForm.loading}
                   className='px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
                 >
-                  {isLoading ? 'Updating...' : 'Update'}
+                  {itemForm.loading ? 'Updating...' : 'Update'}
                 </button>
               </div>
             </div>
@@ -1658,7 +1308,7 @@ export default function ProcessOrderPage() {
                 <button
                   onClick={() => {
                     setShowWarningModal(false);
-                    startProcessing();
+                    startProcessing(order.id);
                   }}
                   className='px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700'
                 >
@@ -1729,7 +1379,7 @@ export default function ProcessOrderPage() {
                     <button
                       onClick={() => {
                         setShowInvoiceWarningModal(false);
-                        generateInvoice();
+                        generateInvoice(order.id);
                       }}
                       className='px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700'
                     >
@@ -1740,7 +1390,7 @@ export default function ProcessOrderPage() {
                   <button
                     onClick={() => {
                       setShowInvoiceWarningModal(false);
-                      generateInvoice();
+                      generateInvoice(order.id);
                     }}
                     className='px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700'
                   >

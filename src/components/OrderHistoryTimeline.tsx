@@ -56,6 +56,7 @@ export const OrderHistoryTimeline: React.FC<OrderHistoryTimelineProps> = ({
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'Asia/Bahrain',
     }).format(new Date(date));
   };
 

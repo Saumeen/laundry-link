@@ -5,6 +5,8 @@ import {
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
+import { formatTimeSlotRange } from '@/lib/utils/timezone';
+import { OrderStatus } from '@prisma/client';
 
 const SORTABLE_FIELDS: Record<string, string> = {
   orderNumber: 'orderNumber',
@@ -17,7 +19,6 @@ const SORTABLE_FIELDS: Record<string, string> = {
 export async function GET(req: Request) {
   try {
     const admin = await requireAuthenticatedAdmin();
-    console.log('Authenticated admin:', admin.email);
     const { searchParams } = new URL(req.url);
     const sortField = searchParams.get('sortField') || 'createdAt';
     const sortDirection =
@@ -40,12 +41,21 @@ export async function GET(req: Request) {
       ] = sortDirection;
     }
 
-    // Get total count for pagination
-    const total = await prisma.order.count();
-    console.log('Total orders in database:', total);
+    // Build where clause based on admin role
+    let whereClause: Record<string, unknown> = {};
+    
+    // For FACILITY_TEAM role, only show orders with DROPPED_OFF status
+    if (admin.role === 'FACILITY_TEAM') {
+      whereClause.status = OrderStatus.DROPPED_OFF;
+    }
+    // For SUPER_ADMIN and OPERATION_MANAGER, show all orders (no filter needed)
 
-    // Fetch paginated orders
+    // Get total count for pagination with role-based filtering
+    const total = await prisma.order.count({ where: whereClause });
+
+    // Fetch paginated orders with role-based filtering
     const orders = await prisma.order.findMany({
+      where: whereClause,
       include: {
         customer: true,
         orderServiceMappings: {
@@ -101,12 +111,14 @@ export async function GET(req: Request) {
         ...order,
         orderItems, // Add this for frontend compatibility
         services,
+        // Map time fields to match frontend expectations with Bahrain timezone
+        pickupTime: order.pickupStartTime,
+        deliveryTime: order.deliveryStartTime,
+        pickupTimeSlot: formatTimeSlotRange(order.pickupStartTime, order.pickupEndTime),
+        deliveryTimeSlot: formatTimeSlotRange(order.deliveryStartTime, order.deliveryEndTime),
       };
     });
 
-    console.log('Transformed orders count:', transformedOrders.length);
-    console.log('Sample order:', transformedOrders[0]);
-    
     return NextResponse.json({
       data: transformedOrders,
       pagination: {

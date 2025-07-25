@@ -70,6 +70,7 @@ export interface OperationsActionData {
   staffId: number;
   action: 'confirm_order' | 'assign_pickup_driver' | 'assign_delivery_driver';
   driverId?: number;
+  estimatedTime?: string;
   notes?: string;
 }
 
@@ -402,7 +403,7 @@ export class OrderTrackingService {
   static async handleOperationsAction(
     data: OperationsActionData
   ): Promise<{ success: boolean; message?: string }> {
-    const { orderId, staffId, action, driverId, notes } = data;
+    const { orderId, staffId, action, driverId, estimatedTime, notes } = data;
 
     try {
       let newStatus: OrderStatus;
@@ -446,7 +447,8 @@ export class OrderTrackingService {
         await this.createDriverAssignment(
           orderId,
           driverId,
-          action === 'assign_pickup_driver' ? 'pickup' : 'delivery'
+          action === 'assign_pickup_driver' ? 'pickup' : 'delivery',
+          estimatedTime
         );
       }
 
@@ -753,7 +755,8 @@ export class OrderTrackingService {
   private static async createDriverAssignment(
     orderId: number,
     driverId: number,
-    assignmentType: 'pickup' | 'delivery'
+    assignmentType: 'pickup' | 'delivery',
+    estimatedTime?: string
   ): Promise<void> {
     try {
       await prisma.driverAssignment.create({
@@ -762,6 +765,7 @@ export class OrderTrackingService {
           driverId,
           assignmentType,
           status: DriverAssignmentStatus.ASSIGNED,
+          estimatedTime: estimatedTime ? new Date(estimatedTime) : null,
         },
       });
     } catch (error) {

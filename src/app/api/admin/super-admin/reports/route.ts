@@ -6,6 +6,31 @@ import {
 } from '@/lib/adminAuth';
 import { OrderStatus } from '@prisma/client';
 
+// Utility function to convert BigInt to number for JSON serialization
+function convertBigIntToNumber(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj === 'bigint') {
+    return Number(obj);
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(convertBigIntToNumber);
+  }
+  
+  if (typeof obj === 'object') {
+    const converted: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      converted[key] = convertBigIntToNumber(value);
+    }
+    return converted;
+  }
+  
+  return obj;
+}
+
 export async function GET(request: Request) {
   try {
     // Require SUPER_ADMIN role
@@ -43,7 +68,7 @@ export async function GET(request: Request) {
       const result = await prisma.$queryRaw`
         SELECT 
           DATE("createdAt") as date,
-          COALESCE(SUM("invoiceTotal"), 0) as daily_revenue
+          COALESCE(CAST(SUM("invoiceTotal") AS DECIMAL(10,2)), 0) as daily_revenue
         FROM orders 
         WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
         GROUP BY DATE("createdAt")
@@ -83,7 +108,7 @@ export async function GET(request: Request) {
       const result = await prisma.$queryRaw`
         SELECT 
           DATE("createdAt") as date,
-          COUNT(*) as new_customers
+          CAST(COUNT(*) AS INTEGER) as new_customers
         FROM customers 
         WHERE "createdAt" >= ${startDate} AND "createdAt" <= ${endDate}
         GROUP BY DATE("createdAt")
@@ -238,7 +263,7 @@ export async function GET(request: Request) {
       _count: { id: number };
     } | null = null;
     try {
-      summaryStats = await prisma.order.aggregate({
+      const rawSummaryStats = await prisma.order.aggregate({
         where: {
           createdAt: {
             gte: startDate,
@@ -252,31 +277,46 @@ export async function GET(request: Request) {
           id: true,
         },
       });
+      
+      // Convert BigInt to number to avoid serialization issues
+      let invoiceTotal = null;
+      if (rawSummaryStats._sum.invoiceTotal) {
+        invoiceTotal = Number(rawSummaryStats._sum.invoiceTotal);
+      }
+      
+      summaryStats = {
+        _sum: {
+          invoiceTotal: invoiceTotal,
+        },
+        _count: {
+          id: Number(rawSummaryStats._count.id),
+        },
+      };
     } catch (error) {
       console.error('Error calculating total revenue:', error);
       summaryStats = { _sum: { invoiceTotal: 0 }, _count: { id: 0 } };
     }
 
     // Calculate additional stats
-    const completedOrders = await prisma.order.count({
+    const completedOrders = Number(await prisma.order.count({
       where: {
         status: OrderStatus.DELIVERED,
         createdAt: { gte: startDate, lte: endDate },
       },
-    });
+    }));
 
-    const totalCustomers = await prisma.customer.count({
+    const totalCustomers = Number(await prisma.customer.count({
       where: {
         createdAt: { gte: startDate, lte: endDate },
       },
-    });
+    }));
 
-    const activeDrivers = await prisma.staff.count({
+    const activeDrivers = Number(await prisma.staff.count({
       where: {
         role: { name: 'DRIVER' },
         isActive: true,
       },
-    });
+    }));
 
     const totalRevenue = summaryStats?._sum.invoiceTotal || 0;
     const totalOrders = summaryStats?._count.id || 0;
@@ -311,7 +351,7 @@ export async function GET(request: Request) {
     // Process order status data for chart
     const orderStatusLabels = (orderStatusData || []).map(item => item.status);
     const orderStatusValues = (orderStatusData || []).map(
-      item => item._count.status
+      item => Number(item._count.status)
     );
     const orderStatusColors = [
       '#3B82F6', // blue
@@ -328,7 +368,7 @@ export async function GET(request: Request) {
       return service ? service.displayName : `Service ${item.serviceId}`;
     });
     const serviceValues = (serviceUsageData || []).map(
-      item => item._count.serviceId || 0
+      item => Number(item._count.serviceId) || 0
     );
 
     // Process staff performance data for chart
@@ -339,7 +379,7 @@ export async function GET(request: Request) {
         : `Staff ${item.staffId}`;
     });
     const staffValues = (staffPerformanceData || []).map(
-      item => item._count.staffId
+      item => Number(item._count.staffId)
     );
 
     // Process driver performance data for chart
@@ -350,7 +390,7 @@ export async function GET(request: Request) {
         : `Driver ${item.driverId}`;
     });
     const driverValues = (driverPerformanceData || []).map(
-      item => item._count.driverId
+      item => Number(item._count.driverId)
     );
 
     const reportData = {
@@ -444,7 +484,10 @@ export async function GET(request: Request) {
       throw new Error('Failed to generate report data');
     }
 
-    return NextResponse.json(reportData);
+    // Convert any remaining BigInt values to numbers for JSON serialization
+    const serializableReportData = convertBigIntToNumber(reportData);
+
+    return NextResponse.json(serializableReportData);
   } catch (error: any) {
     console.error(
       'Error fetching reports:',

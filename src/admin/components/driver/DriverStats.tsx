@@ -1,6 +1,6 @@
 import { memo, useEffect } from 'react';
 import { useDriverStore } from '@/admin/stores/driverStore';
-import type { DriverStats } from '@/admin/api/driver';
+import type { DriverStats as DriverStatsType } from '@/admin/api/driver';
 
 export const DriverStats = memo(() => {
   const { stats, statsLoading, fetchStats } = useDriverStore();

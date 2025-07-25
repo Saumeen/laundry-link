@@ -44,13 +44,9 @@ export default function SuperAdminDashboard() {
     router.push('/admin/super-admin/service-pricing');
   };
 
-  const handleNavigateToDrivers = () => {
-    router.push('/admin/driver');
-  };
 
-  const handleNavigateToFacilityTeam = () => {
-    router.push('/admin/facility-team');
-  };
+
+
 
   // Stats card click handlers
   const handleStatsCardClick = (statType: string) => {
@@ -63,9 +59,6 @@ export default function SuperAdminDashboard() {
         break;
       case 'activeStaff':
         handleNavigateToStaff();
-        break;
-      case 'activeDrivers':
-        handleNavigateToDrivers();
         break;
       default:
         break;
@@ -235,7 +228,7 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* Additional Management Sections */}
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+          <div className='grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6'>
             <div className='bg-white rounded-lg shadow p-6'>
               <h3 className='text-lg font-medium text-gray-900 mb-4'>
                 Service & Pricing
@@ -251,34 +244,7 @@ export default function SuperAdminDashboard() {
               />
             </div>
 
-            <div className='bg-white rounded-lg shadow p-6'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Driver Management
-              </h3>
-              <p className='text-gray-600 mb-4'>
-                Monitor driver assignments, deliveries, and performance.
-              </p>
-              <QuickActionButton
-                title='View Drivers'
-                onClick={handleNavigateToDrivers}
-                bgColor='bg-orange-600 hover:bg-orange-700'
-              />
-            </div>
 
-            <div className='bg-white rounded-lg shadow p-6'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Facility Team
-              </h3>
-              <p className='text-gray-600 mb-4'>
-                Track order processing, facility operations, and team
-                performance.
-              </p>
-              <QuickActionButton
-                title='View Facility'
-                onClick={handleNavigateToFacilityTeam}
-                bgColor='bg-pink-600 hover:bg-pink-700'
-              />
-            </div>
           </div>
         </div>
       </div>

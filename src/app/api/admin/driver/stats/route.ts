@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
+import { getCurrentBahrainDate } from '@/lib/utils/timezone';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,19 +31,31 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'today';
 
-    // Calculate date range
-    const now = new Date();
+    // Calculate date range based on Bahraini time
+    const bahrainToday = getCurrentBahrainDate();
     let startDate: Date;
 
     switch (period) {
       case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        // Get date 7 days ago in Bahrain time
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgoBahrain = weekAgo.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        startDate = new Date(`${weekAgoBahrain}T00:00:00.000Z`);
         break;
       case 'month':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        // Get date 30 days ago in Bahrain time
+        const monthAgo = new Date();
+        monthAgo.setDate(monthAgo.getDate() - 30);
+        const monthAgoBahrain = monthAgo.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        startDate = new Date(`${monthAgoBahrain}T00:00:00.000Z`);
         break;
       default: // today
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate = new Date(`${bahrainToday}T00:00:00.000Z`);
         break;
     }
 
@@ -57,11 +70,11 @@ export async function GET(request: NextRequest) {
       deliveryAssignments,
       recentAssignments,
     ] = await Promise.all([
-      // Total assignments for this driver
+      // Total assignments for this driver (filter by estimated time in Bahrain timezone)
       prisma.driverAssignment.count({
         where: {
           driverId: adminUser.id,
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -70,7 +83,7 @@ export async function GET(request: NextRequest) {
         where: {
           driverId: adminUser.id,
           status: 'COMPLETED',
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -79,7 +92,7 @@ export async function GET(request: NextRequest) {
         where: {
           driverId: adminUser.id,
           status: 'IN_PROGRESS',
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -88,7 +101,7 @@ export async function GET(request: NextRequest) {
         where: {
           driverId: adminUser.id,
           status: 'ASSIGNED',
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -97,7 +110,7 @@ export async function GET(request: NextRequest) {
         where: {
           driverId: adminUser.id,
           status: 'CANCELLED',
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -106,7 +119,7 @@ export async function GET(request: NextRequest) {
         where: {
           driverId: adminUser.id,
           assignmentType: 'pickup',
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -115,7 +128,7 @@ export async function GET(request: NextRequest) {
         where: {
           driverId: adminUser.id,
           assignmentType: 'delivery',
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
       }),
 
@@ -123,7 +136,7 @@ export async function GET(request: NextRequest) {
       prisma.driverAssignment.findMany({
         where: {
           driverId: adminUser.id,
-          createdAt: { gte: startDate },
+          estimatedTime: { gte: startDate },
         },
         include: {
           order: {
@@ -135,7 +148,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: {
-          createdAt: 'desc',
+          estimatedTime: 'desc',
         },
         take: 10,
       }),

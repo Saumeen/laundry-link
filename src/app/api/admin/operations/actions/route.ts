@@ -8,13 +8,14 @@ export async function POST(req: Request) {
     const admin = await requireAuthenticatedAdmin();
 
     const body = await req.json();
-    const { orderId, action, driverId, notes } = body as {
+    const { orderId, action, driverId, estimatedTime, notes } = body as {
       orderId: number;
       action:
         | 'confirm_order'
         | 'assign_pickup_driver'
         | 'assign_delivery_driver';
       driverId?: number;
+      estimatedTime?: string;
       notes?: string;
     };
 
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
       staffId: admin.id, // Get staff ID from backend session
       action,
       driverId,
+      estimatedTime,
       notes,
     });
 

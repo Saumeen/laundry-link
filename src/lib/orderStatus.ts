@@ -64,6 +64,13 @@ export const ORDER_STATUS_CONFIG: Record<
     description: 'Items have been picked up',
     color: 'bg-teal-100 text-teal-800',
     icon: '📦',
+    canTransitionTo: [OrderStatus.DROPPED_OFF],
+  },
+  [OrderStatus.DROPPED_OFF]: {
+    label: 'Dropped Off At Facility',
+    description: 'Items have been dropped off at facility',
+    color: 'bg-indigo-100 text-indigo-800',
+    icon: '🏭',
     canTransitionTo: [OrderStatus.RECEIVED_AT_FACILITY],
   },
   [OrderStatus.PICKUP_FAILED]: {
@@ -212,6 +219,12 @@ export const DRIVER_ASSIGNMENT_STATUS_CONFIG = {
     description: 'Assignment has been completed successfully',
     color: 'bg-green-100 text-green-800',
     icon: '✅',
+  },
+  [DriverAssignmentStatus.DROPPED_OFF]: {
+    label: 'Dropped Off',
+    description: 'Assignment has been dropped off at facility',
+    color: 'bg-indigo-100 text-indigo-800',
+    icon: '🏢',
   },
   [DriverAssignmentStatus.CANCELLED]: {
     label: 'Cancelled',

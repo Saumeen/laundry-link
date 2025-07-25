@@ -4,6 +4,7 @@ import {
   requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';
+import { formatTimeSlotRange } from '@/lib/utils/timezone';
 
 export async function GET(
   req: Request,
@@ -51,24 +52,7 @@ export async function GET(
 
     // Helper function to format timeslot display
     const formatTimeSlot = (startTime: Date, endTime: Date) => {
-      const start = new Date(startTime);
-      const end = new Date(endTime);
-      
-      // Format time directly from UTC to Bahrain time (UTC+3)
-      const startTimeStr = start.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Bahrain'
-      });
-      const endTimeStr = end.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Bahrain'
-      });
-      
-      return `${startTimeStr} - ${endTimeStr}`;
+      return formatTimeSlotRange(startTime, endTime);
     };
 
     // Transform the data to match the expected interface

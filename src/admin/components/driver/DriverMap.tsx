@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { useDriverStore } from '@/admin/stores/driverStore';
+import { getCurrentBahrainDate } from '@/lib/utils/timezone';
 import type { DriverAssignment } from '@/admin/api/driver';
 
 // Google Maps configuration - removed unused variable
@@ -31,9 +32,22 @@ export const DriverMap = memo(() => {
     }
   }, []);
 
-  // Get assignment locations for map markers
+  // Get assignment locations for map markers (filtered by today's Bahraini time)
   const getAssignmentLocations = () => {
+    const bahrainToday = getCurrentBahrainDate();
+    
     return assignments
+      .filter(assignment => {
+        // Filter by today's assignments based on Bahraini time
+        if (!assignment.estimatedTime) return false;
+        
+        const assignmentDate = new Date(assignment.estimatedTime);
+        const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        
+        return bahrainToday === assignmentBahrainDate;
+      })
       .filter(
         assignment =>
           assignment.order.address?.latitude &&
@@ -188,7 +202,20 @@ export const DriverMap = memo(() => {
 
       {/* Location List */}
       <div className='space-y-2'>
-        {assignments.slice(0, 3).map(assignment => (
+        {assignments
+          .filter(assignment => {
+            // Filter by today's assignments based on Bahraini time
+            if (!assignment.estimatedTime) return false;
+            
+            const bahrainToday = getCurrentBahrainDate();
+            const assignmentDate = new Date(assignment.estimatedTime);
+            const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
+              timeZone: 'Asia/Bahrain' 
+            });
+            
+            return bahrainToday === assignmentBahrainDate;
+          })
+          .slice(0, 3).map(assignment => (
           <div
             key={assignment.id}
             className='flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors'
@@ -225,10 +252,31 @@ export const DriverMap = memo(() => {
         ))}
       </div>
 
-      {assignments.length > 3 && (
+      {assignments.filter(assignment => {
+        // Filter by today's assignments based on Bahraini time
+        if (!assignment.estimatedTime) return false;
+        
+        const bahrainToday = getCurrentBahrainDate();
+        const assignmentDate = new Date(assignment.estimatedTime);
+        const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        
+        return bahrainToday === assignmentBahrainDate;
+      }).length > 3 && (
         <div className='text-center pt-2'>
           <button className='text-sm text-blue-600 hover:text-blue-800'>
-            View {assignments.length - 3} more locations
+            View {assignments.filter(assignment => {
+              if (!assignment.estimatedTime) return false;
+              
+              const bahrainToday = getCurrentBahrainDate();
+              const assignmentDate = new Date(assignment.estimatedTime);
+              const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
+                timeZone: 'Asia/Bahrain' 
+              });
+              
+              return bahrainToday === assignmentBahrainDate;
+            }).length - 3} more locations
           </button>
         </div>
       )}

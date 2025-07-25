@@ -91,9 +91,10 @@ export class DriverApi {
     status: string,
     notes?: string
   ): Promise<ApiResponse<DriverAssignment>> {
-    return apiClient.patch<DriverAssignment>(
-      `/api/admin/driver/assignments/${assignmentId}`,
+    return apiClient.put<DriverAssignment>(
+      '/api/admin/driver/assignments',
       {
+        assignmentId,
         status,
         notes,
       }

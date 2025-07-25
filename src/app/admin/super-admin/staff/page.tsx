@@ -7,6 +7,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminHeader from '@/components/admin/AdminHeader';
 import { useSession } from 'next-auth/react';
 
+
 interface StaffMember {
   id: number;
   email: string;
@@ -245,7 +246,7 @@ export default function StaffManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [currentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [staffLoading, setStaffLoading] = useState(true);
@@ -499,7 +500,7 @@ export default function StaffManagementPage() {
         setError(data.error || 'Failed to update staff status');
       }
     } catch {
-      showToast('Failed to toggle staff status', 'error');
+      setError('Failed to toggle staff status');
     }
   }, []);
 

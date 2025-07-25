@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useProfileStore } from '@/customer';
+import { useLogout } from '@/hooks/useAuth';
 
 interface CustomerLayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,11 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
   const pathname = usePathname();
   const { profile } = useProfileStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const logout = useLogout();
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -52,7 +58,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center space-x-3 px-3 py-3 sm:py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-blue-50 text-blue-700 border border-blue-200'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -66,7 +72,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             })}
           </nav>
           <div className="border-t border-gray-200 p-4">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 mb-4">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-sm">
                   {profile?.firstName?.charAt(0) || 'U'}
@@ -79,6 +85,13 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 <p className="text-xs text-gray-500 truncate">{profile?.email}</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-3 w-full px-3 py-3 sm:py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors touch-manipulation"
+            >
+              <span className="text-lg">🚪</span>
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </div>
@@ -114,7 +127,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
             })}
           </nav>
           <div className="border-t border-gray-200 p-6">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-sm">
                   {profile?.firstName?.charAt(0) || 'U'}
@@ -127,12 +140,19 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 <p className="text-xs text-gray-500 truncate">{profile?.email}</p>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="mb-4 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-500">Wallet Balance</p>
               <p className="text-sm font-bold text-green-600">
                 {(profile?.walletBalance || 0).toFixed(3)} BD
               </p>
             </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors"
+            >
+              <span className="text-lg">🚪</span>
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </div>

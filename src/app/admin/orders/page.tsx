@@ -26,9 +26,30 @@ export default function AdminOrdersPage() {
     }
   }, [isAuthorized, fetchOrders]);
 
-  // Debug logging
-  console.log('Orders from store:', orders);
-  console.log('Filters:', filters);
+  // Get the appropriate dashboard URL based on user role
+  const getDashboardUrl = () => {
+    if (!user?.role?.name) return '/admin';
+    
+    switch (user.role.name) {
+      case 'SUPER_ADMIN':
+        return '/admin/super-admin';
+      case 'OPERATION_MANAGER':
+        return '/admin/operation-manager';
+      case 'DRIVER':
+        return '/admin/driver';
+      case 'FACILITY_TEAM':
+        return '/admin/facility-team';
+      default:
+        return '/admin';
+    }
+  };
+
+  // Handle back button click
+  const handleBackClick = () => {
+    router.push(getDashboardUrl());
+  };
+
+
   
   // Memoized filtered orders to improve performance
   const filteredOrders = useMemo(() => {
@@ -64,10 +85,17 @@ export default function AdminOrdersPage() {
   const stats = useMemo(
     () => ({
       total: orders.length,
-      pending: orders.filter(order => order.status === 'ORDER_PLACED').length,
-      processing: orders.filter(order => order.status === 'PROCESSING_STARTED')
-        .length,
-      completed: orders.filter(order => order.status === 'DELIVERED').length,
+      pending: orders.filter(order => 
+        ['ORDER_PLACED', 'CONFIRMED', 'PICKUP_ASSIGNED'].includes(order.status)
+      ).length,
+      processing: orders.filter(order => 
+        ['PICKUP_IN_PROGRESS', 'PICKUP_COMPLETED', 'DROPPED_OFF', 'RECEIVED_AT_FACILITY', 
+         'PROCESSING_STARTED', 'PROCESSING_COMPLETED', 'QUALITY_CHECK', 
+         'READY_FOR_DELIVERY', 'DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS'].includes(order.status)
+      ).length,
+      completed: orders.filter(order => 
+        ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(order.status)
+      ).length,
     }),
     [orders]
   );
@@ -128,6 +156,25 @@ export default function AdminOrdersPage() {
               <span className='text-sm text-gray-500'>
                 Welcome, {user?.firstName} {user?.lastName}
               </span>
+              <button
+                onClick={handleBackClick}
+                className='flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200'
+              >
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M10 19l-7-7m0 0l7-7m-7 7h18'
+                  />
+                </svg>
+                <span>Back to Dashboard</span>
+              </button>
               <button
                 onClick={logout}
                 className='flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200'
@@ -280,9 +327,23 @@ export default function AdminOrdersPage() {
                 >
                   <option value='ALL'>All Statuses</option>
                   <option value='ORDER_PLACED'>Order Placed</option>
-                  <option value='PROCESSING_STARTED'>Processing</option>
+                  <option value='CONFIRMED'>Confirmed</option>
+                  <option value='PICKUP_ASSIGNED'>Pickup Assigned</option>
+                  <option value='PICKUP_IN_PROGRESS'>Pickup In Progress</option>
+                  <option value='PICKUP_COMPLETED'>Pickup Completed</option>
+                  <option value='PICKUP_FAILED'>Pickup Failed</option>
+                  <option value='DROPPED_OFF'>Dropped Off</option>
+                  <option value='RECEIVED_AT_FACILITY'>Received at Facility</option>
+                  <option value='PROCESSING_STARTED'>Processing Started</option>
+                  <option value='PROCESSING_COMPLETED'>Processing Completed</option>
+                  <option value='QUALITY_CHECK'>Quality Check</option>
+                  <option value='READY_FOR_DELIVERY'>Ready for Delivery</option>
+                  <option value='DELIVERY_ASSIGNED'>Delivery Assigned</option>
+                  <option value='DELIVERY_IN_PROGRESS'>Delivery In Progress</option>
                   <option value='DELIVERED'>Delivered</option>
+                  <option value='DELIVERY_FAILED'>Delivery Failed</option>
                   <option value='CANCELLED'>Cancelled</option>
+                  <option value='REFUNDED'>Refunded</option>
                 </select>
               </div>
 
@@ -310,6 +371,7 @@ export default function AdminOrdersPage() {
                   <option value='PAID'>Paid</option>
                   <option value='FAILED'>Failed</option>
                   <option value='REFUNDED'>Refunded</option>
+                  <option value='PARTIAL_REFUND'>Partial Refund</option>
                 </select>
               </div>
 

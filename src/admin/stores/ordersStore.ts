@@ -84,8 +84,6 @@ export const useOrdersStore = create<OrdersState>()(
           const response = await OrdersApi.getOrders(currentFilters);
 
           if (response.success && response.data) {
-            console.log('Orders response:', response);
-            console.log('Orders data:', response.data);
             set({
               orders: response.data.data,
               pagination: response.data.pagination,

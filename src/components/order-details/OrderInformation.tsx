@@ -23,16 +23,10 @@ interface OrderDetails {
   processingDetails?: any;
 }
 
-const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-};
+import { formatUTCForDisplay, formatUTCForDateDisplay } from '@/lib/utils/timezone';
 
 const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('en-US', DATE_FORMAT_OPTIONS);
+  return formatUTCForDisplay(dateString);
 };
 
 interface OrderInformationProps {
@@ -63,10 +57,10 @@ export function OrderInformation({ orderDetails }: OrderInformationProps) {
             <span className='text-sm font-medium text-gray-600'>Pickup Date:</span>
             <span className='text-sm font-semibold text-gray-900'>
               {orderDetails.pickupStartTime
-                ? new Date(orderDetails.pickupStartTime).toLocaleDateString('en-US', {
+                ? formatUTCForDateDisplay(orderDetails.pickupStartTime, {
                     year: 'numeric',
                     month: 'long',
-                    day: 'numeric',
+                    day: 'numeric'
                   })
                 : 'N/A'}
             </span>
@@ -87,10 +81,10 @@ export function OrderInformation({ orderDetails }: OrderInformationProps) {
             <span className='text-sm font-medium text-gray-600'>Delivery Date:</span>
             <span className='text-sm font-semibold text-gray-900'>
               {orderDetails.deliveryStartTime
-                ? new Date(orderDetails.deliveryStartTime).toLocaleDateString('en-US', {
+                ? formatUTCForDateDisplay(orderDetails.deliveryStartTime, {
                     year: 'numeric',
                     month: 'long',
-                    day: 'numeric',
+                    day: 'numeric'
                   })
                 : 'N/A'}
             </span>

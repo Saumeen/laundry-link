@@ -179,8 +179,8 @@ async function handleLoggedInCustomerOrder(
 
     // Send emails (wrapped in try-catch to not fail order creation)
     try {
-      // Send order confirmation email for logged-in customer
-      await emailService.sendOrderConfirmationToCustomer(
+      // Send order creation email to customer
+      await emailService.sendOrderCreationToCustomer(
         orderWithRelations!,
         customer.email,
         `${customer.firstName} ${customer.lastName}`,
