@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma generate && next build && npx prisma migrate deploy",
+    "build": "npx prisma generate && next build && npx prisma migrate deploy && npm run copy-static-assets",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -18,7 +18,8 @@
     "postinstall": "prisma generate",
     "build:worker": "opennextjs-cloudflare",
     "preview": "opennextjs-cloudflare && wrangler dev",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv env.d.ts",
+    "copy-static-assets": "cp -r public/* .next/static/ || xcopy /E /I public .next\\static"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
