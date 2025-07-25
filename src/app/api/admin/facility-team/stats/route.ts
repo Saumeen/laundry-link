@@ -34,7 +34,7 @@ export async function GET() {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // Fetch statistics
-    const [pendingOrders, completedOrders, avgProcessingTime] =
+    const [pendingOrders, completedOrders] =
       await Promise.all([
         // Pending orders (ready for processing)
         prisma.order.count({
@@ -51,8 +51,6 @@ export async function GET() {
           },
         }),
 
-        // Average processing time (placeholder - would need more complex calculation)
-        Promise.resolve(45), // Placeholder value
       ]);
 
     const stats = {
@@ -63,8 +61,6 @@ export async function GET() {
       pendingOrders,
       completedOrders,
       activeDrivers: 0, // Not needed for facility team
-      avgProcessingTime,
-      averageDeliveryTime: 30, // Placeholder value
     };
 
     return NextResponse.json({

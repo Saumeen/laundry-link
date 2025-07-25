@@ -85,8 +85,6 @@ export interface DashboardStats {
   pendingOrders: number;
   completedOrders: number;
   activeDrivers: number;
-  averageDeliveryTime: number;
-  avgProcessingTime: number;
 }
 
 // Admin user types

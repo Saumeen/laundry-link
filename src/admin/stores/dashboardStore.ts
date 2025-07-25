@@ -129,8 +129,6 @@ export const useDashboardStore = create<DashboardState>()(
               pendingOrders: 0,
               completedOrders: response.data.completedAssignments || 0,
               activeDrivers: 1, // Driver viewing their own stats
-              averageDeliveryTime: 30, // Placeholder value
-              avgProcessingTime: 45, // Placeholder value
             };
 
             set({
@@ -178,8 +176,6 @@ export const useDashboardStore = create<DashboardState>()(
               pendingOrders: response.data.pendingOrders,
               completedOrders: response.data.completedOrders,
               activeDrivers: 0,
-              averageDeliveryTime: 30, // Placeholder value
-              avgProcessingTime: response.data.avgProcessingTime || 45, // Use API value or placeholder
             };
 
             set({

@@ -37,9 +37,6 @@ export default function FacilityTeamDashboard() {
     router.push('/admin/facility-team/processing');
   }, [router]);
 
-  const handleNavigateToReports = useCallback(() => {
-    router.push('/admin/facility-team/reports');
-  }, [router]);
 
   const handleNavigateToIssues = useCallback(() => {
     router.push('/admin/facility-team/issues');
@@ -178,27 +175,7 @@ export default function FacilityTeamDashboard() {
               bgColor='bg-green-500'
               isLoading={statsLoading}
             />
-            <StatsCard
-              title='Avg Processing Time'
-              value={`${stats?.avgProcessingTime || 0} min`}
-              icon={
-                <svg
-                  className='w-5 h-5 text-white'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
-                  />
-                </svg>
-              }
-              bgColor='bg-purple-500'
-              isLoading={statsLoading}
-            />
+
           </div>
         </div>
 
@@ -207,7 +184,7 @@ export default function FacilityTeamDashboard() {
           <h2 className='text-lg font-medium text-gray-900 mb-4'>
             Quick Actions
           </h2>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 md:grid-cols-1 gap-4'>
             <QuickActionButton
               title='Process Orders'
               onClick={handleNavigateToProcessing}
@@ -228,33 +205,13 @@ export default function FacilityTeamDashboard() {
                 </svg>
               }
             />
-            <QuickActionButton
-              title='Issue Reports'
-              onClick={handleNavigateToIssues}
-              bgColor='bg-red-600 hover:bg-red-700'
-              icon={
-                <svg
-                  className='w-4 h-4'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z'
-                  />
-                </svg>
-              }
-            />
           </div>
         </div>
 
         {/* Recent Orders */}
         <div className='bg-white shadow rounded-lg'>
           <div className='px-6 py-4 border-b border-gray-200'>
-            <h3 className='text-lg font-medium text-gray-900'>Recent Orders</h3>
+            <h3 className='text-lg font-medium text-gray-900'>Received Orders</h3>
           </div>
           <div className='overflow-x-auto'>
             <table className='min-w-full divide-y divide-gray-200'>

@@ -42,7 +42,6 @@ export async function GET() {
       pendingOrders,
       completedOrders,
       activeDrivers,
-      avgProcessingTime,
     ] = await Promise.all([
       // Total orders
       prisma.order.count(),
@@ -84,9 +83,6 @@ export async function GET() {
           isActive: true,
         },
       }),
-
-      // Average processing time (placeholder - would need more complex calculation)
-      Promise.resolve(45), // Placeholder value
     ]);
 
     const stats = {
@@ -97,8 +93,6 @@ export async function GET() {
       pendingOrders,
       completedOrders,
       activeDrivers,
-      avgProcessingTime,
-      averageDeliveryTime: 30, // Placeholder value
     };
 
     return NextResponse.json({

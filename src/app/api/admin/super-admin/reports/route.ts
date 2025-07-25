@@ -475,7 +475,6 @@ export async function GET(request: Request) {
         completionRate,
         customerSatisfaction: 95.5, // Default value
         activeDrivers,
-        averageDeliveryTime: 24.5, // Default to 24.5 hours
       },
     };
 

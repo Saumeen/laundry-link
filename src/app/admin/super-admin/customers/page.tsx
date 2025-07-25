@@ -235,7 +235,7 @@ export default function CustomerManagement() {
   const [stats, setStats] = useState<CustomerStats | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [currentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -544,7 +544,7 @@ export default function CustomerManagement() {
     const currentObserver = new window.IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting) {
-          setCurrentPage(prev => {
+          setCurrentPage((prev: number) => {
             const nextPage = prev + 1;
             fetchCustomers(nextPage, true);
             return nextPage;
@@ -634,7 +634,7 @@ export default function CustomerManagement() {
           <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
             <StatsCard
               title='Total Customers'
-              value={stats?.totalCustomers.toLocaleString() || '0'}
+              value={(stats?.totalCustomers || 0).toLocaleString()}
               icon={
                 <svg
                   className='w-5 h-5 text-white'
@@ -655,7 +655,7 @@ export default function CustomerManagement() {
 
             <StatsCard
               title='Active Customers'
-              value={stats?.activeCustomers.toLocaleString() || '0'}
+              value={(stats?.activeCustomers || 0).toLocaleString()}
               icon={
                 <svg
                   className='w-5 h-5 text-white'
@@ -676,7 +676,7 @@ export default function CustomerManagement() {
 
             <StatsCard
               title='Inactive Customers'
-              value={stats?.inactiveCustomers.toLocaleString() || '0'}
+              value={(stats?.inactiveCustomers || 0).toLocaleString()}
               icon={
                 <svg
                   className='w-5 h-5 text-white'
@@ -697,7 +697,7 @@ export default function CustomerManagement() {
 
             <StatsCard
               title='Total Orders'
-              value={stats?.totalOrders.toLocaleString() || '0'}
+              value={(stats?.totalOrders || 0).toLocaleString()}
               icon={
                 <svg
                   className='w-5 h-5 text-white'

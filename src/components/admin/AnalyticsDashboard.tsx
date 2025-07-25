@@ -85,7 +85,6 @@ interface AnalyticsData {
     completionRate: number;
     customerSatisfaction: number;
     activeDrivers: number;
-    averageDeliveryTime: number;
   };
 }
 

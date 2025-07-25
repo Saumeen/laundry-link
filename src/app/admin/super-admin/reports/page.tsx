@@ -88,7 +88,6 @@ interface ReportData {
     completionRate: number;
     customerSatisfaction: number;
     activeDrivers: number;
-    averageDeliveryTime: number;
   };
 }
 

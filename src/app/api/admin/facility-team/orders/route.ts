@@ -16,6 +16,7 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
+    const dateRange = searchParams.get('dateRange') || 'all';
 
     const skip = (page - 1) * limit;
 
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
       AND?: Array<Record<string, unknown>>;
     } = {
       // Show orders that have been picked up by driver (PICKUP_COMPLETED status)
-      // OR orders that are already at the facility
+      // OR orders that have reached the facility or any later stage
       OR: [
         {
           status: OrderStatus.PICKUP_COMPLETED,
@@ -38,6 +39,10 @@ export async function GET(req: Request) {
               OrderStatus.PROCESSING_COMPLETED,
               OrderStatus.QUALITY_CHECK,
               OrderStatus.READY_FOR_DELIVERY,
+              OrderStatus.DELIVERY_ASSIGNED,
+              OrderStatus.DELIVERY_IN_PROGRESS,
+              OrderStatus.DELIVERY_FAILED,
+              OrderStatus.DELIVERED,
             ],
           },
         },
@@ -85,12 +90,21 @@ export async function GET(req: Request) {
             },
           },
         ];
+      } else if (status === 'in_delivery') {
+        whereClause.AND = [
+          {
+            status: {
+              in: [
+                OrderStatus.DELIVERY_ASSIGNED,
+                OrderStatus.DELIVERY_IN_PROGRESS,
+              ],
+            },
+          },
+        ];
       } else if (status === 'completed') {
         whereClause.AND = [
           {
-            orderProcessing: {
-              processingStatus: ProcessingStatus.READY_FOR_DELIVERY,
-            },
+            status: OrderStatus.DELIVERED,
           },
         ];
       } else if (status === 'processing_completed') {
@@ -103,7 +117,7 @@ export async function GET(req: Request) {
         whereClause.AND = [
           {
             orderProcessing: {
-              processingStatus: OrderStatus.QUALITY_CHECK,
+              processingStatus: ProcessingStatus.QUALITY_CHECK,
             },
           },
         ];
@@ -115,6 +129,41 @@ export async function GET(req: Request) {
             },
           },
         ];
+      }
+    }
+
+    // Add date range filtering
+    if (dateRange !== 'all') {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (dateRange) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'yesterday':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          break;
+        case 'week':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+          break;
+        default:
+          startDate = new Date(0); // Beginning of time
+      }
+
+      const dateClause = {
+        createdAt: {
+          gte: startDate,
+        },
+      };
+
+      if (whereClause.AND) {
+        whereClause.AND.push(dateClause);
+      } else {
+        whereClause.AND = [dateClause];
       }
     }
 
