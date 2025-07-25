@@ -1,6 +1,16 @@
+<<<<<<< Updated upstream
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedCustomer, createAuthErrorResponse } from "@/lib/auth";
+=======
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedCustomer,
+  createAuthErrorResponse,
+} from '@/lib/auth';
+import { formatTimeSlotRange } from '@/lib/utils/timezone';
+>>>>>>> Stashed changes
 
 export async function GET(
   req: Request,
@@ -49,6 +59,14 @@ export async function GET(
       );
     }
 
+<<<<<<< Updated upstream
+=======
+    // Helper function to format timeslot display
+    const formatTimeSlot = (startTime: Date, endTime: Date) => {
+      return formatTimeSlotRange(startTime, endTime);
+    };
+
+>>>>>>> Stashed changes
     // Transform the data to match the expected interface
     const transformedOrder = {
       id: order.id,

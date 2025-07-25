@@ -7,6 +7,7 @@ import { useAdminAuth } from "@/hooks/useAdminAuth";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { useSession } from "next-auth/react";
 
+
 interface StaffMember {
   id: number;
   email: string;
@@ -467,8 +468,13 @@ export default function StaffManagementPage() {
       } else {
         setError(data.error || "Failed to update staff status");
       }
+<<<<<<< Updated upstream
     } catch (error) {
       setError("Network error");
+=======
+    } catch {
+      setError('Failed to toggle staff status');
+>>>>>>> Stashed changes
     }
   }, []);
 

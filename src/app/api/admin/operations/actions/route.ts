@@ -8,15 +8,20 @@ export async function POST(req: Request) {
     const admin = await requireAuthenticatedAdmin();
     
     const body = await req.json();
+<<<<<<< Updated upstream
     const { 
       orderId, 
       action, 
       driverId, 
       notes 
     } = body as {
+=======
+    const { orderId, action, driverId, estimatedTime, notes } = body as {
+>>>>>>> Stashed changes
       orderId: number;
       action: 'confirm_order' | 'assign_pickup_driver' | 'assign_delivery_driver';
       driverId?: number;
+      estimatedTime?: string;
       notes?: string;
     };
 
@@ -53,7 +58,12 @@ export async function POST(req: Request) {
       staffId: admin.id, // Get staff ID from backend session
       action,
       driverId,
+<<<<<<< Updated upstream
       notes
+=======
+      estimatedTime,
+      notes,
+>>>>>>> Stashed changes
     });
 
     if (!result.success) {

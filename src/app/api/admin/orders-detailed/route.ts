@@ -1,7 +1,18 @@
 // src/app/api/admin/orders-detailed/route.ts
+<<<<<<< Updated upstream
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+=======
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
+import { formatTimeSlotRange } from '@/lib/utils/timezone';
+import { OrderStatus } from '@prisma/client';
+>>>>>>> Stashed changes
 
 const SORTABLE_FIELDS: Record<string, string> = {
   orderNumber: 'orderNumber',
@@ -13,7 +24,11 @@ const SORTABLE_FIELDS: Record<string, string> = {
 
 export async function GET(req: Request) {
   try {
+<<<<<<< Updated upstream
     await requireAuthenticatedAdmin();
+=======
+    const admin = await requireAuthenticatedAdmin();
+>>>>>>> Stashed changes
     const { searchParams } = new URL(req.url);
     const sortField = searchParams.get('sortField') || 'createdAt';
     const sortDirection = searchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc';
@@ -33,11 +48,26 @@ export async function GET(req: Request) {
       orderBy[sortField in SORTABLE_FIELDS ? SORTABLE_FIELDS[sortField] : 'createdAt'] = sortDirection;
     }
 
+<<<<<<< Updated upstream
     // Get total count for pagination
     const total = await prisma.order.count();
+=======
+    // Build where clause based on admin role
+    let whereClause: Record<string, unknown> = {};
+    
+    // For FACILITY_TEAM role, only show orders with DROPPED_OFF status
+    if (admin.role === 'FACILITY_TEAM') {
+      whereClause.status = OrderStatus.DROPPED_OFF;
+    }
+    // For SUPER_ADMIN and OPERATION_MANAGER, show all orders (no filter needed)
+>>>>>>> Stashed changes
 
-    // Fetch paginated orders
+    // Get total count for pagination with role-based filtering
+    const total = await prisma.order.count({ where: whereClause });
+
+    // Fetch paginated orders with role-based filtering
     const orders = await prisma.order.findMany({
+      where: whereClause,
       include: {
         customer: true,
         orderServiceMappings: {
@@ -90,6 +120,11 @@ export async function GET(req: Request) {
         ...order,
         orderItems, // Add this for frontend compatibility
         services,
+        // Map time fields to match frontend expectations with Bahrain timezone
+        pickupTime: order.pickupStartTime,
+        deliveryTime: order.deliveryStartTime,
+        pickupTimeSlot: formatTimeSlotRange(order.pickupStartTime, order.pickupEndTime),
+        deliveryTimeSlot: formatTimeSlotRange(order.deliveryStartTime, order.deliveryEndTime),
       };
     });
 

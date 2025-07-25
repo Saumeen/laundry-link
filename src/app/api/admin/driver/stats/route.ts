@@ -1,7 +1,15 @@
+<<<<<<< Updated upstream
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
 import { DriverAssignmentStatus } from "@prisma/client";
+=======
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
+import { getCurrentBahrainDate } from '@/lib/utils/timezone';
+>>>>>>> Stashed changes
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +23,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "today"; // today, week, month
 
+<<<<<<< Updated upstream
     const now = new Date();
     let startDate: Date;
 
@@ -24,12 +33,37 @@ export async function GET(request: NextRequest) {
         break;
       case "month":
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+=======
+    // Calculate date range based on Bahraini time
+    const bahrainToday = getCurrentBahrainDate();
+    let startDate: Date;
+
+    switch (period) {
+      case 'week':
+        // Get date 7 days ago in Bahrain time
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgoBahrain = weekAgo.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        startDate = new Date(`${weekAgoBahrain}T00:00:00.000Z`);
+        break;
+      case 'month':
+        // Get date 30 days ago in Bahrain time
+        const monthAgo = new Date();
+        monthAgo.setDate(monthAgo.getDate() - 30);
+        const monthAgoBahrain = monthAgo.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        startDate = new Date(`${monthAgoBahrain}T00:00:00.000Z`);
+>>>>>>> Stashed changes
         break;
       default: // today
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate = new Date(`${bahrainToday}T00:00:00.000Z`);
         break;
     }
 
+<<<<<<< Updated upstream
     // Get assignments for the period
     const assignments = await prisma.driverAssignment.findMany({
       where: {
@@ -74,6 +108,98 @@ export async function GET(request: NextRequest) {
             customerFirstName: true,
             customerLastName: true,
           },
+=======
+    // Fetch driver assignments and statistics
+    const [
+      totalAssignments,
+      completedAssignments,
+      inProgressAssignments,
+      pendingAssignments,
+      cancelledAssignments,
+      pickupAssignments,
+      deliveryAssignments,
+      recentAssignments,
+    ] = await Promise.all([
+      // Total assignments for this driver (filter by estimated time in Bahrain timezone)
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Completed assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'COMPLETED',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // In progress assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'IN_PROGRESS',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Pending assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'ASSIGNED',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Cancelled assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'CANCELLED',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Pickup assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          assignmentType: 'pickup',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Delivery assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          assignmentType: 'delivery',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Recent assignments
+      prisma.driverAssignment.findMany({
+        where: {
+          driverId: adminUser.id,
+          estimatedTime: { gte: startDate },
+        },
+        include: {
+          order: {
+            select: {
+              orderNumber: true,
+              customerFirstName: true,
+              customerLastName: true,
+            },
+          },
+        },
+        orderBy: {
+          estimatedTime: 'desc',
+>>>>>>> Stashed changes
         },
       },
       orderBy: {
