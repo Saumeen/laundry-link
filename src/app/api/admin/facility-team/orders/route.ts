@@ -93,6 +93,12 @@ export async function GET(req: Request) {
             },
           },
         ];
+      } else if (status === 'processing_completed') {
+        whereClause.AND = [
+          {
+            status: OrderStatus.PROCESSING_COMPLETED,
+          },
+        ];
       } else if (status === 'quality_check') {
         whereClause.AND = [
           {

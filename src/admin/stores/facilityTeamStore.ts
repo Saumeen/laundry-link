@@ -512,21 +512,17 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
       markAsReadyForDelivery: async (orderId: number) => {
         set({ processingForm: { loading: true, error: null, success: false } });
         try {
-          const response = await fetch(
-            `/api/admin/facility-team/processing?orderId=${orderId}`,
-            {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                processingStatus: OrderStatus.READY_FOR_DELIVERY,
-                processingNotes:
-                  get().order?.orderProcessing?.processingNotes ||
-                  'Order completed and ready for delivery',
-              }),
-            }
-          );
+          const response = await fetch('/api/admin/facility/actions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              orderId,
+              action: 'ready_for_delivery',
+              notes: 'Order marked as ready for delivery by facility team',
+            }),
+          });
 
           if (response.ok) {
             set({

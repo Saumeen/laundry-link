@@ -254,14 +254,14 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
       }
 
       if (assignmentType === 'delivery' && pickupEstimatedTime) {
-        const pickupDate = new Date(pickupEstimatedTime);
+        const pickupDate = new Date(convertBahrainDateTimeToUTC(pickupEstimatedTime));
         if (selectedDate <= pickupDate) {
           return 'Delivery time must be after pickup time';
         }
       }
 
       if (assignmentType === 'pickup' && deliveryEstimatedTime) {
-        const deliveryDate = new Date(deliveryEstimatedTime);
+        const deliveryDate = new Date(convertBahrainDateTimeToUTC(deliveryEstimatedTime));
         if (selectedDate >= deliveryDate) {
           return 'Pickup time must be before delivery time';
         }
@@ -309,33 +309,55 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
       }
 
       try {
+        const requestBody = {
+          orderId: order.id,
+          action:
+            assignmentType === 'pickup'
+              ? 'assign_pickup_driver'
+              : 'assign_delivery_driver',
+          driverId: parseInt(driverId.toString()),
+          estimatedTime: estimatedTime,
+          notes: notes || undefined,
+        };
+
+        console.log('Sending request:', requestBody);
+
         const response = await fetch('/api/admin/operations/actions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            orderId: order.id,
-            action:
-              assignmentType === 'pickup'
-                ? 'assign_pickup_driver'
-                : 'assign_delivery_driver',
-            driverId: parseInt(driverId.toString()),
-            estimatedTime: estimatedTime,
-            notes: notes || undefined,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
+        console.log('Response status:', response.status);
+
         if (response.ok) {
+          const result = await response.json();
+          console.log('Assignment successful:', result);
           await loadDriverAssignments();
           onRefresh();
         } else {
-          const error = await response.json();
+          const error = await response.json() as { error?: string };
           console.error('Failed to assign driver:', error);
+          // Show error message to user
+          const errorMessage = error.error || 'Failed to assign driver';
+          if (assignmentType === 'pickup') {
+            setPickupTimeError(errorMessage);
+          } else {
+            setDeliveryTimeError(errorMessage);
+          }
         }
-      } catch (error) {
-        console.error('Error assigning driver:', error);
-      } finally {
+              } catch (error: unknown) {
+          console.error('Error assigning driver:', error);
+          // Show error message to user
+          const errorMessage = error instanceof Error ? error.message : 'Failed to assign driver';
+          if (assignmentType === 'pickup') {
+            setPickupTimeError(errorMessage);
+          } else {
+            setDeliveryTimeError(errorMessage);
+          }
+        } finally {
         if (assignmentType === 'pickup') {
           setPickupAssignmentLoading(false);
         } else {

@@ -17,6 +17,7 @@ export async function POST(req: Request) {
           | 'receive_order'
           | 'start_processing'
           | 'complete_processing'
+          | 'ready_for_delivery'
           | 'generate_invoice'
           | 'assign_delivery_driver';
         notes?: string;
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       'receive_order',
       'start_processing',
       'complete_processing',
+      'ready_for_delivery',
       'generate_invoice',
       'assign_delivery_driver',
     ];

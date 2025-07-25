@@ -552,6 +552,7 @@ function getRolePermissions(role: string): OrderStatus[] {
         OrderStatus.PICKUP_IN_PROGRESS,
         OrderStatus.PICKUP_COMPLETED,
         OrderStatus.PICKUP_FAILED,
+        OrderStatus.DROPPED_OFF,
         OrderStatus.RECEIVED_AT_FACILITY,
         OrderStatus.PROCESSING_STARTED,
         OrderStatus.PROCESSING_COMPLETED,
@@ -575,6 +576,7 @@ function getRolePermissions(role: string): OrderStatus[] {
       ];
     case 'FACILITY_TEAM':
       return [
+        OrderStatus.RECEIVED_AT_FACILITY,
         OrderStatus.PROCESSING_STARTED,
         OrderStatus.PROCESSING_COMPLETED,
         OrderStatus.QUALITY_CHECK,

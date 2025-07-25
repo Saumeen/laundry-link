@@ -59,6 +59,7 @@ export interface FacilityActionData {
     | 'receive_order'
     | 'start_processing'
     | 'complete_processing'
+    | 'ready_for_delivery'
     | 'generate_invoice'
     | 'assign_delivery_driver';
   notes?: string;
@@ -368,6 +369,9 @@ export class OrderTrackingService {
         case 'start_processing':
           newStatus = OrderStatus.PROCESSING_STARTED;
           break;
+        case 'ready_for_delivery':
+          newStatus = OrderStatus.READY_FOR_DELIVERY;
+          break;
         case 'assign_delivery_driver':
           newStatus = OrderStatus.DELIVERY_ASSIGNED;
           shouldSendEmail = false; // Don't send email for this status
@@ -448,7 +452,8 @@ export class OrderTrackingService {
           orderId,
           driverId,
           action === 'assign_pickup_driver' ? 'pickup' : 'delivery',
-          estimatedTime
+          estimatedTime,
+          notes
         );
       }
 
@@ -756,7 +761,8 @@ export class OrderTrackingService {
     orderId: number,
     driverId: number,
     assignmentType: 'pickup' | 'delivery',
-    estimatedTime?: string
+    estimatedTime?: string,
+    notes?: string
   ): Promise<void> {
     try {
       await prisma.driverAssignment.create({
@@ -766,6 +772,7 @@ export class OrderTrackingService {
           assignmentType,
           status: DriverAssignmentStatus.ASSIGNED,
           estimatedTime: estimatedTime ? new Date(estimatedTime) : null,
+          notes: notes || null,
         },
       });
     } catch (error) {

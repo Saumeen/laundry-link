@@ -227,7 +227,7 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         orderId,
-        action: 'mark_ready_for_delivery',
+        action: 'ready_for_delivery',
         notes: 'Order marked as ready for delivery by super admin',
       }),
     });
