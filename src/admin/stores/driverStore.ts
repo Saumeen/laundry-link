@@ -133,7 +133,7 @@ export const useDriverStore = create<DriverState>()(
           photoForm: { ...state.photoForm, loading: true, error: null },
         }));
         try {
-          const response = await DriverApi.uploadPhoto(assignmentId, photoData);
+          const response = await DriverApi.uploadPhoto(assignmentId, photoData as { photoUrl: string; photoType: string; description?: string });
           if (response.success) {
             set({ photoForm: { loading: false, success: true, error: null } });
             // Refresh assignments to get updated photos
