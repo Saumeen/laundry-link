@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { authenticateAdmin } from "@/lib/adminAuth";
+import { NextResponse } from 'next/server';
+import { authenticateAdmin } from '@/lib/adminAuth';
 
 export async function POST(req: Request) {
   try {
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "Email and password are required" },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     if (!adminUser) {
       return NextResponse.json(
-        { error: "Invalid credentials or account inactive" },
+        { error: 'Invalid credentials or account inactive' },
         { status: 401 }
       );
     }
@@ -30,19 +30,16 @@ export async function POST(req: Request) {
       lastName: adminUser.lastName,
       role: adminUser.role,
       isActive: adminUser.isActive,
-      lastLoginAt: adminUser.lastLoginAt
+      lastLoginAt: adminUser.lastLoginAt,
     };
 
     return NextResponse.json({
-      message: "Login successful",
+      message: 'Login successful',
       user: sessionData,
-      role: adminUser.role
+      role: adminUser.role,
     });
   } catch (error) {
-    console.error("Admin login error:", error);
-    return NextResponse.json(
-      { error: "Login failed" },
-      { status: 500 }
-    );
+    console.error('Admin login error:', error);
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
-} 
+}

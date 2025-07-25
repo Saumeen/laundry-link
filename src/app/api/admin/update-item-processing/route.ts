@@ -1,8 +1,11 @@
 // src/app/api/admin/update-item-processing/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { ItemStatus } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
+import { ItemStatus } from '@prisma/client';
 
 interface UpdateItemProcessingRequest {
   orderId: number;
@@ -18,19 +21,21 @@ export async function POST(req: Request) {
     // Require admin authentication
     await requireAuthenticatedAdmin();
 
-    const body = await req.json() as UpdateItemProcessingRequest;
-    const { 
-      orderId, 
-      processingItemDetailId, 
-      processedQuantity, 
-      status, 
-      processingNotes, 
-      qualityScore 
+    const body = (await req.json()) as UpdateItemProcessingRequest;
+    const {
+      orderId,
+      processingItemDetailId,
+      processedQuantity,
+      status,
+      processingNotes,
+      qualityScore,
     } = body;
 
     if (!orderId || !processingItemDetailId || !status) {
       return NextResponse.json(
-        { error: "Order ID, processing item detail ID, and status are required" },
+        {
+          error: 'Order ID, processing item detail ID, and status are required',
+        },
         { status: 400 }
       );
     }
@@ -41,48 +46,49 @@ export async function POST(req: Request) {
     });
 
     if (!order) {
-      return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Update the processing item detail
-    const updatedProcessingItemDetail = await prisma.processingItemDetail.update({
-      where: { id: processingItemDetailId },
-      data: {
-        processedQuantity: processedQuantity || 0,
-        status: status as ItemStatus,
-        processingNotes: processingNotes || null,
-        qualityScore: qualityScore || null,
-      },
-      include: {
-        orderItem: {
-          include: {
-            orderServiceMapping: {
-              include: {
-                service: true,
+    const updatedProcessingItemDetail =
+      await prisma.processingItemDetail.update({
+        where: { id: processingItemDetailId },
+        data: {
+          processedQuantity: processedQuantity || 0,
+          status: status as ItemStatus,
+          processingNotes: processingNotes || null,
+          qualityScore: qualityScore || null,
+        },
+        include: {
+          orderItem: {
+            include: {
+              orderServiceMapping: {
+                include: {
+                  service: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
     return NextResponse.json({
-      message: "Item processing updated successfully",
+      message: 'Item processing updated successfully',
       processingItemDetail: updatedProcessingItemDetail,
     });
   } catch (error) {
-    console.error("Error updating item processing:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    console.error('Error updating item processing:', error);
+
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to update item processing" },
+      { error: 'Failed to update item processing' },
       { status: 500 }
     );
   }
-} 
+}

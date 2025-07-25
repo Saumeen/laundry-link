@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { calculateOrderItemTotal } from "@/lib/calculations";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { calculateOrderItemTotal } from '@/lib/calculations';
 
 interface OrderItemRequest {
   serviceId: string | number;
@@ -21,12 +21,12 @@ interface SaveInvoiceRequest {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as SaveInvoiceRequest;
-    const { orderId, orderItems, invoiceTotal, minimumOrderApplied } = body;
+    const body = (await req.json()) as SaveInvoiceRequest;
+    const { orderId, orderItems, minimumOrderApplied } = body;
 
     if (!orderId || !orderItems || orderItems.length === 0) {
       return NextResponse.json(
-        { error: "Order ID and order items are required" },
+        { error: 'Order ID and order items are required' },
         { status: 400 }
       );
     }
@@ -40,10 +40,7 @@ export async function POST(req: Request) {
     });
 
     if (!order) {
-      return NextResponse.json(
-        { error: "Order not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Delete existing order items for this order
@@ -60,11 +57,14 @@ export async function POST(req: Request) {
       orderItems.map((item: OrderItemRequest) => {
         // Find the corresponding service mapping
         const serviceMapping = order.orderServiceMappings.find(
-          (mapping: typeof order.orderServiceMappings[0]) => mapping.serviceId === parseInt(item.serviceId.toString())
+          (mapping: (typeof order.orderServiceMappings)[0]) =>
+            mapping.serviceId === parseInt(item.serviceId.toString())
         );
 
         if (!serviceMapping) {
-          throw new Error(`Service mapping not found for service ID ${item.serviceId}`);
+          throw new Error(
+            `Service mapping not found for service ID ${item.serviceId}`
+          );
         }
 
         return prisma.orderItem.create({
@@ -89,7 +89,11 @@ export async function POST(req: Request) {
     );
 
     // Calculate invoice total
-    const invoiceTotalCalculated = createdItems.reduce((sum: number, item: typeof createdItems[0]) => sum + calculateOrderItemTotal(item), 0);
+    const invoiceTotalCalculated = createdItems.reduce(
+      (sum: number, item: (typeof createdItems)[0]) =>
+        sum + calculateOrderItemTotal(item),
+      0
+    );
 
     // Update order with invoice total
     const updatedOrder = await prisma.order.update({
@@ -101,14 +105,14 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      message: "Invoice saved successfully",
+      message: 'Invoice saved successfully',
       order: updatedOrder,
       orderItems: createdItems,
     });
   } catch (error) {
-    console.error("Error saving invoice:", error);
+    console.error('Error saving invoice:', error);
     return NextResponse.json(
-      { error: "Failed to save invoice" },
+      { error: 'Failed to save invoice' },
       { status: 500 }
     );
   }

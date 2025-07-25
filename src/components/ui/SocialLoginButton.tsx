@@ -7,7 +7,12 @@ interface SocialLoginButtonProps {
   className?: string;
 }
 
-const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({ provider, onClick, children, className = '' }) => {
+const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
+  provider,
+  onClick,
+  children,
+  className = '',
+}) => {
   const getLogoSrc = () => {
     switch (provider) {
       case 'google':
@@ -36,19 +41,19 @@ const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({ provider, onClick
 
   return (
     <button
-      type="button"
+      type='button'
       onClick={onClick}
       className={`w-full flex items-center justify-center px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm bg-white/80 backdrop-blur-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-[1.02] ${getProviderColors()} ${className}`}
     >
-      <img 
-        src={getLogoSrc()} 
-        alt={provider.charAt(0).toUpperCase() + provider.slice(1)} 
-        className="w-5 h-5 mr-2" 
+      <img
+        src={getLogoSrc()}
+        alt={provider.charAt(0).toUpperCase() + provider.slice(1)}
+        className='w-5 h-5 mr-2'
         style={{ display: 'inline-block' }}
       />
-      <span className="font-medium text-sm">{children}</span>
+      <span className='font-medium text-sm'>{children}</span>
     </button>
   );
 };
 
-export default SocialLoginButton; 
+export default SocialLoginButton;

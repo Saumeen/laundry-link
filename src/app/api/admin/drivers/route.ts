@@ -1,27 +1,52 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
 
-// GET - Fetch all active drivers
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    await requireAuthenticatedAdmin();
-    
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get admin user to check role
+    const adminUser = await prisma.staff.findUnique({
+      where: { email: session.user.email },
+      include: { role: true },
+    });
+
+    if (
+      !adminUser ||
+      !['SUPER_ADMIN', 'OPERATION_MANAGER'].includes(adminUser.role.name)
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
     const drivers = await prisma.staff.findMany({
       where: {
+        role: { name: 'DRIVER' },
         isActive: true,
-        role: {
-          name: 'DRIVER',
-        },
       },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        lastLoginAt: true,
-        createdAt: true,
+      include: {
+        role: true,
+        driverAssignments: {
+          include: {
+            order: {
+              include: {
+                customer: true,
+                address: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         firstName: 'asc',
@@ -30,18 +55,13 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      drivers,
+      data: drivers,
     });
   } catch (error) {
-    console.error("Error fetching drivers:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
-      return createAdminAuthErrorResponse();
-    }
-    
+    console.error('Error fetching drivers:', error);
     return NextResponse.json(
-      { error: "Failed to fetch drivers" },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
-} 
+}

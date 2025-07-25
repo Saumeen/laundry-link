@@ -1,22 +1,22 @@
-import { NextResponse } from "next/server";
-import { OrderTrackingService } from "@/lib/orderTracking";
-import { OrderStatus } from "@prisma/client";
-import { isValidOrderStatus } from "@/lib/orderStatus";
+import { NextResponse } from 'next/server';
+import { OrderTrackingService } from '@/lib/orderTracking';
+import { OrderStatus } from '@prisma/client';
+import { isValidOrderStatus } from '@/lib/orderStatus';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, status, notes, staffId, metadata } = body as { 
-      orderId: string; 
-      status: string; 
+    const { orderId, status, notes, staffId, metadata } = body as {
+      orderId: string;
+      status: string;
       notes?: string;
       staffId?: number;
-      metadata?: any;
+      metadata?: Record<string, unknown>;
     };
 
     if (!orderId || !status) {
       return NextResponse.json(
-        { error: "Order ID and status are required" },
+        { error: 'Order ID and status are required' },
         { status: 400 }
       );
     }
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     // Validate status enum
     if (!isValidOrderStatus(status)) {
       return NextResponse.json(
-        { error: "Invalid order status" },
+        { error: 'Invalid order status' },
         { status: 400 }
       );
     }
@@ -36,26 +36,31 @@ export async function POST(req: Request) {
       staffId,
       notes,
       metadata,
-      shouldSendEmail: true
+      shouldSendEmail: true,
     });
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.message || "Failed to update order status" },
+        { error: result.message || 'Failed to update order status' },
         { status: 400 }
       );
     }
 
-    console.log("Order status updated:", result.order?.orderNumber, "->", status);
+    console.log(
+      'Order status updated:',
+      result.order?.orderNumber,
+      '->',
+      status
+    );
 
     return NextResponse.json({
-      message: "Order status updated successfully",
-      order: result.order
+      message: 'Order status updated successfully',
+      order: result.order,
     });
   } catch (error) {
-    console.error("Error updating order status:", error);
+    console.error('Error updating order status:', error);
     return NextResponse.json(
-      { error: "Failed to update order status" },
+      { error: 'Failed to update order status' },
       { status: 500 }
     );
   }

@@ -9,7 +9,7 @@ export async function GET() {
     await requireAdminRole('SUPER_ADMIN');
 
     const services = await prisma.service.findMany({
-      orderBy: { sortOrder: 'asc' }
+      orderBy: { sortOrder: 'asc' },
     });
 
     return NextResponse.json(services);
@@ -18,7 +18,10 @@ export async function GET() {
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -28,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Require SUPER_ADMIN role
     await requireAdminRole('SUPER_ADMIN');
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       name: string;
       displayName: string;
       description: string;
@@ -41,20 +44,48 @@ export async function POST(request: NextRequest) {
       features?: string[];
       sortOrder?: number;
     };
-    const { name, displayName, description, pricingType, pricingUnit, price, unit, turnaround, category, features, sortOrder } = body;
+    const {
+      name,
+      displayName,
+      description,
+      pricingType,
+      pricingUnit,
+      price,
+      unit,
+      turnaround,
+      category,
+      features,
+      sortOrder,
+    } = body;
 
     // Validation
-    if (!name || !displayName || !description || !pricingType || !pricingUnit || !price || !unit || !turnaround || !category) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (
+      !name ||
+      !displayName ||
+      !description ||
+      !pricingType ||
+      !pricingUnit ||
+      !price ||
+      !unit ||
+      !turnaround ||
+      !category
+    ) {
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
     // Check if service name already exists
     const existingService = await prisma.service.findUnique({
-      where: { name }
+      where: { name },
     });
 
     if (existingService) {
-      return NextResponse.json({ error: 'Service name already exists' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Service name already exists' },
+        { status: 400 }
+      );
     }
 
     const service = await prisma.service.create({
@@ -70,8 +101,8 @@ export async function POST(request: NextRequest) {
         category,
         features: features || [],
         sortOrder: sortOrder || 0,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     return NextResponse.json(service, { status: 201 });
@@ -80,6 +111,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
-} 
+}

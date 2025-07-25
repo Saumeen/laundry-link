@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
+import {
+  requireAuthenticatedCustomer,
+  createAuthErrorResponse,
+} from '@/lib/auth';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();
@@ -19,28 +22,34 @@ export async function GET(request: Request) {
         walletBalance: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
       },
     });
 
     if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      customer 
+      customer,
     });
-
   } catch (error) {
     console.error('Error fetching customer profile:', error || 'Unknown error');
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
     }
-    
-    return NextResponse.json({ 
-      error: 'Failed to fetch customer profile' 
-    }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch customer profile',
+      },
+      { status: 500 }
+    );
   } finally {
     await prisma.$disconnect();
   }
@@ -50,21 +59,25 @@ export async function PUT(request: Request) {
   try {
     // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();
-    const body = await request.json() as { firstName?: string; lastName?: string; phone?: string };
+    const body = (await request.json()) as {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+    };
 
     // Validate required fields
     const { firstName, lastName, phone } = body;
-    
+
     if (!firstName?.trim()) {
       return NextResponse.json(
-        { error: "First name is required" },
+        { error: 'First name is required' },
         { status: 400 }
       );
     }
 
     if (!lastName?.trim()) {
       return NextResponse.json(
-        { error: "Last name is required" },
+        { error: 'Last name is required' },
         { status: 400 }
       );
     }
@@ -86,27 +99,29 @@ export async function PUT(request: Request) {
         walletBalance: true,
         createdAt: true,
         updatedAt: true,
+        isActive: true,
       },
     });
 
     return NextResponse.json({
       success: true,
       customer: updatedCustomer,
-      message: "Profile updated successfully"
+      message: 'Profile updated successfully',
     });
-
   } catch (error) {
     console.error('Error updating customer profile:', error);
-    
+
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
     }
-    
-    return NextResponse.json({ 
-      error: 'Failed to update customer profile' 
-    }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: 'Failed to update customer profile',
+      },
+      { status: 500 }
+    );
   } finally {
     await prisma.$disconnect();
   }
 }
-

@@ -1,5 +1,28 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
+
+interface AddressUpdate {
+  label?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  area?: string;
+  building?: string;
+  floor?: string;
+  apartment?: string;
+  landmark?: string;
+  contactNumber?: string;
+  locationType?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+interface UpdateAddressRequest {
+  addressId: number;
+  updates: AddressUpdate;
+}
 
 // GET - Get all addresses for a specific customer
 export async function GET(req: Request) {
@@ -16,15 +39,12 @@ export async function GET(req: Request) {
 
     const addresses = await prisma.address.findMany({
       where: { customerId: parseInt(customerId) },
-      orderBy: [
-        { isDefault: 'desc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
     return NextResponse.json({
       success: true,
-      addresses
+      addresses,
     });
   } catch (error) {
     console.error('Error fetching customer addresses:', error);
@@ -38,7 +58,7 @@ export async function GET(req: Request) {
 // PUT - Update customer address
 export async function PUT(req: Request) {
   try {
-    const body = await req.json() as { addressId: number; updates: any };
+    const body = (await req.json()) as UpdateAddressRequest;
     const { addressId, updates } = body;
 
     if (!addressId) {
@@ -50,12 +70,22 @@ export async function PUT(req: Request) {
 
     // Validate updates
     const allowedFields = [
-      'label', 'addressLine1', 'addressLine2', 'city', 'area', 
-      'building', 'floor', 'apartment', 'landmark', 'contactNumber',
-      'locationType', 'latitude', 'longitude'
+      'label',
+      'addressLine1',
+      'addressLine2',
+      'city',
+      'area',
+      'building',
+      'floor',
+      'apartment',
+      'landmark',
+      'contactNumber',
+      'locationType',
+      'latitude',
+      'longitude',
     ];
-    
-    const validUpdates: any = {};
+
+    const validUpdates: AddressUpdate = {};
 
     for (const [key, value] of Object.entries(updates)) {
       if (allowedFields.includes(key)) {
@@ -99,7 +129,7 @@ export async function DELETE(req: Request) {
     // Check if address is default
     const address = await prisma.address.findUnique({
       where: { id: parseInt(addressId) },
-      select: { isDefault: true }
+      select: { isDefault: true },
     });
 
     if (address?.isDefault) {
@@ -125,4 +155,4 @@ export async function DELETE(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

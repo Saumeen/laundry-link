@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin } from "@/lib/adminAuth";
-import { IssueStatus } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import { IssueStatus } from '@prisma/client';
 
 interface IssueReportRequest {
   orderProcessingId: number;
@@ -15,28 +15,34 @@ export async function POST(request: NextRequest) {
   try {
     const admin = await requireAuthenticatedAdmin();
     const body: IssueReportRequest = await request.json();
-    
+
     const {
       orderProcessingId,
       issueStatus,
       description,
       resolution,
-      severity
+      severity,
     } = body;
 
     // Validate enum values
     const validIssueStatuses = Object.values(IssueStatus);
     if (!validIssueStatuses.includes(issueStatus)) {
-      return NextResponse.json({ error: "Invalid issue status" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid issue status' },
+        { status: 400 }
+      );
     }
 
     // Check if processing exists
     const processing = await prisma.orderProcessing.findUnique({
-      where: { id: orderProcessingId }
+      where: { id: orderProcessingId },
     });
 
     if (!processing) {
-      return NextResponse.json({ error: "Processing not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Processing not found' },
+        { status: 404 }
+      );
     }
 
     // Create issue report
@@ -48,42 +54,41 @@ export async function POST(request: NextRequest) {
         status: issueStatus,
         description,
         resolution,
-        severity: severity || 'medium'
+        severity: severity || 'medium',
       },
       include: {
         orderProcessing: {
           include: {
             order: {
               include: {
-                customer: true
-              }
-            }
-          }
+                customer: true,
+              },
+            },
+          },
         },
         staff: {
           select: {
             firstName: true,
-            lastName: true
-          }
-        }
-      }
+            lastName: true,
+          },
+        },
+      },
     });
 
     // Update processing status to ISSUE_REPORTED
     await prisma.orderProcessing.update({
       where: { id: orderProcessingId },
-      data: { processingStatus: 'ISSUE_REPORTED' as any }
+      data: { processingStatus: 'ISSUE_REPORTED' as any },
     });
 
-    return NextResponse.json({ 
-      message: "Issue report created successfully",
-      issueReport 
+    return NextResponse.json({
+      message: 'Issue report created successfully',
+      issueReport,
     });
-
   } catch (error) {
-    console.error("Error creating issue report:", error);
+    console.error('Error creating issue report:', error);
     return NextResponse.json(
-      { error: "Failed to create issue report" },
+      { error: 'Failed to create issue report' },
       { status: 500 }
     );
   }
@@ -92,20 +97,20 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     await requireAuthenticatedAdmin();
-    
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as IssueStatus;
     const orderId = searchParams.get('orderId');
 
-    const where: any = {};
-    
+    const where: Record<string, unknown> = {};
+
     if (status) {
       where.issueStatus = status;
     }
-    
+
     if (orderId) {
       where.orderProcessing = {
-        orderId: parseInt(orderId)
+        orderId: parseInt(orderId),
       };
     }
 
@@ -116,30 +121,29 @@ export async function GET(request: NextRequest) {
           include: {
             order: {
               include: {
-                customer: true
-              }
-            }
-          }
+                customer: true,
+              },
+            },
+          },
         },
         staff: {
           select: {
             firstName: true,
-            lastName: true
-          }
-        }
+            lastName: true,
+          },
+        },
       },
       orderBy: {
-        reportedAt: 'desc'
-      }
+        reportedAt: 'desc',
+      },
     });
 
     return NextResponse.json(issueReports);
-
   } catch (error) {
-    console.error("Error fetching issue reports:", error);
+    console.error('Error fetching issue reports:', error);
     return NextResponse.json(
-      { error: "Failed to fetch issue reports" },
+      { error: 'Failed to fetch issue reports' },
       { status: 500 }
     );
   }
-} 
+}

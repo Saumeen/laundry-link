@@ -1,5 +1,12 @@
 import prisma from './prisma';
-import { OrderStatus, PaymentStatus, DriverAssignmentStatus, ProcessingStatus, ItemStatus, IssueStatus } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  DriverAssignmentStatus,
+  ProcessingStatus,
+  ItemStatus,
+  IssueStatus,
+} from '@prisma/client';
 import { createOrderHistoryEntry, validateStatusChange } from './orderStatus';
 import emailService from './emailService';
 
@@ -33,7 +40,14 @@ export interface OrderHistoryEntry {
 export interface DriverActionData {
   orderId: number;
   driverId: number;
-  action: 'start_pickup' | 'complete_pickup' | 'fail_pickup' | 'drop_off' | 'start_delivery' | 'complete_delivery' | 'fail_delivery';
+  action:
+    | 'start_pickup'
+    | 'complete_pickup'
+    | 'fail_pickup'
+    | 'drop_off'
+    | 'start_delivery'
+    | 'complete_delivery'
+    | 'fail_delivery';
   photoUrl?: string;
   notes?: string;
 }
@@ -41,7 +55,12 @@ export interface DriverActionData {
 export interface FacilityActionData {
   orderId: number;
   staffId: number;
-  action: 'receive_order' | 'start_processing' | 'complete_processing' | 'generate_invoice' | 'assign_delivery_driver';
+  action:
+    | 'receive_order'
+    | 'start_processing'
+    | 'complete_processing'
+    | 'generate_invoice'
+    | 'assign_delivery_driver';
   notes?: string;
   metadata?: any;
 }
@@ -51,6 +70,7 @@ export interface OperationsActionData {
   staffId: number;
   action: 'confirm_order' | 'assign_pickup_driver' | 'assign_delivery_driver';
   driverId?: number;
+  estimatedTime?: string;
   notes?: string;
 }
 
@@ -58,8 +78,11 @@ export class OrderTrackingService {
   /**
    * Update order status with comprehensive tracking
    */
-  static async updateOrderStatus(data: OrderUpdateData): Promise<{ success: boolean; message?: string; order?: any }> {
-    const { orderId, staffId, newStatus, newPaymentStatus, notes, metadata } = data;
+  static async updateOrderStatus(
+    data: OrderUpdateData
+  ): Promise<{ success: boolean; message?: string; order?: any }> {
+    const { orderId, staffId, newStatus, newPaymentStatus, notes, metadata } =
+      data;
 
     try {
       // Get current order
@@ -68,9 +91,9 @@ export class OrderTrackingService {
         include: {
           orderUpdates: {
             orderBy: { createdAt: 'desc' },
-            take: 1
-          }
-        }
+            take: 1,
+          },
+        },
       });
 
       if (!currentOrder) {
@@ -86,7 +109,7 @@ export class OrderTrackingService {
       }
 
       // Start transaction
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async tx => {
         const updates: any = {};
         const historyEntries: any[] = [];
 
@@ -107,7 +130,10 @@ export class OrderTrackingService {
         }
 
         // Update payment status
-        if (newPaymentStatus && newPaymentStatus !== currentOrder.paymentStatus) {
+        if (
+          newPaymentStatus &&
+          newPaymentStatus !== currentOrder.paymentStatus
+        ) {
           updates.paymentStatus = newPaymentStatus;
           historyEntries.push(
             createOrderHistoryEntry(
@@ -125,7 +151,7 @@ export class OrderTrackingService {
         // Update order
         const updatedOrder = await tx.order.update({
           where: { id: orderId },
-          data: updates
+          data: updates,
         });
 
         // Create order update record
@@ -136,15 +162,15 @@ export class OrderTrackingService {
               staffId: staffId || null,
               oldStatus: currentOrder.status,
               newStatus,
-              notes
-            }
+              notes,
+            },
           });
         }
 
         // Create history entries
         if (historyEntries.length > 0) {
           await tx.orderHistory.createMany({
-            data: historyEntries
+            data: historyEntries,
           });
         }
 
@@ -152,7 +178,6 @@ export class OrderTrackingService {
       });
 
       return { success: true, order: result };
-
     } catch (error) {
       console.error('Error updating order status:', error);
       return { success: false, message: 'Failed to update order status' };
@@ -162,7 +187,9 @@ export class OrderTrackingService {
   /**
    * Update order status with email notification
    */
-  static async updateOrderStatusWithEmail(data: OrderUpdateData): Promise<{ success: boolean; message?: string; order?: any }> {
+  static async updateOrderStatusWithEmail(
+    data: OrderUpdateData
+  ): Promise<{ success: boolean; message?: string; order?: any }> {
     const { orderId, newStatus, shouldSendEmail = true } = data;
 
     try {
@@ -174,10 +201,10 @@ export class OrderTrackingService {
           orderServiceMappings: {
             include: {
               service: true,
-              orderItems: true
-            }
-          }
-        }
+              orderItems: true,
+            },
+          },
+        },
       });
 
       if (!order) {
@@ -206,12 +233,14 @@ export class OrderTrackingService {
   /**
    * Handle driver actions with automatic status updates
    */
-  static async handleDriverAction(data: DriverActionData): Promise<{ success: boolean; message?: string }> {
+  static async handleDriverAction(
+    data: DriverActionData
+  ): Promise<{ success: boolean; message?: string }> {
     const { orderId, driverId, action, photoUrl, notes } = data;
 
     try {
       let newStatus: OrderStatus;
-      let shouldSendEmail = true;
+      const shouldSendEmail = true;
 
       switch (action) {
         case 'start_pickup':
@@ -246,7 +275,7 @@ export class OrderTrackingService {
         staffId: driverId,
         notes,
         metadata: { action },
-        shouldSendEmail
+        shouldSendEmail,
       });
 
       if (!result.success) {
@@ -272,7 +301,9 @@ export class OrderTrackingService {
   /**
    * Handle facility team actions with automatic status updates
    */
-  static async handleFacilityAction(data: FacilityActionData): Promise<{ success: boolean; message?: string }> {
+  static async handleFacilityAction(
+    data: FacilityActionData
+  ): Promise<{ success: boolean; message?: string }> {
     const { orderId, staffId, action, notes, metadata } = data;
 
     try {
@@ -280,16 +311,21 @@ export class OrderTrackingService {
       if (action === 'generate_invoice') {
         // Send invoice email without changing order status
         await this.sendInvoiceEmail(orderId);
-        
+
         // Update order to mark invoice as generated
         await prisma.order.update({
           where: { id: orderId },
-          data: { invoiceGenerated: true }
+          data: { invoiceGenerated: true },
         });
-        
+
         // Add to order history for tracking
-        await this.addOrderNote(orderId, staffId, 'Invoice generated and sent to customer', metadata);
-        
+        await this.addOrderNote(
+          orderId,
+          staffId,
+          'Invoice generated and sent to customer',
+          metadata
+        );
+
         return { success: true };
       }
 
@@ -297,14 +333,14 @@ export class OrderTrackingService {
       if (action === 'complete_processing') {
         // Send processing completion email with payment reminder
         await this.sendProcessingCompletedEmail(orderId);
-        
+
         // Update order status
         const result = await this.updateOrderStatus({
           orderId,
           newStatus: OrderStatus.PROCESSING_COMPLETED,
           staffId,
           notes,
-          metadata
+          metadata,
         });
 
         if (!result.success) {
@@ -312,8 +348,13 @@ export class OrderTrackingService {
         }
 
         // Add to order history for tracking
-        await this.addOrderNote(orderId, staffId, 'Processing completed and customer notified', metadata);
-        
+        await this.addOrderNote(
+          orderId,
+          staffId,
+          'Processing completed and customer notified',
+          metadata
+        );
+
         return { success: true };
       }
 
@@ -342,7 +383,7 @@ export class OrderTrackingService {
         staffId,
         notes,
         metadata,
-        shouldSendEmail
+        shouldSendEmail,
       });
 
       if (!result.success) {
@@ -359,8 +400,10 @@ export class OrderTrackingService {
   /**
    * Handle operations team actions
    */
-  static async handleOperationsAction(data: OperationsActionData): Promise<{ success: boolean; message?: string }> {
-    const { orderId, staffId, action, driverId, notes } = data;
+  static async handleOperationsAction(
+    data: OperationsActionData
+  ): Promise<{ success: boolean; message?: string }> {
+    const { orderId, staffId, action, driverId, estimatedTime, notes } = data;
 
     try {
       let newStatus: OrderStatus;
@@ -388,7 +431,7 @@ export class OrderTrackingService {
         staffId,
         notes,
         metadata: { action, driverId },
-        shouldSendEmail
+        shouldSendEmail,
       });
 
       if (!result.success) {
@@ -396,8 +439,17 @@ export class OrderTrackingService {
       }
 
       // Create driver assignment if driver is provided
-      if (driverId && (action === 'assign_pickup_driver' || action === 'assign_delivery_driver')) {
-        await this.createDriverAssignment(orderId, driverId, action === 'assign_pickup_driver' ? 'pickup' : 'delivery');
+      if (
+        driverId &&
+        (action === 'assign_pickup_driver' ||
+          action === 'assign_delivery_driver')
+      ) {
+        await this.createDriverAssignment(
+          orderId,
+          driverId,
+          action === 'assign_pickup_driver' ? 'pickup' : 'delivery',
+          estimatedTime
+        );
       }
 
       return { success: true };
@@ -413,17 +465,20 @@ export class OrderTrackingService {
   static async checkPaymentAndUpdateStatus(orderId: number): Promise<void> {
     try {
       const order = await prisma.order.findUnique({
-        where: { id: orderId }
+        where: { id: orderId },
       });
 
       if (!order) return;
 
       // If processing is completed and payment is done, update to ready for delivery
-      if (order.status === OrderStatus.PROCESSING_COMPLETED && order.paymentStatus === PaymentStatus.PAID) {
+      if (
+        order.status === OrderStatus.PROCESSING_COMPLETED &&
+        order.paymentStatus === PaymentStatus.PAID
+      ) {
         await this.updateOrderStatusWithEmail({
           orderId,
           newStatus: OrderStatus.READY_FOR_DELIVERY,
-          shouldSendEmail: true
+          shouldSendEmail: true,
         });
       }
     } catch (error) {
@@ -434,7 +489,10 @@ export class OrderTrackingService {
   /**
    * Get orders for specific team members
    */
-  static async getOrdersForTeam(teamType: 'driver' | 'facility' | 'operations', filters?: any): Promise<any[]> {
+  static async getOrdersForTeam(
+    teamType: 'driver' | 'facility' | 'operations',
+    filters?: any
+  ): Promise<any[]> {
     try {
       let whereClause: any = {};
 
@@ -445,8 +503,8 @@ export class OrderTrackingService {
               { status: OrderStatus.PICKUP_ASSIGNED },
               { status: OrderStatus.PICKUP_IN_PROGRESS },
               { status: OrderStatus.DELIVERY_ASSIGNED },
-              { status: OrderStatus.DELIVERY_IN_PROGRESS }
-            ]
+              { status: OrderStatus.DELIVERY_IN_PROGRESS },
+            ],
           };
           break;
         case 'facility':
@@ -455,8 +513,8 @@ export class OrderTrackingService {
               { status: OrderStatus.RECEIVED_AT_FACILITY },
               { status: OrderStatus.PROCESSING_STARTED },
               { status: OrderStatus.PROCESSING_COMPLETED },
-              { status: OrderStatus.READY_FOR_DELIVERY }
-            ]
+              { status: OrderStatus.READY_FOR_DELIVERY },
+            ],
           };
           break;
         case 'operations':
@@ -465,8 +523,8 @@ export class OrderTrackingService {
               { status: OrderStatus.ORDER_PLACED },
               { status: OrderStatus.CONFIRMED },
               { status: OrderStatus.PICKUP_FAILED },
-              { status: OrderStatus.DELIVERY_FAILED }
-            ]
+              { status: OrderStatus.DELIVERY_FAILED },
+            ],
           };
           break;
       }
@@ -482,18 +540,18 @@ export class OrderTrackingService {
           customer: true,
           orderServiceMappings: {
             include: {
-              service: true
-            }
+              service: true,
+            },
           },
           driverAssignments: {
             include: {
-              driver: true
-            }
-          }
+              driver: true,
+            },
+          },
         },
         orderBy: {
-          createdAt: 'desc'
-        }
+          createdAt: 'desc',
+        },
       });
 
       return orders;
@@ -506,7 +564,10 @@ export class OrderTrackingService {
   /**
    * Send status update email based on status
    */
-  private static async sendStatusUpdateEmail(order: any, status: OrderStatus): Promise<void> {
+  private static async sendStatusUpdateEmail(
+    order: any,
+    status: OrderStatus
+  ): Promise<void> {
     // Only send emails for specific statuses as per requirements
     const emailStatuses = new Set([
       OrderStatus.ORDER_PLACED,
@@ -521,7 +582,7 @@ export class OrderTrackingService {
       OrderStatus.DELIVERED,
       OrderStatus.DELIVERY_FAILED,
       OrderStatus.CANCELLED,
-      OrderStatus.REFUNDED
+      OrderStatus.REFUNDED,
     ]);
 
     if (!emailStatuses.has(status as any) || !order.customer?.email) {
@@ -553,10 +614,10 @@ export class OrderTrackingService {
           orderServiceMappings: {
             include: {
               service: true,
-              orderItems: true
-            }
-          }
-        }
+              orderItems: true,
+            },
+          },
+        },
       });
 
       if (!order || !order.customer?.email) {
@@ -571,7 +632,7 @@ export class OrderTrackingService {
         totalPrice: number;
         notes?: string;
       }> = [];
-      
+
       // Add only individual order items
       order.orderServiceMappings.forEach(mapping => {
         mapping.orderItems.forEach(item => {
@@ -580,14 +641,14 @@ export class OrderTrackingService {
             quantity: item.quantity,
             unitPrice: item.pricePerItem,
             totalPrice: item.totalPrice,
-            notes: item.notes || undefined
+            notes: item.notes || undefined,
           });
         });
       });
-      
+
       const invoiceData = {
         totalAmount: order.invoiceTotal || 0,
-        items: invoiceItems
+        items: invoiceItems,
       };
 
       // Send invoice generation notification email
@@ -605,7 +666,9 @@ export class OrderTrackingService {
   /**
    * Send processing completed email with payment reminder
    */
-  private static async sendProcessingCompletedEmail(orderId: number): Promise<void> {
+  private static async sendProcessingCompletedEmail(
+    orderId: number
+  ): Promise<void> {
     try {
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -614,10 +677,10 @@ export class OrderTrackingService {
           orderServiceMappings: {
             include: {
               service: true,
-              orderItems: true
-            }
-          }
-        }
+              orderItems: true,
+            },
+          },
+        },
       });
 
       if (!order || !order.customer?.email) {
@@ -632,7 +695,7 @@ export class OrderTrackingService {
         totalPrice: number;
         notes?: string;
       }> = [];
-      
+
       // Add only individual order items
       order.orderServiceMappings.forEach(mapping => {
         mapping.orderItems.forEach(item => {
@@ -641,14 +704,14 @@ export class OrderTrackingService {
             quantity: item.quantity,
             unitPrice: item.pricePerItem,
             totalPrice: item.totalPrice,
-            notes: item.notes || undefined
+            notes: item.notes || undefined,
           });
         });
       });
-      
+
       const invoiceData = {
         totalAmount: order.invoiceTotal || 0,
-        items: invoiceItems
+        items: invoiceItems,
       };
 
       // Send processing completed email with payment reminder
@@ -666,17 +729,20 @@ export class OrderTrackingService {
   /**
    * Remove order from driver's list
    */
-  private static async removeFromDriverList(orderId: number, assignmentType: 'pickup' | 'delivery'): Promise<void> {
+  private static async removeFromDriverList(
+    orderId: number,
+    assignmentType: 'pickup' | 'delivery'
+  ): Promise<void> {
     try {
       await prisma.driverAssignment.updateMany({
         where: {
           orderId,
           assignmentType,
-          status: DriverAssignmentStatus.IN_PROGRESS
+          status: DriverAssignmentStatus.IN_PROGRESS,
         },
         data: {
-          status: DriverAssignmentStatus.COMPLETED
-        }
+          status: DriverAssignmentStatus.COMPLETED,
+        },
       });
     } catch (error) {
       console.error('Error removing order from driver list:', error);
@@ -689,7 +755,8 @@ export class OrderTrackingService {
   private static async createDriverAssignment(
     orderId: number,
     driverId: number,
-    assignmentType: 'pickup' | 'delivery'
+    assignmentType: 'pickup' | 'delivery',
+    estimatedTime?: string
   ): Promise<void> {
     try {
       await prisma.driverAssignment.create({
@@ -697,8 +764,9 @@ export class OrderTrackingService {
           orderId,
           driverId,
           assignmentType,
-          status: DriverAssignmentStatus.ASSIGNED
-        }
+          status: DriverAssignmentStatus.ASSIGNED,
+          estimatedTime: estimatedTime ? new Date(estimatedTime) : null,
+        },
       });
     } catch (error) {
       console.error('Error creating driver assignment:', error);
@@ -717,11 +785,11 @@ export class OrderTrackingService {
             select: {
               firstName: true,
               lastName: true,
-              email: true
-            }
-          }
+              email: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
       return history;
@@ -750,7 +818,7 @@ export class OrderTrackingService {
           { note },
           note,
           metadata
-        )
+        ),
       });
 
       return { success: true };
@@ -779,7 +847,7 @@ export class OrderTrackingService {
           { driverId, assignmentType },
           `Driver assigned for ${assignmentType}`,
           { driverId, assignmentType }
-        )
+        ),
       });
 
       return { success: true };
@@ -809,7 +877,7 @@ export class OrderTrackingService {
           { processingStatus },
           `Processing status updated to ${processingStatus}`,
           { notes, ...metadata }
-        )
+        ),
       });
 
       return { success: true };
@@ -839,7 +907,7 @@ export class OrderTrackingService {
           { issueType, description, severity },
           `Issue reported: ${issueType} - ${description}`,
           { issueType, description, severity }
-        )
+        ),
       });
 
       return { success: true };
@@ -854,36 +922,42 @@ export class OrderTrackingService {
    */
   static async getOrderTimeline(orderId: number): Promise<any[]> {
     try {
-      const [history, updates, driverAssignments, processing] = await Promise.all([
-        prisma.orderHistory.findMany({
-          where: { orderId },
-          include: { staff: { select: { firstName: true, lastName: true } } },
-          orderBy: { createdAt: 'desc' }
-        }),
-        prisma.orderUpdate.findMany({
-          where: { orderId },
-          include: { staff: { select: { firstName: true, lastName: true } } },
-          orderBy: { createdAt: 'desc' }
-        }),
-        prisma.driverAssignment.findMany({
-          where: { orderId },
-          include: { driver: { select: { firstName: true, lastName: true } } },
-          orderBy: { createdAt: 'desc' }
-        }),
-        prisma.orderProcessing.findMany({
-          where: { orderId },
-          include: { staff: { select: { firstName: true, lastName: true } } },
-          orderBy: { createdAt: 'desc' }
-        })
-      ]);
+      const [history, updates, driverAssignments, processing] =
+        await Promise.all([
+          prisma.orderHistory.findMany({
+            where: { orderId },
+            include: { staff: { select: { firstName: true, lastName: true } } },
+            orderBy: { createdAt: 'desc' },
+          }),
+          prisma.orderUpdate.findMany({
+            where: { orderId },
+            include: { staff: { select: { firstName: true, lastName: true } } },
+            orderBy: { createdAt: 'desc' },
+          }),
+          prisma.driverAssignment.findMany({
+            where: { orderId },
+            include: {
+              driver: { select: { firstName: true, lastName: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+          }),
+          prisma.orderProcessing.findMany({
+            where: { orderId },
+            include: { staff: { select: { firstName: true, lastName: true } } },
+            orderBy: { createdAt: 'desc' },
+          }),
+        ]);
 
       // Combine and sort all events
       const timeline = [
         ...history.map(h => ({ ...h, type: 'history' })),
         ...updates.map(u => ({ ...u, type: 'update' })),
         ...driverAssignments.map(d => ({ ...d, type: 'driver_assignment' })),
-        ...processing.map(p => ({ ...p, type: 'processing' }))
-      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        ...processing.map(p => ({ ...p, type: 'processing' })),
+      ].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
       return timeline;
     } catch (error) {
@@ -891,4 +965,4 @@ export class OrderTrackingService {
       return [];
     }
   }
-} 
+}

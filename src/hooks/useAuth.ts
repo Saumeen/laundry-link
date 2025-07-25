@@ -34,9 +34,9 @@ export function useAuth(): AuthState {
       setAuthState(prev => ({ ...prev, isLoading: true }));
     } else {
       // Only set loading to false if we have determined authentication status
-      setAuthState(prev => ({ 
-        ...prev, 
-        isLoading: false 
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
       }));
     }
   }, [status]);
@@ -50,17 +50,17 @@ export function useAuth(): AuthState {
       setAuthState(prev => ({
         ...prev,
         isAuthenticated: true,
-        isLoading: false
+        isLoading: false,
       }));
-      
+
       // Fetch complete customer data from API
       fetchCustomerData();
     } else if (!session?.user) {
-      setAuthState(prev => ({ 
-        ...prev, 
-        isAuthenticated: false, 
+      setAuthState(prev => ({
+        ...prev,
+        isAuthenticated: false,
         customer: null,
-        isLoading: false
+        isLoading: false,
       }));
       hasFetchedCustomer.current = false;
     }
@@ -68,17 +68,22 @@ export function useAuth(): AuthState {
 
   // Fetch customer data from API
   const fetchCustomerData = async () => {
-    if (!session?.user?.email || session?.userType !== 'customer' || hasFetchedCustomer.current) return;
+    if (
+      !session?.user?.email ||
+      session?.userType !== 'customer' ||
+      hasFetchedCustomer.current
+    )
+      return;
 
     try {
       hasFetchedCustomer.current = true;
       const response = await fetch('/api/customer/profile');
       if (response.ok) {
-        const customerData = await response.json() as { customer: Customer };
+        const customerData = (await response.json()) as { customer: Customer };
         if (customerData.customer) {
-          setAuthState(prev => ({ 
-            ...prev, 
-            customer: customerData.customer 
+          setAuthState(prev => ({
+            ...prev,
+            customer: customerData.customer,
           }));
         }
       }
@@ -89,7 +94,11 @@ export function useAuth(): AuthState {
 
   // Fetch additional customer data if needed (legacy - keeping for backward compatibility)
   useEffect(() => {
-    if (session?.userType === 'customer' && session?.user?.email && !hasFetchedCustomer.current) {
+    if (
+      session?.userType === 'customer' &&
+      session?.user?.email &&
+      !hasFetchedCustomer.current
+    ) {
       fetchCustomerData();
     }
   }, [session?.user?.email, session?.userType]);
@@ -108,4 +117,4 @@ export function useLogout() {
   };
 
   return logout;
-} 
+}

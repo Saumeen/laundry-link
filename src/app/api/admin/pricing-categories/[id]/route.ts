@@ -10,10 +10,13 @@ export async function PUT(
     // Note: Authentication will be handled by middleware or useAdminAuth hook
     const id = parseInt(params.id);
     if (isNaN(id)) {
-      return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid category ID' },
+        { status: 400 }
+      );
     }
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       name?: string;
       displayName?: string;
       description?: string;
@@ -24,21 +27,27 @@ export async function PUT(
 
     // Check if category exists
     const existingCategory = await prisma.pricingCategory.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingCategory) {
-      return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Category not found' },
+        { status: 404 }
+      );
     }
 
     // Check if new name conflicts with existing category (excluding current category)
     if (name && name !== existingCategory.name) {
       const nameConflict = await prisma.pricingCategory.findUnique({
-        where: { name }
+        where: { name },
       });
 
       if (nameConflict) {
-        return NextResponse.json({ error: 'Category name already exists' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Category name already exists' },
+          { status: 400 }
+        );
       }
     }
 
@@ -47,16 +56,23 @@ export async function PUT(
       data: {
         name: name || existingCategory.name,
         displayName: displayName || existingCategory.displayName,
-        description: description !== undefined ? description : existingCategory.description,
-        sortOrder: sortOrder !== undefined ? sortOrder : existingCategory.sortOrder,
-        isActive: isActive !== undefined ? isActive : existingCategory.isActive
-      }
+        description:
+          description !== undefined
+            ? description
+            : existingCategory.description,
+        sortOrder:
+          sortOrder !== undefined ? sortOrder : existingCategory.sortOrder,
+        isActive: isActive !== undefined ? isActive : existingCategory.isActive,
+      },
     });
 
     return NextResponse.json(updatedCategory);
   } catch (error) {
     console.error('Error updating pricing category:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -70,7 +86,10 @@ export async function DELETE(
 
     const id = parseInt(params.id);
     if (isNaN(id)) {
-      return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid category ID' },
+        { status: 400 }
+      );
     }
 
     // Check if category exists and has items
@@ -79,31 +98,40 @@ export async function DELETE(
       include: {
         items: {
           include: {
-            servicePricingMappings: true
-          }
-        }
-      }
+            servicePricingMappings: true,
+          },
+        },
+      },
     });
 
     if (!existingCategory) {
-      return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Category not found' },
+        { status: 404 }
+      );
     }
 
     // Check if category has items
     if (existingCategory.items.length > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete category that contains pricing items' 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Cannot delete category that contains pricing items',
+        },
+        { status: 400 }
+      );
     }
 
     // Delete the category
     await prisma.pricingCategory.delete({
-      where: { id }
+      where: { id },
     });
 
     return NextResponse.json({ message: 'Category deleted successfully' });
   } catch (error) {
     console.error('Error deleting pricing category:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
-} 
+}

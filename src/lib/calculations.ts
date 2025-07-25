@@ -30,7 +30,9 @@ export function calculateOrderItemTotal(item: OrderItem): number {
 /**
  * Calculate total price for a service mapping
  */
-export function calculateServiceMappingTotal(mapping: OrderServiceMapping): number {
+export function calculateServiceMappingTotal(
+  mapping: OrderServiceMapping
+): number {
   return mapping.quantity * mapping.price;
 }
 
@@ -41,7 +43,7 @@ export function calculateOrderTotalFromOrderItems(order: Order): number {
   if (!order.orderItems || order.orderItems.length === 0) {
     return 0;
   }
-  
+
   return order.orderItems.reduce((sum, item) => {
     return sum + calculateOrderItemTotal(item);
   }, 0);
@@ -54,7 +56,7 @@ export function calculateOrderTotalFromServiceMappings(order: Order): number {
   if (!order.orderServiceMappings || order.orderServiceMappings.length === 0) {
     return 0;
   }
-  
+
   return order.orderServiceMappings.reduce((sum, mapping) => {
     return sum + calculateServiceMappingTotal(mapping);
   }, 0);
@@ -68,17 +70,20 @@ export function calculateOrderTotal(order: Order): number {
   if (order.orderItems && order.orderItems.length > 0) {
     return calculateOrderTotalFromOrderItems(order);
   }
-  
+
   if (order.orderServiceMappings && order.orderServiceMappings.length > 0) {
     return calculateOrderTotalFromServiceMappings(order);
   }
-  
+
   return 0;
 }
 
 /**
  * Format currency for display
  */
-export function formatCurrency(amount: number, currency: string = 'BD'): string {
+export function formatCurrency(
+  amount: number,
+  currency: string = 'BD'
+): string {
   return `${amount.toFixed(3)} ${currency}`;
-} 
+}

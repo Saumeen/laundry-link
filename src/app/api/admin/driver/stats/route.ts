@@ -1,86 +1,167 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { DriverAssignmentStatus } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
+import { getCurrentBahrainDate } from '@/lib/utils/timezone';
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await requireAuthenticatedAdmin();
-    
-    // Ensure the user is a driver
-    if (admin.role !== "DRIVER") {
-      return NextResponse.json({ error: "Access denied. Driver role required." }, { status: 403 });
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get admin user to check role
+    const adminUser = await prisma.staff.findUnique({
+      where: { email: session.user.email },
+      include: { role: true },
+    });
+
+    if (!adminUser || adminUser.role.name !== 'DRIVER') {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get("period") || "today"; // today, week, month
+    const period = searchParams.get('period') || 'today';
 
-    const now = new Date();
+    // Calculate date range based on Bahraini time
+    const bahrainToday = getCurrentBahrainDate();
     let startDate: Date;
 
     switch (period) {
-      case "week":
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case 'week':
+        // Get date 7 days ago in Bahrain time
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgoBahrain = weekAgo.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        startDate = new Date(`${weekAgoBahrain}T00:00:00.000Z`);
         break;
-      case "month":
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case 'month':
+        // Get date 30 days ago in Bahrain time
+        const monthAgo = new Date();
+        monthAgo.setDate(monthAgo.getDate() - 30);
+        const monthAgoBahrain = monthAgo.toLocaleDateString('en-CA', { 
+          timeZone: 'Asia/Bahrain' 
+        });
+        startDate = new Date(`${monthAgoBahrain}T00:00:00.000Z`);
         break;
       default: // today
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        startDate = new Date(`${bahrainToday}T00:00:00.000Z`);
         break;
     }
 
-    // Get assignments for the period
-    const assignments = await prisma.driverAssignment.findMany({
-      where: {
-        driverId: admin.id,
-        createdAt: {
-          gte: startDate,
+    // Fetch driver assignments and statistics
+    const [
+      totalAssignments,
+      completedAssignments,
+      inProgressAssignments,
+      pendingAssignments,
+      cancelledAssignments,
+      pickupAssignments,
+      deliveryAssignments,
+      recentAssignments,
+    ] = await Promise.all([
+      // Total assignments for this driver (filter by estimated time in Bahrain timezone)
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          estimatedTime: { gte: startDate },
         },
-      },
-      include: {
-        order: {
-          select: {
-            orderNumber: true,
-            invoiceTotal: true,
+      }),
+
+      // Completed assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'COMPLETED',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // In progress assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'IN_PROGRESS',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Pending assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'ASSIGNED',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Cancelled assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          status: 'CANCELLED',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Pickup assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          assignmentType: 'pickup',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Delivery assignments
+      prisma.driverAssignment.count({
+        where: {
+          driverId: adminUser.id,
+          assignmentType: 'delivery',
+          estimatedTime: { gte: startDate },
+        },
+      }),
+
+      // Recent assignments
+      prisma.driverAssignment.findMany({
+        where: {
+          driverId: adminUser.id,
+          estimatedTime: { gte: startDate },
+        },
+        include: {
+          order: {
+            select: {
+              orderNumber: true,
+              customerFirstName: true,
+              customerLastName: true,
+            },
           },
         },
-      },
-    });
-
-    // Calculate stats
-    const totalAssignments = assignments.length;
-    const completedAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.COMPLETED).length;
-    const inProgressAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.IN_PROGRESS).length;
-    const pendingAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.ASSIGNED).length;
-    const cancelledAssignments = assignments.filter(a => a.status === DriverAssignmentStatus.CANCELLED).length;
-
-    // Calculate earnings (assuming $5 per completed assignment)
-    const earnings = completedAssignments * 5;
-
-    // Get assignments by type
-    const pickupAssignments = assignments.filter(a => a.assignmentType === "pickup");
-    const deliveryAssignments = assignments.filter(a => a.assignmentType === "delivery");
-
-    // Get recent activity
-    const recentAssignments = await prisma.driverAssignment.findMany({
-      where: {
-        driverId: admin.id,
-      },
-      include: {
-        order: {
-          select: {
-            orderNumber: true,
-            customerFirstName: true,
-            customerLastName: true,
-          },
+        orderBy: {
+          estimatedTime: 'desc',
         },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 5,
-    });
+        take: 10,
+      }),
+    ]);
+
+    // Calculate completion rate
+    const completionRate =
+      totalAssignments > 0
+        ? (completedAssignments / totalAssignments) * 100
+        : 0;
+
+    // Calculate earnings (placeholder - would need actual earnings calculation)
+    const earnings = completedAssignments * 5; // Placeholder: 5 BD per completed assignment
 
     const stats = {
       period,
@@ -90,23 +171,26 @@ export async function GET(request: NextRequest) {
       pendingAssignments,
       cancelledAssignments,
       earnings,
-      pickupAssignments: pickupAssignments.length,
-      deliveryAssignments: deliveryAssignments.length,
-      completionRate: totalAssignments > 0 ? (completedAssignments / totalAssignments) * 100 : 0,
-      recentAssignments,
+      pickupAssignments,
+      deliveryAssignments,
+      completionRate,
+      recentAssignments: recentAssignments.map(assignment => ({
+        id: assignment.id,
+        status: assignment.status,
+        assignmentType: assignment.assignmentType,
+        order: assignment.order,
+      })),
     };
 
-    return NextResponse.json({ stats });
+    return NextResponse.json({
+      success: true,
+      data: stats,
+    });
   } catch (error) {
-    console.error("Error fetching driver stats:", error);
-    
-    if (error instanceof Error && error.message === 'Admin authentication required') {
-      return createAdminAuthErrorResponse();
-    }
-    
+    console.error('Error fetching driver stats:', error);
     return NextResponse.json(
-      { error: "Failed to fetch stats" },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
-} 
+}

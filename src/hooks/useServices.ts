@@ -25,12 +25,12 @@ export function useServices() {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetch('/api/services');
         if (!response.ok) {
           throw new Error('Failed to fetch services');
         }
-        
+
         const data = await response.json();
         setServices(data as Service[]);
       } catch (err) {
@@ -44,4 +44,4 @@ export function useServices() {
   }, []);
 
   return { services, loading, error };
-} 
+}

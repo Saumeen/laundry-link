@@ -97,14 +97,29 @@ model Address {
 }
 
 // ===== ORDER SYSTEM =====
+// ===== TIME SLOT CONFIGURATION =====
+model TimeSlotConfig {
+  id              Int      @id @default(autoincrement())
+  slotDuration    Int      @default(3) // Duration in hours (e.g., 3 for 3-hour slots)
+  startTime       String   @default("09:00") // Business start time (e.g., "09:00")
+  endTime         String   @default("21:00") // Business end time (e.g., "21:00")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("time_slot_configs")
+}
+
 model Order {
   id                  Int           @id @default(autoincrement())
   orderNumber         String        @unique
   customerId          Int
   addressId           Int?
   status              OrderStatus   @default(ORDER_PLACED)
-  pickupTime          DateTime
-  deliveryTime        DateTime
+  pickupStartTime     DateTime      // UTC start time for pickup range
+  pickupEndTime       DateTime      // UTC end time for pickup range
+  deliveryStartTime   DateTime      // UTC start time for delivery range
+  deliveryEndTime     DateTime      // UTC end time for delivery range
   specialInstructions String?
   customerFirstName   String
   customerLastName    String
@@ -285,6 +300,7 @@ model ProcessingItemDetail {
   // Relations
   processingItem      ProcessingItem @relation(fields: [processingItemId], references: [id], onDelete: Cascade)
   orderItem           OrderItem @relation(fields: [orderItemId], references: [id])
+  issueReports        IssueReport[]
 
   @@map("processing_item_details")
 }
@@ -293,18 +309,20 @@ model IssueReport {
   id                  Int      @id @default(autoincrement())
   orderProcessingId   Int
   staffId             Int
+  processingItemDetailId Int?  // Link to specific processing item detail
   issueType           String   // 'damage', 'stain', 'missing_item', 'wrong_item', 'other'
   description         String
   severity            String   // 'low', 'medium', 'high', 'critical'
   status              IssueStatus @default(REPORTED)
   resolution          String?
-  photoUrl            String?
+  images              String[] // Array of image URLs for issue photos
   reportedAt          DateTime @default(now())
   resolvedAt          DateTime?
   
   // Relations
   orderProcessing     OrderProcessing @relation(fields: [orderProcessingId], references: [id], onDelete: Cascade)
   staff               Staff    @relation(fields: [staffId], references: [id])
+  processingItemDetail ProcessingItemDetail? @relation(fields: [processingItemDetailId], references: [id], onDelete: Cascade)
 
   @@map("issue_reports")
 }
@@ -448,6 +466,7 @@ enum OrderStatus {
   PICKUP_IN_PROGRESS
   PICKUP_COMPLETED
   PICKUP_FAILED
+  DROPPED_OFF
   RECEIVED_AT_FACILITY
   PROCESSING_STARTED
   PROCESSING_COMPLETED
@@ -473,6 +492,7 @@ enum DriverAssignmentStatus {
   ASSIGNED
   IN_PROGRESS
   COMPLETED
+  DROPPED_OFF
   CANCELLED
   RESCHEDULED
   FAILED

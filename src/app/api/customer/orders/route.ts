@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedCustomer } from "@/lib/auth";
-import { OrderStatus, PaymentStatus } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import { requireAuthenticatedCustomer } from '@/lib/auth';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 
 interface CreateOrderRequest {
   addressId?: number;
@@ -26,13 +26,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') as OrderStatus;
     const paymentStatus = searchParams.get('paymentStatus') as PaymentStatus;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 10;
-    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
+    const limit = searchParams.get('limit')
+      ? parseInt(searchParams.get('limit')!)
+      : 10;
+    const page = searchParams.get('page')
+      ? parseInt(searchParams.get('page')!)
+      : 1;
     const sort = searchParams.get('sort') || 'createdAt';
     const order = searchParams.get('order') || 'desc';
 
-    const where: any = {
-      customerId: customer.id
+    const where: Record<string, unknown> = {
+      customerId: customer.id,
     };
 
     if (status) {
@@ -52,15 +56,15 @@ export async function GET(request: NextRequest) {
         orderServiceMappings: {
           include: {
             service: true,
-            orderItems: true
-          }
+            orderItems: true,
+          },
         },
         address: true,
         orderUpdates: {
           orderBy: {
-            createdAt: 'desc'
+            createdAt: 'desc',
           },
-          take: 10
+          take: 10,
         },
         driverAssignments: {
           include: {
@@ -68,31 +72,30 @@ export async function GET(request: NextRequest) {
               select: {
                 firstName: true,
                 lastName: true,
-                phone: true
-              }
-            }
-          }
+                phone: true,
+              },
+            },
+          },
         },
         orderProcessing: {
           include: {
             processingItems: true,
-            issueReports: true
-          }
-        }
+            issueReports: true,
+          },
+        },
       },
       orderBy: {
-        [sort]: order
+        [sort]: order,
       },
       skip: (page - 1) * limit,
-      take: limit
+      take: limit,
     });
 
     return NextResponse.json({ orders, total });
-
   } catch (error) {
-    console.error("Error fetching customer orders:", error);
+    console.error('Error fetching customer orders:', error);
     return NextResponse.json(
-      { error: "Failed to fetch orders" },
+      { error: 'Failed to fetch orders' },
       { status: 500 }
     );
   }
@@ -112,12 +115,15 @@ export async function POST(request: NextRequest) {
       customerLastName,
       customerEmail,
       customerPhone,
-      customerAddress
+      customerAddress,
     } = body;
 
     // Validate required fields
     if (!pickupTime || !deliveryTime || !services || !Array.isArray(services)) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
     // Generate order number
@@ -138,19 +144,22 @@ export async function POST(request: NextRequest) {
         customerEmail,
         customerPhone,
         customerAddress,
-        paymentStatus: PaymentStatus.PENDING
-      }
+        paymentStatus: PaymentStatus.PENDING,
+      },
     });
 
     // Create service mappings
     let totalAmount = 0;
     for (const service of services) {
       const serviceRecord = await prisma.service.findUnique({
-        where: { id: service.serviceId }
+        where: { id: service.serviceId },
       });
 
       if (!serviceRecord) {
-        return NextResponse.json({ error: `Service ${service.serviceId} not found` }, { status: 404 });
+        return NextResponse.json(
+          { error: `Service ${service.serviceId} not found` },
+          { status: 404 }
+        );
       }
 
       const serviceTotal = serviceRecord.price * service.quantity;
@@ -161,31 +170,29 @@ export async function POST(request: NextRequest) {
           orderId: order.id,
           serviceId: service.serviceId,
           quantity: service.quantity,
-          price: serviceRecord.price
-        }
+          price: serviceRecord.price,
+        },
       });
     }
 
     // Update order with total amount
     await prisma.order.update({
       where: { id: order.id },
-      data: { invoiceTotal: totalAmount }
+      data: { invoiceTotal: totalAmount },
     });
 
-    return NextResponse.json({ 
-      message: "Order created successfully",
+    return NextResponse.json({
+      message: 'Order created successfully',
       order: {
         ...order,
-        invoiceTotal: totalAmount
-      }
+        invoiceTotal: totalAmount,
+      },
     });
-
   } catch (error) {
-    console.error("Error creating order:", error);
+    console.error('Error creating order:', error);
     return NextResponse.json(
-      { error: "Failed to create order" },
+      { error: 'Failed to create order' },
       { status: 500 }
     );
   }
 }
-

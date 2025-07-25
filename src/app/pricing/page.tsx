@@ -48,12 +48,15 @@ async function getPricingData(): Promise<PricingData> {
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch pricing data: ${response.status}`);
     }
-    
-    const result = await response.json() as { success: boolean; data: PricingData };
+
+    const result = (await response.json()) as {
+      success: boolean;
+      data: PricingData;
+    };
     return result.data;
   } catch (error) {
     console.error('Error fetching pricing data:', error);
@@ -67,16 +70,16 @@ async function getPricingData(): Promise<PricingData> {
         priceListTitle: 'PRICE LIST',
         priceListTitleAr: 'قائمة الأسعار',
         contactInfo: 'TEL: +973 33440841',
-        isActive: true
+        isActive: true,
       },
-      categories: []
+      categories: [],
     };
   }
 }
 
 export default async function PricingPage() {
   let pricingData: PricingData;
-  
+
   try {
     pricingData = await getPricingData();
   } catch (error) {
@@ -91,144 +94,185 @@ export default async function PricingPage() {
         priceListTitle: 'PRICE LIST',
         priceListTitleAr: 'قائمة الأسعار',
         contactInfo: 'TEL: +973 33440841',
-        isActive: true
+        isActive: true,
       },
-      categories: []
+      categories: [],
     };
   }
-  
+
   const { header, categories } = pricingData;
 
   return (
     <MainLayout>
-      <div className="bg-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-extrabold text-blue-600 sm:text-4xl brand-name">
-            {header.title}
-          </h1>
-          {header.subtitle && (
-            <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-              {header.subtitle}
-            </p>
-          )}
-          {header.subtitleAr && (
-            <p className="mt-1 max-w-2xl mx-auto text-lg text-gray-500 sm:mt-2 mb-8">
-              {header.subtitleAr}
-            </p>
-          )}
-          {header.priceListTitle && (
-            <h2 className="text-3xl font-extrabold text-blue-600 sm:text-4xl mb-8 brand-name">
-              {header.priceListTitle}
-            </h2>
-          )}
-          {header.priceListTitleAr && (
-            <p className="text-2xl text-blue-600 mb-12">
-              {header.priceListTitleAr}
-            </p>
-          )}
-        </div>
+      <div className='bg-white py-12'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='text-center'>
+            <h1 className='text-3xl font-extrabold text-blue-600 sm:text-4xl brand-name'>
+              {header.title}
+            </h1>
+            {header.subtitle && (
+              <p className='mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4'>
+                {header.subtitle}
+              </p>
+            )}
+            {header.subtitleAr && (
+              <p className='mt-1 max-w-2xl mx-auto text-lg text-gray-500 sm:mt-2 mb-8'>
+                {header.subtitleAr}
+              </p>
+            )}
+            {header.priceListTitle && (
+              <h2 className='text-3xl font-extrabold text-blue-600 sm:text-4xl mb-8 brand-name'>
+                {header.priceListTitle}
+              </h2>
+            )}
+            {header.priceListTitleAr && (
+              <p className='text-2xl text-blue-600 mb-12'>
+                {header.priceListTitleAr}
+              </p>
+            )}
+          </div>
 
-        {/* Full price list image for mobile */}
-        <div className="md:hidden mb-8">
-          <Image 
-            src="/images/pricing/price_list.jpg" 
-            alt="Laundry Link Price List" 
-            width={800} 
-            height={1200}
-            className="rounded-lg shadow-lg mx-auto"
-          />
-        </div>
+          {/* Full price list image for mobile */}
+          <div className='md:hidden mb-8'>
+            <Image
+              src='/images/pricing/price_list.jpg'
+              alt='Laundry Link Price List'
+              width={800}
+              height={1200}
+              className='rounded-lg shadow-lg mx-auto'
+            />
+          </div>
 
-        {/* Detailed price tables for desktop */}
-        <div className="hidden md:block">
-          {categories.length > 0 && (
-            <>
-              {/* First row - IRON/PRESS and WASH AND IRON */}
-              <div className="grid grid-cols-2 gap-8 mb-12">
-                {categories.slice(0, 2).map((category) => (
-                  <div key={category.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                      {category.name}
+          {/* Detailed price tables for desktop */}
+          <div className='hidden md:block'>
+            {categories.length > 0 && (
+              <>
+                {/* First row - IRON/PRESS and WASH AND IRON */}
+                <div className='grid grid-cols-2 gap-8 mb-12'>
+                  {categories.slice(0, 2).map(category => (
+                    <div
+                      key={category.id}
+                      className='bg-white rounded-lg shadow-lg overflow-hidden'
+                    >
+                      <div className='bg-blue-800 text-white text-center py-3 text-xl font-semibold'>
+                        {category.name}
+                      </div>
+                      <div className='p-6'>
+                        <table className='min-w-full'>
+                          <tbody>
+                            {category.items.map((item, index) => (
+                              <tr
+                                key={item.id}
+                                className={
+                                  index === category.items.length - 1
+                                    ? ''
+                                    : 'border-b'
+                                }
+                              >
+                                <td className='py-3 text-left text-blue-800 font-medium'>
+                                  {item.displayName}
+                                </td>
+                                <td className='py-3 text-right text-blue-800 font-medium'>
+                                  BD {item.price.toFixed(3)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                    <div className="p-6">
-                      <table className="min-w-full">
-                        <tbody>
-                          {category.items.map((item, index) => (
-                            <tr key={item.id} className={index === category.items.length - 1 ? '' : 'border-b'}>
-                              <td className="py-3 text-left text-blue-800 font-medium">{item.displayName}</td>
-                              <td className="py-3 text-right text-blue-800 font-medium">BD {item.price.toFixed(3)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Second row - BEDDINGS and DRY CLEAN */}
-              <div className="grid grid-cols-2 gap-8 mb-12">
-                {categories.slice(2, 4).map((category) => (
-                  <div key={category.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                      {category.name}
-                    </div>
-                    <div className="p-6">
-                      <table className="min-w-full">
-                        <tbody>
-                          {category.items.map((item, index) => (
-                            <tr key={item.id} className={index === category.items.length - 1 ? '' : 'border-b'}>
-                              <td className="py-3 text-left text-blue-800 font-medium">{item.displayName}</td>
-                              <td className="py-3 text-right text-blue-800 font-medium">BD {item.price.toFixed(3)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Third row - WASH AND FOLD (centered) */}
-              {categories.length > 4 && (
-                <div className="bg-white rounded-lg shadow-lg overflow-hidden max-w-md mx-auto">
-                  <div className="bg-blue-800 text-white text-center py-3 text-xl font-semibold">
-                    {categories[4].name}
-                  </div>
-                  <div className="p-6">
-                    <table className="min-w-full">
-                      <tbody>
-                        {categories[4].items.map((item, index) => (
-                          <tr key={item.id} className={index === categories[4].items.length - 1 ? '' : 'border-b'}>
-                            <td className="py-3 text-left text-blue-800 font-medium">{item.displayName}</td>
-                            <td className="py-3 text-right text-blue-800 font-medium">BD {item.price.toFixed(3)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </div>
 
-        <div className="mt-12 text-center">
-          {header.contactInfo && (
-            <p className="text-2xl text-blue-800 font-bold">{header.contactInfo}</p>
-          )}
-          <div className="mt-6">
-            <Link 
-              href="/schedule" 
-              className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Schedule a Pickup
-            </Link>
+                {/* Second row - BEDDINGS and DRY CLEAN */}
+                <div className='grid grid-cols-2 gap-8 mb-12'>
+                  {categories.slice(2, 4).map(category => (
+                    <div
+                      key={category.id}
+                      className='bg-white rounded-lg shadow-lg overflow-hidden'
+                    >
+                      <div className='bg-blue-800 text-white text-center py-3 text-xl font-semibold'>
+                        {category.name}
+                      </div>
+                      <div className='p-6'>
+                        <table className='min-w-full'>
+                          <tbody>
+                            {category.items.map((item, index) => (
+                              <tr
+                                key={item.id}
+                                className={
+                                  index === category.items.length - 1
+                                    ? ''
+                                    : 'border-b'
+                                }
+                              >
+                                <td className='py-3 text-left text-blue-800 font-medium'>
+                                  {item.displayName}
+                                </td>
+                                <td className='py-3 text-right text-blue-800 font-medium'>
+                                  BD {item.price.toFixed(3)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Third row - WASH AND FOLD (centered) */}
+                {categories.length > 4 && (
+                  <div className='bg-white rounded-lg shadow-lg overflow-hidden max-w-md mx-auto'>
+                    <div className='bg-blue-800 text-white text-center py-3 text-xl font-semibold'>
+                      {categories[4].name}
+                    </div>
+                    <div className='p-6'>
+                      <table className='min-w-full'>
+                        <tbody>
+                          {categories[4].items.map((item, index) => (
+                            <tr
+                              key={item.id}
+                              className={
+                                index === categories[4].items.length - 1
+                                  ? ''
+                                  : 'border-b'
+                              }
+                            >
+                              <td className='py-3 text-left text-blue-800 font-medium'>
+                                {item.displayName}
+                              </td>
+                              <td className='py-3 text-right text-blue-800 font-medium'>
+                                BD {item.price.toFixed(3)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className='mt-12 text-center'>
+            {header.contactInfo && (
+              <p className='text-2xl text-blue-800 font-bold'>
+                {header.contactInfo}
+              </p>
+            )}
+            <div className='mt-6'>
+              <Link
+                href='/schedule'
+                className='inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700'
+              >
+                Schedule a Pickup
+              </Link>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </MainLayout>
   );
 }

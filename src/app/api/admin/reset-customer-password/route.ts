@@ -6,7 +6,10 @@ import crypto from 'crypto';
 // POST - Reset customer password
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { customerId: number; newPassword?: string };
+    const body = (await req.json()) as {
+      customerId: number;
+      newPassword?: string;
+    };
     const { customerId, newPassword } = body;
 
     if (!customerId) {
@@ -19,7 +22,7 @@ export async function POST(req: Request) {
     // Check if customer exists
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
-      select: { id: true, email: true, isActive: true }
+      select: { id: true, email: true, isActive: true },
     });
 
     if (!customer) {
@@ -68,8 +71,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       customer: updatedCustomer,
-      message: newPassword 
-        ? 'Password updated successfully' 
+      message: newPassword
+        ? 'Password updated successfully'
         : 'Password reset successfully. Customer needs to activate account.',
       activationToken: activationToken, // Only returned if auto-generated password
     });
@@ -80,4 +83,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

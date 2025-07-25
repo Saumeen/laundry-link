@@ -1,634 +1,394 @@
-// src/app/admin/page.tsx - Enhanced Admin Panel
 'use client';
 
-import { useState, useEffect } from 'react';
-import AdminHeader from '@/components/admin/AdminHeader';
-import { OrderStatus } from '@prisma/client';
-
-interface Customer {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  walletBalance: number;
-}
-
-interface Address {
-  id: number;
-  label: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  area?: string;
-  building?: string;
-  floor?: string;
-  apartment?: string;
-  landmark?: string;
-  isDefault: boolean;
-}
-
-interface InvoiceItem {
-  id: number;
-  orderServiceMappingId: number;
-  quantity: number;
-  pricePerItem: number;
-  total?: number;
-  service?: {
-    id: number;
-    name: string;
-  };
-  notes?: string;
-}
-
-interface OrderServiceMapping {
-  id: number;
-  serviceId: number;
-  quantity: number;
-  price: number;
-  service: {
-    id: number;
-    name: string;
-    description?: string;
-  };
-}
-
-interface Order {
-  id: number;
-  orderNumber: string;
-  customerId: number;
-  status: string;
-  items: string[];
-  invoiceTotal: number;
-  pickupTime: string;
-  serviceType: string;
-  specialInstructions: string;
-  paymentStatus: string;
-  createdAt: string;
-  customer?: Customer;
-  addresses?: Address[];
-  invoiceItems?: InvoiceItem[];
-  orderServiceMappings?: OrderServiceMapping[];
-  processingNotes?: string;
-  totalWeight?: number;
-  totalPieces?: number;
-}
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAdminAuth } from '@/admin/hooks/useAdminAuth';
+import { useOrdersStore } from '@/admin/stores/ordersStore';
+import { StatsCard } from '@/admin/components/StatsCard';
+import { QuickActionButton } from '@/admin/components/QuickActionButton';
+import {
+  getStatusBadgeColor,
+  getStatusDisplayName,
+  formatDate,
+  formatCurrency,
+} from '@/admin/utils/orderUtils';
+import type { OrderWithDetails } from '@/admin/api/orders';
 
 export default function AdminPanel() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [showOrderDetails, setShowOrderDetails] = useState(false);
-  const [processingData, setProcessingData] = useState({
-    totalPieces: '',
-    totalWeight: '',
-    processingNotes: '',
-  });
-  const [newInvoiceItem, setNewInvoiceItem] = useState({
-    orderServiceMappingId: 0,
-    quantity: 1,
-    unitPrice: 0,
-    notes: '',
-  });
-  const [navigationLoading, setNavigationLoading] = useState(false);
+  const router = useRouter();
+  const { user, isLoading, isAuthorized, logout } = useAdminAuth();
+  const { orders, loading, fetchOrders } = useOrdersStore();
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    try {
-      const response = await fetch('/api/admin/orders-detailed');
-      const data = await response.json() as Order[];
-      setOrders(data);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
+    if (isAuthorized) {
+      fetchOrders();
     }
+  }, [isAuthorized, fetchOrders]);
+
+  // Navigation handlers
+  const handleNavigateToSuperAdmin = () => {
+    router.push('/admin/super-admin');
   };
 
-  const updateStatus = async (orderId: number, newStatus: string) => {
-    try {
-      const response = await fetch('/api/update-order-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          orderId: orderId, 
-          status: newStatus 
-        }),
-      });
-
-      if (response.ok) {
-        fetchOrders();
-        if (selectedOrder && selectedOrder.id === orderId) {
-          setSelectedOrder({ ...selectedOrder, status: newStatus });
-        }
-        alert('Order status updated successfully!');
-      } else {
-        alert('Failed to update order status. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      alert('Failed to update order status. Please try again.');
-    }
+  const handleNavigateToOperationManager = () => {
+    router.push('/admin/operation-manager');
   };
 
-  const updateProcessingData = async () => {
-    if (!selectedOrder) return;
-
-    try {
-      const response = await fetch('/api/admin/update-processing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: selectedOrder.id,
-          totalPieces: parseInt(processingData.totalPieces) || 0,
-          totalWeight: parseFloat(processingData.totalWeight) || 0,
-          processingNotes: processingData.processingNotes,
-        }),
-      });
-
-      if (response.ok) {
-        alert('Processing data updated successfully!');
-        fetchOrders();
-        // Update selected order
-        const updatedOrder = { 
-          ...selectedOrder, 
-          totalPieces: parseInt(processingData.totalPieces) || 0,
-          totalWeight: parseFloat(processingData.totalWeight) || 0,
-          processingNotes: processingData.processingNotes 
-        };
-        setSelectedOrder(updatedOrder);
-      } else {
-        alert('Failed to update processing data.');
-      }
-    } catch (error) {
-      console.error('Error updating processing data:', error);
-      alert('Failed to update processing data.');
-    }
+  const handleNavigateToDriver = () => {
+    router.push('/admin/driver');
   };
 
-  const addInvoiceItem = async () => {
-    if (!selectedOrder || !newInvoiceItem.orderServiceMappingId || newInvoiceItem.quantity <= 0) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
-    if (!selectedOrder.orderServiceMappings || selectedOrder.orderServiceMappings.length === 0) {
-      alert('No services available for this order.');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/admin/add-invoice-item', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: selectedOrder.id,
-          invoiceItems: [{
-            orderServiceMappingId: newInvoiceItem.orderServiceMappingId,
-            quantity: newInvoiceItem.quantity,
-            pricePerItem: newInvoiceItem.unitPrice,
-            notes: newInvoiceItem.notes,
-          }],
-        }),
-      });
-
-      if (response.ok) {
-        alert('Invoice item added successfully!');
-        fetchOrders();
-        // Reset form
-        setNewInvoiceItem({
-          orderServiceMappingId: 0,
-          quantity: 1,
-          unitPrice: 0,
-          notes: '',
-        });
-        // Refresh selected order
-        const updatedOrders = await fetch('/api/admin/orders-detailed');
-        const ordersData = await updatedOrders.json() as Order[];
-        const updatedOrder = ordersData.find((o: Order) => o.id === selectedOrder.id);
-        if (updatedOrder) {
-          setSelectedOrder(updatedOrder);
-        }
-      } else {
-        alert('Failed to add invoice item.');
-      }
-    } catch (error) {
-      alert('Failed to add invoice item.');
-    }
+  const handleNavigateToFacilityTeam = () => {
+    router.push('/admin/facility-team');
   };
 
-  const openOrderDetails = async (order: Order) => {
-    try {
-      // Fetch detailed order information including customer and addresses
-      const response = await fetch(`/api/admin/order-details/${order.id}`);
-      if (response.ok) {
-        const detailedOrder = await response.json() as Order;
-        setSelectedOrder(detailedOrder);
-        setProcessingData({
-          totalPieces: detailedOrder.totalPieces?.toString() || '',
-          totalWeight: detailedOrder.totalWeight?.toString() || '',
-          processingNotes: detailedOrder.processingNotes || '',
-        });
-        setShowOrderDetails(true);
-      } else {
-        alert('Failed to fetch order details.');
-      }
-    } catch (error) {
-      console.error('Error fetching order details:', error);
-      alert('Failed to fetch order details.');
-    }
+  const handleOpenOrderDetails = (order: OrderWithDetails) => {
+    // This would open order details modal in a real implementation
+    console.log('Opening order details for:', order.orderNumber);
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case OrderStatus.ORDER_PLACED: return 'bg-blue-100 text-blue-800';
-      case OrderStatus.CONFIRMED: return 'bg-purple-100 text-purple-800';
-      case OrderStatus.PICKUP_ASSIGNED: return 'bg-indigo-100 text-indigo-800';
-      case OrderStatus.PICKUP_IN_PROGRESS: return 'bg-yellow-100 text-yellow-800';
-      case OrderStatus.PICKUP_COMPLETED: return 'bg-green-100 text-green-800';
-      case OrderStatus.PICKUP_FAILED: return 'bg-red-100 text-red-800';
-      case OrderStatus.RECEIVED_AT_FACILITY: return 'bg-cyan-100 text-cyan-800';
-      case OrderStatus.PROCESSING_STARTED: return 'bg-orange-100 text-orange-800';
-      case OrderStatus.PROCESSING_COMPLETED: return 'bg-lime-100 text-lime-800';
-      case OrderStatus.QUALITY_CHECK: return 'bg-pink-100 text-pink-800';
-      case OrderStatus.READY_FOR_DELIVERY: return 'bg-emerald-100 text-emerald-800';
-      case OrderStatus.DELIVERY_ASSIGNED: return 'bg-teal-100 text-teal-800';
-      case OrderStatus.DELIVERY_IN_PROGRESS: return 'bg-blue-100 text-blue-800';
-      case OrderStatus.DELIVERED: return 'bg-green-100 text-green-800';
-      case OrderStatus.DELIVERY_FAILED: return 'bg-red-100 text-red-800';
-      case OrderStatus.CANCELLED: return 'bg-gray-100 text-gray-800';
-      case OrderStatus.REFUNDED: return 'bg-amber-100 text-amber-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl">Loading orders...</div>
+      <div className='min-h-screen bg-gray-50 flex items-center justify-center'>
+        <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600'></div>
       </div>
     );
   }
 
+  if (!isAuthorized) {
+    return null; // Will redirect to login
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <AdminHeader
-        title="Order Management"
-        subtitle="Manage all orders, statuses, and invoices"
-        showBackButton={true}
-        backUrl="/"
-      />
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Admin Panel - Order Management</h1>
-        
-        {orders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-500 text-lg">No orders found.</p>
+    <div className='min-h-screen bg-gray-50'>
+      {/* Header */}
+      <div className='bg-white shadow'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <div className='flex justify-between items-center py-6'>
+            <div>
+              <h1 className='text-3xl font-bold text-gray-900'>
+                Admin Dashboard
+              </h1>
+              <p className='mt-1 text-sm text-gray-500'>
+                Welcome back, {user?.firstName} {user?.lastName}
+              </p>
+            </div>
+            <div className='flex items-center space-x-4'>
+              <span className='text-sm text-gray-500'>
+                Role: {user?.role.name.replace('_', ' ')}
+              </span>
+              <button
+                onClick={logout}
+                className='flex items-center space-x-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200'
+              >
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'
+                  />
+                </svg>
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+        </div>
+      </div>
+
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
+        {/* Quick Stats */}
+        <div className='mb-8'>
+          <h2 className='text-lg font-medium text-gray-900 mb-4'>
+            Quick Overview
+          </h2>
+          <div className='grid grid-cols-1 md:grid-cols-4 gap-6'>
+            <StatsCard
+              title='Total Orders'
+              value={orders.length}
+              icon={
+                <svg
+                  className='w-5 h-5 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+                  />
+                </svg>
+              }
+              bgColor='bg-blue-500'
+              isLoading={loading}
+            />
+            <StatsCard
+              title='Pending Orders'
+              value={orders.filter(order => order.status === 'PENDING').length}
+              icon={
+                <svg
+                  className='w-5 h-5 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+                  />
+                </svg>
+              }
+              bgColor='bg-yellow-500'
+              isLoading={loading}
+            />
+            <StatsCard
+              title='Processing Orders'
+              value={
+                orders.filter(order => order.status === 'PROCESSING').length
+              }
+              icon={
+                <svg
+                  className='w-5 h-5 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                  />
+                </svg>
+              }
+              bgColor='bg-orange-500'
+              isLoading={loading}
+            />
+            <StatsCard
+              title='Completed Orders'
+              value={
+                orders.filter(order => order.status === 'DELIVERED').length
+              }
+              icon={
+                <svg
+                  className='w-5 h-5 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                  />
+                </svg>
+              }
+              bgColor='bg-green-500'
+              isLoading={loading}
+            />
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className='mb-8'>
+          <h2 className='text-lg font-medium text-gray-900 mb-4'>
+            Quick Actions
+          </h2>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+            <QuickActionButton
+              title='Super Admin'
+              onClick={handleNavigateToSuperAdmin}
+              bgColor='bg-purple-600 hover:bg-purple-700'
+              icon={
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
+                  />
+                </svg>
+              }
+            />
+            <QuickActionButton
+              title='Operation Manager'
+              onClick={handleNavigateToOperationManager}
+              bgColor='bg-blue-600 hover:bg-blue-700'
+              icon={
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+                  />
+                </svg>
+              }
+            />
+            <QuickActionButton
+              title='Driver Management'
+              onClick={handleNavigateToDriver}
+              bgColor='bg-green-600 hover:bg-green-700'
+              icon={
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z'
+                  />
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M15 11a3 3 0 11-6 0 3 3 0 016 0z'
+                  />
+                </svg>
+              }
+            />
+            <QuickActionButton
+              title='Facility Team'
+              onClick={handleNavigateToFacilityTeam}
+              bgColor='bg-orange-600 hover:bg-orange-700'
+              icon={
+                <svg
+                  className='w-4 h-4'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
+                  />
+                </svg>
+              }
+            />
+          </div>
+        </div>
+
+        {/* Recent Orders */}
+        <div className='bg-white shadow rounded-lg'>
+          <div className='px-6 py-4 border-b border-gray-200'>
+            <h3 className='text-lg font-medium text-gray-900'>Recent Orders</h3>
+          </div>
+          <div className='overflow-x-auto'>
+            <table className='min-w-full divide-y divide-gray-200'>
+              <thead className='bg-gray-50'>
+                <tr>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Order
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Customer
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Status
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Payment
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Total
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Date
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className='bg-white divide-y divide-gray-200'>
+                {loading ? (
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Service Type
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Pickup Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <td colSpan={7} className='px-6 py-4 text-center'>
+                      <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'></div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                ) : orders.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className='px-6 py-4 text-center text-gray-500'
+                    >
+                      No orders found
+                    </td>
+                  </tr>
+                ) : (
+                  orders.slice(0, 10).map(order => (
+                    <tr key={order.id} className='hover:bg-gray-50'>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                         {order.orderNumber}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.customer ? `${order.customer.firstName} ${order.customer.lastName}` : `Customer ID: ${order.customerId}`}
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
+                        {order.customer
+                          ? `${order.customer.firstName} ${order.customer.lastName}`
+                          : 'N/A'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.orderServiceMappings?.map(mapping => mapping.service.name).join(', ') || 'No services'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.invoiceTotal} BHD
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(order.pickupTime).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(order.status)}`}>
-                          {order.status}
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(order.status)}`}
+                        >
+                          {getStatusDisplayName(order.status)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 space-x-2">
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(order.paymentStatus)}`}
+                        >
+                          {getStatusDisplayName(order.paymentStatus)}
+                        </span>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
+                        {formatCurrency(order.invoiceTotal)}
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                        {formatDate(order.createdAt)}
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                         <button
-                          onClick={async () => {
-                            setNavigationLoading(true);
-                            await openOrderDetails(order);
-                            setNavigationLoading(false);
-                          }}
-                          className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
+                          onClick={() => handleOpenOrderDetails(order)}
+                          className='text-blue-600 hover:text-blue-900'
                         >
                           View Details
                         </button>
-                        <select
-                          value={order.status}
-                          onChange={(e) => updateStatus(order.id, e.target.value)}
-                          className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value={OrderStatus.ORDER_PLACED}>Order Placed</option>
-                          <option value={OrderStatus.CONFIRMED}>Confirmed</option>
-                          <option value={OrderStatus.PICKUP_ASSIGNED}>Pickup Assigned</option>
-                          <option value={OrderStatus.PICKUP_IN_PROGRESS}>Pickup In Progress</option>
-                          <option value={OrderStatus.PICKUP_COMPLETED}>Pickup Completed</option>
-                          <option value={OrderStatus.PICKUP_FAILED}>Pickup Failed</option>
-                          <option value={OrderStatus.RECEIVED_AT_FACILITY}>Received at Facility</option>
-                          <option value={OrderStatus.PROCESSING_STARTED}>Processing Started</option>
-                          <option value={OrderStatus.PROCESSING_COMPLETED}>Processing Completed</option>
-                          <option value={OrderStatus.QUALITY_CHECK}>Quality Check</option>
-                          <option value={OrderStatus.READY_FOR_DELIVERY}>Ready for Delivery</option>
-                          <option value={OrderStatus.DELIVERY_ASSIGNED}>Delivery Assigned</option>
-                          <option value={OrderStatus.DELIVERY_IN_PROGRESS}>Delivery In Progress</option>
-                          <option value={OrderStatus.DELIVERED}>Delivered</option>
-                          <option value={OrderStatus.DELIVERY_FAILED}>Delivery Failed</option>
-                          <option value={OrderStatus.CANCELLED}>Cancelled</option>
-                          <option value={OrderStatus.REFUNDED}>Refunded</option>
-                        </select>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-
-        {navigationLoading && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <span className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
-          </div>
-        )}
-
-        {/* Order Details Modal */}
-        {showOrderDetails && selectedOrder && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Order Details - {selectedOrder.orderNumber}
-                </h3>
-                <button
-                  onClick={() => setShowOrderDetails(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Customer Information */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Customer Information</h4>
-                  {selectedOrder.customer ? (
-                    <div className="space-y-2">
-                      <p><span className="font-medium">Name:</span> {selectedOrder.customer.firstName} {selectedOrder.customer.lastName}</p>
-                      <p><span className="font-medium">Email:</span> {selectedOrder.customer.email}</p>
-                      <p><span className="font-medium">Phone:</span> {selectedOrder.customer.phone}</p>
-                      <p><span className="font-medium">Wallet Balance:</span> {selectedOrder.customer.walletBalance.toFixed(3)} BD</p>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">Customer information not available</p>
-                  )}
-                </div>
-
-                {/* Order Information */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Order Information</h4>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Services:</span> {selectedOrder.orderServiceMappings?.map(mapping => `${mapping.service.name} (${mapping.quantity})`).join(', ') || 'No services'}</p>
-                    <p><span className="font-medium">Total Amount:</span> {selectedOrder.invoiceTotal} BD</p>
-                    <p><span className="font-medium">Payment Status:</span> {selectedOrder.paymentStatus}</p>
-                    <p><span className="font-medium">Pickup Time:</span> {new Date(selectedOrder.pickupTime).toLocaleString()}</p>
-                    <p><span className="font-medium">Created:</span> {new Date(selectedOrder.createdAt).toLocaleString()}</p>
-                  </div>
-                </div>
-
-                {/* Addresses */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Customer Addresses</h4>
-                  {selectedOrder.addresses && selectedOrder.addresses.length > 0 ? (
-                    <div className="space-y-3">
-                      {selectedOrder.addresses.map((address) => (
-                        <div key={address.id} className="border-l-4 border-blue-500 pl-3">
-                          <p className="font-medium">{address.label} {address.isDefault && '(Default)'}</p>
-                          <p className="text-sm text-gray-600">
-                            {address.addressLine1}
-                            {address.addressLine2 && `, ${address.addressLine2}`}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {address.city}{address.area && `, ${address.area}`}
-                          </p>
-                          {address.building && (
-                            <p className="text-sm text-gray-600">
-                              Building: {address.building}
-                              {address.floor && `, Floor: ${address.floor}`}
-                              {address.apartment && `, Apt: ${address.apartment}`}
-                            </p>
-                          )}
-                          {address.landmark && (
-                            <p className="text-sm text-gray-600">Near: {address.landmark}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No saved addresses</p>
-                  )}
-                </div>
-
-                {/* Special Instructions */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Special Instructions</h4>
-                  <p className="text-gray-600">
-                    {selectedOrder.specialInstructions || 'No special instructions provided'}
-                  </p>
-                </div>
-
-                {/* Processing Data */}
-                <div className="bg-blue-50 p-4 rounded-lg lg:col-span-2">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Processing Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Pieces</label>
-                      <input
-                        type="number"
-                        value={processingData.totalPieces}
-                        onChange={(e) => setProcessingData({...processingData, totalPieces: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Number of pieces"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Weight (kg)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={processingData.totalWeight}
-                        onChange={(e) => setProcessingData({...processingData, totalWeight: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Weight in kg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Processing Notes</label>
-                      <input
-                        type="text"
-                        value={processingData.processingNotes}
-                        onChange={(e) => setProcessingData({...processingData, processingNotes: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Processing notes"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={updateProcessingData}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-                  >
-                    Update Processing Data
-                  </button>
-                </div>
-
-                {/* Invoice Items */}
-                <div className="bg-green-50 p-4 rounded-lg lg:col-span-2">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Invoice Items</h4>
-                  
-                  {/* Existing Invoice Items */}
-                  {selectedOrder.invoiceItems && selectedOrder.invoiceItems.length > 0 ? (
-                    <div className="mb-4">
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {selectedOrder.invoiceItems.map((item) => (
-                              <tr key={item.id}>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.service?.name || 'Unknown Service'}</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.pricePerItem.toFixed(3)} BD</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.total?.toFixed(3) || (item.quantity * item.pricePerItem).toFixed(3)} BD</td>
-                                <td className="px-3 py-2 text-sm text-gray-900">{item.notes || '-'}</td>
-                                
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 mb-4">No invoice items added yet</p>
-                  )}
-
-                  {/* Add New Invoice Item */}
-                  <div className="border-t pt-4">
-                    <h5 className="font-medium text-gray-800 mb-3">Add New Invoice Item</h5>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                      <div>
-                        <select
-                          value={newInvoiceItem.orderServiceMappingId}
-                          onChange={(e) => setNewInvoiceItem({...newInvoiceItem, orderServiceMappingId: parseInt(e.target.value) || 0})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                          <option value={0}>Select Service</option>
-                          {selectedOrder.orderServiceMappings?.map((mapping) => (
-                            <option key={mapping.id} value={mapping.id}>
-                              {mapping.service.name} - {mapping?.price?.toFixed(3)} BD
-                            </option>
-                          )) || <option value={0} disabled>No services available</option>}
-                        </select>
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          value={newInvoiceItem.quantity}
-                          onChange={(e) => setNewInvoiceItem({...newInvoiceItem, quantity: parseInt(e.target.value) || 1})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          placeholder="Quantity"
-                          min="1"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={newInvoiceItem.unitPrice}
-                          onChange={(e) => setNewInvoiceItem({...newInvoiceItem, unitPrice: parseFloat(e.target.value) || 0})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          placeholder="Unit price (BD)"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          value={newInvoiceItem.notes}
-                          onChange={(e) => setNewInvoiceItem({...newInvoiceItem, notes: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          placeholder="Notes (optional)"
-                        />
-                      </div>
-                      <div>
-                        <button
-                          onClick={addInvoiceItem}
-                          className="w-full bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700"
-                        >
-                          Add Item
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">
-                      Total: {(newInvoiceItem.quantity * newInvoiceItem.unitPrice).toFixed(3)} BD
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
-

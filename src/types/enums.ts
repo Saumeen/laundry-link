@@ -1,11 +1,11 @@
-import { 
-  OrderStatus, 
-  PaymentStatus, 
-  DriverAssignmentStatus, 
-  ProcessingStatus, 
-  ItemStatus, 
-  IssueStatus
-} from "@prisma/client";
+import {
+  OrderStatus,
+  PaymentStatus,
+  DriverAssignmentStatus,
+  ProcessingStatus,
+  ItemStatus,
+  IssueStatus,
+} from '@prisma/client';
 
 // Re-export all enums for easy importing
 export {
@@ -14,7 +14,7 @@ export {
   DriverAssignmentStatus,
   ProcessingStatus,
   ItemStatus,
-  IssueStatus
+  IssueStatus,
 };
 
 // Type definitions for API requests/responses
@@ -56,63 +56,65 @@ export interface IssueReportRequest {
 
 // Status mapping utilities
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  ORDER_PLACED: "Order Placed",
-  CONFIRMED: "Confirmed",
-  PICKUP_ASSIGNED: "Pickup Assigned",
-  PICKUP_IN_PROGRESS: "Pickup In Progress",
-  PICKUP_COMPLETED: "Pickup Completed",
-  PICKUP_FAILED: "Pickup Failed",
-  RECEIVED_AT_FACILITY: "Received at Facility",
-  PROCESSING_STARTED: "Processing Started",
-  PROCESSING_COMPLETED: "Processing Completed",
-  QUALITY_CHECK: "Quality Check",
-  READY_FOR_DELIVERY: "Ready for Delivery",
-  DELIVERY_ASSIGNED: "Delivery Assigned",
-  DELIVERY_IN_PROGRESS: "Delivery In Progress",
-  DELIVERED: "Delivered",
-  DELIVERY_FAILED: "Delivery Failed",
-  CANCELLED: "Cancelled",
-  REFUNDED: "Refunded"
+  ORDER_PLACED: 'Order Placed',
+  CONFIRMED: 'Confirmed',
+  PICKUP_ASSIGNED: 'Pickup Assigned',
+  PICKUP_IN_PROGRESS: 'Pickup In Progress',
+  PICKUP_COMPLETED: 'Pickup Completed',
+  PICKUP_FAILED: 'Pickup Failed',
+  DROPPED_OFF: 'Dropped Off At Facility',
+  RECEIVED_AT_FACILITY: 'Received at Facility',
+  PROCESSING_STARTED: 'Processing Started',
+  PROCESSING_COMPLETED: 'Processing Completed',
+  QUALITY_CHECK: 'Quality Check',
+  READY_FOR_DELIVERY: 'Ready for Delivery',
+  DELIVERY_ASSIGNED: 'Delivery Assigned',
+  DELIVERY_IN_PROGRESS: 'Delivery In Progress',
+  DELIVERED: 'Delivered',
+  DELIVERY_FAILED: 'Delivery Failed',
+  CANCELLED: 'Cancelled',
+  REFUNDED: 'Refunded',
 };
 
 export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
-  PENDING: "Pending",
-  PAID: "Paid",
-  FAILED: "Failed",
-  REFUNDED: "Refunded",
-  PARTIAL_REFUND: "Partial Refund"
+  PENDING: 'Pending',
+  PAID: 'Paid',
+  FAILED: 'Failed',
+  REFUNDED: 'Refunded',
+  PARTIAL_REFUND: 'Partial Refund',
 };
 
 export const PROCESSING_STATUS_LABELS: Record<ProcessingStatus, string> = {
-  PENDING: "Pending",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-  QUALITY_CHECK: "Quality Check",
-  READY_FOR_DELIVERY: "Ready for Delivery",
-  ISSUE_REPORTED: "Issue Reported"
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  QUALITY_CHECK: 'Quality Check',
+  READY_FOR_DELIVERY: 'Ready for Delivery',
+  ISSUE_REPORTED: 'Issue Reported',
 };
 
 export const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
-  PENDING: "Pending",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-  ISSUE_REPORTED: "Issue Reported"
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  ISSUE_REPORTED: 'Issue Reported',
 };
 
 export const DRIVER_STATUS_LABELS: Record<DriverAssignmentStatus, string> = {
-  ASSIGNED: "Assigned",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-  CANCELLED: "Cancelled",
-  RESCHEDULED: "Rescheduled",
-  FAILED: "Failed"
+  ASSIGNED: 'Assigned',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  DROPPED_OFF: 'Dropped Off At Facility',
+  CANCELLED: 'Cancelled',
+  RESCHEDULED: 'Rescheduled',
+  FAILED: 'Failed',
 };
 
 export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
-  REPORTED: "Reported",
-  INVESTIGATING: "Investigating",
-  RESOLVED: "Resolved",
-  ESCALATED: "Escalated"
+  REPORTED: 'Reported',
+  INVESTIGATING: 'Investigating',
+  RESOLVED: 'Resolved',
+  ESCALATED: 'Escalated',
 };
 
 // Status color utilities
@@ -147,4 +149,4 @@ export const getPaymentStatusColor = (status: PaymentStatus): string => {
     default:
       return 'bg-yellow-100 text-yellow-800';
   }
-}; 
+};

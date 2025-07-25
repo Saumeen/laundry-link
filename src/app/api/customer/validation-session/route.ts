@@ -1,18 +1,18 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
 export async function GET(req: Request) {
   try {
     // Try to get customer info from various sources
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
-    
+
     // Check if email is provided in query params
     if (email) {
       const customer = await prisma.customer.findUnique({
-        where: { email: email }
+        where: { email: email },
       });
-      
+
       if (customer) {
         return NextResponse.json({
           success: true,
@@ -21,8 +21,8 @@ export async function GET(req: Request) {
             email: customer.email,
             firstName: customer.firstName,
             lastName: customer.lastName,
-            phone: customer.phone
-          }
+            phone: customer.phone,
+          },
         });
       }
     }
@@ -33,15 +33,21 @@ export async function GET(req: Request) {
       const cookieArray = cookies.split(';');
       for (const cookie of cookieArray) {
         const [name, value] = cookie.trim().split('=');
-        if (name && (name.includes('customer') || name.includes('user') || name.includes('auth')) && value) {
+        if (
+          name &&
+          (name.includes('customer') ||
+            name.includes('user') ||
+            name.includes('auth')) &&
+          value
+        ) {
           try {
             const decoded = decodeURIComponent(value);
             const parsed = JSON.parse(decoded);
             if (parsed && (parsed.email || parsed.customerEmail)) {
               const customer = await prisma.customer.findUnique({
-                where: { email: parsed.email || parsed.customerEmail }
+                where: { email: parsed.email || parsed.customerEmail },
               });
-              
+
               if (customer) {
                 return NextResponse.json({
                   success: true,
@@ -50,12 +56,12 @@ export async function GET(req: Request) {
                     email: customer.email,
                     firstName: customer.firstName,
                     lastName: customer.lastName,
-                    phone: customer.phone
-                  }
+                    phone: customer.phone,
+                  },
                 });
               }
             }
-          } catch (e) {
+          } catch {
             // Continue checking other cookies
           }
         }
@@ -64,15 +70,16 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: false,
-      message: "No valid session found"
+      message: 'No valid session found',
     });
-
   } catch (error) {
-    console.error("Error validating session:", error);
-    return NextResponse.json({
-      success: false,
-      message: "Session validation failed"
-    }, { status: 500 });
+    console.error('Error validating session:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: 'Session validation failed',
+      },
+      { status: 500 }
+    );
   }
 }
-

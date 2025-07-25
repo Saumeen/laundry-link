@@ -6,14 +6,21 @@ import { UserRole } from '@/types/global';
 export async function DELETE(request: NextRequest) {
   try {
     // Check authentication and role
-    const allowedRoles: UserRole[] = ['SUPER_ADMIN', 'OPERATION_MANAGER', 'FACILITY_TEAM'];
+    const allowedRoles: UserRole[] = [
+      'SUPER_ADMIN',
+      'OPERATION_MANAGER',
+      'FACILITY_TEAM',
+    ];
     await requireAdminRoles(allowedRoles);
 
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
 
     if (!itemId) {
-      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Item ID is required' },
+        { status: 400 }
+      );
     }
 
     // Delete the order item
@@ -30,11 +37,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     if (error instanceof Error && error.message.includes('Access denied')) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      );
     }
     return NextResponse.json(
       { error: 'Failed to delete order item' },
       { status: 500 }
     );
   }
-} 
+}

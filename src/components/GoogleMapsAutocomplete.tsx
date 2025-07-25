@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLoadScript } from '@react-google-maps/api';
 
 interface GoogleMapsAutocompleteProps {
@@ -10,15 +10,15 @@ interface GoogleMapsAutocompleteProps {
   disabled?: boolean;
 }
 
-const libraries: ("places")[] = ["places"];
+const libraries: 'places'[] = ['places'];
 
 export default function GoogleMapsAutocomplete({
   value,
   onChange,
   onAddressSelect,
-  placeholder = "Start typing your address...",
-  className = "",
-  disabled = false
+  placeholder = 'Start typing your address...',
+  className = '',
+  disabled = false,
 }: GoogleMapsAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -33,7 +33,10 @@ export default function GoogleMapsAutocomplete({
 
   // Handle clicks outside suggestions dropdown
   const handleClickOutside = useCallback((event: MouseEvent) => {
-    if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+    if (
+      suggestionsRef.current &&
+      !suggestionsRef.current.contains(event.target as Node)
+    ) {
       setShowSuggestions(false);
     }
   }, []);
@@ -45,73 +48,80 @@ export default function GoogleMapsAutocomplete({
     };
   }, [handleClickOutside]);
 
-  const handleInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    onChange(inputValue);
-    setShowSuggestions(false);
+  const handleInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const inputValue = e.target.value;
+      onChange(inputValue);
+      setShowSuggestions(false);
 
-    if (!isLoaded || inputValue.length < 3) {
-      setSuggestions([]);
-      return;
-    }
+      if (!isLoaded || inputValue.length < 3) {
+        setSuggestions([]);
+        return;
+      }
 
-    // Check if Google Maps API is available
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-      console.error('Google Maps API not loaded properly');
-      return;
-    }
+      // Check if Google Maps API is available
+      if (!window.google || !window.google.maps || !window.google.maps.places) {
+        console.error('Google Maps API not loaded properly');
+        return;
+      }
 
-    try {
-      setLoading(true);
-      
-      const request = {
-        input: inputValue,
-        componentRestrictions: { country: 'BH' },
-        types: ['geocode']
-      };
+      try {
+        setLoading(true);
 
-      // Use the traditional AutocompleteService with proper error handling
-      const autocompleteService = new window.google.maps.places.AutocompleteService();
-      
-      autocompleteService.getPlacePredictions(
-        request,
-        (predictions: any, status: any) => {
-          setLoading(false);
-          
-          if (status === 'OK' && predictions) {
-            setSuggestions(predictions);
-            setShowSuggestions(true);
-          } else {
-            setSuggestions([]);
-            setShowSuggestions(false);
-            // Log the status for debugging
-            if (status !== 'ZERO_RESULTS') {
-              console.warn('AutocompleteService status:', status);
+        const request = {
+          input: inputValue,
+          componentRestrictions: { country: 'BH' },
+          types: ['geocode'],
+        };
+
+        // Use the traditional AutocompleteService with proper error handling
+        const autocompleteService =
+          new window.google.maps.places.AutocompleteService();
+
+        autocompleteService.getPlacePredictions(
+          request,
+          (predictions: any, status: any) => {
+            setLoading(false);
+
+            if (status === 'OK' && predictions) {
+              setSuggestions(predictions);
+              setShowSuggestions(true);
+            } else {
+              setSuggestions([]);
+              setShowSuggestions(false);
+              // Log the status for debugging
+              if (status !== 'ZERO_RESULTS') {
+                console.warn('AutocompleteService status:', status);
+              }
             }
           }
-        }
-      );
-    } catch (error) {
-      setLoading(false);
-      console.error('Error with AutocompleteService:', error);
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
-  }, [isLoaded, onChange]);
+        );
+      } catch (error) {
+        setLoading(false);
+        console.error('Error with AutocompleteService:', error);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    },
+    [isLoaded, onChange]
+  );
 
-  const handleSuggestionClick = useCallback((suggestion: any) => {
-    onChange(suggestion.description);
-    setShowSuggestions(false);
-    setSuggestions([]);
-    
-    if (onAddressSelect) {
-      onAddressSelect(suggestion);
-    }
-  }, [onChange, onAddressSelect]);
+  const handleSuggestionClick = useCallback(
+    (suggestion: any) => {
+      onChange(suggestion.description);
+      setShowSuggestions(false);
+      setSuggestions([]);
+
+      if (onAddressSelect) {
+        onAddressSelect(suggestion);
+      }
+    },
+    [onChange, onAddressSelect]
+  );
 
   if (loadError) {
     return (
-      <div className="text-red-500 text-sm">
+      <div className='text-red-500 text-sm'>
         Error loading Google Maps. Please check your API key.
       </div>
     );
@@ -119,17 +129,17 @@ export default function GoogleMapsAutocomplete({
 
   if (!isLoaded) {
     return (
-      <div className="animate-pulse">
-        <div className="h-10 bg-gray-200 rounded-lg"></div>
+      <div className='animate-pulse'>
+        <div className='h-10 bg-gray-200 rounded-lg'></div>
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div className='relative'>
       <input
         ref={inputRef}
-        type="text"
+        type='text'
         value={value}
         onChange={handleInputChange}
         onFocus={() => setShowSuggestions(suggestions.length > 0)}
@@ -137,28 +147,28 @@ export default function GoogleMapsAutocomplete({
         disabled={disabled}
         className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${className}`}
       />
-      
+
       {loading && (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        <div className='absolute right-3 top-1/2 transform -translate-y-1/2'>
+          <div className='animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600'></div>
         </div>
       )}
 
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1"
+          className='absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1'
         >
           {suggestions.map((suggestion, index) => (
             <div
               key={index}
-              className="p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+              className='p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0'
               onClick={() => handleSuggestionClick(suggestion)}
             >
-              <div className="font-medium text-gray-900">
+              <div className='font-medium text-gray-900'>
                 {suggestion.structured_formatting.main_text}
               </div>
-              <div className="text-sm text-gray-500">
+              <div className='text-sm text-gray-500'>
                 {suggestion.structured_formatting.secondary_text}
               </div>
             </div>
@@ -167,4 +177,4 @@ export default function GoogleMapsAutocomplete({
       )}
     </div>
   );
-} 
+}

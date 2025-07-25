@@ -1,33 +1,42 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
-import { requireAuthenticatedCustomer, createAuthErrorResponse } from '@/lib/auth';
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // Get authenticated customer
-    const customer = await requireAuthenticatedCustomer();
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!customer) {
+      return NextResponse.json(
+        { success: false, error: 'Customer not found' },
+        { status: 404 }
+      );
+    }
 
     const addresses = await prisma.address.findMany({
       where: { customerId: customer.id },
-      orderBy: [
-        { isDefault: 'desc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy: { isDefault: 'desc' },
     });
 
-    return NextResponse.json({ 
-      addresses 
+    return NextResponse.json({
+      addresses,
     });
-
   } catch (error) {
-    console.error("Error fetching addresses:", error);
-    
-    if (error instanceof Error && error.message === 'Authentication required') {
-      return createAuthErrorResponse();
-    }
-    
+    console.error('Error fetching addresses:', error);
     return NextResponse.json(
-      { error: "Failed to fetch addresses" },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -36,28 +45,42 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     // Get authenticated customer
-    const customer = await requireAuthenticatedCustomer();
-    const body = await req.json() as any;
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!customer) {
+      return NextResponse.json(
+        { success: false, error: 'Customer not found' },
+        { status: 404 }
+      );
+    }
+    const body = (await req.json()) as any;
 
     // Validate required fields
     const { label, locationType, contactNumber } = body;
-    
+
     if (!label?.trim()) {
-      return NextResponse.json(
-        { error: "Label is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Label is required' }, { status: 400 });
     }
 
     if (!contactNumber?.trim()) {
       return NextResponse.json(
-        { error: "Contact number is required" },
+        { error: 'Contact number is required' },
         { status: 400 }
       );
     }
 
     // Format address based on location type
-    let addressLine1 = '';
     let city = 'Bahrain'; // Default city
 
     // Always validate location-specific fields regardless of Google address
@@ -65,7 +88,7 @@ export async function POST(req: Request) {
       case 'hotel':
         if (!body.hotelName?.trim() || !body.roomNumber?.trim()) {
           return NextResponse.json(
-            { error: "Hotel name and room number are required" },
+            { error: 'Hotel name and room number are required' },
             { status: 400 }
           );
         }
@@ -74,7 +97,7 @@ export async function POST(req: Request) {
       case 'home':
         if (!body.house?.trim()) {
           return NextResponse.json(
-            { error: "House number is required" },
+            { error: 'House number is required' },
             { status: 400 }
           );
         }
@@ -83,7 +106,7 @@ export async function POST(req: Request) {
       case 'flat':
         if (!body.building?.trim() || !body.flatNumber?.trim()) {
           return NextResponse.json(
-            { error: "Building name/number and flat number are required" },
+            { error: 'Building name/number and flat number are required' },
             { status: 400 }
           );
         }
@@ -92,7 +115,9 @@ export async function POST(req: Request) {
       case 'office':
         if (!body.building?.trim() || !body.officeNumber?.trim()) {
           return NextResponse.json(
-            { error: "Building name/number and office name/number are required" },
+            {
+              error: 'Building name/number and office name/number are required',
+            },
             { status: 400 }
           );
         }
@@ -100,14 +125,14 @@ export async function POST(req: Request) {
 
       default:
         return NextResponse.json(
-          { error: "Invalid location type" },
+          { error: 'Invalid location type' },
           { status: 400 }
         );
     }
 
     // Check if this is the first address (make it default)
     const existingAddresses = await prisma.address.findMany({
-      where: { customerId: customer.id }
+      where: { customerId: customer.id },
     });
 
     const isFirstAddress = existingAddresses.length === 0;
@@ -192,7 +217,8 @@ export async function POST(req: Request) {
         customerId: customer.id,
         label: label.trim(),
         addressLine1: addressLine1Data || addressLine2Data, // Use Google address or location details
-        addressLine2: addressLine1Data && addressLine2Data ? addressLine2Data : null, // Only if both exist
+        addressLine2:
+          addressLine1Data && addressLine2Data ? addressLine2Data : null, // Only if both exist
         city,
         locationType,
         contactNumber: contactNumber.trim(),
@@ -205,24 +231,26 @@ export async function POST(req: Request) {
         latitude: body.latitude || null,
         longitude: body.longitude || null,
         isDefault: isFirstAddress,
-      }
+      },
     });
 
     return NextResponse.json({
       success: true,
       address: newAddress,
-      message: "Address created successfully"
+      message: 'Address created successfully',
     });
-
   } catch (error) {
-    console.error("Error creating address:", error);
-    
+    console.error('Error creating address:', error);
+
     if (error instanceof Error && error.message === 'Authentication required') {
-      return createAuthErrorResponse();
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
-    
+
     return NextResponse.json(
-      { error: "Failed to create address" },
+      { error: 'Failed to create address' },
       { status: 500 }
     );
   }

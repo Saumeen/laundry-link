@@ -43,7 +43,7 @@ export default function AddressSelector({
   showCreateNew = true,
   className = '',
   label = 'Select Address',
-  required = false
+  required = false,
 }: AddressSelectorProps) {
   const { data: session, status } = useSession();
   const { customer } = useAuth();
@@ -51,13 +51,14 @@ export default function AddressSelector({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
-  
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
   // View state - 'select' or 'create'
   const [currentView, setCurrentView] = useState<'select' | 'create'>('select');
-  
+
   // Google Maps autocomplete state
-  const [selectedAddress, setSelectedAddress] = useState<GeocodingResult | null>(null);
+  const [selectedAddress, setSelectedAddress] =
+    useState<GeocodingResult | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
 
   // Simple phone number validation function
@@ -66,9 +67,7 @@ export default function AddressSelector({
     const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
     return phoneRegex.test(phone.replace(/\s/g, ''));
   };
-  
 
-  
   // Form data with proper typing
   const [formData, setFormData] = useState<FormData>({
     googleAddress: '',
@@ -110,13 +109,13 @@ export default function AddressSelector({
 
   const fetchAddresses = useCallback(async () => {
     if (!session?.user?.email) return;
-    
+
     setLoading(true);
     try {
       const response = await customerApi.getAddresses();
       const data = await parseJsonResponse<{ addresses?: Address[] }>(response);
       setAddresses(data.addresses || []);
-    } catch (error) {
+    } catch {
       setMessage('❌ Failed to load addresses');
     } finally {
       setLoading(false);
@@ -127,8 +126,10 @@ export default function AddressSelector({
   const handleNewAddressSelect = useCallback(async (suggestion: any) => {
     try {
       setAddressLoading(true);
-      const geocodingResult = await googleMapsService.geocodePlaceId(suggestion.place_id);
-      
+      const geocodingResult = await googleMapsService.geocodePlaceId(
+        suggestion.place_id
+      );
+
       if (geocodingResult) {
         setSelectedAddress(geocodingResult);
         setFormData(prev => ({
@@ -147,7 +148,7 @@ export default function AddressSelector({
           flatNumber: '',
           officeNumber: '',
         }));
-        
+
         // Clear the googleAddress error when a valid address is selected
         setErrors(prev => {
           const newErrors = { ...prev };
@@ -162,19 +163,22 @@ export default function AddressSelector({
     }
   }, []);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear the error for this field when user starts typing
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  }, [errors]);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+      setFormData(prev => ({ ...prev, [name]: value }));
+
+      // Clear the error for this field when user starts typing
+      if (errors[name]) {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    },
+    [errors]
+  );
 
   const resetForm = useCallback(() => {
     setFormData({
@@ -217,44 +221,47 @@ export default function AddressSelector({
     resetForm();
   }, [resetForm]);
 
-  const saveAddress = useCallback(async (addressData: any) => {
-    try {
-      const response = await customerApi.createAddress(addressData);
-      const result = await parseJsonResponse(response);
-      
-      // Type guard for result
-      if (
-        result &&
-        typeof result === 'object' &&
-        'address' in result &&
-        result.address &&
-        typeof result.address === 'object' &&
-        'id' in result.address &&
-        typeof result.address.id !== 'undefined'
-      ) {
-        // If onAddressCreate callback is provided, call it with the new address
-        if (onAddressCreate) {
-          onAddressCreate(result.address as Address);
+  const saveAddress = useCallback(
+    async (addressData: any) => {
+      try {
+        const response = await customerApi.createAddress(addressData);
+        const result = await parseJsonResponse(response);
+
+        // Type guard for result
+        if (
+          result &&
+          typeof result === 'object' &&
+          'address' in result &&
+          result.address &&
+          typeof result.address === 'object' &&
+          'id' in result.address &&
+          typeof result.address.id !== 'undefined'
+        ) {
+          // If onAddressCreate callback is provided, call it with the new address
+          if (onAddressCreate) {
+            onAddressCreate(result.address as Address);
+          }
+          // Select the newly created address
+          onAddressSelect(String(result.address.id));
         }
-        // Select the newly created address
-        onAddressSelect(String(result.address.id));
+
+        // Refresh addresses list
+        await fetchAddresses();
+
+        setMessage('✅ Address saved successfully!');
+        setCurrentView('select');
+        resetForm();
+      } catch (error) {
+        console.error('Error saving address:', error);
+        setMessage('❌ Failed to save address. Please try again.');
       }
-      
-      // Refresh addresses list
-      await fetchAddresses();
-      
-      setMessage('✅ Address saved successfully!');
-      setCurrentView('select');
-      resetForm();
-    } catch (error) {
-      console.error('Error saving address:', error);
-      setMessage('❌ Failed to save address. Please try again.');
-    }
-  }, [onAddressCreate, onAddressSelect, fetchAddresses, resetForm]);
+    },
+    [onAddressCreate, onAddressSelect, fetchAddresses, resetForm]
+  );
 
   const handleSave = useCallback(async () => {
     // Validate required fields
-    const newErrors: {[key: string]: string} = {};
+    const newErrors: { [key: string]: string } = {};
 
     // Only require contact number if customer doesn't have one
     if (!customer?.phone) {
@@ -269,7 +276,7 @@ export default function AddressSelector({
     if (!formData.googleAddress.trim()) {
       newErrors.googleAddress = 'Address is required';
     }
-    
+
     // Location-specific validations - always required regardless of Google address
     if (formData.locationType === 'hotel') {
       if (!formData.hotelName.trim()) {
@@ -318,10 +325,11 @@ export default function AddressSelector({
         contactNumber: customer?.phone || formData.contactNumber, // Use customer's phone if available
         email: session?.user?.email || '',
         // GPS coordinates if available
-        ...(selectedAddress?.latitude && selectedAddress?.longitude && {
-          latitude: selectedAddress.latitude,
-          longitude: selectedAddress.longitude,
-        }),
+        ...(selectedAddress?.latitude &&
+          selectedAddress?.longitude && {
+            latitude: selectedAddress.latitude,
+            longitude: selectedAddress.longitude,
+          }),
       };
 
       // Always add location-specific data
@@ -353,54 +361,60 @@ export default function AddressSelector({
     } finally {
       setSaving(false);
     }
-  }, [formData, selectedAddress, saveAddress, isValidPhoneNumber, customer?.phone]);
+  }, [
+    formData,
+    selectedAddress,
+    saveAddress,
+    isValidPhoneNumber,
+    customer?.phone,
+  ]);
 
   // Format address for display based on location type
   const formatAddress = useCallback((address: Address) => {
     const locationType = address.locationType || 'flat';
     let locationDetails = '';
-    
+
     switch (locationType) {
       case 'hotel':
         if (address.building && address.floor) {
           locationDetails = `Hotel. ${address.building} - Room ${address.floor}`;
         }
         break;
-        
+
       case 'home':
         if (address.building) {
           locationDetails = `Home. Number ${address.building}`;
         }
         break;
-        
+
       case 'flat':
         if (address.building && address.floor) {
           locationDetails = `Flat. ${address.building} and Floor ${address.floor}`;
         }
         break;
-        
+
       case 'office':
         if (address.building && address.apartment) {
           locationDetails = `Office. ${address.building} and ${address.apartment}`;
         }
         break;
     }
-    
+
     // If we have both Google address and location details, show both
     if (locationDetails) {
       return `${locationDetails}`;
     }
-    
+
     // If we only have Google address
     if (address.googleAddress) {
       return address.googleAddress;
     }
-    
+
     // If we only have location details
     if (locationDetails) {
       return locationDetails;
     }
-    
+
     // Fallback to original format if specific fields are missing
     if (address.addressLine1) {
       let formatted = address.addressLine1;
@@ -413,24 +427,25 @@ export default function AddressSelector({
 
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      <div className='flex items-center justify-center py-4'>
+        <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600'></div>
       </div>
     );
   }
 
   if (status === 'unauthenticated') {
     return (
-      <div className="text-center py-4">
-        <p className="text-gray-500 mb-2">Please log in to manage addresses</p>
-        <a href="/registerlogin" className="text-blue-600 hover:text-blue-800 text-sm">
+      <div className='text-center py-4'>
+        <p className='text-gray-500 mb-2'>Please log in to manage addresses</p>
+        <a
+          href='/registerlogin'
+          className='text-blue-600 hover:text-blue-800 text-sm'
+        >
           Go to Login
         </a>
       </div>
     );
   }
-
-
 
   // Create Form View
   if (currentView === 'create') {
@@ -438,22 +453,38 @@ export default function AddressSelector({
       <div className={`space-y-4 ${className}`}>
         {/* Status Message */}
         {message && (
-          <div className={`p-3 rounded-lg ${
-            message.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-          }`}>
+          <div
+            className={`p-3 rounded-lg ${
+              message.includes('✅')
+                ? 'bg-green-50 text-green-700'
+                : 'bg-red-50 text-red-700'
+            }`}
+          >
             {message}
           </div>
         )}
 
         {/* Form Header */}
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Add New Address</h3>
+        <div className='flex items-center justify-between'>
+          <h3 className='text-lg font-semibold text-gray-900'>
+            Add New Address
+          </h3>
           <button
             onClick={goBackToSelect}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 text-sm"
+            className='flex items-center space-x-2 text-gray-600 hover:text-gray-800 text-sm'
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <svg
+              className='w-4 h-4'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M10 19l-7-7m0 0l7-7m-7 7h18'
+              />
             </svg>
             <span>Back to Selection</span>
           </button>
@@ -473,30 +504,40 @@ export default function AddressSelector({
         />
 
         {/* Save/Cancel Buttons */}
-        <div className="mt-6 flex space-x-3">
+        <div className='mt-6 flex space-x-3'>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-sm"
+            className='bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 text-sm'
           >
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                <div className='animate-spin rounded-full h-3 w-3 border-b-2 border-white'></div>
                 <span>Saving...</span>
               </>
             ) : (
               <>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className='w-3 h-3'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M5 13l4 4L19 7'
+                  />
                 </svg>
                 <span>Save Address</span>
               </>
             )}
           </button>
-          
+
           <button
             onClick={goBackToSelect}
-            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm"
+            className='bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm'
           >
             Cancel
           </button>
@@ -510,48 +551,91 @@ export default function AddressSelector({
     <div className={`space-y-4 ${className}`}>
       {/* Status Message */}
       {message && (
-        <div className={`p-3 rounded-lg ${
-          message.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>
+        <div
+          className={`p-3 rounded-lg ${
+            message.includes('✅')
+              ? 'bg-green-50 text-green-700'
+              : 'bg-red-50 text-red-700'
+          }`}
+        >
           {message}
         </div>
       )}
 
       {/* Address Selection */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700">
-            {label} {required && <span className="text-red-500">*</span>}
+        <div className='flex items-center justify-between mb-2'>
+          <label className='block text-sm font-medium text-gray-700'>
+            {label} {required && <span className='text-red-500'>*</span>}
           </label>
           {showCreateNew && (
             <button
               onClick={showCreateForm}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              className='inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700'
             >
-              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              <svg
+                className='w-4 h-4 mr-1.5'
+                fill='none'
+                stroke='currentColor'
+                viewBox='0 0 24 24'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M12 6v6m0 0v6m0-6h6m-6 0H6'
+                />
               </svg>
               Add Address
             </button>
           )}
         </div>
-        
+
         {addresses.length === 0 ? (
-          <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          <div className='text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300'>
+            <svg
+              className='mx-auto h-8 w-8 text-gray-400'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z'
+              />
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M15 11a3 3 0 11-6 0 3 3 0 016 0z'
+              />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No addresses</h3>
-            <p className="mt-1 text-sm text-gray-500">Create your first address to get started.</p>
+            <h3 className='mt-2 text-sm font-medium text-gray-900'>
+              No addresses
+            </h3>
+            <p className='mt-1 text-sm text-gray-500'>
+              Create your first address to get started.
+            </p>
             {showCreateNew && (
-              <div className="mt-4">
+              <div className='mt-4'>
                 <button
                   onClick={showCreateForm}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  className='inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700'
                 >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  <svg
+                    className='w-4 h-4 mr-2'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M12 6v6m0 0v6m0-6h6m-6 0H6'
+                    />
                   </svg>
                   Create Address
                 </button>
@@ -559,32 +643,39 @@ export default function AddressSelector({
             )}
           </div>
         ) : (
-          <div className="space-y-2">
-            {addresses.map((address) => (
-              <label key={address.id} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+          <div className='space-y-2'>
+            {addresses.map(address => (
+              <label
+                key={address.id}
+                className='flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors'
+              >
                 <input
-                  type="radio"
-                  name="selectedAddressId"
+                  type='radio'
+                  name='selectedAddressId'
                   value={address.id.toString()}
                   checked={selectedAddressId === address.id.toString()}
-                  onChange={(e) => onAddressSelect(e.target.value)}
-                  className="mr-3"
+                  onChange={e => onAddressSelect(e.target.value)}
+                  className='mr-3'
                 />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-gray-900">{formatAddress(address)}</span>
-                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 capitalize">
+                <div className='flex-1'>
+                  <div className='flex items-center space-x-2 mb-1'>
+                    <span className='font-medium text-gray-900'>
+                      {formatAddress(address)}
+                    </span>
+                    <span className='px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600 capitalize'>
                       {address.locationType || 'flat'}
                     </span>
                     {address.isDefault && (
-                      <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600 font-medium">
+                      <span className='px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600 font-medium'>
                         Default
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-600">{address.label}</div>
+                  <div className='text-sm text-gray-600'>{address.label}</div>
                   {address.contactNumber && (
-                    <div className="text-sm text-gray-500">Contact: {address.contactNumber}</div>
+                    <div className='text-sm text-gray-500'>
+                      Contact: {address.contactNumber}
+                    </div>
                   )}
                 </div>
               </label>
@@ -594,4 +685,4 @@ export default function AddressSelector({
       </div>
     </div>
   );
-} 
+}

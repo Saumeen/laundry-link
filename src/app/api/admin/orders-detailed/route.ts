@@ -1,7 +1,12 @@
 // src/app/api/admin/orders-detailed/route.ts
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from "@/lib/adminAuth";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
+import {
+  requireAuthenticatedAdmin,
+  createAdminAuthErrorResponse,
+} from '@/lib/adminAuth';
+import { formatTimeSlotRange } from '@/lib/utils/timezone';
+import { OrderStatus } from '@prisma/client';
 
 const SORTABLE_FIELDS: Record<string, string> = {
   orderNumber: 'orderNumber',
@@ -13,16 +18,17 @@ const SORTABLE_FIELDS: Record<string, string> = {
 
 export async function GET(req: Request) {
   try {
-    await requireAuthenticatedAdmin();
+    const admin = await requireAuthenticatedAdmin();
     const { searchParams } = new URL(req.url);
     const sortField = searchParams.get('sortField') || 'createdAt';
-    const sortDirection = searchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc';
+    const sortDirection =
+      searchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
     const skip = (page - 1) * pageSize;
 
     // Special case for customerName sorting
-    let orderBy: any = {};
+    let orderBy: Record<string, unknown> = {};
     if (sortField === 'customerName') {
       orderBy = {
         customer: {
@@ -30,14 +36,26 @@ export async function GET(req: Request) {
         },
       };
     } else {
-      orderBy[sortField in SORTABLE_FIELDS ? SORTABLE_FIELDS[sortField] : 'createdAt'] = sortDirection;
+      orderBy[
+        sortField in SORTABLE_FIELDS ? SORTABLE_FIELDS[sortField] : 'createdAt'
+      ] = sortDirection;
     }
 
-    // Get total count for pagination
-    const total = await prisma.order.count();
+    // Build where clause based on admin role
+    let whereClause: Record<string, unknown> = {};
+    
+    // For FACILITY_TEAM role, only show orders with DROPPED_OFF status
+    if (admin.role === 'FACILITY_TEAM') {
+      whereClause.status = OrderStatus.DROPPED_OFF;
+    }
+    // For SUPER_ADMIN and OPERATION_MANAGER, show all orders (no filter needed)
 
-    // Fetch paginated orders
+    // Get total count for pagination with role-based filtering
+    const total = await prisma.order.count({ where: whereClause });
+
+    // Fetch paginated orders with role-based filtering
     const orders = await prisma.order.findMany({
+      where: whereClause,
       include: {
         customer: true,
         orderServiceMappings: {
@@ -64,45 +82,58 @@ export async function GET(req: Request) {
     });
 
     // Transform orders to include service information
-    const transformedOrders = orders.map((order) => {
+    const transformedOrders = orders.map(order => {
       // Flatten all orderItems from all services into a single array
-      const orderItems = order.orderServiceMappings?.flatMap((mapping) => 
-        mapping.orderItems?.map((item) => ({
-          id: item.id,
-          itemType: item.itemType,
-          quantity: item.quantity,
-          pricePerItem: item.pricePerItem,
-          totalPrice: item.totalPrice,
-          notes: item.notes,
-        })) || []
-      ) || [];
+      const orderItems =
+        order.orderServiceMappings?.flatMap(
+          mapping =>
+            mapping.orderItems?.map(item => ({
+              id: item.id,
+              itemType: item.itemType,
+              quantity: item.quantity,
+              pricePerItem: item.pricePerItem,
+              totalPrice: item.totalPrice,
+              notes: item.notes,
+            })) || []
+        ) || [];
 
-      const services = order.orderServiceMappings?.map((mapping) => ({
-        id: mapping.id,
-        service: mapping.service,
-        quantity: mapping.quantity,
-        price: mapping.price,
-        total: mapping.quantity * mapping.price,
-        orderItems: mapping.orderItems,
-      })) || [];
+      const services =
+        order.orderServiceMappings?.map(mapping => ({
+          id: mapping.id,
+          service: mapping.service,
+          quantity: mapping.quantity,
+          price: mapping.price,
+          total: mapping.quantity * mapping.price,
+          orderItems: mapping.orderItems,
+        })) || [];
 
       return {
         ...order,
         orderItems, // Add this for frontend compatibility
         services,
+        // Map time fields to match frontend expectations with Bahrain timezone
+        pickupTime: order.pickupStartTime,
+        deliveryTime: order.deliveryStartTime,
+        pickupTimeSlot: formatTimeSlotRange(order.pickupStartTime, order.pickupEndTime),
+        deliveryTimeSlot: formatTimeSlotRange(order.deliveryStartTime, order.deliveryEndTime),
       };
     });
 
     return NextResponse.json({
-      orders: transformedOrders,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      data: transformedOrders,
+      pagination: {
+        page,
+        limit: pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     });
   } catch (error) {
     console.error('Error fetching detailed orders:', error);
-    if (error instanceof Error && error.message === 'Admin authentication required') {
+    if (
+      error instanceof Error &&
+      error.message === 'Admin authentication required'
+    ) {
       return createAdminAuthErrorResponse();
     }
     return NextResponse.json(
@@ -111,4 +142,3 @@ export async function GET(req: Request) {
     );
   }
 }
-

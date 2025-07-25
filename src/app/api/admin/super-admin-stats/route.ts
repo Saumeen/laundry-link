@@ -1,79 +1,115 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAdminRoles, createAdminAuthErrorResponse } from "@/lib/adminAuth";
-import { UserRole } from "@/types/global";
-import { OrderStatus } from "@prisma/client";
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {
-    // Require SUPER_ADMIN or OPERATION_MANAGER role
-    await requireAdminRoles(["SUPER_ADMIN", "OPERATION_MANAGER"]);
-    // Get total orders
-    const totalOrders = await prisma.order.count();
+    const session = await getServerSession(authOptions);
 
-    // Get total customers
-    const totalCustomers = await prisma.customer.count();
+    if (!session || !session.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    // Get total revenue (sum of all order amounts)
-    const revenueResult = await prisma.order.aggregate({
-      _sum: {
-        invoiceTotal: true
-      }
-    });
-    const totalRevenue = revenueResult._sum.invoiceTotal || 0;
-
-    // Get active staff count
-    const activeStaff = await prisma.staff.count({
-      where: {
-        isActive: true
-      }
+    // Get admin user to check role
+    const adminUser = await prisma.staff.findUnique({
+      where: { email: session.user.email },
+      include: { role: true },
     });
 
-    // Get pending orders
-    const pendingOrders = await prisma.order.count({
-      where: {
-        status: {
-          in: [OrderStatus.ORDER_PLACED, OrderStatus.PROCESSING_STARTED, OrderStatus.READY_FOR_DELIVERY]
-        }
-      }
-    });
+    if (!adminUser || adminUser.role.name !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'Access denied' },
+        { status: 403 }
+      );
+    }
 
-    // Get completed orders
-    const completedOrders = await prisma.order.count({
-      where: {
-        status: OrderStatus.DELIVERED
-      }
-    });
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get active drivers
-    const activeDrivers = await prisma.staff.count({
-      where: {
-        role: {
-          name: "DRIVER"
-        },
-        isActive: true
-      }
-    });
-
-    return NextResponse.json({
+    // Fetch statistics
+    const [
       totalOrders,
       totalCustomers,
       totalRevenue,
       activeStaff,
       pendingOrders,
       completedOrders,
-      activeDrivers
+      activeDrivers,
+      avgProcessingTime,
+    ] = await Promise.all([
+      // Total orders
+      prisma.order.count(),
+
+      // Total customers
+      prisma.customer.count(),
+
+      // Total revenue (sum of invoice totals)
+      prisma.order.aggregate({
+        where: { invoiceTotal: { not: null } },
+        _sum: { invoiceTotal: true },
+      }),
+
+      // Active staff
+      prisma.staff.count({
+        where: { isActive: true },
+      }),
+
+      // Pending orders (today)
+      prisma.order.count({
+        where: {
+          createdAt: { gte: today, lt: tomorrow },
+          status: { in: ['ORDER_PLACED', 'CONFIRMED', 'PICKUP_ASSIGNED'] },
+        },
+      }),
+
+      // Completed orders (today)
+      prisma.order.count({
+        where: {
+          createdAt: { gte: today, lt: tomorrow },
+          status: 'DELIVERED',
+        },
+      }),
+
+      // Active drivers
+      prisma.staff.count({
+        where: {
+          role: { name: 'DRIVER' },
+          isActive: true,
+        },
+      }),
+
+      // Average processing time (placeholder - would need more complex calculation)
+      Promise.resolve(45), // Placeholder value
+    ]);
+
+    const stats = {
+      totalOrders,
+      totalCustomers,
+      totalRevenue: totalRevenue._sum.invoiceTotal || 0,
+      activeStaff,
+      pendingOrders,
+      completedOrders,
+      activeDrivers,
+      avgProcessingTime,
+      averageDeliveryTime: 30, // Placeholder value
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: stats,
     });
   } catch (error) {
-    console.error('Error fetching super admin stats:', error || 'Unknown error');
-    
-    if (error instanceof Error && (error.message === 'Admin authentication required' || error.message.includes('Access denied'))) {
-      return createAdminAuthErrorResponse();
-    }
-    
+    console.error('Error fetching super admin stats:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch stats' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
-} 
+}
