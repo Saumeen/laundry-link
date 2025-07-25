@@ -58,8 +58,15 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
   const calculateSubtotal = () => {
     if (!order.orderServiceMappings) return 0;
     return order.orderServiceMappings.reduce((total, mapping) => {
-      const serviceTotal = mapping.quantity * mapping.price;
-      return total + serviceTotal;
+      // Calculate from order items if available, otherwise fall back to service mapping
+      if (mapping.orderItems && mapping.orderItems.length > 0) {
+        const itemsTotal = mapping.orderItems.reduce((itemTotal, item) => {
+          return itemTotal + item.totalPrice;
+        }, 0);
+        return total + itemsTotal;
+      } else {
+        return 0;
+      }
     }, 0);
   };
 
@@ -206,10 +213,10 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
             <thead className='bg-gray-50'>
               <tr>
                 <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                  Service
+                  Item
                 </th>
                 <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                  Description
+                  Type & Notes
                 </th>
                 <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                   Quantity
@@ -223,35 +230,79 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
               </tr>
             </thead>
             <tbody className='bg-white divide-y divide-gray-200'>
-              {order.orderServiceMappings?.map((mapping) => (
-                <tr key={mapping.id}>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <div className='text-sm font-medium text-gray-900'>
-                      {mapping.service.displayName}
-                    </div>
-                  </td>
-                  <td className='px-6 py-4'>
-                    <div className='text-sm text-gray-900'>
-                      {mapping.service.description}
-                    </div>
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <div className='text-sm text-gray-900'>
-                      {mapping.quantity} {mapping.service.unit}
-                    </div>
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <div className='text-sm text-gray-900'>
-                      {mapping.price.toFixed(3)} BD
-                    </div>
-                  </td>
-                  <td className='px-6 py-4 whitespace-nowrap'>
-                    <div className='text-sm font-medium text-gray-900'>
-                      {(mapping.quantity * mapping.price).toFixed(3)} BD
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {order.orderServiceMappings?.map((mapping) => {
+                // If order items exist, display them individually
+                if (mapping.orderItems && mapping.orderItems.length > 0) {
+                  return mapping.orderItems.map((item) => (
+                    <tr key={`${mapping.id}-${item.id}`}>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm font-medium text-gray-900'>
+                          {item.itemName}
+                        </div>
+                        <div className='text-xs text-gray-500'>
+                          {mapping.service.displayName}
+                        </div>
+                      </td>
+                      <td className='px-6 py-4'>
+                        <div className='text-sm text-gray-900'>
+                          {item.itemType}
+                        </div>
+                        {item.notes && (
+                          <div className='text-xs text-gray-500 mt-1'>
+                            {item.notes}
+                          </div>
+                        )}
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm text-gray-900'>
+                          {item.quantity}
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm text-gray-900'>
+                          {item.pricePerItem.toFixed(3)} BD
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm font-medium text-gray-900'>
+                          {item.totalPrice.toFixed(3)} BD
+                        </div>
+                      </td>
+                    </tr>
+                  ));
+                } else {
+                  // Fallback to service mapping if no order items
+                  return (
+                    <tr key={mapping.id}>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm font-medium text-gray-900'>
+                          {mapping.service.displayName}
+                        </div>
+                      </td>
+                      <td className='px-6 py-4'>
+                        <div className='text-sm text-gray-900'>
+                          {mapping.service.description}
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm text-gray-900'>
+                          {mapping.quantity} {mapping.service.unit}
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm text-gray-900'>
+                          {mapping.price.toFixed(3)} BD
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <div className='text-sm font-medium text-gray-900'>
+                          {(mapping.quantity * mapping.price).toFixed(3)} BD
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+              })}
             </tbody>
           </table>
         </div>
