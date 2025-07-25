@@ -50,7 +50,7 @@ export default function ServiceSelection({
                   {service.description}
                 </p>
                 <p className='text-sm text-blue-600 mt-1 font-medium'>
-                  {service.pricingType && service.pricingUnit && (
+                  {(service.pricingType || service.pricingUnit) && (
                     <>
                       {service.pricingType && `Pricing: ${service.pricingType}`}{' '}
                       {service.pricingUnit && `(${service.pricingUnit})`}

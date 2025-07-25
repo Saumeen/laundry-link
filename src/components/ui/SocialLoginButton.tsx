@@ -16,11 +16,11 @@ const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
   const getLogoSrc = () => {
     switch (provider) {
       case 'google':
-        return '/images/auth/google-logo.svg';
+        return '/images/auth/google-logo.png';
       case 'facebook':
-        return '/images/auth/facebook-logo.svg';
+        return '/images/auth/facebook-logo.png';
       case 'apple':
-        return '/images/auth/apple-logo.svg';
+        return '/images/auth/apple-logo.png';
       default:
         return '';
     }
