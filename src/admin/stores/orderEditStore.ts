@@ -8,6 +8,7 @@ interface OrderEditState {
   deliveryEndTime: string;
   status: string;
   specialInstructions: string;
+  sendEmailNotification: boolean;
   
   // Address fields
   addressLabel: string;
@@ -28,6 +29,7 @@ interface OrderEditState {
   setDeliveryEndTime: (time: string) => void;
   setStatus: (status: string) => void;
   setSpecialInstructions: (instructions: string) => void;
+  setSendEmailNotification: (send: boolean) => void;
   setAddressLabel: (label: string) => void;
   setAddressLine1: (line1: string) => void;
   setAddressLine2: (line2: string) => void;
@@ -57,6 +59,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
   deliveryEndTime: '',
   status: '',
   specialInstructions: '',
+  sendEmailNotification: false,
   addressLabel: '',
   addressLine1: '',
   addressLine2: '',
@@ -75,6 +78,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
   setDeliveryEndTime: (time: string) => set({ deliveryEndTime: time }),
   setStatus: (status: string) => set({ status }),
   setSpecialInstructions: (instructions: string) => set({ specialInstructions: instructions }),
+  setSendEmailNotification: (send: boolean) => set({ sendEmailNotification: send }),
   setAddressLabel: (label: string) => set({ addressLabel: label }),
   setAddressLine1: (line1: string) => set({ addressLine1: line1 }),
   setAddressLine2: (line2: string) => set({ addressLine2: line2 }),
@@ -93,6 +97,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
     deliveryEndTime: order.deliveryEndTime ? new Date(order.deliveryEndTime).toISOString() : '',
     status: order.status,
     specialInstructions: order.specialInstructions || '',
+    sendEmailNotification: false,
     addressLabel: order.address?.label || '',
     addressLine1: order.address?.addressLine1 || '',
     addressLine2: order.address?.addressLine2 || '',
@@ -112,6 +117,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
     deliveryEndTime: '',
     status: '',
     specialInstructions: '',
+    sendEmailNotification: false,
     addressLabel: '',
     addressLine1: '',
     addressLine2: '',
@@ -133,6 +139,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
       deliveryEndTime: state.deliveryEndTime,
       status: state.status,
       specialInstructions: state.specialInstructions,
+      sendEmailNotification: state.sendEmailNotification,
       addressLabel: state.addressLabel,
       addressLine1: state.addressLine1,
       addressLine2: state.addressLine2,

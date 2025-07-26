@@ -35,6 +35,8 @@ interface UpdateOrderRequest {
   apartment?: string;
   contactNumber?: string;
   locationType?: string;
+  // Email notification control
+  sendEmailNotification?: boolean;
 }
 
 export async function PUT(
@@ -68,6 +70,7 @@ export async function PUT(
       apartment,
       contactNumber,
       locationType,
+      sendEmailNotification,
     } = body;
 
     // Validate enum values
@@ -141,6 +144,26 @@ export async function PUT(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Check if admin actually made changes by comparing with current values
+    const hasChanges = !!(
+      (pickupStartTime && new Date(pickupStartTime).getTime() !== currentOrder.pickupStartTime?.getTime()) ||
+      (pickupEndTime && new Date(pickupEndTime).getTime() !== currentOrder.pickupEndTime?.getTime()) ||
+      (deliveryStartTime && new Date(deliveryStartTime).getTime() !== currentOrder.deliveryStartTime?.getTime()) ||
+      (deliveryEndTime && new Date(deliveryEndTime).getTime() !== currentOrder.deliveryEndTime?.getTime()) ||
+      (specialInstructions !== undefined && specialInstructions !== currentOrder.specialInstructions) ||
+      (addressLabel !== undefined && addressLabel !== currentOrder.address?.label) ||
+      (addressLine1 !== undefined && addressLine1 !== currentOrder.address?.addressLine1) ||
+      (addressLine2 !== undefined && addressLine2 !== currentOrder.address?.addressLine2) ||
+      (city !== undefined && city !== currentOrder.address?.city) ||
+      (area !== undefined && area !== currentOrder.address?.area) ||
+      (building !== undefined && building !== currentOrder.address?.building) ||
+      (floor !== undefined && floor !== currentOrder.address?.floor) ||
+      (apartment !== undefined && apartment !== currentOrder.address?.apartment) ||
+      (contactNumber !== undefined && contactNumber !== currentOrder.address?.contactNumber) ||
+      (locationType !== undefined && locationType !== currentOrder.address?.locationType) ||
+      notes
+    );
+
     // Update order status if provided
     if (status) {
       await prisma.order.update({
@@ -159,22 +182,70 @@ export async function PUT(
         },
       });
 
-      // Send confirmation email if status is changed to CONFIRMED
-      if (status === 'CONFIRMED' && currentOrder.customer) {
+      // Send email notification based on conditions
+      if (currentOrder.customer && (sendEmailNotification || hasChanges)) {
         try {
-          await emailService.sendOrderConfirmationToCustomer(
-            currentOrder,
-            currentOrder.customer.email,
-            `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`,
-            {
-              pickupDateTime: currentOrder.pickupStartTime,
-              deliveryDateTime: currentOrder.deliveryStartTime,
-              services: currentOrder.orderServiceMappings.map(mapping => mapping.serviceId),
-              address: currentOrder.address?.addressLine1 || currentOrder.customerAddress,
+          if (hasChanges) {
+            // If admin made changes, send order update email
+            const changes: string[] = [];
+            
+            if (pickupStartTime && new Date(pickupStartTime).getTime() !== currentOrder.pickupStartTime?.getTime()) {
+              changes.push('Pickup time updated');
             }
-          );
+            if (pickupEndTime && new Date(pickupEndTime).getTime() !== currentOrder.pickupEndTime?.getTime()) {
+              changes.push('Pickup end time updated');
+            }
+            if (deliveryStartTime && new Date(deliveryStartTime).getTime() !== currentOrder.deliveryStartTime?.getTime()) {
+              changes.push('Delivery time updated');
+            }
+            if (deliveryEndTime && new Date(deliveryEndTime).getTime() !== currentOrder.deliveryEndTime?.getTime()) {
+              changes.push('Delivery end time updated');
+            }
+            if (specialInstructions !== undefined && specialInstructions !== currentOrder.specialInstructions) {
+              changes.push('Special instructions updated');
+            }
+            if (addressLabel !== undefined && addressLabel !== currentOrder.address?.label ||
+                addressLine1 !== undefined && addressLine1 !== currentOrder.address?.addressLine1 ||
+                addressLine2 !== undefined && addressLine2 !== currentOrder.address?.addressLine2 ||
+                city !== undefined && city !== currentOrder.address?.city ||
+                area !== undefined && area !== currentOrder.address?.area ||
+                building !== undefined && building !== currentOrder.address?.building ||
+                floor !== undefined && floor !== currentOrder.address?.floor ||
+                apartment !== undefined && apartment !== currentOrder.address?.apartment ||
+                contactNumber !== undefined && contactNumber !== currentOrder.address?.contactNumber ||
+                locationType !== undefined && locationType !== currentOrder.address?.locationType) {
+              changes.push('Address details updated');
+            }
+            if (notes) changes.push('Additional notes added');
+
+            await emailService.sendOrderUpdateToCustomer(
+              currentOrder,
+              currentOrder.customer.email,
+              `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`,
+              {
+                pickupDateTime: currentOrder.pickupStartTime,
+                deliveryDateTime: currentOrder.deliveryStartTime,
+                services: currentOrder.orderServiceMappings.map(mapping => mapping.serviceId),
+                address: currentOrder.address?.addressLine1 || currentOrder.customerAddress,
+              },
+              changes
+            );
+          } else if (status === 'CONFIRMED' && sendEmailNotification) {
+            // If only status changed to CONFIRMED and admin explicitly wants to send email
+            await emailService.sendOrderConfirmationToCustomer(
+              currentOrder,
+              currentOrder.customer.email,
+              `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`,
+              {
+                pickupDateTime: currentOrder.pickupStartTime,
+                deliveryDateTime: currentOrder.deliveryStartTime,
+                services: currentOrder.orderServiceMappings.map(mapping => mapping.serviceId),
+                address: currentOrder.address?.addressLine1 || currentOrder.customerAddress,
+              }
+            );
+          }
         } catch (emailError) {
-          console.error('Failed to send confirmation email:', emailError);
+          console.error('Failed to send email notification:', emailError);
           // Continue with order update even if email fails
         }
       }
@@ -289,6 +360,8 @@ export async function PUT(
     return NextResponse.json({
       message: 'Order updated successfully',
       orderId: parseInt(orderId),
+      emailSent: currentOrder.customer && (sendEmailNotification || hasChanges),
+      changesDetected: hasChanges,
     });
   } catch (error) {
     console.error('Error updating order:', error);

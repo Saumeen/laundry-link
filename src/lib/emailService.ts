@@ -238,6 +238,119 @@ export default {
   },
 
   /**
+   * Send order update notification to customer
+   */
+  async sendOrderUpdateToCustomer(
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
+    orderDetails: OrderDetails,
+    changes: string[]
+  ): Promise<boolean> {
+    try {
+      // Get proper service names
+      const serviceNames = await this.getServiceNames(orderDetails.services);
+
+      const servicesHtml = orderDetails.services
+        .map(
+          serviceId =>
+            `<li>${serviceNames[serviceId] || `Service ${serviceId}`}</li>`
+        )
+        .join('');
+
+      const changesHtml = changes
+        .map(change => `<li>${change}</li>`)
+        .join('');
+
+      const msg = {
+        to: customerEmail,
+        from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
+        subject: `Order Updated - #${order.orderNumber}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #3b82f6; margin: 0;">Laundry Link</h1>
+              <h2 style="color: #374151; margin: 10px 0;">Order Updated</h2>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151;">Dear ${customerName},</p>
+            <p style="font-size: 16px; color: #374151;">Your order has been updated by our team. Here are the updated details:</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #1f2937; margin-top: 0;">Updated Order Details</h3>
+              <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+              <p><strong>Customer Name:</strong> ${customerName}</p>
+              <p><strong>Pickup Date/Time:</strong> ${orderDetails.pickupDateTime.toLocaleString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              )}</p>
+              <p><strong>Delivery Date/Time:</strong> ${orderDetails.deliveryDateTime.toLocaleString(
+                'en-GB',
+                {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }
+              )}</p>
+              
+              <h4 style="color: #1f2937; margin-bottom: 10px;">Services Selected:</h4>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${servicesHtml}
+              </ul>
+              
+              <p><strong>Collection Address:</strong> ${orderDetails.address}</p>
+              ${order.specialInstructions ? `<p><strong>Special Instructions:</strong> ${order.specialInstructions}</p>` : ''}
+            </div>
+
+            ${changes.length > 0 ? `
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <h4 style="margin: 0; color: #92400e;">📝 Changes Made:</h4>
+              <ul style="margin: 10px 0 0 0; color: #92400e; padding-left: 20px;">
+                ${changesHtml}
+              </ul>
+            </div>
+            ` : ''}
+            
+            <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #0277bd;"><strong>Important:</strong> If you have any questions about these changes, please contact us immediately.</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="font-size: 16px; color: #374151;">Need help? Contact us on WhatsApp:</p>
+              <a href="https://wa.me/97333440841" style="display: inline-block; background-color: #25d366; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                📱 +973 3344 0841
+              </a>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
+            </div>
+          </div>
+        `,
+      };
+
+      await sgMail.send(msg);
+      console.log(
+        `Order update email sent to customer: ${customerEmail}`
+      );
+      return true;
+    } catch (error) {
+      console.error('Error sending order update email:', error);
+      return false;
+    }
+  },
+
+  /**
    * Send order creation email to customer
    */
   async sendOrderCreationToCustomer(

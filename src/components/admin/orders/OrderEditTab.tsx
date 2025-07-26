@@ -2,11 +2,15 @@
 
 import { useOrderEditStore } from '@/admin/stores/orderEditStore';
 import { useToast } from '@/components/ui/Toast';
+import Modal from '@/components/ui/Modal';
+import StatusTransitionSelect from './StatusTransitionSelect';
 import {
     convertBahrainToUTC,
     convertUTCToBahrainDateTimeLocal
 } from '@/lib/utils/timezone';
 import React, { useCallback, useEffect, useState } from 'react';
+
+
 
 interface Order {
   id: number;
@@ -61,6 +65,8 @@ interface Order {
   specialInstructions?: string;
 }
 
+
+
 interface OrderEditTabProps {
   order: Order;
   onUpdate: () => void;
@@ -70,6 +76,8 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [sendEmailNotification, setSendEmailNotification] = useState(false);
   
   // Use Zustand store for form state
   const {
@@ -124,21 +132,25 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
     setLocalDeliveryEndTime(order.deliveryEndTime ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime) : '');
   }, [order, initializeForm]);
 
-
-
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
+      setShowConfirmModal(true);
+    },
+    []
+  );
+
+  const handleConfirmUpdate = useCallback(
+    async () => {
       setLoading(true);
       setError(null);
-        debugger
+
       // Convert Bahrain time to UTC for API submission
       const convertToUTC = (bahrainDateTime: string) => {
         if (!bahrainDateTime) return '';
         const [date, time] = bahrainDateTime.split('T');
         return convertBahrainToUTC(date, time);
       };
-
 
       // Get current form data from Zustand store and add local time slot values
       const formData = {
@@ -147,6 +159,7 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
         pickupEndTime: convertToUTC(localPickupEndTime),
         deliveryStartTime: convertToUTC(localDeliveryStartTime),
         deliveryEndTime: convertToUTC(localDeliveryEndTime),
+        sendEmailNotification,
       };
 
       try {
@@ -161,6 +174,7 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
         if (response.ok) {
           onUpdate();
           showToast('Order updated successfully', 'success');
+          setShowConfirmModal(false);
         } else {
           setError('Failed to update order');
         }
@@ -177,6 +191,7 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
       localPickupEndTime,
       localDeliveryStartTime,
       localDeliveryEndTime,
+      sendEmailNotification,
       onUpdate,
     ]
   );
@@ -194,8 +209,6 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
           </div>
         )}
 
-
-
         {/* Order Information Section */}
         <div className='bg-gray-50 rounded-lg p-4'>
           <h4 className='font-medium text-gray-900 mb-4'>Edit Order Information</h4>
@@ -204,29 +217,12 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
               <label className='block text-sm font-medium text-gray-700 mb-2'>
                 Order Status
               </label>
-              <select
+              <StatusTransitionSelect
+                currentStatus={order.status}
                 value={status}
-                onChange={e => setStatus(e.target.value)}
-                className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
-              >
-                <option value='ORDER_PLACED'>Order Placed</option>
-                <option value='CONFIRMED'>Confirmed</option>
-                <option value='PICKUP_ASSIGNED'>Pickup Assigned</option>
-                <option value='PICKUP_IN_PROGRESS'>Pickup In Progress</option>
-                <option value='PICKUP_COMPLETED'>Pickup Completed</option>
-                <option value='PICKUP_FAILED'>Pickup Failed</option>
-                <option value='RECEIVED_AT_FACILITY'>Received at Facility</option>
-                <option value='PROCESSING_STARTED'>Processing Started</option>
-                <option value='PROCESSING_COMPLETED'>Processing Completed</option>
-                <option value='QUALITY_CHECK'>Quality Check</option>
-                <option value='READY_FOR_DELIVERY'>Ready for Delivery</option>
-                <option value='DELIVERY_ASSIGNED'>Delivery Assigned</option>
-                <option value='DELIVERY_IN_PROGRESS'>Delivery In Progress</option>
-                <option value='DELIVERED'>Delivered</option>
-                <option value='DELIVERY_FAILED'>Delivery Failed</option>
-                <option value='CANCELLED'>Cancelled</option>
-                <option value='REFUNDED'>Refunded</option>
-              </select>
+                onChange={setStatus}
+                disabled={loading}
+              />
             </div>
 
             <div>
@@ -468,6 +464,53 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
           </button>
         </div>
       </form>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        title="Confirm Order Update"
+        footer={
+          <div className='flex justify-end space-x-3'>
+            <button
+              type='button'
+              onClick={() => setShowConfirmModal(false)}
+              className='px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'
+            >
+              Cancel
+            </button>
+            <button
+              type='button'
+              onClick={handleConfirmUpdate}
+              disabled={loading}
+              className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
+            >
+              {loading ? 'Updating...' : 'Confirm Update'}
+            </button>
+          </div>
+        }
+      >
+        <p className='text-gray-600 mb-4'>
+          Are you sure you want to update this order? Please review your changes before proceeding.
+        </p>
+        
+        <div className='mb-4'>
+          <label className='flex items-center space-x-2'>
+            <input
+              type='checkbox'
+              checked={sendEmailNotification}
+              onChange={(e) => setSendEmailNotification(e.target.checked)}
+              className='rounded border-gray-300 text-blue-600 focus:ring-blue-500'
+            />
+            <span className='text-sm font-medium text-gray-700'>
+              Send email notification to customer
+            </span>
+          </label>
+          <p className='text-xs text-gray-500 mt-1 ml-6'>
+            Check this if you want to inform the customer about order changes
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 } 

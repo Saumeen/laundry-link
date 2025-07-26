@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e", "DATABASE_URIpostgresql://postgres:admin@localhost:5432/laundry-local-v1",
+        "crystaldba/postgres-mcp",
+        "--access-mode=restricted"
+      ],
+      "env": {
+        "DATABASE_URI": "postgresql://postgres:admin@localhost:5432/laundry-local-v1"
+      }
+    }
+  }
+}
