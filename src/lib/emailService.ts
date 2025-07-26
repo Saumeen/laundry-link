@@ -784,6 +784,19 @@ export default {
     invoiceData: InvoiceData
   ): Promise<boolean> {
     try {
+      // Get order items from the order
+      const orderItems = order.orderServiceMappings.flatMap(mapping => 
+        mapping.orderItems.map(item => ({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          pricePerItem: item.pricePerItem,
+          totalPrice: item.totalPrice,
+          notes: item.notes
+        }))
+      );
+
+      const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+
       const msg = {
         to: customerEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
@@ -815,26 +828,26 @@ export default {
                   day: 'numeric',
                 }
               )}</p>
-              <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
+              <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${totalAmount.toFixed(3)} BD</span></p>
             </div>
 
             ${
-              invoiceData?.items && invoiceData.items.length > 0
+              orderItems.length > 0
                 ? `
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Invoice Details</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${invoiceData.items
+                ${orderItems
                   .map(
                     item => `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
                     <div>
-                      <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
+                      <p style="margin: 0; font-weight: 600; color: #374151;">${item.itemName || 'Item'}</p>
                       ${item.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">${item.notes}</p>` : ''}
                     </div>
                     <div style="text-align: right;">
                       <p style="margin: 0; color: #6b7280; font-size: 14px;">Qty: ${item.quantity || 0}</p>
-                      <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.unitPrice?.toFixed(3) || '0.000'} BD</p>
+                      <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.pricePerItem?.toFixed(3) || '0.000'} BD</p>
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
                     </div>
                   </div>
@@ -844,7 +857,7 @@ export default {
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
-                <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
+                <span style="font-size: 20px; font-weight: bold; color: #059669;">${totalAmount.toFixed(3)} BD</span>
               </div>
             </div>
             `
@@ -907,6 +920,19 @@ export default {
     invoiceData: InvoiceData
   ): Promise<boolean> {
     try {
+      // Get order items from the order
+      const orderItems = order.orderServiceMappings.flatMap(mapping => 
+        mapping.orderItems.map(item => ({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          pricePerItem: item.pricePerItem,
+          totalPrice: item.totalPrice,
+          notes: item.notes
+        }))
+      );
+
+      const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+
       const msg = {
         to: customerEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
@@ -938,26 +964,26 @@ export default {
                   day: 'numeric',
                 }
               )}</p>
-              <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
+              <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${totalAmount.toFixed(3)} BD</span></p>
             </div>
 
             ${
-              invoiceData?.items && invoiceData.items.length > 0
+              orderItems.length > 0
                 ? `
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Invoice Details</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${invoiceData.items
+                ${orderItems
                   .map(
                     item => `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
                     <div>
-                      <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
+                      <p style="margin: 0; font-weight: 600; color: #374151;">${item.itemName || 'Item'}</p>
                       ${item.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">${item.notes}</p>` : ''}
                     </div>
                     <div style="text-align: right;">
                       <p style="margin: 0; color: #6b7280; font-size: 14px;">Qty: ${item.quantity || 0}</p>
-                      <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.unitPrice?.toFixed(3) || '0.000'} BD</p>
+                      <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.pricePerItem?.toFixed(3) || '0.000'} BD</p>
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
                     </div>
                   </div>
@@ -967,7 +993,7 @@ export default {
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
-                <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
+                <span style="font-size: 20px; font-weight: bold; color: #059669;">${totalAmount.toFixed(3)} BD</span>
               </div>
             </div>
             `
@@ -1030,6 +1056,19 @@ export default {
     invoiceData: InvoiceData
   ): Promise<boolean> {
     try {
+      // Get order items from the order
+      const orderItems = order.orderServiceMappings.flatMap(mapping => 
+        mapping.orderItems.map(item => ({
+          itemName: item.itemName,
+          quantity: item.quantity,
+          pricePerItem: item.pricePerItem,
+          totalPrice: item.totalPrice,
+          notes: item.notes
+        }))
+      );
+
+      const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+
       const msg = {
         to: customerEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
@@ -1061,26 +1100,26 @@ export default {
                   day: 'numeric',
                 }
               )}</p>
-              <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span></p>
+              <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${totalAmount.toFixed(3)} BD</span></p>
             </div>
 
             ${
-              invoiceData?.items && invoiceData.items.length > 0
+              orderItems.length > 0
                 ? `
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
               <h3 style="color: #1f2937; margin-top: 0; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">🧾 Order Details</h3>
               <div style="max-height: 300px; overflow-y: auto;">
-                ${invoiceData.items
+                ${orderItems
                   .map(
                     item => `
                   <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
                     <div>
-                      <p style="margin: 0; font-weight: 600; color: #374151;">${item.serviceName || 'Service'}</p>
+                      <p style="margin: 0; font-weight: 600; color: #374151;">${item.itemName || 'Item'}</p>
                       ${item.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #6b7280;">${item.notes}</p>` : ''}
                     </div>
                     <div style="text-align: right;">
                       <p style="margin: 0; color: #6b7280; font-size: 14px;">Qty: ${item.quantity || 0}</p>
-                      <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.unitPrice?.toFixed(3) || '0.000'} BD</p>
+                      <p style="margin: 0; color: #6b7280; font-size: 14px;">@${item.pricePerItem?.toFixed(3) || '0.000'} BD</p>
                       <p style="margin: 0; font-weight: 600; color: #374151;">${item.totalPrice?.toFixed(3) || '0.000'} BD</p>
                     </div>
                   </div>
@@ -1090,7 +1129,7 @@ export default {
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-top: 2px solid #3b82f6; margin-top: 15px;">
                 <span style="font-size: 18px; font-weight: bold; color: #1f2937;">Total</span>
-                <span style="font-size: 20px; font-weight: bold; color: #059669;">${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD</span>
+                <span style="font-size: 20px; font-weight: bold; color: #059669;">${totalAmount.toFixed(3)} BD</span>
               </div>
             </div>
             `
@@ -1100,7 +1139,7 @@ export default {
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h4 style="margin: 0; color: #92400e;">💰 Payment Required for Delivery</h4>
               <p style="margin: 10px 0 0 0; color: #92400e;">
-                <strong>Please add payment to your account vault to receive your delivery.</strong> Your order total is ${invoiceData?.totalAmount?.toFixed(3) || '0.000'} BD. You can add funds through your customer portal.
+                <strong>Please add payment to your account vault to receive your delivery.</strong> Your order total is ${totalAmount.toFixed(3)} BD. You can add funds through your customer portal.
               </p>
             </div>
             
