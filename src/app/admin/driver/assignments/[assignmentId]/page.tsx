@@ -12,6 +12,22 @@ import { formatUTCForTimeDisplay, formatUTCForDisplay } from '@/lib/utils/timezo
 import type { DriverAssignment } from '@/admin/api/driver';
 import PhotoCapture from '@/components/PhotoCapture';
 
+// Utility function to get location type description
+const getLocationTypeDescription = (locationType: string): string => {
+  switch (locationType.toLowerCase()) {
+    case 'home':
+      return 'Private Residence';
+    case 'flat':
+      return 'Apartment/Flat';
+    case 'hotel':
+      return 'Hotel/Accommodation';
+    case 'office':
+      return 'Office/Workplace';
+    default:
+      return 'Location';
+  }
+};
+
 export default function DriverAssignmentDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -525,9 +541,133 @@ export default function DriverAssignmentDetailPage() {
                   
                   <div className='lg:col-span-2'>
                     <h3 className='text-sm font-medium text-gray-500 mb-2'>Address</h3>
-                    <p className='text-base lg:text-lg font-medium text-gray-900 break-words'>
-                      {assignment.order.customerAddress || 'No address provided'}
-                    </p>
+                    
+                    {/* Detailed Address Display */}
+                    {assignment.order.address ? (
+                      <div className='space-y-3'>
+                        {/* Location Type Badge */}
+                        <div className='flex items-center gap-2'>
+                          <span className='inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800'>
+                            {assignment.order.address.locationType ? 
+                              assignment.order.address.locationType?.charAt(0)?.toUpperCase() + assignment.order?.address?.locationType?.slice(1) : 
+                              'Location'
+                            }
+                          </span>
+                          {assignment.order.address.locationType && (
+                            <span className='text-sm text-gray-500'>
+                              ({getLocationTypeDescription(assignment.order?.address?.locationType)})
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Main Address */}
+                        {assignment.order.address.addressLine1 && (
+                          <div className='bg-gray-50 p-3 rounded-lg'>
+                            <p className='text-sm font-medium text-gray-500 mb-1'>Full Address</p>
+                            <p className='text-base lg:text-lg font-medium text-gray-900'>
+                              {assignment.order.address.addressLine1}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Address Line 2 */}
+                        {assignment.order.address.addressLine2 && (
+                          <div className='bg-gray-50 p-3 rounded-lg'>
+                            <p className='text-sm font-medium text-gray-500 mb-1'>Additional Details</p>
+                            <p className='text-base text-gray-700'>
+                              {assignment.order.address.addressLine2}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Location Specific Details */}
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                                                     {/* Building Information */}
+                           {assignment.order.address.building && (
+                             <div className='bg-gray-50 p-3 rounded-lg'>
+                               <p className='text-sm font-medium text-gray-500 mb-1'>
+                                 {assignment.order.address.locationType === 'hotel' ? 'Hotel Name' : 
+                                  assignment.order.address.locationType === 'office' ? 'Office Building' : 
+                                  assignment.order.address.locationType === 'home' ? 'House Number' :
+                                  'Building Name'}
+                               </p>
+                               <p className='text-base font-medium text-gray-900'>
+                                 {assignment.order.address.building}
+                               </p>
+                             </div>
+                           )}
+                           
+                           {/* Floor Information */}
+                           {assignment.order.address.floor && (
+                             <div className='bg-gray-50 p-3 rounded-lg'>
+                               <p className='text-sm font-medium text-gray-500 mb-1'>
+                                 {assignment.order.address.locationType === 'hotel' ? 'Room Number' : 
+                                  assignment.order.address.locationType === 'flat' ? 'Floor Number' : 
+                                  assignment.order.address.locationType === 'home' ? 'House Details' :
+                                  'Floor'}
+                               </p>
+                               <p className='text-base font-medium text-gray-900'>
+                                 {assignment.order.address.floor}
+                               </p>
+                             </div>
+                           )}
+                           
+                           {/* Apartment/Unit Information */}
+                           {assignment.order.address.apartment && (
+                             <div className='bg-gray-50 p-3 rounded-lg'>
+                               <p className='text-sm font-medium text-gray-500 mb-1'>
+                                 {assignment.order.address.locationType === 'flat' ? 'Apartment Number' : 
+                                  assignment.order.address.locationType === 'office' ? 'Office Number' : 
+                                  assignment.order.address.locationType === 'home' ? 'House Details' :
+                                  'Unit Number'}
+                               </p>
+                               <p className='text-base font-medium text-gray-900'>
+                                 {assignment.order.address.apartment}
+                               </p>
+                             </div>
+                           )}
+                          
+                          {/* Area Information */}
+                          {assignment.order.address.area && (
+                            <div className='bg-gray-50 p-3 rounded-lg'>
+                              <p className='text-sm font-medium text-gray-500 mb-1'>Area/Road</p>
+                              <p className='text-base font-medium text-gray-900'>
+                                {assignment.order.address.area}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Landmark Information */}
+                        {assignment.order.address.landmark && (
+                          <div className='bg-gray-50 p-3 rounded-lg'>
+                            <p className='text-sm font-medium text-gray-500 mb-1'>Nearby Landmark</p>
+                            <p className='text-base font-medium text-gray-900'>
+                              {assignment.order.address.landmark}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* City */}
+                        {assignment.order.address.city && (
+                          <div className='bg-gray-50 p-3 rounded-lg'>
+                            <p className='text-sm font-medium text-gray-500 mb-1'>City</p>
+                            <p className='text-base font-medium text-gray-900'>
+                              {assignment.order.address.city}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Fallback to customer address */
+                      <div className='bg-gray-50 p-3 rounded-lg'>
+                        <p className='text-sm font-medium text-gray-500 mb-1'>Customer Address</p>
+                        <p className='text-base lg:text-lg font-medium text-gray-900 break-words'>
+                          {assignment.order.customerAddress || 'No address provided'}
+                        </p>
+                      </div>
+                    )}
+                    
                     {/* Open in Maps Button */}
                     {(assignment.order.address?.latitude && assignment.order.address?.longitude) || assignment.order.customerAddress ? (
                       <div className='mt-3'>

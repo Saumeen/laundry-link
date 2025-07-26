@@ -181,74 +181,6 @@ export async function PUT(
           notes,
         },
       });
-
-      // Send email notification based on conditions
-      if (currentOrder.customer && (sendEmailNotification || hasChanges)) {
-        try {
-          if (hasChanges) {
-            // If admin made changes, send order update email
-            const changes: string[] = [];
-            
-            if (pickupStartTime && new Date(pickupStartTime).getTime() !== currentOrder.pickupStartTime?.getTime()) {
-              changes.push('Pickup time updated');
-            }
-            if (pickupEndTime && new Date(pickupEndTime).getTime() !== currentOrder.pickupEndTime?.getTime()) {
-              changes.push('Pickup end time updated');
-            }
-            if (deliveryStartTime && new Date(deliveryStartTime).getTime() !== currentOrder.deliveryStartTime?.getTime()) {
-              changes.push('Delivery time updated');
-            }
-            if (deliveryEndTime && new Date(deliveryEndTime).getTime() !== currentOrder.deliveryEndTime?.getTime()) {
-              changes.push('Delivery end time updated');
-            }
-            if (specialInstructions !== undefined && specialInstructions !== currentOrder.specialInstructions) {
-              changes.push('Special instructions updated');
-            }
-            if (addressLabel !== undefined && addressLabel !== currentOrder.address?.label ||
-                addressLine1 !== undefined && addressLine1 !== currentOrder.address?.addressLine1 ||
-                addressLine2 !== undefined && addressLine2 !== currentOrder.address?.addressLine2 ||
-                city !== undefined && city !== currentOrder.address?.city ||
-                area !== undefined && area !== currentOrder.address?.area ||
-                building !== undefined && building !== currentOrder.address?.building ||
-                floor !== undefined && floor !== currentOrder.address?.floor ||
-                apartment !== undefined && apartment !== currentOrder.address?.apartment ||
-                contactNumber !== undefined && contactNumber !== currentOrder.address?.contactNumber ||
-                locationType !== undefined && locationType !== currentOrder.address?.locationType) {
-              changes.push('Address details updated');
-            }
-            if (notes) changes.push('Additional notes added');
-
-            await emailService.sendOrderUpdateToCustomer(
-              currentOrder,
-              currentOrder.customer.email,
-              `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`,
-              {
-                pickupDateTime: currentOrder.pickupStartTime,
-                deliveryDateTime: currentOrder.deliveryStartTime,
-                services: currentOrder.orderServiceMappings.map(mapping => mapping.serviceId),
-                address: currentOrder.address?.addressLine1 || currentOrder.customerAddress,
-              },
-              changes
-            );
-          } else if (status === 'CONFIRMED' && sendEmailNotification) {
-            // If only status changed to CONFIRMED and admin explicitly wants to send email
-            await emailService.sendOrderConfirmationToCustomer(
-              currentOrder,
-              currentOrder.customer.email,
-              `${currentOrder.customer.firstName} ${currentOrder.customer.lastName}`,
-              {
-                pickupDateTime: currentOrder.pickupStartTime,
-                deliveryDateTime: currentOrder.deliveryStartTime,
-                services: currentOrder.orderServiceMappings.map(mapping => mapping.serviceId),
-                address: currentOrder.address?.addressLine1 || currentOrder.customerAddress,
-              }
-            );
-          }
-        } catch (emailError) {
-          console.error('Failed to send email notification:', emailError);
-          // Continue with order update even if email fails
-        }
-      }
     }
 
     // Update payment status if provided
@@ -357,10 +289,100 @@ export async function PUT(
       });
     }
 
+    // Send email notification based on conditions (after all updates are complete)
+    let emailSent = false;
+    if (currentOrder.customer && (sendEmailNotification || hasChanges)) {
+      try {
+        // Fetch the updated order data to send in email
+        const updatedOrder = await prisma.order.findUnique({
+          where: { id: parseInt(orderId) },
+          include: {
+            customer: true,
+            address: true,
+            orderServiceMappings: {
+              include: {
+                service: true,
+                orderItems: true,
+              },
+            },
+            orderProcessing: true,
+            driverAssignments: true,
+          },
+        });
+
+        if (updatedOrder) {
+          if (hasChanges) {
+            // If admin made changes, send order update email
+            const changes: string[] = [];
+            
+            if (pickupStartTime && new Date(pickupStartTime).getTime() !== currentOrder.pickupStartTime?.getTime()) {
+              changes.push('Pickup time updated');
+            }
+            if (pickupEndTime && new Date(pickupEndTime).getTime() !== currentOrder.pickupEndTime?.getTime()) {
+              changes.push('Pickup end time updated');
+            }
+            if (deliveryStartTime && new Date(deliveryStartTime).getTime() !== currentOrder.deliveryStartTime?.getTime()) {
+              changes.push('Delivery time updated');
+            }
+            if (deliveryEndTime && new Date(deliveryEndTime).getTime() !== currentOrder.deliveryEndTime?.getTime()) {
+              changes.push('Delivery end time updated');
+            }
+            if (specialInstructions !== undefined && specialInstructions !== currentOrder.specialInstructions) {
+              changes.push('Special instructions updated');
+            }
+            if (addressLabel !== undefined && addressLabel !== currentOrder.address?.label ||
+                addressLine1 !== undefined && addressLine1 !== currentOrder.address?.addressLine1 ||
+                addressLine2 !== undefined && addressLine2 !== currentOrder.address?.addressLine2 ||
+                city !== undefined && city !== currentOrder.address?.city ||
+                area !== undefined && area !== currentOrder.address?.area ||
+                building !== undefined && building !== currentOrder.address?.building ||
+                floor !== undefined && floor !== currentOrder.address?.floor ||
+                apartment !== undefined && apartment !== currentOrder.address?.apartment ||
+                contactNumber !== undefined && contactNumber !== currentOrder.address?.contactNumber ||
+                locationType !== undefined && locationType !== currentOrder.address?.locationType) {
+              changes.push('Address details updated');
+            }
+            if (notes) changes.push('Additional notes added');
+
+            await emailService.sendOrderUpdateToCustomer(
+              updatedOrder,
+              updatedOrder.customer.email,
+              `${updatedOrder.customer.firstName} ${updatedOrder.customer.lastName}`,
+              {
+                pickupDateTime: updatedOrder.pickupStartTime,
+                deliveryDateTime: updatedOrder.deliveryStartTime,
+                services: updatedOrder.orderServiceMappings.map(mapping => mapping.serviceId),
+                address: updatedOrder.address?.addressLine1 || updatedOrder.customerAddress,
+              },
+              changes
+            );
+            emailSent = true;
+          } else if (status === 'CONFIRMED' && sendEmailNotification) {
+            // If only status changed to CONFIRMED and admin explicitly wants to send email
+            await emailService.sendOrderConfirmationToCustomer(
+              updatedOrder,
+              updatedOrder.customer.email,
+              `${updatedOrder.customer.firstName} ${updatedOrder.customer.lastName}`,
+              {
+                pickupDateTime: updatedOrder.pickupStartTime,
+                deliveryDateTime: updatedOrder.deliveryStartTime,
+                services: updatedOrder.orderServiceMappings.map(mapping => mapping.serviceId),
+                address: updatedOrder.address?.addressLine1 || updatedOrder.customerAddress,
+              }
+            );
+            emailSent = true;
+          }
+        }
+      } catch (emailError) {
+        console.error('Failed to send email notification:', emailError);
+        // Continue with order update even if email fails
+      }
+    }
+
     return NextResponse.json({
       message: 'Order updated successfully',
       orderId: parseInt(orderId),
-      emailSent: currentOrder.customer && (sendEmailNotification || hasChanges),
+      emailSent,
       changesDetected: hasChanges,
     });
   } catch (error) {
