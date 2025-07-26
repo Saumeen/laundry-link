@@ -1,11 +1,11 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { signOut } from 'next-auth/react';
+import Logo from './Logo';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -31,15 +31,7 @@ export default function Navbar() {
         <div className='flex justify-between h-16 items-center'>
           <div className='flex items-center space-x-4'>
             <Link href='/' className='flex items-center'>
-              <Image
-                src='/images/toplogo.png'
-                alt='Laundry Link Logo'
-                width={130}
-                height={35}
-                className='object-contain'
-                priority
-                unoptimized
-              />
+              <Logo width={130} height={35} className='object-contain' />
             </Link>
 
             <div className='hidden sm:flex space-x-6'>
