@@ -25,7 +25,7 @@ interface DriverState {
     assignmentId: number,
     status: string,
     notes?: string
-  ) => Promise<void>;
+  ) => Promise<{ success: boolean; error?: string }>;
   uploadPhoto: (
     assignmentId: number,
     photoData: Record<string, unknown>
@@ -104,24 +104,29 @@ export const useDriverStore = create<DriverState>()(
               ),
               assignmentForm: { loading: false, success: true, error: null },
             }));
+            return { success: true };
           } else {
+            const errorMessage = response.error || 'Failed to update assignment';
             set({
               assignmentForm: {
                 loading: false,
                 success: false,
-                error: response.error || 'Failed to update assignment',
+                error: errorMessage,
               },
             });
+            return { success: false, error: errorMessage };
           }
         } catch (error) {
           console.error('Error updating assignment status:', error);
+          const errorMessage = 'An unexpected error occurred.';
           set({
             assignmentForm: {
               loading: false,
               success: false,
-              error: 'An unexpected error occurred.',
+              error: errorMessage,
             },
           });
+          return { success: false, error: errorMessage };
         }
       },
 
