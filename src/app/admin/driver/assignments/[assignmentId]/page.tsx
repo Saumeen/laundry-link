@@ -11,6 +11,7 @@ import {
 import { formatUTCForTimeDisplay, formatUTCForDisplay } from '@/lib/utils/timezone';
 import type { DriverAssignment } from '@/admin/api/driver';
 import PhotoCapture from '@/components/PhotoCapture';
+import { useToast } from '@/components/ui/Toast';
 
 export default function DriverAssignmentDetailPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function DriverAssignmentDetailPage() {
   
   const { user, isLoading, isAuthorized, logout } = useDriverAuth();
   const { assignments, loading, fetchAssignments, updateAssignmentStatus, uploadPhoto } = useDriverStore();
+  const { showToast } = useToast();
   
   const [assignment, setAssignment] = useState<DriverAssignment | null>(null);
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
@@ -94,22 +96,30 @@ export default function DriverAssignmentDetailPage() {
     
     setStatusUpdateLoading(true);
     try {
-      await updateAssignmentStatus(assignment.id, newStatus, notes);
+      const result = await updateAssignmentStatus(assignment.id, newStatus, notes);
       
-      // Only redirect if the status is DROPPED_OFF (final status for pickup) or COMPLETED (final status for delivery)
-      if (newStatus === 'DROPPED_OFF' || (newStatus === 'COMPLETED' && assignment.assignmentType === 'delivery')) {
-        // Show redirecting state immediately
-        setIsRedirecting(true);
+      if (result.success) {
+        showToast(`Status updated to ${getStatusDisplayName(newStatus)} successfully!`, 'success');
         
-        // Redirect immediately after successful completion
-        // Don't wait for fetchAssignments as the assignment will be removed from the list
-        router.push('/admin/driver/assignments');
+        // Only redirect if the status is DROPPED_OFF (final status for pickup) or COMPLETED (final status for delivery)
+        if (newStatus === 'DROPPED_OFF' || (newStatus === 'COMPLETED' && assignment.assignmentType === 'delivery')) {
+          // Show redirecting state immediately
+          setIsRedirecting(true);
+          
+          // Redirect immediately after successful completion
+          // Don't wait for fetchAssignments as the assignment will be removed from the list
+          router.push('/admin/driver/assignments');
+        } else {
+          // For other status updates, refresh the assignments to get updated data
+          await fetchAssignments();
+        }
       } else {
-        // For other status updates, refresh the assignments to get updated data
-        await fetchAssignments();
+        // Show error toast
+        showToast(result.error || 'Failed to update assignment status', 'error');
       }
     } catch (error) {
       console.error('Error updating assignment status:', error);
+      showToast('An unexpected error occurred while updating status', 'error');
     } finally {
       setStatusUpdateLoading(false);
     }
@@ -132,26 +142,35 @@ export default function DriverAssignmentDetailPage() {
       });
       
       // Then update status
-      await updateAssignmentStatus(assignment.id, pendingStatusUpdate, notes);
+      const result = await updateAssignmentStatus(assignment.id, pendingStatusUpdate, notes);
       
-      // Reset states
-      setPhotoData(null);
-      setPendingStatusUpdate(null);
-      
-      // Only redirect if the status is DROPPED_OFF (final status for pickup) or COMPLETED (final status for delivery)
-      if (pendingStatusUpdate === 'DROPPED_OFF' || (pendingStatusUpdate === 'COMPLETED' && assignment.assignmentType === 'delivery')) {
-        // Show redirecting state immediately
-        setIsRedirecting(true);
+      if (result.success) {
+        showToast(`Status updated to ${getStatusDisplayName(pendingStatusUpdate)} with photo successfully!`, 'success');
         
-        // Redirect immediately after successful completion
-        // Don't wait for fetchAssignments as the assignment will be removed from the list
-        router.push('/admin/driver/assignments');
+        // Reset states
+        setPhotoData(null);
+        setPendingStatusUpdate(null);
+        
+        // Only redirect if the status is DROPPED_OFF (final status for pickup) or COMPLETED (final status for delivery)
+        if (pendingStatusUpdate === 'DROPPED_OFF' || (pendingStatusUpdate === 'COMPLETED' && assignment.assignmentType === 'delivery')) {
+          // Show redirecting state immediately
+          setIsRedirecting(true);
+          
+          // Redirect immediately after successful completion
+          // Don't wait for fetchAssignments as the assignment will be removed from the list
+          router.push('/admin/driver/assignments');
+        } else {
+          // For other status updates, refresh the assignments to get updated data
+          await fetchAssignments();
+        }
       } else {
-        // For other status updates, refresh the assignments to get updated data
-        await fetchAssignments();
+        // Show error toast
+        showToast(result.error || 'Failed to update assignment status', 'error');
+        setPhotoError('Failed to update assignment status');
       }
     } catch (error) {
       console.error('Error updating assignment with photo:', error);
+      showToast('An unexpected error occurred while updating assignment with photo', 'error');
       setPhotoError('Failed to upload photo and update status');
     } finally {
       setStatusUpdateLoading(false);
