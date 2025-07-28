@@ -1,24 +1,9 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { ConfigurationManager } from '@/lib/utils/configuration';
 
 export async function GET() {
   try {
-    const config = await prisma.timeSlotConfig.findFirst({
-      where: {
-        isActive: true,
-      },
-    });
-
-    if (!config) {
-      // Return default configuration if none exists
-      return NextResponse.json({
-        config: {
-          slotDuration: 3,
-          startTime: '09:00',
-          endTime: '21:00',
-        },
-      });
-    }
+    const config = await ConfigurationManager.getTimeSlotConfig();
 
     return NextResponse.json({ config });
   } catch (error) {

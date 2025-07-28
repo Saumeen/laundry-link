@@ -653,7 +653,8 @@ function ScheduleContent() {
                   {currentStep < (isExpressService ? 3 : 4) && (
                     <button
                       onClick={handleNext}
-                      className='bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 transition-colors'
+                      disabled={currentStep === 1 && formData.services.length === 0}
+                      className='bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
                     >
                       Next
                     </button>

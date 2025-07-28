@@ -97,17 +97,18 @@ model Address {
 }
 
 // ===== ORDER SYSTEM =====
-// ===== TIME SLOT CONFIGURATION =====
-model TimeSlotConfig {
-  id              Int      @id @default(autoincrement())
-  slotDuration    Int      @default(3) // Duration in hours (e.g., 3 for 3-hour slots)
-  startTime       String   @default("09:00") // Business start time (e.g., "09:00")
-  endTime         String   @default("21:00") // Business end time (e.g., "21:00")
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// ===== CONFIGURATION SYSTEM =====
+model Configuration {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // e.g., "time_slot_duration", "business_start_time", "business_end_time"
+  value       String   // The configuration value as a string
+  description String?  // Optional description of what this configuration does
+  category    String   @default("general") // e.g., "time_slots", "business_hours", "pricing", etc.
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  @@map("time_slot_configs")
+  @@map("configurations")
 }
 
 model Order {

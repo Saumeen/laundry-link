@@ -334,12 +334,21 @@ export interface TimeSlot {
   date: string;
 }
 
-export interface TimeSlotConfig {
+export interface Configuration {
   id: number;
+  key: string;
+  value: string;
+  description?: string;
+  category: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TimeSlotConfig {
   slotDuration: number;
   startTime: string;
   endTime: string;
-  isActive: boolean;
 }
 
 // Validation Types

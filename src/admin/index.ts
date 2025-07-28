@@ -6,6 +6,7 @@ export { DashboardApi } from './api/dashboard';
 export { StatsCard } from './components/StatsCard';
 export { QuickActionButton } from './components/QuickActionButton';
 export { DashboardStats } from './components/DashboardStats';
+export { default as ConfigurationManager } from '../components/admin/ConfigurationManager';
 
 // Hooks
 export {

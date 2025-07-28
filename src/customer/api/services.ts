@@ -3,6 +3,7 @@ import type {
   PricingCategory,
   PricingItem,
   TimeSlot,
+  Configuration,
   TimeSlotConfig,
   ApiResponse,
 } from '@/shared/types/customer';
@@ -118,7 +119,7 @@ class ServicesApi {
     ApiResponse<{ config: TimeSlotConfig }>
   > {
     try {
-      const response = await fetch(`${this.baseUrl}/time-slots/config`, {
+      const response = await fetch(`${this.baseUrl}/time-slots`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

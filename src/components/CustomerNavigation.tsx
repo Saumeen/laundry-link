@@ -33,6 +33,25 @@ export default function CustomerNavigation({
     fetchProfile();
   }, [fetchProfile]);
 
+  // Add mobile bottom padding to body
+  useEffect(() => {
+    const addMobilePadding = () => {
+      if (window.innerWidth <= 640) {
+        document.body.style.paddingBottom = '140px';
+      } else {
+        document.body.style.paddingBottom = '';
+      }
+    };
+
+    addMobilePadding();
+    window.addEventListener('resize', addMobilePadding);
+
+    return () => {
+      document.body.style.paddingBottom = '';
+      window.removeEventListener('resize', addMobilePadding);
+    };
+  }, []);
+
   const handleLogout = () => {
     logout();
   };
@@ -46,6 +65,23 @@ export default function CustomerNavigation({
       ? 'text-blue-600 border-b-2 border-blue-600'
       : 'text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300';
   };
+
+  const getMobileActiveClass = (page: string) => {
+    return currentPage === page
+      ? 'text-blue-600 bg-blue-50'
+      : 'text-gray-500 hover:text-gray-700';
+  };
+
+  const navigationItems = [
+    { href: '/customer/dashboard', label: 'Dashboard', icon: '📊', page: 'dashboard' },
+    { href: '/customer/orders', label: 'Orders', icon: '📦', page: 'orders' },
+    { href: '/customer/schedule', label: 'Schedule', icon: '📅', page: 'schedule' },
+    { href: '/services', label: 'Services', icon: '🧺', page: 'services' },
+    { href: '/pricing', label: 'Pricing', icon: '💰', page: 'pricing' },
+    { href: '/customer/addresses', label: 'Addresses', icon: '📍', page: 'addresses' },
+    { href: '/customer/profile', label: 'Profile', icon: '👤', page: 'profile' },
+    { href: '/faq', label: 'FAQ', icon: '❓', page: 'faq' },
+  ];
 
   return (
     <>
@@ -108,67 +144,39 @@ export default function CustomerNavigation({
         </div>
       </div>
 
-      {/* Navigation Bar */}
-      <div className='bg-white shadow-sm border-b border-gray-200'>
+      {/* Desktop Navigation Bar */}
+      <div className='hidden sm:block bg-white shadow-sm border-b border-gray-200'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <nav className='flex space-x-8 overflow-x-auto'>
-            <Link
-              href='/customer/dashboard'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('dashboard')}`}
-            >
-              <span className='mr-2'>📊</span>
-              Dashboard
-            </Link>
-            <Link
-              href='/customer/orders'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('orders')}`}
-            >
-              <span className='mr-2'>📦</span>
-              Orders
-            </Link>
-            <Link
-              href='/customer/schedule'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('schedule')}`}
-            >
-              <span className='mr-2'>📅</span>
-              Schedule
-            </Link>
-            <Link
-              href='/services'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('services')}`}
-            >
-              <span className='mr-2'>🧺</span>
-              Services
-            </Link>
-            <Link
-              href='/pricing'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('pricing')}`}
-            >
-              <span className='mr-2'>💰</span>
-              Pricing
-            </Link>
-            <Link
-              href='/customer/addresses'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('addresses')}`}
-            >
-              <span className='mr-2'>📍</span>
-              Addresses
-            </Link>
-            <Link
-              href='/customer/profile'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('profile')}`}
-            >
-              <span className='mr-2'>👤</span>
-              Profile
-            </Link>
-            <Link
-              href='/faq'
-              className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass('faq')}`}
-            >
-              <span className='mr-2'>❓</span>
-              FAQ
-            </Link>
+            {navigationItems.map((item) => (
+              <Link
+                key={item.page}
+                href={item.href}
+                className={`flex items-center px-3 py-4 text-sm font-medium transition-colors whitespace-nowrap ${getActiveClass(item.page)}`}
+              >
+                <span className='mr-2'>{item.icon}</span>
+                {item.label}
+              </Link>
+            ))}
           </nav>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Tab Navigation */}
+      <div className='sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50'>
+        <div className='grid grid-cols-5 gap-1 p-2'>
+          {navigationItems
+            .filter(item => ['dashboard', 'orders', 'schedule', 'addresses', 'profile'].includes(item.page))
+            .map((item) => (
+              <Link
+                key={item.page}
+                href={item.href}
+                className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-colors ${getMobileActiveClass(item.page)}`}
+              >
+                <span className='text-lg mb-1'>{item.icon}</span>
+                <span className='text-xs font-medium'>{item.label}</span>
+              </Link>
+            ))}
         </div>
       </div>
     </>

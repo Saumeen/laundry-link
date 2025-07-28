@@ -27,7 +27,7 @@ export type {
   PricingCategory,
   PricingItem,
   TimeSlot,
-  TimeSlotConfig,
+  Configuration,
   CreateOrderData,
   UpdateProfileData,
   CreateAddressData,
