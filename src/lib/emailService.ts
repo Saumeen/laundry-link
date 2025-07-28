@@ -2,6 +2,30 @@ import * as sgMail from '@sendgrid/mail';
 import prisma from './prisma';
 import { OrderStatus } from '@prisma/client';
 
+// Helper function to convert UTC time to Bahrain time (AST - UTC+3)
+function convertToBahrainTime(date: Date): string {
+  return date.toLocaleString('en-GB', {
+    timeZone: 'Asia/Bahrain',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Helper function to convert UTC date to Bahrain date
+function convertToBahrainDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Bahrain',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 // Type definitions
 interface ServiceInfo {
   id: number;
@@ -166,28 +190,8 @@ export default {
               <h3 style="color: #1f2937; margin-top: 0;">Order Details</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
               <p><strong>Customer Name:</strong> ${customerName}</p>
-              <p><strong>Pickup Date/Time:</strong> ${orderDetails.pickupDateTime.toLocaleString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              )}</p>
-              <p><strong>Delivery Date/Time:</strong> ${orderDetails.deliveryDateTime.toLocaleString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              )}</p>
+              <p><strong>Pickup Date/Time:</strong> ${convertToBahrainTime(orderDetails.pickupDateTime)}</p>
+              <p><strong>Delivery Date/Time:</strong> ${convertToBahrainTime(orderDetails.deliveryDateTime)}</p>
               
               <h4 style="color: #1f2937; margin-bottom: 10px;">Services Selected:</h4>
               <ul style="margin: 0; padding-left: 20px;">
@@ -280,28 +284,8 @@ export default {
               <h3 style="color: #1f2937; margin-top: 0;">Updated Order Details</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
               <p><strong>Customer Name:</strong> ${customerName}</p>
-              <p><strong>Pickup Date/Time:</strong> ${orderDetails.pickupDateTime.toLocaleString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              )}</p>
-              <p><strong>Delivery Date/Time:</strong> ${orderDetails.deliveryDateTime.toLocaleString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              )}</p>
+              <p><strong>Pickup Date/Time:</strong> ${convertToBahrainTime(orderDetails.pickupDateTime)}</p>
+              <p><strong>Delivery Date/Time:</strong> ${convertToBahrainTime(orderDetails.deliveryDateTime)}</p>
               
               <h4 style="color: #1f2937; margin-bottom: 10px;">Services Selected:</h4>
               <ul style="margin: 0; padding-left: 20px;">
@@ -394,28 +378,8 @@ export default {
               <h3 style="color: #1f2937; margin-top: 0;">Order Details</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
               <p><strong>Customer Name:</strong> ${customerName}</p>
-              <p><strong>Pickup Date/Time:</strong> ${orderDetails.pickupDateTime.toLocaleString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              )}</p>
-              <p><strong>Delivery Date/Time:</strong> ${orderDetails.deliveryDateTime.toLocaleString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }
-              )}</p>
+              <p><strong>Pickup Date/Time:</strong> ${convertToBahrainTime(orderDetails.pickupDateTime)}</p>
+              <p><strong>Delivery Date/Time:</strong> ${convertToBahrainTime(orderDetails.deliveryDateTime)}</p>
               
               <h4 style="color: #1f2937; margin-bottom: 10px;">Services Selected:</h4>
               <ul style="margin: 0; padding-left: 20px;">
@@ -558,8 +522,8 @@ export default {
               <p><strong>Phone:</strong> ${customerDetails.phone}</p>
               <p><strong>Address:</strong> ${customerDetails.address}</p>
               <p><strong>Services:</strong> ${customerDetails.services.join(', ')}</p>
-              <p><strong>Pickup Time:</strong> ${new Date(order.pickupStartTime).toLocaleString()}</p>
-              <p><strong>Delivery Time:</strong> ${new Date(order.deliveryStartTime).toLocaleString()}</p>
+              <p><strong>Pickup Time:</strong> ${convertToBahrainTime(new Date(order.pickupStartTime))}</p>
+              <p><strong>Delivery Time:</strong> ${convertToBahrainTime(new Date(order.deliveryStartTime))}</p>
               ${order.specialInstructions ? `<p><strong>Special Instructions:</strong> ${order.specialInstructions}</p>` : ''}
             </div>
             
@@ -726,7 +690,7 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
               <p><strong>Current Status:</strong> <span style="color: ${statusInfo.color}; font-weight: bold;">${newStatus.replace(/_/g, ' ')}</span></p>
-              <p><strong>Updated:</strong> ${new Date().toLocaleString('en-GB')}</p>
+              <p><strong>Updated:</strong> ${convertToBahrainTime(new Date())}</p>
             </div>
             
             ${
@@ -819,15 +783,7 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                }
-              )}</p>
+              <p><strong>Delivery Date:</strong> ${convertToBahrainDate(new Date())}</p>
               <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${totalAmount.toFixed(3)} BD</span></p>
             </div>
 
@@ -955,15 +911,7 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Invoice Date:</strong> ${new Date().toLocaleDateString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                }
-              )}</p>
+              <p><strong>Invoice Date:</strong> ${convertToBahrainDate(new Date())}</p>
               <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${totalAmount.toFixed(3)} BD</span></p>
             </div>
 
@@ -1091,15 +1039,7 @@ export default {
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
               <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-              <p><strong>Processing Completed:</strong> ${new Date().toLocaleDateString(
-                'en-GB',
-                {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                }
-              )}</p>
+              <p><strong>Processing Completed:</strong> ${convertToBahrainDate(new Date())}</p>
               <p><strong>Total Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${totalAmount.toFixed(3)} BD</span></p>
             </div>
 

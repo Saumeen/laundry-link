@@ -37,8 +37,8 @@ export default function Home() {
       timeParam = 'last=20:00-22:00';
     }
 
-    // Redirect to schedule page with time parameter
-    window.location.href = `/schedule?${timeParam}`;
+    // Redirect to customer schedule page with time parameter
+    window.location.href = `/customer/schedule?${timeParam}`;
   };
 
   return (
@@ -167,7 +167,7 @@ export default function Home() {
               {/* See All Slots Link */}
               <div className='mt-6 text-center'>
                 <Link
-                  href='/schedule'
+                  href='/customer/schedule'
                   className='text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center justify-center space-x-1 hover:underline'
                 >
                   <span>See all slots</span>
