@@ -8,19 +8,14 @@ export async function POST(req: Request) {
     const admin = await requireAuthenticatedAdmin();
 
     const body = await req.json();
-    const { 
-      processingItemDetailId, 
-      images, 
-      issueType, 
-      description, 
-      severity 
-    } = body as {
-      processingItemDetailId: number;
-      images: string[]; // Array of base64 image strings
-      issueType: string;
-      description: string;
-      severity: string;
-    };
+    const { processingItemDetailId, images, issueType, description, severity } =
+      body as {
+        processingItemDetailId: number;
+        images: string[]; // Array of base64 image strings
+        issueType: string;
+        description: string;
+        severity: string;
+      };
 
     if (!processingItemDetailId || !images || images.length === 0) {
       return NextResponse.json(
@@ -81,7 +76,8 @@ export async function POST(req: Request) {
       // Create new issue report
       issueReport = await prisma.issueReport.create({
         data: {
-          orderProcessingId: processingItemDetail.processingItem.orderProcessing.id,
+          orderProcessingId:
+            processingItemDetail.processingItem.orderProcessing.id,
           staffId: admin.id,
           processingItemDetailId,
           images: images,
@@ -115,4 +111,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

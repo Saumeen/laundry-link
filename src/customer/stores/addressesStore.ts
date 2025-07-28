@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { CustomerAddress, AddressFilters, CreateAddressData, UpdateAddressData, FormState } from '@/shared/types/customer';
+import type {
+  CustomerAddress,
+  AddressFilters,
+  CreateAddressData,
+  UpdateAddressData,
+  FormState,
+} from '@/shared/types/customer';
 import { AddressesApi } from '@/customer/api/addresses';
 
 interface AddressesState {
@@ -86,88 +92,133 @@ export const useAddressesStore = create<AddressesState>()(
       },
 
       createAddress: async (addressData: CreateAddressData) => {
-        set((state) => ({
-          createAddressForm: { ...state.createAddressForm, loading: true, error: null, success: false }
+        set(state => ({
+          createAddressForm: {
+            ...state.createAddressForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
           const response = await AddressesApi.createAddress(addressData);
 
           if (response.success && response.data && response.data.address) {
-            set((state) => ({
+            set(state => ({
               createAddressForm: { loading: false, error: null, success: true },
               addresses: [response.data!.address, ...state.addresses],
               showAddressForm: false,
             }));
           } else {
-            set((state) => ({
-              createAddressForm: { ...state.createAddressForm, loading: false, error: response.error || 'Failed to create address' }
+            set(state => ({
+              createAddressForm: {
+                ...state.createAddressForm,
+                loading: false,
+                error: response.error || 'Failed to create address',
+              },
             }));
           }
         } catch (error) {
           console.error('Error creating address:', error);
-          set((state) => ({
-            createAddressForm: { ...state.createAddressForm, loading: false, error: 'Network error occurred' }
+          set(state => ({
+            createAddressForm: {
+              ...state.createAddressForm,
+              loading: false,
+              error: 'Network error occurred',
+            },
           }));
         }
       },
 
       updateAddress: async (addressData: UpdateAddressData) => {
-        set((state) => ({
-          updateAddressForm: { ...state.updateAddressForm, loading: true, error: null, success: false }
+        set(state => ({
+          updateAddressForm: {
+            ...state.updateAddressForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
           const response = await AddressesApi.updateAddress(addressData);
 
           if (response.success && response.data) {
-            set((state) => ({
+            set(state => ({
               updateAddressForm: { loading: false, error: null, success: true },
-              addresses: state.addresses.map(address => 
+              addresses: state.addresses.map(address =>
                 address.id === addressData.id ? response.data!.address : address
               ),
-              selectedAddress: state.selectedAddress?.id === addressData.id 
-                ? response.data!.address 
-                : state.selectedAddress,
+              selectedAddress:
+                state.selectedAddress?.id === addressData.id
+                  ? response.data!.address
+                  : state.selectedAddress,
               showAddressForm: false,
             }));
           } else {
-            set((state) => ({
-              updateAddressForm: { ...state.updateAddressForm, loading: false, error: response.error || 'Failed to update address' }
+            set(state => ({
+              updateAddressForm: {
+                ...state.updateAddressForm,
+                loading: false,
+                error: response.error || 'Failed to update address',
+              },
             }));
           }
         } catch (error) {
           console.error('Error updating address:', error);
-          set((state) => ({
-            updateAddressForm: { ...state.updateAddressForm, loading: false, error: 'Network error occurred' }
+          set(state => ({
+            updateAddressForm: {
+              ...state.updateAddressForm,
+              loading: false,
+              error: 'Network error occurred',
+            },
           }));
         }
       },
 
       deleteAddress: async (addressId: number) => {
-        set((state) => ({
-          deleteAddressForm: { ...state.deleteAddressForm, loading: true, error: null, success: false }
+        set(state => ({
+          deleteAddressForm: {
+            ...state.deleteAddressForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
           const response = await AddressesApi.deleteAddress(addressId);
 
           if (response.success) {
-            set((state) => ({
+            set(state => ({
               deleteAddressForm: { loading: false, error: null, success: true },
-              addresses: state.addresses.filter(address => address.id !== addressId),
-              selectedAddress: state.selectedAddress?.id === addressId ? null : state.selectedAddress,
+              addresses: state.addresses.filter(
+                address => address.id !== addressId
+              ),
+              selectedAddress:
+                state.selectedAddress?.id === addressId
+                  ? null
+                  : state.selectedAddress,
               showAddressDetails: false,
             }));
           } else {
-            set((state) => ({
-              deleteAddressForm: { ...state.deleteAddressForm, loading: false, error: response.error || 'Failed to delete address' }
+            set(state => ({
+              deleteAddressForm: {
+                ...state.deleteAddressForm,
+                loading: false,
+                error: response.error || 'Failed to delete address',
+              },
             }));
           }
         } catch (error) {
           console.error('Error deleting address:', error);
-          set((state) => ({
-            deleteAddressForm: { ...state.deleteAddressForm, loading: false, error: 'Network error occurred' }
+          set(state => ({
+            deleteAddressForm: {
+              ...state.deleteAddressForm,
+              loading: false,
+              error: 'Network error occurred',
+            },
           }));
         }
       },
@@ -177,10 +228,10 @@ export const useAddressesStore = create<AddressesState>()(
           const response = await AddressesApi.setDefaultAddress(addressId);
 
           if (response.success) {
-            set((state) => ({
+            set(state => ({
               addresses: state.addresses.map(address => ({
                 ...address,
-                isDefault: address.id === addressId
+                isDefault: address.id === addressId,
               })),
             }));
           } else {
@@ -192,8 +243,8 @@ export const useAddressesStore = create<AddressesState>()(
       },
 
       setFilters: (filters: Partial<AddressFilters>) => {
-        set((state) => ({
-          filters: { ...state.filters, ...filters }
+        set(state => ({
+          filters: { ...state.filters, ...filters },
         }));
       },
 
@@ -202,15 +253,15 @@ export const useAddressesStore = create<AddressesState>()(
       },
 
       toggleAddressForm: () => {
-        set((state) => ({ showAddressForm: !state.showAddressForm }));
+        set(state => ({ showAddressForm: !state.showAddressForm }));
       },
 
       toggleAddressDetails: () => {
-        set((state) => ({ showAddressDetails: !state.showAddressDetails }));
+        set(state => ({ showAddressDetails: !state.showAddressDetails }));
       },
     }),
     {
       name: 'customer-addresses-store',
     }
   )
-); 
+);

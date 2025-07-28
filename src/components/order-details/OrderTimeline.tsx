@@ -6,14 +6,16 @@ const STATUS_CONFIG = {
     color: 'bg-blue-50 text-blue-700 border-blue-200',
     bgColor: 'bg-blue-100',
     icon: '📋',
-    description: 'Your order has been successfully placed and is awaiting confirmation',
+    description:
+      'Your order has been successfully placed and is awaiting confirmation',
     step: 1,
   },
   [OrderStatus.CONFIRMED]: {
     color: 'bg-green-50 text-green-700 border-green-200',
     bgColor: 'bg-green-100',
     icon: '✅',
-    description: 'Your order has been confirmed and is being prepared for pickup',
+    description:
+      'Your order has been confirmed and is being prepared for pickup',
     step: 2,
   },
   [OrderStatus.PICKUP_ASSIGNED]: {
@@ -174,7 +176,7 @@ interface OrderTimelineProps {
 export function OrderTimeline({ orderDetails }: OrderTimelineProps) {
   const currentStep = getStatusConfig(orderDetails.status).step;
   const totalSteps = 14;
-  
+
   // Simplified timeline steps - showing only key milestones
   const timelineSteps = [
     { step: 1, title: 'Order Placed', icon: '📋' },
@@ -189,36 +191,40 @@ export function OrderTimeline({ orderDetails }: OrderTimelineProps) {
   return (
     <div className='bg-white border border-gray-200 rounded-xl p-4 shadow-sm'>
       <h3 className='text-lg font-bold text-gray-900 mb-4'>Order Progress</h3>
-      
+
       {/* Progress Bar */}
       <div className='mb-4'>
         <div className='flex items-center justify-between mb-2'>
           <span className='text-sm font-medium text-gray-700'>Progress</span>
-          <span className='text-sm text-gray-500'>{Math.round((currentStep / totalSteps) * 100)}%</span>
+          <span className='text-sm text-gray-500'>
+            {Math.round((currentStep / totalSteps) * 100)}%
+          </span>
         </div>
         <div className='w-full bg-gray-200 rounded-full h-2'>
-          <div 
+          <div
             className='h-2 bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500'
             style={{ width: `${(currentStep / totalSteps) * 100}%` }}
           ></div>
         </div>
       </div>
-      
+
       {/* Compact Timeline */}
       <div className='space-y-3'>
         {timelineSteps.map((step, index) => {
           const isCompleted = step.step <= currentStep;
           const isCurrent = step.step === currentStep;
-          
+
           return (
             <div key={step.step} className='flex items-center space-x-3'>
-              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                isCompleted 
-                  ? 'bg-green-500 border-green-500 text-white shadow-sm' 
-                  : isCurrent
-                  ? 'bg-blue-500 border-blue-500 text-white shadow-sm animate-pulse'
-                  : 'bg-gray-100 border-gray-300 text-gray-400'
-              }`}>
+              <div
+                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                  isCompleted
+                    ? 'bg-green-500 border-green-500 text-white shadow-sm'
+                    : isCurrent
+                      ? 'bg-blue-500 border-blue-500 text-white shadow-sm animate-pulse'
+                      : 'bg-gray-100 border-gray-300 text-gray-400'
+                }`}
+              >
                 {isCompleted ? (
                   <span className='text-sm'>✓</span>
                 ) : (
@@ -226,9 +232,15 @@ export function OrderTimeline({ orderDetails }: OrderTimelineProps) {
                 )}
               </div>
               <div className='flex-1 min-w-0'>
-                <h4 className={`text-sm font-medium ${
-                  isCompleted ? 'text-green-700' : isCurrent ? 'text-blue-700' : 'text-gray-500'
-                }`}>
+                <h4
+                  className={`text-sm font-medium ${
+                    isCompleted
+                      ? 'text-green-700'
+                      : isCurrent
+                        ? 'text-blue-700'
+                        : 'text-gray-500'
+                  }`}
+                >
                   {step.title}
                 </h4>
               </div>
@@ -255,4 +267,4 @@ export function OrderTimeline({ orderDetails }: OrderTimelineProps) {
       </div>
     </div>
   );
-} 
+}

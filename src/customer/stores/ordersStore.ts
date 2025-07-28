@@ -68,7 +68,9 @@ export const useOrdersStore = create<OrdersState>()(
                 page: currentFilters.page ?? 1,
                 limit: currentFilters.limit ?? 10,
                 total: data.total,
-                totalPages: Math.ceil(data.total / (currentFilters.limit ?? 10)),
+                totalPages: Math.ceil(
+                  data.total / (currentFilters.limit ?? 10)
+                ),
               },
               filters: currentFilters,
             });
@@ -87,8 +89,13 @@ export const useOrdersStore = create<OrdersState>()(
       },
 
       createOrder: async (orderData: any) => {
-        set((state) => ({
-          createOrderForm: { ...state.createOrderForm, loading: true, error: null, success: false }
+        set(state => ({
+          createOrderForm: {
+            ...state.createOrderForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
@@ -96,59 +103,84 @@ export const useOrdersStore = create<OrdersState>()(
 
           if (response.success && response.data && 'order' in response.data) {
             const data = response.data;
-            set((state) => ({
+            set(state => ({
               createOrderForm: { loading: false, error: null, success: true },
               orders: [data.order, ...state.orders],
             }));
           } else {
-            set((state) => ({
-              createOrderForm: { ...state.createOrderForm, loading: false, error: response.error || 'Failed to create order' }
+            set(state => ({
+              createOrderForm: {
+                ...state.createOrderForm,
+                loading: false,
+                error: response.error || 'Failed to create order',
+              },
             }));
           }
         } catch (error) {
           console.error('Error creating order:', error);
-          set((state) => ({
-            createOrderForm: { ...state.createOrderForm, loading: false, error: 'Network error occurred' }
+          set(state => ({
+            createOrderForm: {
+              ...state.createOrderForm,
+              loading: false,
+              error: 'Network error occurred',
+            },
           }));
         }
       },
 
       cancelOrder: async (orderId: number) => {
-        set((state) => ({
-          cancelOrderForm: { ...state.cancelOrderForm, loading: true, error: null, success: false }
+        set(state => ({
+          cancelOrderForm: {
+            ...state.cancelOrderForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
           const response = await OrdersApi.cancelOrder(orderId);
 
           if (response.success) {
-            set((state) => ({
+            set(state => ({
               cancelOrderForm: { loading: false, error: null, success: true },
-              orders: state.orders.map(order => 
-                order.id === orderId 
+              orders: state.orders.map(order =>
+                order.id === orderId
                   ? { ...order, status: 'CANCELLED' as OrderStatus }
                   : order
               ),
-              selectedOrder: state.selectedOrder?.id === orderId 
-                ? { ...state.selectedOrder, status: 'CANCELLED' as OrderStatus }
-                : state.selectedOrder,
+              selectedOrder:
+                state.selectedOrder?.id === orderId
+                  ? {
+                      ...state.selectedOrder,
+                      status: 'CANCELLED' as OrderStatus,
+                    }
+                  : state.selectedOrder,
             }));
           } else {
-            set((state) => ({
-              cancelOrderForm: { ...state.cancelOrderForm, loading: false, error: response.error || 'Failed to cancel order' }
+            set(state => ({
+              cancelOrderForm: {
+                ...state.cancelOrderForm,
+                loading: false,
+                error: response.error || 'Failed to cancel order',
+              },
             }));
           }
         } catch (error) {
           console.error('Error canceling order:', error);
-          set((state) => ({
-            cancelOrderForm: { ...state.cancelOrderForm, loading: false, error: 'Network error occurred' }
+          set(state => ({
+            cancelOrderForm: {
+              ...state.cancelOrderForm,
+              loading: false,
+              error: 'Network error occurred',
+            },
           }));
         }
       },
 
       setFilters: (filters: Partial<OrderFilters>) => {
-        set((state) => ({
-          filters: { ...state.filters, ...filters }
+        set(state => ({
+          filters: { ...state.filters, ...filters },
         }));
       },
 
@@ -157,11 +189,11 @@ export const useOrdersStore = create<OrdersState>()(
       },
 
       toggleOrderDetails: () => {
-        set((state) => ({ showOrderDetails: !state.showOrderDetails }));
+        set(state => ({ showOrderDetails: !state.showOrderDetails }));
       },
     }),
     {
       name: 'customer-orders-store',
     }
   )
-); 
+);

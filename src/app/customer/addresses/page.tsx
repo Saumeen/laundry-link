@@ -13,18 +13,18 @@ export default function CustomerAddressesPage() {
   }, [fetchProfile]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       <CustomerNavigation
-        currentPage="addresses"
-        title="My Addresses"
+        currentPage='addresses'
+        title='My Addresses'
         subtitle={`Welcome back, ${profile?.firstName} ${profile?.lastName}`}
-        icon="📍"
+        icon='📍'
       />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
         <AddressManagement />
       </div>
     </div>
   );
-} 
+}

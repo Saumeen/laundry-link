@@ -103,26 +103,39 @@ interface OrderItemsTabProps {
   order: Order;
   onRefresh: () => void;
   isSuperAdmin?: boolean;
+  onDeleteOrderItem?: (orderId: number, itemId: number) => Promise<void>;
 }
 
-export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }: OrderItemsTabProps) {
+export default function OrderItemsTab({
+  order,
+  onRefresh,
+  isSuperAdmin = false,
+  onDeleteOrderItem,
+}: OrderItemsTabProps) {
   const [selectedService, setSelectedService] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Get all order items from all services
-  const allOrderItems = order.orderServiceMappings?.flatMap(mapping => 
-    mapping.orderItems?.map(item => ({
-      ...item,
-      serviceName: mapping.service.displayName,
-      serviceId: mapping.service.id
-    })) || []
-  ) || [];
+  const allOrderItems =
+    order.orderServiceMappings?.flatMap(
+      mapping =>
+        mapping.orderItems?.map(item => ({
+          ...item,
+          serviceName: mapping.service.displayName,
+          serviceId: mapping.service.id,
+        })) || []
+    ) || [];
 
   // Filter items based on selected service and search term
   const filteredItems = allOrderItems.filter(item => {
-    const matchesService = selectedService === 'all' || item.serviceId.toString() === selectedService;
-    const matchesSearch = (item.itemName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-                         (item.serviceName?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    const matchesService =
+      selectedService === 'all' ||
+      item.serviceId.toString() === selectedService;
+    const matchesSearch =
+      (item.itemName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (item.serviceName?.toLowerCase() || '').includes(
+        searchTerm.toLowerCase()
+      );
     return matchesService && matchesSearch;
   });
 
@@ -147,7 +160,10 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
   };
 
   const totalItems = allOrderItems.length;
-  const totalValue = allOrderItems.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
+  const totalValue = allOrderItems.reduce(
+    (sum, item) => sum + (item.totalPrice || 0),
+    0
+  );
 
   const getItemName = (item: OrderItem) => {
     return item.itemName || `Item ${item.id}`;
@@ -166,38 +182,50 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
   };
 
   // API functions for super admin
-  const handleAddOrderItem = async (orderId: number, itemData: any): Promise<void> => {
+  const handleAddOrderItem = async (
+    orderId: number,
+    itemData: any
+  ): Promise<void> => {
     const response = await fetch('/api/admin/add-order-item', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId, ...itemData }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to add order item');
     }
-    
+
     await response.json();
   };
 
-  const handleUpdateItemProcessing = async (orderId: string, processingItemDetailId: number, data: any): Promise<void> => {
-    const response = await fetch(`/api/admin/facility-team/processing?orderId=${orderId}&action=updateItem`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        processingItemDetailId,
-        processedQuantity: parseInt(data.processedQuantity) || 0,
-        status: data.status,
-        processingNotes: data.processingNotes,
-        qualityScore: data.qualityScore ? parseInt(data.qualityScore) : undefined,
-        updateParentStatus: true,
-      }),
-    });
-    
+  const handleUpdateItemProcessing = async (
+    orderId: string,
+    processingItemDetailId: number,
+    data: any
+  ): Promise<void> => {
+    const response = await fetch(
+      `/api/admin/facility-team/processing?orderId=${orderId}&action=updateItem`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          processingItemDetailId,
+          processedQuantity: parseInt(data.processedQuantity) || 0,
+          status: data.status,
+          processingNotes: data.processingNotes,
+          qualityScore: data.qualityScore
+            ? parseInt(data.qualityScore)
+            : undefined,
+          updateParentStatus: true,
+        }),
+      }
+    );
+
     if (!response.ok) {
       throw new Error('Failed to update item processing');
     }
-    
+
     await response.json();
   };
 
@@ -213,15 +241,17 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         processingNotes: 'Processing started by super admin',
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to start processing');
     }
-    
+
     await response.json();
   };
 
-  const handleMarkAsReadyForDelivery = async (orderId: number): Promise<void> => {
+  const handleMarkAsReadyForDelivery = async (
+    orderId: number
+  ): Promise<void> => {
     const response = await fetch('/api/admin/facility/actions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -231,11 +261,11 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         notes: 'Order marked as ready for delivery by super admin',
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to mark as ready for delivery');
     }
-    
+
     await response.json();
   };
 
@@ -249,15 +279,17 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         notes: 'Invoice generated by super admin',
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to generate invoice');
     }
-    
+
     await response.json();
   };
 
-  const handleMarkProcessingCompleted = async (orderId: number): Promise<void> => {
+  const handleMarkProcessingCompleted = async (
+    orderId: number
+  ): Promise<void> => {
     const response = await fetch('/api/admin/facility/actions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -267,15 +299,21 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         notes: 'Processing completed by super admin',
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to mark processing as completed');
     }
-    
+
     await response.json();
   };
 
-  const handleUploadIssueImages = async (processingItemDetailId: number, images: string[], issueType: string, description: string, severity: string): Promise<void> => {
+  const handleUploadIssueImages = async (
+    processingItemDetailId: number,
+    images: string[],
+    issueType: string,
+    description: string,
+    severity: string
+  ): Promise<void> => {
     const response = await fetch('/api/admin/facility-team/issue-reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -287,22 +325,46 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         severity,
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to upload issue images');
     }
-    
+
     await response.json();
   };
 
-  const handleFetchIssueReports = async (processingItemDetailId: number): Promise<void> => {
-    const response = await fetch(`/api/admin/facility-team/issue-reports?processingItemDetailId=${processingItemDetailId}`);
-    
+  const handleFetchIssueReports = async (
+    processingItemDetailId: number
+  ): Promise<void> => {
+    const response = await fetch(
+      `/api/admin/facility-team/issue-reports?processingItemDetailId=${processingItemDetailId}`
+    );
+
     if (!response.ok) {
       throw new Error('Failed to fetch issue reports');
     }
-    
+
     await response.json();
+  };
+
+  const handleDeleteOrderItem = async (itemId: number, itemName: string) => {
+    if (!onDeleteOrderItem) {
+      console.warn('Delete order item function not provided');
+      return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await onDeleteOrderItem(order.id, itemId);
+      onRefresh();
+    } catch (error) {
+      console.error('Error deleting order item:', error);
+      alert('Failed to delete item. Please try again.');
+    }
   };
 
   return (
@@ -311,9 +373,7 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         <h3 className='text-lg font-semibold text-gray-900'>
           Order Items & Processing
         </h3>
-        <span className='text-sm text-gray-500'>
-          {totalItems} items
-        </span>
+        <span className='text-sm text-gray-500'>{totalItems} items</span>
       </div>
 
       {/* Filters */}
@@ -325,7 +385,7 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
             </label>
             <select
               value={selectedService}
-              onChange={(e) => setSelectedService(e.target.value)}
+              onChange={e => setSelectedService(e.target.value)}
               className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
             >
               <option value='all'>All Services</option>
@@ -344,7 +404,7 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
               type='text'
               placeholder='Search by item name or service...'
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
               className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
             />
           </div>
@@ -359,7 +419,9 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         </div>
         <div className='bg-white border border-gray-200 rounded-lg p-4'>
           <div className='text-sm text-gray-600'>Total Value</div>
-          <div className='text-2xl font-bold text-blue-600'>{totalValue.toFixed(3)} BD</div>
+          <div className='text-2xl font-bold text-blue-600'>
+            {totalValue.toFixed(3)} BD
+          </div>
         </div>
         <div className='bg-white border border-gray-200 rounded-lg p-4'>
           <div className='text-sm text-gray-600'>Services</div>
@@ -375,6 +437,7 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
         onRefresh={onRefresh}
         isSuperAdmin={isSuperAdmin}
         onAddOrderItem={handleAddOrderItem}
+        onDeleteOrderItem={onDeleteOrderItem}
         onUpdateItemProcessing={handleUpdateItemProcessing}
         onStartProcessing={handleStartProcessing}
         onMarkAsReadyForDelivery={handleMarkAsReadyForDelivery}
@@ -388,8 +451,18 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
       {filteredItems.length === 0 ? (
         <div className='text-center py-8'>
           <div className='text-gray-400 mb-2'>
-            <svg className='mx-auto h-12 w-12' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4' />
+            <svg
+              className='mx-auto h-12 w-12'
+              fill='none'
+              viewBox='0 0 24 24'
+              stroke='currentColor'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4'
+              />
             </svg>
           </div>
           <p className='text-gray-500'>No items found matching your criteria</p>
@@ -418,10 +491,15 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Status
                   </th>
+                  {onDeleteOrderItem && (
+                    <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className='bg-white divide-y divide-gray-200'>
-                {filteredItems.map((item) => (
+                {filteredItems.map(item => (
                   <tr key={item.id} className='hover:bg-gray-50'>
                     <td className='px-6 py-4 whitespace-nowrap'>
                       <div>
@@ -463,6 +541,17 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
                         Active
                       </span>
                     </td>
+                    {onDeleteOrderItem && (
+                      <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
+                        <button
+                          onClick={() => handleDeleteOrderItem(item.id, getItemName(item))}
+                          className='text-red-600 hover:text-red-900 font-medium'
+                          title='Delete this item'
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -483,7 +572,10 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
             </div>
             <div className='text-right'>
               <div className='text-lg font-bold text-blue-900'>
-                {filteredItems.reduce((sum, item) => sum + getItemTotalPrice(item), 0).toFixed(3)} BD
+                {filteredItems
+                  .reduce((sum, item) => sum + getItemTotalPrice(item), 0)
+                  .toFixed(3)}{' '}
+                BD
               </div>
               <div className='text-sm text-blue-700'>Filtered Total</div>
             </div>
@@ -492,4 +584,4 @@ export default function OrderItemsTab({ order, onRefresh, isSuperAdmin = false }
       )}
     </div>
   );
-} 
+}

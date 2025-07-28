@@ -450,7 +450,7 @@ export async function DELETE(req: Request) {
 
     // For pickup assignments, check if order is still in early stages
     if (assignmentType === 'pickup') {
-      const nonCancellablePickupStatuses : OrderStatus[] = [
+      const nonCancellablePickupStatuses: OrderStatus[] = [
         OrderStatus.PICKUP_COMPLETED,
         OrderStatus.RECEIVED_AT_FACILITY,
         OrderStatus.PROCESSING_STARTED,
@@ -529,7 +529,12 @@ export async function PATCH(req: Request) {
   try {
     await requireAuthenticatedAdmin();
 
-    const { assignmentId, newDriverId, estimatedTime, notes }: ReassignDriverAssignmentRequest = await req.json();
+    const {
+      assignmentId,
+      newDriverId,
+      estimatedTime,
+      notes,
+    }: ReassignDriverAssignmentRequest = await req.json();
 
     if (!assignmentId || !newDriverId) {
       return NextResponse.json(
@@ -601,7 +606,10 @@ export async function PATCH(req: Request) {
 
     if (activeAssignment) {
       return NextResponse.json(
-        { error: 'There is already an active assignment for this order and type' },
+        {
+          error:
+            'There is already an active assignment for this order and type',
+        },
         { status: 409 }
       );
     }
@@ -612,7 +620,9 @@ export async function PATCH(req: Request) {
       data: {
         driverId: parseInt(newDriverId.toString()),
         status: 'ASSIGNED',
-        estimatedTime: estimatedTime ? new Date(estimatedTime) : existingAssignment.estimatedTime,
+        estimatedTime: estimatedTime
+          ? new Date(estimatedTime)
+          : existingAssignment.estimatedTime,
         notes: notes || existingAssignment.notes,
         actualTime: null, // Reset actual time since it's a new assignment
       },

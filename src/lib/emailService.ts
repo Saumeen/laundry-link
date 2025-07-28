@@ -262,9 +262,7 @@ export default {
         )
         .join('');
 
-      const changesHtml = changes
-        .map(change => `<li>${change}</li>`)
-        .join('');
+      const changesHtml = changes.map(change => `<li>${change}</li>`).join('');
 
       const msg = {
         to: customerEmail,
@@ -296,14 +294,18 @@ export default {
               ${order.specialInstructions ? `<p><strong>Special Instructions:</strong> ${order.specialInstructions}</p>` : ''}
             </div>
 
-            ${changes.length > 0 ? `
+            ${
+              changes.length > 0
+                ? `
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h4 style="margin: 0; color: #92400e;">📝 Changes Made:</h4>
               <ul style="margin: 10px 0 0 0; color: #92400e; padding-left: 20px;">
                 ${changesHtml}
               </ul>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0;">
               <p style="margin: 0; color: #0277bd;"><strong>Important:</strong> If you have any questions about these changes, please contact us immediately.</p>
@@ -324,9 +326,7 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(
-        `Order update email sent to customer: ${customerEmail}`
-      );
+      console.log(`Order update email sent to customer: ${customerEmail}`);
       return true;
     } catch (error) {
       console.error('Error sending order update email:', error);
@@ -426,6 +426,8 @@ export default {
       return false;
     }
   },
+
+
 
   /**
    * Send welcome email with login credentials
@@ -749,17 +751,20 @@ export default {
   ): Promise<boolean> {
     try {
       // Get order items from the order
-      const orderItems = order.orderServiceMappings.flatMap(mapping => 
+      const orderItems = order.orderServiceMappings.flatMap(mapping =>
         mapping.orderItems.map(item => ({
           itemName: item.itemName,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
           totalPrice: item.totalPrice,
-          notes: item.notes
+          notes: item.notes,
         }))
       );
 
-      const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      const totalAmount = orderItems.reduce(
+        (sum, item) => sum + item.totalPrice,
+        0
+      );
 
       const msg = {
         to: customerEmail,
@@ -877,17 +882,20 @@ export default {
   ): Promise<boolean> {
     try {
       // Get order items from the order
-      const orderItems = order.orderServiceMappings.flatMap(mapping => 
+      const orderItems = order.orderServiceMappings.flatMap(mapping =>
         mapping.orderItems.map(item => ({
           itemName: item.itemName,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
           totalPrice: item.totalPrice,
-          notes: item.notes
+          notes: item.notes,
         }))
       );
 
-      const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      const totalAmount = orderItems.reduce(
+        (sum, item) => sum + item.totalPrice,
+        0
+      );
 
       const msg = {
         to: customerEmail,
@@ -1005,17 +1013,20 @@ export default {
   ): Promise<boolean> {
     try {
       // Get order items from the order
-      const orderItems = order.orderServiceMappings.flatMap(mapping => 
+      const orderItems = order.orderServiceMappings.flatMap(mapping =>
         mapping.orderItems.map(item => ({
           itemName: item.itemName,
           quantity: item.quantity,
           pricePerItem: item.pricePerItem,
           totalPrice: item.totalPrice,
-          notes: item.notes
+          notes: item.notes,
         }))
       );
 
-      const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
+      const totalAmount = orderItems.reduce(
+        (sum, item) => sum + item.totalPrice,
+        0
+      );
 
       const msg = {
         to: customerEmail,

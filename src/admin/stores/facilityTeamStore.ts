@@ -150,6 +150,7 @@ export interface FacilityTeamState {
   fetchOrder: (orderId: string) => Promise<void>;
   fetchServicePricing: (serviceId: number) => Promise<void>;
   addOrderItem: (orderId: number, itemData: NewItemData) => Promise<void>;
+  deleteOrderItem: (orderId: number, itemId: number) => Promise<void>;
   updateItemProcessing: (
     orderId: string,
     processingItemDetailId: number,
@@ -220,15 +221,18 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
         try {
           const response = await fetch(`/api/admin/order-details/${orderId}`);
           console.log('Store: Order fetch response status:', response.status);
-          
+
           if (response.ok) {
-            const data = await response.json() as { order: Order };
-            console.log('Store: Order fetched successfully:', data.order?.orderNumber);
+            const data = (await response.json()) as { order: Order };
+            console.log(
+              'Store: Order fetched successfully:',
+              data.order?.orderNumber
+            );
             set({
               order: data.order,
               orderForm: { loading: false, error: null, success: true },
             });
-            
+
             // Set default service mapping if available
             if (data.order?.orderServiceMappings?.length > 0) {
               set({
@@ -240,7 +244,11 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             }
           } else {
             const errorText = await response.text();
-            console.error('Store: Order fetch failed:', response.status, errorText);
+            console.error(
+              'Store: Order fetch failed:',
+              response.status,
+              errorText
+            );
             set({
               orderForm: {
                 loading: false,
@@ -267,7 +275,9 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             `/api/admin/service-pricing?serviceId=${serviceId}`
           );
           if (response.ok) {
-            const data = await response.json() as { data: ServicePricing | null };
+            const data = (await response.json()) as {
+              data: ServicePricing | null;
+            };
             set({ servicePricing: data.data || null });
           }
         } catch (error) {
@@ -294,14 +304,15 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             set({
               itemForm: { loading: false, error: null, success: true },
             });
-            
+
             // Refresh order data
             await get().fetchOrder(orderId.toString());
-            
+
             // Reset form
             set({
               newItemData: {
-                orderServiceMappingId: get().order?.orderServiceMappings[0]?.id || 0,
+                orderServiceMappingId:
+                  get().order?.orderServiceMappings[0]?.id || 0,
                 itemName: '',
                 itemType: 'clothing',
                 quantity: 1,
@@ -309,10 +320,10 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
                 notes: '',
               },
             });
-            
+
             return result;
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               itemForm: {
                 loading: false,
@@ -327,6 +338,45 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             itemForm: {
               loading: false,
               error: 'An error occurred while adding item',
+              success: false,
+            },
+          });
+        }
+      },
+
+      deleteOrderItem: async (orderId: number, itemId: number) => {
+        set({ itemForm: { loading: true, error: null, success: false } });
+        try {
+          const response = await fetch(`/api/admin/delete-order-item?id=${itemId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            set({
+              itemForm: { loading: false, error: null, success: true },
+            });
+
+            // Refresh order data
+            await get().fetchOrder(orderId.toString());
+          } else {
+            const errorData = (await response.json()) as { error?: string };
+            set({
+              itemForm: {
+                loading: false,
+                error: errorData.error || 'Failed to delete item',
+                success: false,
+              },
+            });
+          }
+        } catch (error) {
+          console.error('Error deleting order item:', error);
+          set({
+            itemForm: {
+              loading: false,
+              error: 'An error occurred while deleting item',
               success: false,
             },
           });
@@ -367,7 +417,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
             await get().fetchOrder(orderId);
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               itemForm: {
                 loading: false,
@@ -397,19 +447,22 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
       ) => {
         set({ itemForm: { loading: true, error: null, success: false } });
         try {
-          const response = await fetch('/api/admin/facility-team/issue-images', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              processingItemDetailId,
-              images,
-              issueType,
-              description,
-              severity,
-            }),
-          });
+          const response = await fetch(
+            '/api/admin/facility-team/issue-images',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                processingItemDetailId,
+                images,
+                issueType,
+                description,
+                severity,
+              }),
+            }
+          );
 
           if (response.ok) {
             set({
@@ -422,7 +475,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
               await get().fetchOrder(order.id.toString());
             }
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               itemForm: {
                 loading: false,
@@ -445,13 +498,18 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
 
       fetchIssueReports: async (processingItemDetailId: number) => {
         try {
-          const response = await fetch(`/api/admin/facility-team/issue-reports/${processingItemDetailId}`);
-          
+          const response = await fetch(
+            `/api/admin/facility-team/issue-reports/${processingItemDetailId}`
+          );
+
           if (response.ok) {
-            const data = await response.json() as { issueReports: any[] };
+            const data = (await response.json()) as { issueReports: any[] };
             // Update the selected item detail with issue reports
             const currentSelectedItemDetail = get().selectedItemDetail;
-            if (currentSelectedItemDetail && currentSelectedItemDetail.id === processingItemDetailId) {
+            if (
+              currentSelectedItemDetail &&
+              currentSelectedItemDetail.id === processingItemDetailId
+            ) {
               set({
                 selectedItemDetail: {
                   ...currentSelectedItemDetail,
@@ -488,7 +546,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
             await get().fetchOrder(orderId.toString());
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               processingForm: {
                 loading: false,
@@ -530,11 +588,13 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
             await get().fetchOrder(orderId.toString());
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               processingForm: {
                 loading: false,
-                error: errorData.error || 'Failed to mark order as ready for delivery',
+                error:
+                  errorData.error ||
+                  'Failed to mark order as ready for delivery',
                 success: false,
               },
             });
@@ -544,7 +604,8 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
           set({
             processingForm: {
               loading: false,
-              error: 'An error occurred while marking order as ready for delivery',
+              error:
+                'An error occurred while marking order as ready for delivery',
               success: false,
             },
           });
@@ -573,7 +634,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
             await get().fetchOrder(orderId.toString());
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               invoiceForm: {
                 loading: false,
@@ -615,11 +676,12 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
             await get().fetchOrder(orderId.toString());
           } else {
-            const errorData = await response.json() as { error?: string };
+            const errorData = (await response.json()) as { error?: string };
             set({
               processingForm: {
                 loading: false,
-                error: errorData.error || 'Failed to mark processing as completed',
+                error:
+                  errorData.error || 'Failed to mark processing as completed',
                 success: false,
               },
             });
@@ -637,17 +699,17 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
       },
 
       // UI Actions
-      setActiveTab: (tab) => set({ activeTab: tab }),
-      
-      setNewItemData: (data) =>
+      setActiveTab: tab => set({ activeTab: tab }),
+
+      setNewItemData: data =>
         set({ newItemData: { ...get().newItemData, ...data } }),
-      
-      setItemProcessingData: (data) =>
+
+      setItemProcessingData: data =>
         set({ itemProcessingData: { ...get().itemProcessingData, ...data } }),
-      
-      selectItemDetail: (itemDetail) => set({ selectedItemDetail: itemDetail }),
-      
-      openItemModal: (itemDetail) => {
+
+      selectItemDetail: itemDetail => set({ selectedItemDetail: itemDetail }),
+
+      openItemModal: itemDetail => {
         set({
           selectedItemDetail: itemDetail,
           itemProcessingData: {
@@ -659,17 +721,18 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
           showItemModal: true,
         });
       },
-      
+
       closeItemModal: () => set({ showItemModal: false }),
-      
-      setShowWarningModal: (show) => set({ showWarningModal: show }),
-      
-      setShowInvoiceWarningModal: (show) => set({ showInvoiceWarningModal: show }),
-      
+
+      setShowWarningModal: show => set({ showWarningModal: show }),
+
+      setShowInvoiceWarningModal: show =>
+        set({ showInvoiceWarningModal: show }),
+
       resetForm: () => set({ ...initialState }),
     }),
     {
       name: 'facility-team-store',
     }
   )
-); 
+);

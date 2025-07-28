@@ -159,10 +159,9 @@ export const searchOrders = (orders: Order[], searchTerm: string) => {
 
   const term = searchTerm.toLowerCase();
   return orders.filter(
-    order =>
-      order.orderNumber.toLowerCase().includes(term)
-      // Note: customer properties are not available in the base Order type
-      // If needed, use a more specific type that includes customer relations
+    order => order.orderNumber.toLowerCase().includes(term)
+    // Note: customer properties are not available in the base Order type
+    // If needed, use a more specific type that includes customer relations
   );
 };
 
@@ -264,7 +263,9 @@ export const getDriverAssignmentStatusBadgeColor = (status: string): string => {
   }
 };
 
-export const getDriverAssignmentStatusDisplayName = (status: string): string => {
+export const getDriverAssignmentStatusDisplayName = (
+  status: string
+): string => {
   switch (status) {
     case 'ASSIGNED':
       return 'Assigned';

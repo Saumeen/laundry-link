@@ -16,22 +16,28 @@ interface UseStatusTransitionsReturn {
 }
 
 export function useStatusTransitions(): UseStatusTransitionsReturn {
-  const [allowedTransitions, setAllowedTransitions] = useState<StatusTransition[]>([]);
+  const [allowedTransitions, setAllowedTransitions] = useState<
+    StatusTransition[]
+  >([]);
   const [loadingTransitions, setLoadingTransitions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTransitions = useCallback(async (currentStatus: string) => {
     setLoadingTransitions(true);
     setError(null);
-    
+
     try {
-      const response = await fetch(`/api/admin/order-status-transitions?currentStatus=${currentStatus}`);
-      
+      const response = await fetch(
+        `/api/admin/order-status-transitions?currentStatus=${currentStatus}`
+      );
+
       if (response.ok) {
-        const data = await response.json() as { allowedTransitions: StatusTransition[] };
+        const data = (await response.json()) as {
+          allowedTransitions: StatusTransition[];
+        };
         setAllowedTransitions(data.allowedTransitions);
       } else {
-        const errorData = await response.json() as { error?: string };
+        const errorData = (await response.json()) as { error?: string };
         setError(errorData.error || 'Failed to fetch status transitions');
         setAllowedTransitions([]);
       }
@@ -50,4 +56,4 @@ export function useStatusTransitions(): UseStatusTransitionsReturn {
     error,
     fetchTransitions,
   };
-} 
+}

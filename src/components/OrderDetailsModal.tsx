@@ -21,12 +21,42 @@ const Z_INDEX_MODAL = 50;
 
 // Simplified tab configuration
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: '📋', description: 'Order summary and status' },
-  { id: 'timeline', label: 'Timeline', icon: '⏱️', description: 'Order progress tracking' },
-  { id: 'services', label: 'Services', icon: '🧺', description: 'Requested services' },
-  { id: 'invoice', label: 'Invoice', icon: '🧾', description: 'Payment details' },
-  { id: 'addresses', label: 'Addresses', icon: '📍', description: 'Pickup & delivery locations' },
-  { id: 'notes', label: 'Notes', icon: '📝', description: 'Special instructions' },
+  {
+    id: 'overview',
+    label: 'Overview',
+    icon: '📋',
+    description: 'Order summary and status',
+  },
+  {
+    id: 'timeline',
+    label: 'Timeline',
+    icon: '⏱️',
+    description: 'Order progress tracking',
+  },
+  {
+    id: 'services',
+    label: 'Services',
+    icon: '🧺',
+    description: 'Requested services',
+  },
+  {
+    id: 'invoice',
+    label: 'Invoice',
+    icon: '🧾',
+    description: 'Payment details',
+  },
+  {
+    id: 'addresses',
+    label: 'Addresses',
+    icon: '📍',
+    description: 'Pickup & delivery locations',
+  },
+  {
+    id: 'notes',
+    label: 'Notes',
+    icon: '📝',
+    description: 'Special instructions',
+  },
 ] as const;
 
 // Types
@@ -82,10 +112,10 @@ export default function OrderDetailsModal({
 
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await OrdersApi.getOrder(orderId);
-      
+
       if (response.success && response.data) {
         const order = response.data.order;
         setOrderDetails(order);
@@ -146,7 +176,9 @@ export default function OrderDetailsModal({
   if (!orderId) return null;
 
   return (
-    <div className={`fixed inset-0 z-${Z_INDEX_MODAL} ${isOpen ? 'block' : 'hidden'}`}>
+    <div
+      className={`fixed inset-0 z-${Z_INDEX_MODAL} ${isOpen ? 'block' : 'hidden'}`}
+    >
       {/* Backdrop */}
       <div
         className='fixed inset-0 bg-black/50 backdrop-blur-sm'
@@ -161,16 +193,22 @@ export default function OrderDetailsModal({
           <div className='flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50'>
             <div className='flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1'>
               <div className='min-w-0 flex-1'>
-                <h2 className='text-lg sm:text-xl font-bold text-gray-900 truncate'>Order Details</h2>
-                <p className='text-xs sm:text-sm text-gray-600 truncate'>Order #{orderDetails?.orderNumber || 'N/A'}</p>
+                <h2 className='text-lg sm:text-xl font-bold text-gray-900 truncate'>
+                  Order Details
+                </h2>
+                <p className='text-xs sm:text-sm text-gray-600 truncate'>
+                  Order #{orderDetails?.orderNumber || 'N/A'}
+                </p>
               </div>
             </div>
             <button
               onClick={handleClose}
               className='p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0'
-              aria-label="Close modal"
+              aria-label='Close modal'
             >
-              <span className='text-xl sm:text-2xl text-gray-500 hover:text-gray-700'>×</span>
+              <span className='text-xl sm:text-2xl text-gray-500 hover:text-gray-700'>
+                ×
+              </span>
             </button>
           </div>
 
@@ -178,7 +216,7 @@ export default function OrderDetailsModal({
           <div className='sm:hidden border-b border-gray-200 bg-white'>
             <select
               value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as TabType)}
+              onChange={e => setActiveTab(e.target.value as TabType)}
               className='w-full p-4 text-sm font-medium border-none focus:ring-0 focus:outline-none bg-gray-50'
             >
               {TABS.map(tab => (
@@ -214,14 +252,18 @@ export default function OrderDetailsModal({
             {loading && (
               <div className='flex flex-col items-center justify-center py-12 sm:py-16 px-4'>
                 <div className='animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4'></div>
-                <span className='text-gray-600 font-medium text-center'>Loading order details...</span>
+                <span className='text-gray-600 font-medium text-center'>
+                  Loading order details...
+                </span>
               </div>
             )}
 
             {error && !loading && (
               <div className='flex flex-col items-center justify-center py-12 sm:py-16 px-4'>
                 <div className='text-5xl mb-4'>❌</div>
-                <p className='text-red-600 text-center mb-6 font-medium px-4'>{error}</p>
+                <p className='text-red-600 text-center mb-6 font-medium px-4'>
+                  {error}
+                </p>
                 <button
                   onClick={handleRetry}
                   className='px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm'
@@ -257,13 +299,19 @@ export default function OrderDetailsModal({
                       <StatusCard orderDetails={orderDetails} />
                       <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6'>
                         <OrderInformation orderDetails={orderDetails} />
-                        <ProcessingDetails processingDetails={orderDetails.processingDetails} />
+                        <ProcessingDetails
+                          processingDetails={orderDetails.processingDetails}
+                        />
                       </div>
                     </>
                   )}
 
-                  {activeTab === 'timeline' && <OrderTimeline orderDetails={orderDetails} />}
-                  {activeTab === 'services' && <ServicesTab orderDetails={orderDetails} />}
+                  {activeTab === 'timeline' && (
+                    <OrderTimeline orderDetails={orderDetails} />
+                  )}
+                  {activeTab === 'services' && (
+                    <ServicesTab orderDetails={orderDetails} />
+                  )}
                   {activeTab === 'invoice' && (
                     <InvoiceTab
                       orderDetails={orderDetails}
@@ -272,8 +320,12 @@ export default function OrderDetailsModal({
                       invoiceLoading={invoiceLoading}
                     />
                   )}
-                  {activeTab === 'addresses' && <AddressesTab orderDetails={orderDetails} />}
-                  {activeTab === 'notes' && <NotesTab orderDetails={orderDetails} />}
+                  {activeTab === 'addresses' && (
+                    <AddressesTab orderDetails={orderDetails} />
+                  )}
+                  {activeTab === 'notes' && (
+                    <NotesTab orderDetails={orderDetails} />
+                  )}
                 </div>
               </div>
             )}

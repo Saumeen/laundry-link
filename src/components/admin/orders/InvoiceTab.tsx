@@ -77,12 +77,15 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
   const handleGenerateInvoice = async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch(`/api/admin/generate-invoice-pdf/${order.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `/api/admin/generate-invoice-pdf/${order.id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       if (response.ok) {
         const blob = await response.blob();
@@ -127,9 +130,7 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
-        <h3 className='text-lg font-semibold text-gray-900'>
-          Invoice Details
-        </h3>
+        <h3 className='text-lg font-semibold text-gray-900'>Invoice Details</h3>
         <div className='flex space-x-2'>
           <button
             onClick={handleGenerateInvoice}
@@ -151,7 +152,9 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
       <div className='bg-white border border-gray-200 rounded-lg p-6'>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
           <div>
-            <h4 className='text-lg font-semibold text-gray-900 mb-4'>Invoice Information</h4>
+            <h4 className='text-lg font-semibold text-gray-900 mb-4'>
+              Invoice Information
+            </h4>
             <div className='space-y-2 text-sm'>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Invoice Number:</span>
@@ -163,7 +166,9 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Issue Date:</span>
-                <span className='font-medium'>{formatUTCForDisplay(order.createdAt)}</span>
+                <span className='font-medium'>
+                  {formatUTCForDisplay(order.createdAt)}
+                </span>
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Status:</span>
@@ -172,7 +177,9 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
             </div>
           </div>
           <div>
-            <h4 className='text-lg font-semibold text-gray-900 mb-4'>Customer Information</h4>
+            <h4 className='text-lg font-semibold text-gray-900 mb-4'>
+              Customer Information
+            </h4>
             <div className='space-y-2 text-sm'>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Name:</span>
@@ -193,7 +200,8 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
                   <span className='text-gray-600'>Address:</span>
                   <span className='font-medium text-right max-w-xs'>
                     {order.address.addressLine1}
-                    {order.address.addressLine2 && `, ${order.address.addressLine2}`}
+                    {order.address.addressLine2 &&
+                      `, ${order.address.addressLine2}`}
                     {order.address.city && `, ${order.address.city}`}
                   </span>
                 </div>
@@ -230,10 +238,10 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
               </tr>
             </thead>
             <tbody className='bg-white divide-y divide-gray-200'>
-              {order.orderServiceMappings?.map((mapping) => {
+              {order.orderServiceMappings?.map(mapping => {
                 // If order items exist, display them individually
                 if (mapping.orderItems && mapping.orderItems.length > 0) {
-                  return mapping.orderItems.map((item) => (
+                  return mapping.orderItems.map(item => (
                     <tr key={`${mapping.id}-${item.id}`}>
                       <td className='px-6 py-4 whitespace-nowrap'>
                         <div className='text-sm font-medium text-gray-900'>
@@ -320,7 +328,9 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
               {discount > 0 && (
                 <div className='flex justify-between text-sm'>
                   <span className='text-gray-600'>Discount:</span>
-                  <span className='font-medium text-green-600'>-{discount.toFixed(3)} BD</span>
+                  <span className='font-medium text-green-600'>
+                    -{discount.toFixed(3)} BD
+                  </span>
                 </div>
               )}
               {order.minimumOrderApplied && (
@@ -343,14 +353,18 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
       {/* Special Instructions */}
       {order.specialInstructions && (
         <div className='bg-yellow-50 border border-yellow-200 rounded-lg p-4'>
-          <h4 className='font-semibold text-yellow-900 mb-2'>Special Instructions</h4>
+          <h4 className='font-semibold text-yellow-900 mb-2'>
+            Special Instructions
+          </h4>
           <p className='text-yellow-800'>{order.specialInstructions}</p>
         </div>
       )}
 
       {/* Payment Information */}
       <div className='bg-white border border-gray-200 rounded-lg p-6'>
-        <h4 className='text-lg font-semibold text-gray-900 mb-4'>Payment Information</h4>
+        <h4 className='text-lg font-semibold text-gray-900 mb-4'>
+          Payment Information
+        </h4>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
           <div>
             <div className='space-y-2 text-sm'>
@@ -380,7 +394,9 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Last Updated:</span>
-                <span className='font-medium'>{formatUTCForDisplay(order.createdAt)}</span>
+                <span className='font-medium'>
+                  {formatUTCForDisplay(order.createdAt)}
+                </span>
               </div>
             </div>
           </div>
@@ -388,4 +404,4 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
       </div>
     </div>
   );
-} 
+}

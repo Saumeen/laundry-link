@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
         // Get date 7 days ago in Bahrain time
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekAgoBahrain = weekAgo.toLocaleDateString('en-CA', { 
-          timeZone: 'Asia/Bahrain' 
+        const weekAgoBahrain = weekAgo.toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Bahrain',
         });
         startDate = new Date(`${weekAgoBahrain}T00:00:00.000Z`);
         break;
@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
         // Get date 30 days ago in Bahrain time
         const monthAgo = new Date();
         monthAgo.setDate(monthAgo.getDate() - 30);
-        const monthAgoBahrain = monthAgo.toLocaleDateString('en-CA', { 
-          timeZone: 'Asia/Bahrain' 
+        const monthAgoBahrain = monthAgo.toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Bahrain',
         });
         startDate = new Date(`${monthAgoBahrain}T00:00:00.000Z`);
         break;

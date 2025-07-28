@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
     // Get the status configuration for the current status
     const statusConfig = ORDER_STATUS_CONFIG[currentStatus];
-    
+
     if (!statusConfig) {
       return NextResponse.json(
         { error: 'Invalid order status' },
@@ -29,13 +29,15 @@ export async function GET(req: Request) {
     }
 
     // Get the allowed transitions with their full configuration
-    const allowedTransitions = statusConfig.canTransitionTo.map((status: OrderStatus) => ({
-      value: status,
-      label: ORDER_STATUS_CONFIG[status].label,
-      description: ORDER_STATUS_CONFIG[status].description,
-      color: ORDER_STATUS_CONFIG[status].color,
-      icon: ORDER_STATUS_CONFIG[status].icon,
-    }));
+    const allowedTransitions = statusConfig.canTransitionTo.map(
+      (status: OrderStatus) => ({
+        value: status,
+        label: ORDER_STATUS_CONFIG[status].label,
+        description: ORDER_STATUS_CONFIG[status].description,
+        color: ORDER_STATUS_CONFIG[status].color,
+        icon: ORDER_STATUS_CONFIG[status].icon,
+      })
+    );
 
     return NextResponse.json({
       currentStatus: {
@@ -54,4 +56,4 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
-} 
+}

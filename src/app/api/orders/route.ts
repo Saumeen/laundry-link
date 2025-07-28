@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   let body;
 
   try {
-    body = await req.json() as any;
+    body = (await req.json()) as any;
 
     try {
       customer = await requireAuthenticatedCustomer();
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (isAuthenticated && customer) {
       // Authenticated customer order
       return await handleLoggedInCustomerOrder(body, customer);
-    } else{
+    } else {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   } catch (error) {
@@ -62,6 +62,7 @@ async function handleLoggedInCustomerOrder(
     addressId: string;
     specialInstructions?: string;
     contactNumber?: string;
+    isExpressService?: boolean;
   },
   customer: {
     id: number;
@@ -94,6 +95,7 @@ async function handleLoggedInCustomerOrder(
     let deliveryStartTime: Date | null = null;
     let deliveryEndTime: Date | null = null;
 
+    // Parse time ranges from request body
     if (body.pickupStartTime) {
       pickupStartTime = new Date(body.pickupStartTime);
     }
@@ -107,10 +109,16 @@ async function handleLoggedInCustomerOrder(
       deliveryEndTime = new Date(body.deliveryEndTime);
     }
 
-    // Validate that we have the required time ranges
-    if (!pickupStartTime || !pickupEndTime || !deliveryStartTime || !deliveryEndTime) {
+    // Validate required time ranges
+    const hasAllTimes =
+      pickupStartTime && pickupEndTime && deliveryStartTime && deliveryEndTime;
+
+    if (!hasAllTimes) {
+      const serviceType = body.isExpressService
+        ? 'Express service'
+        : 'Regular service';
       return NextResponse.json(
-        { error: 'Pickup and delivery time ranges are required' },
+        { error: `${serviceType} timing data is missing` },
         { status: 400 }
       );
     }
@@ -123,10 +131,10 @@ async function handleLoggedInCustomerOrder(
           orderNumber: orderNumber,
           customerId: customer.id,
           addressId: address.id,
-          pickupStartTime: pickupStartTime,
-          pickupEndTime: pickupEndTime,
-          deliveryStartTime: deliveryStartTime,
-          deliveryEndTime: deliveryEndTime,
+          pickupStartTime: pickupStartTime as Date,
+          pickupEndTime: pickupEndTime as Date,
+          deliveryStartTime: deliveryStartTime as Date,
+          deliveryEndTime: deliveryEndTime as Date,
           specialInstructions: body.specialInstructions || '',
           status: OrderStatus.ORDER_PLACED,
           customerFirstName: customer.firstName,
@@ -185,8 +193,8 @@ async function handleLoggedInCustomerOrder(
         customer.email,
         `${customer.firstName} ${customer.lastName}`,
         {
-          pickupDateTime: pickupStartTime,
-          deliveryDateTime: deliveryStartTime,
+          pickupDateTime: pickupStartTime as Date,
+          deliveryDateTime: deliveryStartTime as Date,
           services: body.services.map(id => parseInt(id.toString())),
           address: address.address || address.addressLine1,
         }

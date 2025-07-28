@@ -29,7 +29,7 @@ export default function AdminOrdersPage() {
   // Get the appropriate dashboard URL based on user role
   const getDashboardUrl = () => {
     if (!user?.role?.name) return '/admin';
-    
+
     switch (user.role.name) {
       case 'SUPER_ADMIN':
         return '/admin/super-admin';
@@ -49,8 +49,6 @@ export default function AdminOrdersPage() {
     router.push(getDashboardUrl());
   };
 
-
-  
   // Memoized filtered orders to improve performance
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -85,15 +83,24 @@ export default function AdminOrdersPage() {
   const stats = useMemo(
     () => ({
       total: orders.length,
-      pending: orders.filter(order => 
+      pending: orders.filter(order =>
         ['ORDER_PLACED', 'CONFIRMED', 'PICKUP_ASSIGNED'].includes(order.status)
       ).length,
-      processing: orders.filter(order => 
-        ['PICKUP_IN_PROGRESS', 'PICKUP_COMPLETED', 'DROPPED_OFF', 'RECEIVED_AT_FACILITY', 
-         'PROCESSING_STARTED', 'PROCESSING_COMPLETED', 'QUALITY_CHECK', 
-         'READY_FOR_DELIVERY', 'DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS'].includes(order.status)
+      processing: orders.filter(order =>
+        [
+          'PICKUP_IN_PROGRESS',
+          'PICKUP_COMPLETED',
+          'DROPPED_OFF',
+          'RECEIVED_AT_FACILITY',
+          'PROCESSING_STARTED',
+          'PROCESSING_COMPLETED',
+          'QUALITY_CHECK',
+          'READY_FOR_DELIVERY',
+          'DELIVERY_ASSIGNED',
+          'DELIVERY_IN_PROGRESS',
+        ].includes(order.status)
       ).length,
-      completed: orders.filter(order => 
+      completed: orders.filter(order =>
         ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(order.status)
       ).length,
     }),
@@ -333,13 +340,19 @@ export default function AdminOrdersPage() {
                   <option value='PICKUP_COMPLETED'>Pickup Completed</option>
                   <option value='PICKUP_FAILED'>Pickup Failed</option>
                   <option value='DROPPED_OFF'>Dropped Off</option>
-                  <option value='RECEIVED_AT_FACILITY'>Received at Facility</option>
+                  <option value='RECEIVED_AT_FACILITY'>
+                    Received at Facility
+                  </option>
                   <option value='PROCESSING_STARTED'>Processing Started</option>
-                  <option value='PROCESSING_COMPLETED'>Processing Completed</option>
+                  <option value='PROCESSING_COMPLETED'>
+                    Processing Completed
+                  </option>
                   <option value='QUALITY_CHECK'>Quality Check</option>
                   <option value='READY_FOR_DELIVERY'>Ready for Delivery</option>
                   <option value='DELIVERY_ASSIGNED'>Delivery Assigned</option>
-                  <option value='DELIVERY_IN_PROGRESS'>Delivery In Progress</option>
+                  <option value='DELIVERY_IN_PROGRESS'>
+                    Delivery In Progress
+                  </option>
                   <option value='DELIVERED'>Delivered</option>
                   <option value='DELIVERY_FAILED'>Delivery Failed</option>
                   <option value='CANCELLED'>Cancelled</option>

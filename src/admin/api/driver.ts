@@ -92,14 +92,11 @@ export class DriverApi {
     status: string,
     notes?: string
   ): Promise<ApiResponse<DriverAssignment>> {
-    return apiClient.put<DriverAssignment>(
-      '/api/admin/driver/assignments',
-      {
-        assignmentId,
-        status,
-        notes,
-      }
-    );
+    return apiClient.put<DriverAssignment>('/api/admin/driver/assignments', {
+      assignmentId,
+      status,
+      notes,
+    });
   }
 
   // Upload photo for assignment

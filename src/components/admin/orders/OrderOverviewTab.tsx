@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useCallback } from 'react';
-import { 
-  formatUTCForDisplay, 
-  formatUTCForDateDisplay, 
-  formatUTCForTimeDisplay 
+import {
+  formatUTCForDisplay,
+  formatUTCForDateDisplay,
+  formatUTCForTimeDisplay,
 } from '@/lib/utils/timezone';
+import { getStatusDisplayName } from '@/admin/utils/orderUtils';
 
 interface Order {
   id: number;
@@ -70,6 +71,11 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
     });
   }, []);
 
+  // Check if this is an express service order
+  const isExpressService = order.orderServiceMappings.some(
+    mapping => mapping.service.name === 'express-service'
+  );
+
   return (
     <div className='space-y-6'>
       {/* Order Information */}
@@ -85,8 +91,18 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
             </div>
             <div className='flex justify-between'>
               <span className='text-gray-600'>Status:</span>
-              <span className='font-medium'>{order.status}</span>
+              <span className='font-medium'>
+                {getStatusDisplayName(order.status)}
+              </span>
             </div>
+            {isExpressService && (
+              <div className='flex justify-between'>
+                <span className='text-gray-600'>Service Type:</span>
+                <span className='font-medium text-orange-600 bg-orange-100 px-2 py-1 rounded text-xs'>
+                  Express Service
+                </span>
+              </div>
+            )}
             <div className='flex justify-between'>
               <span className='text-gray-600'>Pickup Date:</span>
               <span className='font-medium'>
@@ -94,14 +110,15 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
-                  day: 'numeric'
+                  day: 'numeric',
                 })}
               </span>
             </div>
             <div className='flex justify-between'>
               <span className='text-gray-600'>Pickup Time:</span>
               <span className='font-medium'>
-                {order.pickupTimeSlot || formatUTCForTimeDisplay(order.pickupTime)}
+                {order.pickupTimeSlot ||
+                  formatUTCForTimeDisplay(order.pickupTime)}
               </span>
             </div>
             <div className='flex justify-between'>
@@ -111,14 +128,15 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
-                  day: 'numeric'
+                  day: 'numeric',
                 })}
               </span>
             </div>
             <div className='flex justify-between'>
               <span className='text-gray-600'>Delivery Time:</span>
               <span className='font-medium'>
-                {order.deliveryTimeSlot || formatUTCForTimeDisplay(order.deliveryTime)}
+                {order.deliveryTimeSlot ||
+                  formatUTCForTimeDisplay(order.deliveryTime)}
               </span>
             </div>
           </div>
@@ -224,4 +242,4 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
       )}
     </div>
   );
-} 
+}

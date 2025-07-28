@@ -213,7 +213,6 @@ export default function DriverDashboard() {
             <DriverAssignments />
           </div>
         </div>
-
       </div>
     </div>
   );

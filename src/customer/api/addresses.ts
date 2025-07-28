@@ -10,10 +10,12 @@ import type {
 class AddressesApi {
   private static baseUrl = '/api/customer/addresses';
 
-  static async getAddresses(filters?: AddressFilters): Promise<ApiResponse<PaginatedResponse<CustomerAddress>>> {
+  static async getAddresses(
+    filters?: AddressFilters
+  ): Promise<ApiResponse<PaginatedResponse<CustomerAddress>>> {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
@@ -52,7 +54,9 @@ class AddressesApi {
     }
   }
 
-  static async getAddress(addressId: number): Promise<ApiResponse<{ address: CustomerAddress }>> {
+  static async getAddress(
+    addressId: number
+  ): Promise<ApiResponse<{ address: CustomerAddress }>> {
     try {
       const response = await fetch(`${this.baseUrl}/${addressId}`, {
         method: 'GET',
@@ -84,7 +88,9 @@ class AddressesApi {
     }
   }
 
-  static async createAddress(addressData: CreateAddressData): Promise<ApiResponse<{ address: CustomerAddress }>> {
+  static async createAddress(
+    addressData: CreateAddressData
+  ): Promise<ApiResponse<{ address: CustomerAddress }>> {
     try {
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -117,7 +123,9 @@ class AddressesApi {
     }
   }
 
-  static async updateAddress(addressData: UpdateAddressData): Promise<ApiResponse<{ address: CustomerAddress }>> {
+  static async updateAddress(
+    addressData: UpdateAddressData
+  ): Promise<ApiResponse<{ address: CustomerAddress }>> {
     try {
       const response = await fetch(`${this.baseUrl}/${addressData.id}`, {
         method: 'PUT',
@@ -150,7 +158,9 @@ class AddressesApi {
     }
   }
 
-  static async deleteAddress(addressId: number): Promise<ApiResponse<{ message: string }>> {
+  static async deleteAddress(
+    addressId: number
+  ): Promise<ApiResponse<{ message: string }>> {
     try {
       const response = await fetch(`${this.baseUrl}/${addressId}`, {
         method: 'DELETE',
@@ -182,7 +192,9 @@ class AddressesApi {
     }
   }
 
-  static async setDefaultAddress(addressId: number): Promise<ApiResponse<{ message: string }>> {
+  static async setDefaultAddress(
+    addressId: number
+  ): Promise<ApiResponse<{ message: string }>> {
     try {
       const response = await fetch(`${this.baseUrl}/${addressId}/default`, {
         method: 'PUT',
@@ -215,4 +227,4 @@ class AddressesApi {
   }
 }
 
-export { AddressesApi }; 
+export { AddressesApi };

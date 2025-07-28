@@ -15,13 +15,13 @@ export const BAHRAIN_UTC_OFFSET = '+03:00';
  */
 export function convertBahrainToUTC(date: string, time: string): string {
   if (!date || !time) return '';
-  
+
   // Create a date string in Bahrain timezone
   const bahrainDateTimeString = `${date}T${time}:00`;
-  
+
   // Convert Bahrain time to UTC using date-fns-tz
   const utcDate = fromZonedTime(bahrainDateTimeString, BAHRAIN_TIMEZONE);
-  
+
   return utcDate.toISOString();
 }
 
@@ -30,14 +30,17 @@ export function convertBahrainToUTC(date: string, time: string): string {
  * @param utcDateTime - ISO string in UTC
  * @returns Object with date and time in Bahrain timezone
  */
-export function convertUTCToBahrain(utcDateTime: string): { date: string; time: string } {
+export function convertUTCToBahrain(utcDateTime: string): {
+  date: string;
+  time: string;
+} {
   if (!utcDateTime) return { date: '', time: '' };
-  
+
   const utcDate = new Date(utcDateTime);
-  
+
   const date = formatInTimeZone(utcDate, BAHRAIN_TIMEZONE, 'yyyy-MM-dd');
   const time = formatInTimeZone(utcDate, BAHRAIN_TIMEZONE, 'HH:mm');
-  
+
   return { date, time };
 }
 
@@ -70,12 +73,16 @@ export function getCurrentBahrainDate(): string {
  * @returns Formatted string in Bahrain time
  */
 export function formatUTCForDisplay(
-  utcDateTime: string, 
+  utcDateTime: string,
   options: Intl.DateTimeFormatOptions = {}
 ): string {
   if (!utcDateTime) return '';
-  
-  return formatInTimeZone(new Date(utcDateTime), BAHRAIN_TIMEZONE, 'MMM dd, yyyy HH:mm');
+
+  return formatInTimeZone(
+    new Date(utcDateTime),
+    BAHRAIN_TIMEZONE,
+    'MMM dd, yyyy HH:mm'
+  );
 }
 
 /**
@@ -85,12 +92,16 @@ export function formatUTCForDisplay(
  * @returns Formatted date string in Bahrain time
  */
 export function formatUTCForDateDisplay(
-  utcDateTime: string, 
+  utcDateTime: string,
   options: Intl.DateTimeFormatOptions = {}
 ): string {
   if (!utcDateTime) return '';
-  
-  return formatInTimeZone(new Date(utcDateTime), BAHRAIN_TIMEZONE, 'MMMM dd, yyyy');
+
+  return formatInTimeZone(
+    new Date(utcDateTime),
+    BAHRAIN_TIMEZONE,
+    'MMMM dd, yyyy'
+  );
 }
 
 /**
@@ -100,11 +111,11 @@ export function formatUTCForDateDisplay(
  * @returns Formatted time string in Bahrain time
  */
 export function formatUTCForTimeDisplay(
-  utcDateTime: string, 
+  utcDateTime: string,
   options: Intl.DateTimeFormatOptions = {}
 ): string {
   if (!utcDateTime) return '';
-  
+
   return formatInTimeZone(new Date(utcDateTime), BAHRAIN_TIMEZONE, 'hh:mm a');
 }
 
@@ -115,8 +126,12 @@ export function formatUTCForTimeDisplay(
  */
 export function convertUTCToBahrainDisplay(utcDateTime: string): string {
   if (!utcDateTime) return '';
-  
-  return formatInTimeZone(new Date(utcDateTime), BAHRAIN_TIMEZONE, 'MMM dd, yyyy HH:mm');
+
+  return formatInTimeZone(
+    new Date(utcDateTime),
+    BAHRAIN_TIMEZONE,
+    'MMM dd, yyyy HH:mm'
+  );
 }
 
 /**
@@ -126,10 +141,18 @@ export function convertUTCToBahrainDisplay(utcDateTime: string): string {
  */
 export function convertUTCToBahrainDateTimeLocal(utcDateTime: string): string {
   if (!utcDateTime) return '';
-  
-  const date = formatInTimeZone(new Date(utcDateTime), BAHRAIN_TIMEZONE, 'yyyy-MM-dd');
-  const time = formatInTimeZone(new Date(utcDateTime), BAHRAIN_TIMEZONE, 'HH:mm');
-  
+
+  const date = formatInTimeZone(
+    new Date(utcDateTime),
+    BAHRAIN_TIMEZONE,
+    'yyyy-MM-dd'
+  );
+  const time = formatInTimeZone(
+    new Date(utcDateTime),
+    BAHRAIN_TIMEZONE,
+    'HH:mm'
+  );
+
   return `${date}T${time}`;
 }
 
@@ -139,15 +162,18 @@ export function convertUTCToBahrainDateTimeLocal(utcDateTime: string): string {
  * @param endTime - UTC end time
  * @returns Formatted time slot string in Bahrain time
  */
-export function formatTimeSlotRange(startTime: string | Date, endTime: string | Date): string {
+export function formatTimeSlotRange(
+  startTime: string | Date,
+  endTime: string | Date
+): string {
   if (!startTime || !endTime) return '';
-  
+
   const start = new Date(startTime);
   const end = new Date(endTime);
-  
+
   const startTimeStr = formatInTimeZone(start, BAHRAIN_TIMEZONE, 'HH:mm');
   const endTimeStr = formatInTimeZone(end, BAHRAIN_TIMEZONE, 'HH:mm');
-  
+
   return `${startTimeStr} - ${endTimeStr}`;
 }
 
@@ -159,11 +185,11 @@ export function formatTimeSlotRange(startTime: string | Date, endTime: string | 
  */
 export function isBahrainDateTimeInFuture(date: string, time: string): boolean {
   if (!date || !time) return false;
-  
+
   const utcDateTime = convertBahrainToUTC(date, time);
   const selectedDate = new Date(utcDateTime);
   const now = new Date();
-  
+
   return selectedDate > now;
 }
 
@@ -184,11 +210,11 @@ export function getMinimumAssignmentTime(): string {
  */
 export function convertBahrainDateTimeToUTC(bahrainDateTime: string): string {
   if (!bahrainDateTime) return '';
-  
+
   // Parse the datetime string
   const [datePart, timePart] = bahrainDateTime.split('T');
   if (!datePart || !timePart) return '';
-  
+
   return convertBahrainToUTC(datePart, timePart);
 }
 
@@ -198,7 +224,9 @@ export function convertBahrainDateTimeToUTC(bahrainDateTime: string): string {
  */
 export function getCurrentBahrainDateObject(): Date {
   const now = new Date();
-  const bahrainTimeString = now.toLocaleString('en-US', { timeZone: BAHRAIN_TIMEZONE });
+  const bahrainTimeString = now.toLocaleString('en-US', {
+    timeZone: BAHRAIN_TIMEZONE,
+  });
   return new Date(bahrainTimeString);
 }
 
@@ -210,11 +238,13 @@ export function getCurrentBahrainDateObject(): Date {
  */
 function getTimezoneOffsetForDate(date: Date, timezone: string): number {
   // Create a date in the target timezone
-  const targetDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
-  
+  const targetDate = new Date(
+    date.toLocaleString('en-US', { timeZone: timezone })
+  );
+
   // Create a date in UTC
   const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-  
+
   // Calculate the difference in milliseconds
   return targetDate.getTime() - utcDate.getTime();
 }
@@ -233,26 +263,28 @@ export function convertBetweenTimezones(
   toTimezone: string
 ): string {
   if (!localDateTime) return '';
-  
+
   // Parse the datetime
   const [datePart, timePart] = localDateTime.split('T');
   if (!datePart || !timePart) return '';
-  
+
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour, minute] = timePart.split(':').map(Number);
-  
+
   // Create a date object in the source timezone
   const sourceDate = new Date(year, month - 1, day, hour, minute, 0, 0);
-  
+
   // Get the offset for the source timezone
   const sourceOffsetMs = getTimezoneOffsetForDate(sourceDate, fromTimezone);
-  
+
   // Convert to UTC
   const utcDate = new Date(sourceDate.getTime() - sourceOffsetMs);
-  
+
   // Convert to target timezone
-  const targetDate = new Date(utcDate.toLocaleString('en-US', { timeZone: toTimezone }));
-  
+  const targetDate = new Date(
+    utcDate.toLocaleString('en-US', { timeZone: toTimezone })
+  );
+
   return targetDate.toISOString();
 }
 
@@ -278,15 +310,18 @@ export function isValidTimezone(timezone: string): boolean {
  * @param date - Date to get offset for (defaults to current date)
  * @returns Offset string
  */
-export function getTimezoneOffsetString(timezone: string, date: Date = new Date()): string {
+export function getTimezoneOffsetString(
+  timezone: string,
+  date: Date = new Date()
+): string {
   try {
-    const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+    const utc = date.getTime() + date.getTimezoneOffset() * 60000;
     const targetTime = new Date(utc);
-    const targetOffset = targetTime.toLocaleString('en-US', { 
-      timeZone: timezone, 
-      timeZoneName: 'short' 
+    const targetOffset = targetTime.toLocaleString('en-US', {
+      timeZone: timezone,
+      timeZoneName: 'short',
     });
-    
+
     // Extract offset from timezone string
     const offsetMatch = targetOffset.match(/GMT([+-]\d{2}):?(\d{2})?/);
     if (offsetMatch) {
@@ -294,9 +329,9 @@ export function getTimezoneOffsetString(timezone: string, date: Date = new Date(
       const minutes = offsetMatch[2] || '00';
       return `${hours}:${minutes}`;
     }
-    
+
     return '+00:00';
   } catch (error) {
     return '+00:00';
   }
-} 
+}

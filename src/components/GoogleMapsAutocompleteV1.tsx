@@ -46,34 +46,32 @@ export default function GoogleMapsAutocompleteV1({
   }, [handleClickOutside]);
 
   // Debounced search function
-  const debouncedSearch = useCallback(
-    async (inputValue: string) => {
-      if (!inputValue || inputValue.length < 2) {
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setError(null);
-        return;
-      }
+  const debouncedSearch = useCallback(async (inputValue: string) => {
+    if (!inputValue || inputValue.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setError(null);
+      return;
+    }
 
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const results = await googleMapsV1Service.getAddressSuggestions(inputValue);
-        
-        setSuggestions(results);
-        setShowSuggestions(results.length > 0);
-      } catch (err) {
-        console.error('Error fetching suggestions:', err);
-        setError('Failed to load address suggestions');
-        setSuggestions([]);
-        setShowSuggestions(false);
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+    try {
+      setLoading(true);
+      setError(null);
+
+      const results =
+        await googleMapsV1Service.getAddressSuggestions(inputValue);
+
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    } catch (err) {
+      console.error('Error fetching suggestions:', err);
+      setError('Failed to load address suggestions');
+      setSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,7 +184,7 @@ export default function GoogleMapsAutocompleteV1({
               onClick={() => handleSuggestionClick(suggestion)}
               role='option'
               tabIndex={0}
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   handleSuggestionClick(suggestion);
@@ -205,13 +203,16 @@ export default function GoogleMapsAutocompleteV1({
       )}
 
       {/* No results message */}
-      {showSuggestions && suggestions.length === 0 && !loading && value.length >= 2 && (
-        <div className='absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 p-3'>
-          <div className='text-sm text-gray-500 text-center'>
-            No addresses found. Try a different search term.
+      {showSuggestions &&
+        suggestions.length === 0 &&
+        !loading &&
+        value.length >= 2 && (
+          <div className='absolute z-10 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 p-3'>
+            <div className='text-sm text-gray-500 text-center'>
+              No addresses found. Try a different search term.
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
-} 
+}

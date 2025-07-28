@@ -43,7 +43,7 @@ export async function GET(req: Request) {
 
     // Build where clause based on admin role
     let whereClause: Record<string, unknown> = {};
-    
+
     // For FACILITY_TEAM role, only show orders with DROPPED_OFF status
     if (admin.role === 'FACILITY_TEAM') {
       whereClause.status = OrderStatus.DROPPED_OFF;
@@ -114,8 +114,14 @@ export async function GET(req: Request) {
         // Map time fields to match frontend expectations with Bahrain timezone
         pickupTime: order.pickupStartTime,
         deliveryTime: order.deliveryStartTime,
-        pickupTimeSlot: formatTimeSlotRange(order.pickupStartTime, order.pickupEndTime),
-        deliveryTimeSlot: formatTimeSlotRange(order.deliveryStartTime, order.deliveryEndTime),
+        pickupTimeSlot: formatTimeSlotRange(
+          order.pickupStartTime,
+          order.pickupEndTime
+        ),
+        deliveryTimeSlot: formatTimeSlotRange(
+          order.deliveryStartTime,
+          order.deliveryEndTime
+        ),
       };
     });
 

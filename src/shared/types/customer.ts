@@ -136,14 +136,14 @@ export interface OrderWithDetails {
   createdByStaffId?: number;
   createdAt: string;
   updatedAt: string;
-  
+
   // Additional fields from API response
   pickupTime?: string;
   deliveryTime?: string;
   pickupTimeSlot?: string;
   deliveryTimeSlot?: string;
   customerNotes?: string;
-  
+
   // Relations
   address?: CustomerAddress;
   pickupAddress?: CustomerAddress;
@@ -151,7 +151,7 @@ export interface OrderWithDetails {
   orderServiceMappings: OrderServiceMapping[];
   orderProcessing?: OrderProcessing;
   orderUpdates: OrderUpdate[];
-  
+
   // Transformed fields for UI
   items?: OrderItem[];
   invoiceItems?: OrderItem[];
@@ -358,4 +358,4 @@ export interface PhoneVerificationData {
 export interface PhoneExistsResponse {
   exists: boolean;
   message?: string;
-} 
+}

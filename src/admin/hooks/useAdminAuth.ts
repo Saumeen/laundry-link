@@ -57,9 +57,9 @@ export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
         console.log('Auth: Session and currentUser exist, checking role...', {
           userRole: currentUser.role.name,
           requiredRole,
-          permissions: currentUser.role.permissions
+          permissions: currentUser.role.permissions,
         });
-        
+
         // If no required role is specified, any admin user is authorized
         if (!requiredRole) {
           console.log('Auth: No required role, user authorized');
@@ -79,7 +79,9 @@ export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
           setIsLoading(false);
           return;
         } else {
-          console.log('Auth: User does not have required role, redirecting to unauthorized');
+          console.log(
+            'Auth: User does not have required role, redirecting to unauthorized'
+          );
           router.push('/admin/unauthorized');
           return;
         }

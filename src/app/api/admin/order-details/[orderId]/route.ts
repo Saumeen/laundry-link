@@ -86,8 +86,14 @@ export async function GET(
       ...order,
       pickupTime: order.pickupStartTime,
       deliveryTime: order.deliveryStartTime,
-      pickupTimeSlot: formatTimeSlotRange(order.pickupStartTime, order.pickupEndTime),
-      deliveryTimeSlot: formatTimeSlotRange(order.deliveryStartTime, order.deliveryEndTime),
+      pickupTimeSlot: formatTimeSlotRange(
+        order.pickupStartTime,
+        order.pickupEndTime
+      ),
+      deliveryTimeSlot: formatTimeSlotRange(
+        order.deliveryStartTime,
+        order.deliveryEndTime
+      ),
     };
 
     return NextResponse.json({ order: mappedOrder });

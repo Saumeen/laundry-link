@@ -86,12 +86,23 @@ interface OrderProcessingManagerProps {
   onRefresh: () => void;
   isSuperAdmin?: boolean;
   onAddOrderItem?: (orderId: number, itemData: any) => Promise<void>;
-  onUpdateItemProcessing?: (orderId: string, processingItemDetailId: number, data: any) => Promise<void>;
+  onDeleteOrderItem?: (orderId: number, itemId: number) => Promise<void>;
+  onUpdateItemProcessing?: (
+    orderId: string,
+    processingItemDetailId: number,
+    data: any
+  ) => Promise<void>;
   onStartProcessing?: (orderId: number) => Promise<void>;
   onMarkAsReadyForDelivery?: (orderId: number) => Promise<void>;
   onGenerateInvoice?: (orderId: number) => Promise<void>;
   onMarkProcessingCompleted?: (orderId: number) => Promise<void>;
-  onUploadIssueImages?: (processingItemDetailId: number, images: string[], issueType: string, description: string, severity: string) => Promise<void>;
+  onUploadIssueImages?: (
+    processingItemDetailId: number,
+    images: string[],
+    issueType: string,
+    description: string,
+    severity: string
+  ) => Promise<void>;
   onFetchIssueReports?: (processingItemDetailId: number) => Promise<void>;
   loading?: boolean;
 }
@@ -101,6 +112,7 @@ export default function OrderProcessingManager({
   onRefresh,
   isSuperAdmin = false,
   onAddOrderItem,
+  onDeleteOrderItem,
   onUpdateItemProcessing,
   onStartProcessing,
   onMarkAsReadyForDelivery,
@@ -108,15 +120,18 @@ export default function OrderProcessingManager({
   onMarkProcessingCompleted,
   onUploadIssueImages,
   onFetchIssueReports,
-  loading = false
+  loading = false,
 }: OrderProcessingManagerProps) {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'add-item'>('overview');
-  const [selectedItemDetail, setSelectedItemDetail] = useState<ProcessingItemDetail | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'add-item'>(
+    'overview'
+  );
+  const [selectedItemDetail, setSelectedItemDetail] =
+    useState<ProcessingItemDetail | null>(null);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showInvoiceWarningModal, setShowInvoiceWarningModal] = useState(false);
-  
+
   // State for image uploads
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
@@ -182,7 +197,8 @@ export default function OrderProcessingManager({
   const canMarkAsReadyForDelivery = () => {
     return (
       order?.orderProcessing &&
-      order.orderProcessing.processingStatus !== OrderStatus.READY_FOR_DELIVERY &&
+      order.orderProcessing.processingStatus !==
+        OrderStatus.READY_FOR_DELIVERY &&
       isAllItemsCompleted()
     );
   };
@@ -211,7 +227,11 @@ export default function OrderProcessingManager({
     if (e) e.preventDefault();
     if (formLoading || !onAddOrderItem) return;
 
-    if (!newItemData.itemName || !newItemData.orderServiceMappingId || newItemData.quantity <= 0) {
+    if (
+      !newItemData.itemName ||
+      !newItemData.orderServiceMappingId ||
+      newItemData.quantity <= 0
+    ) {
       showToast('Please fill in all required fields', 'error');
       return;
     }
@@ -237,10 +257,10 @@ export default function OrderProcessingManager({
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     setSelectedImages(prev => [...prev, ...files]);
-    
+
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = e => {
         setImagePreviewUrls(prev => [...prev, e.target?.result as string]);
       };
       reader.readAsDataURL(file);
@@ -255,9 +275,9 @@ export default function OrderProcessingManager({
   const convertImagesToBase64 = async (files: File[]): Promise<string[]> => {
     return Promise.all(
       files.map(file => {
-        return new Promise<string>((resolve) => {
+        return new Promise<string>(resolve => {
           const reader = new FileReader();
-          reader.onload = (e) => {
+          reader.onload = e => {
             resolve(e.target?.result as string);
           };
           reader.readAsDataURL(file);
@@ -271,13 +291,19 @@ export default function OrderProcessingManager({
 
     setFormLoading(true);
     try {
-      if (itemProcessingData.status === 'ISSUE_REPORTED' && selectedImages.length > 0 && onUploadIssueImages) {
+      if (
+        itemProcessingData.status === 'ISSUE_REPORTED' &&
+        selectedImages.length > 0 &&
+        onUploadIssueImages
+      ) {
         const base64Images = await convertImagesToBase64(selectedImages);
         await onUploadIssueImages(
           selectedItemDetail.id,
           base64Images,
           itemProcessingData.issueType || 'damage',
-          itemProcessingData.issueDescription || itemProcessingData.processingNotes || 'Issue reported',
+          itemProcessingData.issueDescription ||
+            itemProcessingData.processingNotes ||
+            'Issue reported',
           itemProcessingData.issueSeverity || 'medium'
         );
         showToast('Issue report with images uploaded successfully!', 'success');
@@ -289,7 +315,7 @@ export default function OrderProcessingManager({
         );
         showToast('Item processing updated successfully!', 'success');
       }
-      
+
       setSelectedImages([]);
       setImagePreviewUrls([]);
       setShowItemModal(false);
@@ -347,7 +373,10 @@ export default function OrderProcessingManager({
       showToast('Order marked as ready for delivery!', 'success');
       onRefresh();
     } catch (error) {
-      showToast('Failed to mark order as ready for delivery. Please try again.', 'error');
+      showToast(
+        'Failed to mark order as ready for delivery. Please try again.',
+        'error'
+      );
     } finally {
       setFormLoading(false);
     }
@@ -378,10 +407,16 @@ export default function OrderProcessingManager({
           await onFetchIssueReports(processingDetail.id);
         }
       } else {
-        showToast('Failed to create processing item for this order item', 'error');
+        showToast(
+          'Failed to create processing item for this order item',
+          'error'
+        );
       }
     } catch (error) {
-      showToast('Failed to start processing for item. Please try again.', 'error');
+      showToast(
+        'Failed to start processing for item. Please try again.',
+        'error'
+      );
     } finally {
       setFormLoading(false);
     }
@@ -407,9 +442,33 @@ export default function OrderProcessingManager({
       showToast('Processing marked as completed!', 'success');
       onRefresh();
     } catch (error) {
-      showToast('Failed to mark processing as completed. Please try again.', 'error');
+      showToast(
+        'Failed to mark processing as completed. Please try again.',
+        'error'
+      );
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleDeleteOrderItem = async (itemId: number, itemName: string) => {
+    if (!onDeleteOrderItem) {
+      console.warn('Delete order item function not provided');
+      return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await onDeleteOrderItem(order.id, itemId);
+      showToast('Item deleted successfully!', 'success');
+      onRefresh();
+    } catch (error) {
+      console.error('Error deleting order item:', error);
+      showToast('Failed to delete item. Please try again.', 'error');
     }
   };
 
@@ -518,8 +577,16 @@ export default function OrderProcessingManager({
                     <span>Invoice Management</span>
                     {isInvoiceGenerated() && (
                       <span className='ml-2 text-green-600'>
-                        <svg className='w-5 h-5' fill='currentColor' viewBox='0 0 20 20'>
-                          <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
+                        <svg
+                          className='w-5 h-5'
+                          fill='currentColor'
+                          viewBox='0 0 20 20'
+                        >
+                          <path
+                            fillRule='evenodd'
+                            d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
+                            clipRule='evenodd'
+                          />
                         </svg>
                       </span>
                     )}
@@ -534,7 +601,9 @@ export default function OrderProcessingManager({
                         disabled={formLoading}
                         className='mt-3 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                       >
-                        {formLoading ? 'Generating...' : '🔄 Regenerate Invoice & Send Email'}
+                        {formLoading
+                          ? 'Generating...'
+                          : '🔄 Regenerate Invoice & Send Email'}
                       </button>
                     </div>
                   ) : (
@@ -547,7 +616,9 @@ export default function OrderProcessingManager({
                         disabled={formLoading}
                         className='mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                       >
-                        {formLoading ? 'Generating...' : 'Generate Invoice & Send Email'}
+                        {formLoading
+                          ? 'Generating...'
+                          : 'Generate Invoice & Send Email'}
                       </button>
                     </div>
                   )}
@@ -560,7 +631,8 @@ export default function OrderProcessingManager({
                   <h3 className='font-medium text-gray-900 mb-2'>
                     Order Completion
                   </h3>
-                  {order.orderProcessing.processingStatus === OrderStatus.READY_FOR_DELIVERY ? (
+                  {order.orderProcessing.processingStatus ===
+                  OrderStatus.READY_FOR_DELIVERY ? (
                     <div className='text-sm text-gray-600'>
                       <p className='text-green-700 font-medium'>
                         ✅ Order marked as ready for delivery!
@@ -576,7 +648,9 @@ export default function OrderProcessingManager({
                         disabled={formLoading}
                         className='mt-3 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                       >
-                        {formLoading ? 'Marking...' : 'Mark as Ready for Delivery'}
+                        {formLoading
+                          ? 'Marking...'
+                          : 'Mark as Ready for Delivery'}
                       </button>
                     </div>
                   ) : canMarkProcessingCompleted() ? (
@@ -589,14 +663,16 @@ export default function OrderProcessingManager({
                         disabled={formLoading}
                         className='mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
                       >
-                        {formLoading ? 'Marking...' : 'Mark Processing as Completed'}
+                        {formLoading
+                          ? 'Marking...'
+                          : 'Mark Processing as Completed'}
                       </button>
                     </div>
                   ) : (
                     <div className='text-sm text-gray-600'>
                       <p>
-                        Complete all items in the <strong>Items</strong> tab
-                        to mark this order as ready for delivery.
+                        Complete all items in the <strong>Items</strong> tab to
+                        mark this order as ready for delivery.
                       </p>
                     </div>
                   )}
@@ -627,7 +703,8 @@ export default function OrderProcessingManager({
                         >
                           <div className='flex-1'>
                             <div className='flex items-center space-x-2'>
-                              {processingDetail && getStatusIcon(processingDetail.status)}
+                              {processingDetail &&
+                                getStatusIcon(processingDetail.status)}
                               <span className='font-medium'>
                                 {item.itemName}
                               </span>
@@ -647,8 +724,7 @@ export default function OrderProcessingManager({
                             )}
                             {processingDetail && (
                               <div className='text-sm text-gray-600 mt-1'>
-                                Processed:{' '}
-                                {processingDetail.processedQuantity}/
+                                Processed: {processingDetail.processedQuantity}/
                                 {item.quantity}
                                 {processingDetail.qualityScore &&
                                   ` | Quality: ${processingDetail.qualityScore}/10`}
@@ -669,7 +745,9 @@ export default function OrderProcessingManager({
                                   setSelectedItemDetail(processingDetail);
                                   setShowItemModal(true);
                                   if (onFetchIssueReports) {
-                                    await onFetchIssueReports(processingDetail.id);
+                                    await onFetchIssueReports(
+                                      processingDetail.id
+                                    );
                                   }
                                 } else {
                                   await startProcessingForItem(item);
@@ -686,6 +764,16 @@ export default function OrderProcessingManager({
                                   ? 'Update'
                                   : 'Start Processing'}
                             </button>
+                            {onDeleteOrderItem && (
+                              <button
+                                onClick={() => handleDeleteOrderItem(item.id, item.itemName)}
+                                disabled={formLoading}
+                                className='text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed'
+                                title='Delete this item'
+                              >
+                                {formLoading ? 'Deleting...' : 'Delete'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -704,7 +792,8 @@ export default function OrderProcessingManager({
                   Add New Items
                 </h3>
                 <p className='text-sm text-gray-600'>
-                  Add individual items to this order. Select a service and choose from available pricing items.
+                  Add individual items to this order. Select a service and
+                  choose from available pricing items.
                 </p>
               </div>
 
@@ -806,16 +895,20 @@ export default function OrderProcessingManager({
                       </div>
                     </div>
                     <div className='space-y-4'>
-                      {newItemData.quantity > 0 && newItemData.pricePerItem > 0 && (
-                        <div className='bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200'>
-                          <div className='text-sm text-gray-600 mb-1'>
-                            Total Amount
+                      {newItemData.quantity > 0 &&
+                        newItemData.pricePerItem > 0 && (
+                          <div className='bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200'>
+                            <div className='text-sm text-gray-600 mb-1'>
+                              Total Amount
+                            </div>
+                            <div className='text-2xl font-bold text-green-600'>
+                              BD{' '}
+                              {(
+                                newItemData.quantity * newItemData.pricePerItem
+                              ).toFixed(2)}
+                            </div>
                           </div>
-                          <div className='text-2xl font-bold text-green-600'>
-                            BD {(newItemData.quantity * newItemData.pricePerItem).toFixed(2)}
-                          </div>
-                        </div>
-                      )}
+                        )}
                       <div>
                         <label className='block text-sm font-medium text-gray-700 mb-2'>
                           Notes (optional)
@@ -839,27 +932,29 @@ export default function OrderProcessingManager({
               )}
 
               {/* Add Button */}
-              {newItemData.itemName && newItemData.quantity > 0 && newItemData.pricePerItem > 0 && (
-                <div className='bg-white border border-gray-200 rounded-lg p-6'>
-                  <button
-                    onClick={handleAddOrderItem}
-                    disabled={formLoading}
-                    className='w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-lg hover:shadow-xl'
-                  >
-                    {formLoading ? (
-                      <div className='flex items-center justify-center'>
-                        <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2'></div>
-                        Adding Item...
-                      </div>
-                    ) : (
-                      <div className='flex items-center justify-center'>
-                        <Plus className='w-5 h-5 mr-2' />
-                        Add Item to Order
-                      </div>
-                    )}
-                  </button>
-                </div>
-              )}
+              {newItemData.itemName &&
+                newItemData.quantity > 0 &&
+                newItemData.pricePerItem > 0 && (
+                  <div className='bg-white border border-gray-200 rounded-lg p-6'>
+                    <button
+                      onClick={handleAddOrderItem}
+                      disabled={formLoading}
+                      className='w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-lg transition-all duration-200 shadow-lg hover:shadow-xl'
+                    >
+                      {formLoading ? (
+                        <div className='flex items-center justify-center'>
+                          <div className='animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2'></div>
+                          Adding Item...
+                        </div>
+                      ) : (
+                        <div className='flex items-center justify-center'>
+                          <Plus className='w-5 h-5 mr-2' />
+                          Add Item to Order
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                )}
             </div>
           )}
         </div>
@@ -1088,7 +1183,9 @@ export default function OrderProcessingManager({
                 <AlertCircle className='h-6 w-6 text-orange-600' />
               </div>
               <h3 className='text-lg font-medium text-gray-900 mb-4 text-center'>
-                {!hasOrderItems() ? 'No Items Added' : 'Invoice Already Generated'}
+                {!hasOrderItems()
+                  ? 'No Items Added'
+                  : 'Invoice Already Generated'}
               </h3>
               <div className='text-sm text-gray-600 mb-6'>
                 {!hasOrderItems() ? (
@@ -1165,4 +1262,4 @@ export default function OrderProcessingManager({
       )}
     </div>
   );
-} 
+}

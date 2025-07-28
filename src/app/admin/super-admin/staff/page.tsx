@@ -7,7 +7,6 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminHeader from '@/components/admin/AdminHeader';
 import { useSession } from 'next-auth/react';
 
-
 interface StaffMember {
   id: number;
   email: string;

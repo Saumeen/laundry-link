@@ -10,10 +10,12 @@ import type {
 class OrdersApi {
   private static baseUrl = '/api/customer/orders';
 
-  static async getOrders(filters?: OrderFilters): Promise<ApiResponse<OrdersListResponse>> {
+  static async getOrders(
+    filters?: OrderFilters
+  ): Promise<ApiResponse<OrdersListResponse>> {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null && value !== '') {
@@ -30,7 +32,9 @@ class OrdersApi {
         credentials: 'include',
       });
 
-      const data = await response.json() as OrdersListResponse | { error: string };
+      const data = (await response.json()) as
+        | OrdersListResponse
+        | { error: string };
 
       if (!response.ok) {
         return {
@@ -62,7 +66,7 @@ class OrdersApi {
         credentials: 'include',
       });
 
-      const data = await response.json() as OrderResponse | { error: string };
+      const data = (await response.json()) as OrderResponse | { error: string };
 
       if (!response.ok) {
         return {
@@ -84,7 +88,9 @@ class OrdersApi {
     }
   }
 
-  static async createOrder(orderData: CreateOrderData): Promise<ApiResponse<OrderResponse>> {
+  static async createOrder(
+    orderData: CreateOrderData
+  ): Promise<ApiResponse<OrderResponse>> {
     try {
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -95,7 +101,7 @@ class OrdersApi {
         body: JSON.stringify(orderData),
       });
 
-      const data = await response.json() as OrderResponse | { error: string };
+      const data = (await response.json()) as OrderResponse | { error: string };
 
       if (!response.ok) {
         return {
@@ -117,7 +123,9 @@ class OrdersApi {
     }
   }
 
-  static async cancelOrder(orderId: number): Promise<ApiResponse<{ message: string }>> {
+  static async cancelOrder(
+    orderId: number
+  ): Promise<ApiResponse<{ message: string }>> {
     try {
       const response = await fetch(`${this.baseUrl}/${orderId}`, {
         method: 'DELETE',
@@ -127,7 +135,9 @@ class OrdersApi {
         credentials: 'include',
       });
 
-      const data = await response.json() as { message: string } | { error: string };
+      const data = (await response.json()) as
+        | { message: string }
+        | { error: string };
 
       if (!response.ok) {
         return {
@@ -150,4 +160,4 @@ class OrdersApi {
   }
 }
 
-export { OrdersApi }; 
+export { OrdersApi };

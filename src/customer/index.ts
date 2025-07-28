@@ -42,4 +42,4 @@ export type {
   ValidationSession,
   PhoneVerificationData,
   PhoneExistsResponse,
-} from '@/shared/types/customer'; 
+} from '@/shared/types/customer';

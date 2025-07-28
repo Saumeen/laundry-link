@@ -17,90 +17,91 @@ export async function GET(
     }
 
     // Get comprehensive order timeline with all related data
-    const [history, updates, driverAssignments, orderProcessing, issueReports] = await Promise.all([
-      // Order history entries
-      prisma.orderHistory.findMany({
-        where: { orderId: orderIdNumber },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true,
+    const [history, updates, driverAssignments, orderProcessing, issueReports] =
+      await Promise.all([
+        // Order history entries
+        prisma.orderHistory.findMany({
+          where: { orderId: orderIdNumber },
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      
-      // Order updates (status changes)
-      prisma.orderUpdate.findMany({
-        where: { orderId: orderIdNumber },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true,
+          orderBy: { createdAt: 'desc' },
+        }),
+
+        // Order updates (status changes)
+        prisma.orderUpdate.findMany({
+          where: { orderId: orderIdNumber },
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      
-      // Driver assignments with photos
-      prisma.driverAssignment.findMany({
-        where: { orderId: orderIdNumber },
-        include: {
-          driver: {
-            select: {
-              firstName: true,
-              lastName: true,
-              phone: true,
-              email: true,
+          orderBy: { createdAt: 'desc' },
+        }),
+
+        // Driver assignments with photos
+        prisma.driverAssignment.findMany({
+          where: { orderId: orderIdNumber },
+          include: {
+            driver: {
+              select: {
+                firstName: true,
+                lastName: true,
+                phone: true,
+                email: true,
+              },
+            },
+            photos: {
+              orderBy: { createdAt: 'desc' },
             },
           },
-          photos: {
-            orderBy: { createdAt: 'desc' },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      
-      // Order processing details
-      prisma.orderProcessing.findMany({
-        where: { orderId: orderIdNumber },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true,
+          orderBy: { createdAt: 'desc' },
+        }),
+
+        // Order processing details
+        prisma.orderProcessing.findMany({
+          where: { orderId: orderIdNumber },
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      
-      // Issue reports with photos
-      prisma.issueReport.findMany({
-        where: {
-          orderProcessing: {
-            orderId: orderIdNumber,
-          },
-        },
-        include: {
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              email: true,
+          orderBy: { createdAt: 'desc' },
+        }),
+
+        // Issue reports with photos
+        prisma.issueReport.findMany({
+          where: {
+            orderProcessing: {
+              orderId: orderIdNumber,
             },
           },
-        },
-        orderBy: { reportedAt: 'desc' },
-      }),
-    ]);
+          include: {
+            staff: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { reportedAt: 'desc' },
+        }),
+      ]);
 
     // Transform order updates into history format for consistency
     const transformedUpdates = updates.map(update => ({
@@ -110,7 +111,9 @@ export async function GET(
       action: 'status_change',
       oldValue: update.oldStatus,
       newValue: update.newStatus,
-      description: update.notes || `Status changed from ${update.oldStatus} to ${update.newStatus}`,
+      description:
+        update.notes ||
+        `Status changed from ${update.oldStatus} to ${update.newStatus}`,
       metadata: null,
       createdAt: update.createdAt.toISOString(),
       staff: update.staff,
@@ -118,7 +121,8 @@ export async function GET(
 
     // Combine and sort all history entries
     const combinedHistory = [...history, ...transformedUpdates].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     return NextResponse.json({
@@ -128,7 +132,11 @@ export async function GET(
       orderProcessing,
       issueReports,
       timeline: {
-        totalEvents: combinedHistory.length + driverAssignments.length + orderProcessing.length + issueReports.length,
+        totalEvents:
+          combinedHistory.length +
+          driverAssignments.length +
+          orderProcessing.length +
+          issueReports.length,
         lastUpdated: combinedHistory[0]?.createdAt || null,
       },
     });

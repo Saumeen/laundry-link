@@ -44,10 +44,6 @@ export default function SuperAdminDashboard() {
     router.push('/admin/super-admin/service-pricing');
   };
 
-
-
-
-
   // Stats card click handlers
   const handleStatsCardClick = (statType: string) => {
     switch (statType) {
@@ -243,8 +239,6 @@ export default function SuperAdminDashboard() {
                 bgColor='bg-indigo-600 hover:bg-indigo-700'
               />
             </div>
-
-
           </div>
         </div>
       </div>

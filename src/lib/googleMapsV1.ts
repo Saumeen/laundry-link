@@ -255,29 +255,38 @@ class GoogleMapsV1Service {
         regionCode: 'BH',
       };
 
-      const response = await fetch(`${this.baseUrl}/places:autocompletePlaces?key=${this.apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': this.apiKey,
-          'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.types',
-        },
-        body: JSON.stringify(request),
-      });
+      const response = await fetch(
+        `${this.baseUrl}/places:autocompletePlaces?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': this.apiKey,
+            'X-Goog-FieldMask':
+              'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.types',
+          },
+          body: JSON.stringify(request),
+        }
+      );
 
       if (!response.ok) {
-        console.error('Places API error:', response.status, response.statusText);
+        console.error(
+          'Places API error:',
+          response.status,
+          response.statusText
+        );
         return [];
       }
 
       const data: AutocompletePlacesResponse = await response.json();
-      
+
       return data.suggestions.map(suggestion => ({
         place_id: suggestion.placePrediction.placeId,
         description: suggestion.placePrediction.text.text,
         structured_formatting: {
           main_text: suggestion.placePrediction.structuredFormat.mainText.text,
-          secondary_text: suggestion.placePrediction.structuredFormat.secondaryText.text,
+          secondary_text:
+            suggestion.placePrediction.structuredFormat.secondaryText.text,
         },
       }));
     } catch (error) {
@@ -307,15 +316,22 @@ class GoogleMapsV1Service {
         languageCode: 'en',
       };
 
-      const response = await fetch(`${this.baseUrl}/places/${placeId}?key=${this.apiKey}&fields=${request.fields?.join(',')}`, {
-        method: 'GET',
-        headers: {
-          'X-Goog-Api-Key': this.apiKey,
-        },
-      });
+      const response = await fetch(
+        `${this.baseUrl}/places/${placeId}?key=${this.apiKey}&fields=${request.fields?.join(',')}`,
+        {
+          method: 'GET',
+          headers: {
+            'X-Goog-Api-Key': this.apiKey,
+          },
+        }
+      );
 
       if (!response.ok) {
-        console.error('Place details API error:', response.status, response.statusText);
+        console.error(
+          'Place details API error:',
+          response.status,
+          response.statusText
+        );
         return null;
       }
 
@@ -324,17 +340,32 @@ class GoogleMapsV1Service {
 
       // Extract address components
       const addressComponents = place.addressComponents || [];
-      
-      const streetNumber = this.getAddressComponent(addressComponents, 'street_number');
+
+      const streetNumber = this.getAddressComponent(
+        addressComponents,
+        'street_number'
+      );
       const route = this.getAddressComponent(addressComponents, 'route');
-      const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
+      const sublocality = this.getAddressComponent(
+        addressComponents,
+        'sublocality'
+      );
       const locality = this.getAddressComponent(addressComponents, 'locality');
-      const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
-      const establishment = this.getAddressComponent(addressComponents, 'establishment');
+      const administrativeArea = this.getAddressComponent(
+        addressComponents,
+        'administrative_area_level_1'
+      );
+      const establishment = this.getAddressComponent(
+        addressComponents,
+        'establishment'
+      );
 
       // Determine location type based on place types
       let locationType: 'hotel' | 'home' | 'flat' | 'office' = 'flat';
-      if (place.types?.includes('lodging') || place.types?.includes('establishment')) {
+      if (
+        place.types?.includes('lodging') ||
+        place.types?.includes('establishment')
+      ) {
         locationType = 'hotel';
       } else if (place.types?.includes('premise')) {
         locationType = 'office';
@@ -361,7 +392,10 @@ class GoogleMapsV1Service {
   }
 
   // Reverse geocoding from coordinates using the new API
-  async reverseGeocode(lat: number, lng: number): Promise<GeocodingResult | null> {
+  async reverseGeocode(
+    lat: number,
+    lng: number
+  ): Promise<GeocodingResult | null> {
     try {
       // For reverse geocoding, we'll use the traditional Geocoding API
       // as the new Places API v1 doesn't have a direct reverse geocoding endpoint
@@ -374,7 +408,7 @@ class GoogleMapsV1Service {
       }
 
       const data = await response.json();
-      
+
       if (data.status !== 'OK' || !data.results || data.results.length === 0) {
         return null;
       }
@@ -382,16 +416,31 @@ class GoogleMapsV1Service {
       const result = data.results[0];
       const addressComponents = result.address_components;
 
-      const streetNumber = this.getAddressComponent(addressComponents, 'street_number');
+      const streetNumber = this.getAddressComponent(
+        addressComponents,
+        'street_number'
+      );
       const route = this.getAddressComponent(addressComponents, 'route');
-      const sublocality = this.getAddressComponent(addressComponents, 'sublocality');
+      const sublocality = this.getAddressComponent(
+        addressComponents,
+        'sublocality'
+      );
       const locality = this.getAddressComponent(addressComponents, 'locality');
-      const administrativeArea = this.getAddressComponent(addressComponents, 'administrative_area_level_1');
-      const establishment = this.getAddressComponent(addressComponents, 'establishment');
+      const administrativeArea = this.getAddressComponent(
+        addressComponents,
+        'administrative_area_level_1'
+      );
+      const establishment = this.getAddressComponent(
+        addressComponents,
+        'establishment'
+      );
 
       // Determine location type based on place types
       let locationType: 'hotel' | 'home' | 'flat' | 'office' = 'flat';
-      if (result.types?.includes('lodging') || result.types?.includes('establishment')) {
+      if (
+        result.types?.includes('lodging') ||
+        result.types?.includes('establishment')
+      ) {
         locationType = 'hotel';
       } else if (result.types?.includes('premise')) {
         locationType = 'office';
@@ -426,4 +475,4 @@ class GoogleMapsV1Service {
 
 // Export singleton instance
 const googleMapsV1Service = new GoogleMapsV1Service();
-export default googleMapsV1Service; 
+export default googleMapsV1Service;

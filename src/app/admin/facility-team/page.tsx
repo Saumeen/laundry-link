@@ -37,7 +37,6 @@ export default function FacilityTeamDashboard() {
     router.push('/admin/facility-team/processing');
   }, [router]);
 
-
   const handleNavigateToIssues = useCallback(() => {
     router.push('/admin/facility-team/issues');
   }, [router]);
@@ -175,7 +174,6 @@ export default function FacilityTeamDashboard() {
               bgColor='bg-green-500'
               isLoading={statsLoading}
             />
-
           </div>
         </div>
 
@@ -211,7 +209,9 @@ export default function FacilityTeamDashboard() {
         {/* Recent Orders */}
         <div className='bg-white shadow rounded-lg'>
           <div className='px-6 py-4 border-b border-gray-200'>
-            <h3 className='text-lg font-medium text-gray-900'>Received Orders</h3>
+            <h3 className='text-lg font-medium text-gray-900'>
+              Received Orders
+            </h3>
           </div>
           <div className='overflow-x-auto'>
             <table className='min-w-full divide-y divide-gray-200'>
@@ -257,7 +257,16 @@ export default function FacilityTeamDashboard() {
                   orders.slice(0, 10).map(order => (
                     <tr key={order.id} className='hover:bg-gray-50'>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
-                        {order.orderNumber}
+                        <div className='flex items-center space-x-2'>
+                          <span>{order.orderNumber}</span>
+                          {order.orderServiceMappings?.some(
+                            mapping => mapping.service.name === 'express-service'
+                          ) && (
+                            <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800'>
+                              Express
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
                         {order.customer

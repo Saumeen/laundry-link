@@ -34,24 +34,22 @@ export async function GET() {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // Fetch statistics
-    const [pendingOrders, completedOrders] =
-      await Promise.all([
-        // Pending orders (ready for processing)
-        prisma.order.count({
-          where: {
-            status: { in: ['RECEIVED_AT_FACILITY', 'PROCESSING_STARTED'] },
-          },
-        }),
+    const [pendingOrders, completedOrders] = await Promise.all([
+      // Pending orders (ready for processing)
+      prisma.order.count({
+        where: {
+          status: { in: ['RECEIVED_AT_FACILITY', 'PROCESSING_STARTED'] },
+        },
+      }),
 
-        // Completed orders (today)
-        prisma.order.count({
-          where: {
-            updatedAt: { gte: today, lt: tomorrow },
-            status: 'READY_FOR_DELIVERY',
-          },
-        }),
-
-      ]);
+      // Completed orders (today)
+      prisma.order.count({
+        where: {
+          updatedAt: { gte: today, lt: tomorrow },
+          status: 'READY_FOR_DELIVERY',
+        },
+      }),
+    ]);
 
     const stats = {
       totalOrders: pendingOrders + completedOrders,

@@ -14,18 +14,18 @@ export default function CustomerOrdersPage() {
   }, [fetchProfile]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       <CustomerNavigation
-        currentPage="orders"
-        title="My Orders"
-        subtitle="Track your laundry orders and their status"
-        icon="📦"
+        currentPage='orders'
+        title='My Orders'
+        subtitle='Track your laundry orders and their status'
+        icon='📦'
       />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
         <DashboardContent />
       </div>
     </div>
   );
-} 
+}

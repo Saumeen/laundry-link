@@ -274,8 +274,8 @@ export async function GET(
       });
 
       yPosition =
-        (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY +
-        15;
+        (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable
+          .finalY + 15;
     }
 
     // Special instructions

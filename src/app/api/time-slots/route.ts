@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma  from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   try {
@@ -16,7 +16,7 @@ export async function GET() {
           slotDuration: 3,
           startTime: '09:00',
           endTime: '21:00',
-        }
+        },
       });
     }
 
@@ -28,4 +28,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}

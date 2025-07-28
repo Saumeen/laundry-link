@@ -35,17 +35,20 @@ export const DriverMap = memo(() => {
   // Get assignment locations for map markers (filtered by today's Bahraini time)
   const getAssignmentLocations = () => {
     const bahrainToday = getCurrentBahrainDate();
-    
+
     return assignments
       .filter(assignment => {
         // Filter by today's assignments based on Bahraini time
         if (!assignment.estimatedTime) return false;
-        
+
         const assignmentDate = new Date(assignment.estimatedTime);
-        const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
-          timeZone: 'Asia/Bahrain' 
-        });
-        
+        const assignmentBahrainDate = assignmentDate.toLocaleDateString(
+          'en-CA',
+          {
+            timeZone: 'Asia/Bahrain',
+          }
+        );
+
         return bahrainToday === assignmentBahrainDate;
       })
       .filter(
@@ -206,77 +209,89 @@ export const DriverMap = memo(() => {
           .filter(assignment => {
             // Filter by today's assignments based on Bahraini time
             if (!assignment.estimatedTime) return false;
-            
+
             const bahrainToday = getCurrentBahrainDate();
             const assignmentDate = new Date(assignment.estimatedTime);
-            const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
-              timeZone: 'Asia/Bahrain' 
-            });
-            
+            const assignmentBahrainDate = assignmentDate.toLocaleDateString(
+              'en-CA',
+              {
+                timeZone: 'Asia/Bahrain',
+              }
+            );
+
             return bahrainToday === assignmentBahrainDate;
           })
-          .slice(0, 3).map(assignment => (
-          <div
-            key={assignment.id}
-            className='flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors'
-          >
-            <div className='flex items-center space-x-3'>
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  assignment.assignmentType === 'pickup'
-                    ? 'bg-blue-500'
-                    : 'bg-green-500'
-                }`}
-              ></div>
-              <div>
-                <p className='text-sm font-medium text-gray-900'>
-                  {assignment.assignmentType === 'pickup'
-                    ? 'Pickup'
-                    : 'Delivery'}{' '}
-                  - {assignment.order.orderNumber}
-                </p>
-                <p className='text-xs text-gray-500 truncate max-w-48'>
-                  {assignment.order.customerAddress}
-                </p>
-              </div>
-            </div>
-            <a
-              href={getGoogleMapsLink(assignment)}
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-blue-600 hover:text-blue-800 text-sm'
+          .slice(0, 3)
+          .map(assignment => (
+            <div
+              key={assignment.id}
+              className='flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors'
             >
-              Open
-            </a>
-          </div>
-        ))}
+              <div className='flex items-center space-x-3'>
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    assignment.assignmentType === 'pickup'
+                      ? 'bg-blue-500'
+                      : 'bg-green-500'
+                  }`}
+                ></div>
+                <div>
+                  <p className='text-sm font-medium text-gray-900'>
+                    {assignment.assignmentType === 'pickup'
+                      ? 'Pickup'
+                      : 'Delivery'}{' '}
+                    - {assignment.order.orderNumber}
+                  </p>
+                  <p className='text-xs text-gray-500 truncate max-w-48'>
+                    {assignment.order.customerAddress}
+                  </p>
+                </div>
+              </div>
+              <a
+                href={getGoogleMapsLink(assignment)}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='text-blue-600 hover:text-blue-800 text-sm'
+              >
+                Open
+              </a>
+            </div>
+          ))}
       </div>
 
       {assignments.filter(assignment => {
         // Filter by today's assignments based on Bahraini time
         if (!assignment.estimatedTime) return false;
-        
+
         const bahrainToday = getCurrentBahrainDate();
         const assignmentDate = new Date(assignment.estimatedTime);
-        const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
-          timeZone: 'Asia/Bahrain' 
-        });
-        
+        const assignmentBahrainDate = assignmentDate.toLocaleDateString(
+          'en-CA',
+          {
+            timeZone: 'Asia/Bahrain',
+          }
+        );
+
         return bahrainToday === assignmentBahrainDate;
       }).length > 3 && (
         <div className='text-center pt-2'>
           <button className='text-sm text-blue-600 hover:text-blue-800'>
-            View {assignments.filter(assignment => {
+            View{' '}
+            {assignments.filter(assignment => {
               if (!assignment.estimatedTime) return false;
-              
+
               const bahrainToday = getCurrentBahrainDate();
               const assignmentDate = new Date(assignment.estimatedTime);
-              const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
-                timeZone: 'Asia/Bahrain' 
-              });
-              
+              const assignmentBahrainDate = assignmentDate.toLocaleDateString(
+                'en-CA',
+                {
+                  timeZone: 'Asia/Bahrain',
+                }
+              );
+
               return bahrainToday === assignmentBahrainDate;
-            }).length - 3} more locations
+            }).length - 3}{' '}
+            more locations
           </button>
         </div>
       )}

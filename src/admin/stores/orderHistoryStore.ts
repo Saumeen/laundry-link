@@ -93,7 +93,13 @@ export interface IssueReport {
 
 export interface TimelineEvent {
   id: string | number;
-  type: 'order_created' | 'status_change' | 'driver_assignment' | 'processing_update' | 'issue_reported' | 'photo_uploaded';
+  type:
+    | 'order_created'
+    | 'status_change'
+    | 'driver_assignment'
+    | 'processing_update'
+    | 'issue_reported'
+    | 'photo_uploaded';
   status: string;
   timestamp: string;
   description: string;
@@ -118,27 +124,33 @@ export interface OrderHistoryState {
   orderProcessing: OrderProcessing[];
   issueReports: IssueReport[];
   timeline: TimelineEvent[];
-  
+
   // UI State
   loading: boolean;
   error: string | null;
-  
+
   // Form States
   addHistoryForm: FormState;
   uploadPhotoForm: FormState;
-  
+
   // Actions
   fetchOrderHistory: (orderId: number) => Promise<void>;
-  addHistoryEntry: (orderId: number, data: {
-    action: string;
-    description: string;
-    metadata?: Record<string, unknown>;
-  }) => Promise<void>;
-  uploadDriverPhoto: (assignmentId: number, data: {
-    photoUrl: string;
-    photoType: string;
-    description?: string;
-  }) => Promise<void>;
+  addHistoryEntry: (
+    orderId: number,
+    data: {
+      action: string;
+      description: string;
+      metadata?: Record<string, unknown>;
+    }
+  ) => Promise<void>;
+  uploadDriverPhoto: (
+    assignmentId: number,
+    data: {
+      photoUrl: string;
+      photoType: string;
+      description?: string;
+    }
+  ) => Promise<void>;
   clearHistory: () => void;
 }
 
@@ -165,10 +177,10 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
           const response = await fetch(`/api/admin/order-history/${orderId}`);
           if (response.ok) {
             const data = await response.json();
-            
+
             // Transform the data into timeline events
             const timeline = createTimelineFromData(data);
-            
+
             set({
               history: data.history || [],
               driverAssignments: data.driverAssignments || [],
@@ -193,13 +205,21 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
         }
       },
 
-      addHistoryEntry: async (orderId: number, data: {
-        action: string;
-        description: string;
-        metadata?: Record<string, unknown>;
-      }) => {
-        set((state) => ({
-          addHistoryForm: { ...state.addHistoryForm, loading: true, error: null, success: false }
+      addHistoryEntry: async (
+        orderId: number,
+        data: {
+          action: string;
+          description: string;
+          metadata?: Record<string, unknown>;
+        }
+      ) => {
+        set(state => ({
+          addHistoryForm: {
+            ...state.addHistoryForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
@@ -213,11 +233,11 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
 
           if (response.ok) {
             const newEntry = await response.json();
-            set((state) => ({
+            set(state => ({
               history: [newEntry, ...state.history],
               addHistoryForm: { loading: false, error: null, success: true },
             }));
-            
+
             // Refresh the timeline
             const currentTimeline = get().timeline;
             const newTimeline = createTimelineFromData({
@@ -229,7 +249,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             set({ timeline: newTimeline });
           } else {
             const errorData = await response.json();
-            set((state) => ({
+            set(state => ({
               addHistoryForm: {
                 loading: false,
                 error: errorData.error || 'Failed to add history entry',
@@ -239,7 +259,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
           }
         } catch (error) {
           console.error('Error adding history entry:', error);
-          set((state) => ({
+          set(state => ({
             addHistoryForm: {
               loading: false,
               error: 'An error occurred while adding history entry',
@@ -249,13 +269,21 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
         }
       },
 
-      uploadDriverPhoto: async (assignmentId: number, data: {
-        photoUrl: string;
-        photoType: string;
-        description?: string;
-      }) => {
-        set((state) => ({
-          uploadPhotoForm: { ...state.uploadPhotoForm, loading: true, error: null, success: false }
+      uploadDriverPhoto: async (
+        assignmentId: number,
+        data: {
+          photoUrl: string;
+          photoType: string;
+          description?: string;
+        }
+      ) => {
+        set(state => ({
+          uploadPhotoForm: {
+            ...state.uploadPhotoForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
@@ -272,9 +300,9 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
 
           if (response.ok) {
             const result = await response.json();
-            
+
             // Update driver assignments with new photo
-            set((state) => ({
+            set(state => ({
               driverAssignments: state.driverAssignments.map(assignment =>
                 assignment.id === assignmentId
                   ? {
@@ -285,7 +313,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
               ),
               uploadPhotoForm: { loading: false, error: null, success: true },
             }));
-            
+
             // Refresh the timeline
             const newTimeline = createTimelineFromData({
               history: get().history,
@@ -303,7 +331,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             set({ timeline: newTimeline });
           } else {
             const errorData = await response.json();
-            set((state) => ({
+            set(state => ({
               uploadPhotoForm: {
                 loading: false,
                 error: errorData.error || 'Failed to upload photo',
@@ -313,7 +341,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
           }
         } catch (error) {
           console.error('Error uploading photo:', error);
-          set((state) => ({
+          set(state => ({
             uploadPhotoForm: {
               loading: false,
               error: 'An error occurred while uploading photo',
@@ -343,7 +371,7 @@ function createTimelineFromData(data: {
   const timeline: TimelineEvent[] = [];
 
   // Add order history entries
-  data.history.forEach((entry) => {
+  data.history.forEach(entry => {
     timeline.push({
       id: entry.id,
       type: 'status_change',
@@ -351,18 +379,20 @@ function createTimelineFromData(data: {
       timestamp: entry.createdAt,
       description: entry.description,
       icon: getTimelineIcon(entry.action),
-      createdBy: entry.staff ? `${entry.staff.firstName} ${entry.staff.lastName}` : undefined,
+      createdBy: entry.staff
+        ? `${entry.staff.firstName} ${entry.staff.lastName}`
+        : undefined,
     });
   });
 
   // Add driver assignments
-  data.driverAssignments.forEach((assignment) => {
+  data.driverAssignments.forEach(assignment => {
     timeline.push({
       id: `driver-${assignment.id}`,
       type: 'driver_assignment',
       status: `Driver ${assignment.status}`,
       timestamp: assignment.createdAt,
-      description: assignment.driver 
+      description: assignment.driver
         ? `Driver ${assignment.driver.firstName} ${assignment.driver.lastName} assigned for ${assignment.assignmentType}`
         : `Driver assigned for ${assignment.assignmentType}`,
       driver: assignment.driver,
@@ -372,7 +402,7 @@ function createTimelineFromData(data: {
   });
 
   // Add order processing updates
-  data.orderProcessing.forEach((processing) => {
+  data.orderProcessing.forEach(processing => {
     timeline.push({
       id: `processing-${processing.id}`,
       type: 'processing_update',
@@ -381,12 +411,14 @@ function createTimelineFromData(data: {
       description: `Processing status: ${processing.processingStatus}`,
       processing,
       icon: '⚙️',
-      createdBy: processing.staff ? `${processing.staff.firstName} ${processing.staff.lastName}` : undefined,
+      createdBy: processing.staff
+        ? `${processing.staff.firstName} ${processing.staff.lastName}`
+        : undefined,
     });
   });
 
   // Add issue reports
-  data.issueReports.forEach((issue) => {
+  data.issueReports.forEach(issue => {
     timeline.push({
       id: `issue-${issue.id}`,
       type: 'issue_reported',
@@ -395,12 +427,16 @@ function createTimelineFromData(data: {
       description: issue.description,
       issueReport: issue,
       icon: '⚠️',
-      createdBy: issue.staff ? `${issue.staff.firstName} ${issue.staff.lastName}` : undefined,
+      createdBy: issue.staff
+        ? `${issue.staff.firstName} ${issue.staff.lastName}`
+        : undefined,
     });
   });
 
   // Sort by timestamp (newest first)
-  return timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return timeline.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 }
 
 // Helper function to get timeline icon
@@ -421,4 +457,4 @@ function getTimelineIcon(action: string): string {
     default:
       return '📋';
   }
-} 
+}

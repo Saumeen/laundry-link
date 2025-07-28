@@ -24,7 +24,9 @@ class InvoiceApi {
     }
   }
 
-  static async generateInvoice(orderId: number): Promise<ApiResponse<{ message: string }>> {
+  static async generateInvoice(
+    orderId: number
+  ): Promise<ApiResponse<{ message: string }>> {
     try {
       const response = await fetch(`${this.baseUrl}/${orderId}/generate`, {
         method: 'POST',
@@ -34,12 +36,15 @@ class InvoiceApi {
         credentials: 'include',
       });
 
-      const data = await response.json() as { message: string } | { error: string };
+      const data = (await response.json()) as
+        | { message: string }
+        | { error: string };
 
       if (!response.ok) {
         return {
           success: false,
-          error: (data as { error: string }).error || 'Failed to generate invoice',
+          error:
+            (data as { error: string }).error || 'Failed to generate invoice',
         };
       }
 
@@ -57,4 +62,4 @@ class InvoiceApi {
   }
 }
 
-export { InvoiceApi }; 
+export { InvoiceApi };

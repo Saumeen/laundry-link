@@ -35,9 +35,11 @@ const ERROR_MESSAGES = {
   ASSIGNMENT_EXISTS: 'Assignment already exists for this order and type',
   ASSIGNMENT_NOT_FOUND: 'Assignment not found',
   ACCESS_DENIED: 'Access denied. You can only update your own assignments.',
-  TIME_WINDOW_EXPIRED: 'Cannot start assignment. Time window has expired. Please contact support.',
+  TIME_WINDOW_EXPIRED:
+    'Cannot start assignment. Time window has expired. Please contact support.',
   PHOTO_REQUIRED: 'Photo evidence is required when marking as dropped off',
-  INVALID_STATUS_TRANSITION: 'Cannot mark as dropped off. Assignment must be in progress first.',
+  INVALID_STATUS_TRANSITION:
+    'Cannot mark as dropped off. Assignment must be in progress first.',
 } as const;
 
 // Helper functions
@@ -57,10 +59,19 @@ const validateTimeWindow = (
   const now = new Date();
   const earliestStart = isDev
     ? new Date()
-    : new Date(estimatedTime.getTime() - TIME_WINDOWS.EARLIEST_START_MINUTES * 60 * 1000);
+    : new Date(
+        estimatedTime.getTime() -
+          TIME_WINDOWS.EARLIEST_START_MINUTES * 60 * 1000
+      );
   const latestStart = isDev
-    ? new Date(estimatedTime.getTime() + TIME_WINDOWS.DEV_LATEST_START_HOURS * 60 * 60 * 1000)
-    : new Date(estimatedTime.getTime() + TIME_WINDOWS.LATEST_START_HOURS * 60 * 60 * 1000);
+    ? new Date(
+        estimatedTime.getTime() +
+          TIME_WINDOWS.DEV_LATEST_START_HOURS * 60 * 60 * 1000
+      )
+    : new Date(
+        estimatedTime.getTime() +
+          TIME_WINDOWS.LATEST_START_HOURS * 60 * 60 * 1000
+      );
 
   if (now < earliestStart) {
     return {
@@ -119,9 +130,10 @@ const getStatusNotes = (
   notes?: string
 ): string => {
   if (status === 'DROPPED_OFF') {
-    const baseMessage = assignmentType === 'pickup' 
-      ? 'Pickup dropped off at facility'
-      : 'Delivery dropped off at customer location';
+    const baseMessage =
+      assignmentType === 'pickup'
+        ? 'Pickup dropped off at facility'
+        : 'Delivery dropped off at customer location';
     return notes ? `${baseMessage} - ${notes}` : baseMessage;
   }
   return notes || '';
@@ -139,9 +151,10 @@ const sendDeliveryConfirmationEmail = async (
         quantity: mapping.quantity,
         unitPrice: mapping.price,
         totalPrice: mapping.price * mapping.quantity,
-        notes: mapping.orderItems.length > 0
-          ? mapping.orderItems.map((item: any) => item.itemName).join(', ')
-          : undefined,
+        notes:
+          mapping.orderItems.length > 0
+            ? mapping.orderItems.map((item: any) => item.itemName).join(', ')
+            : undefined,
       })),
     };
 
@@ -152,7 +165,9 @@ const sendDeliveryConfirmationEmail = async (
       invoiceData
     );
 
-    console.log(`Delivery confirmation email sent for order #${orderWithInvoice.orderNumber}`);
+    console.log(
+      `Delivery confirmation email sent for order #${orderWithInvoice.orderNumber}`
+    );
   } catch (emailError) {
     console.error('Error sending delivery confirmation email:', emailError);
     // Don't fail the request if email fails
@@ -164,7 +179,8 @@ export async function POST(request: NextRequest) {
     const admin = await requireAuthenticatedAdmin();
     const body: DriverAssignmentRequest = await request.json();
 
-    const { orderId, driverId, assignmentType, status, estimatedTime, notes } = body;
+    const { orderId, driverId, assignmentType, status, estimatedTime, notes } =
+      body;
 
     if (!validateDriverStatus(status)) {
       return NextResponse.json(
@@ -227,9 +243,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Update order status based on assignment type
-    const newOrderStatus = assignmentType === 'pickup' 
-      ? OrderStatus.PICKUP_ASSIGNED 
-      : OrderStatus.DELIVERY_ASSIGNED;
+    const newOrderStatus =
+      assignmentType === 'pickup'
+        ? OrderStatus.PICKUP_ASSIGNED
+        : OrderStatus.DELIVERY_ASSIGNED;
 
     await OrderTrackingService.updateOrderStatus({
       orderId: assignment.orderId,
@@ -351,7 +368,7 @@ export async function PUT(request: NextRequest) {
         updatedAssignment.assignmentType,
         status
       );
-      
+
       if (newOrderStatus) {
         const statusNotes = getStatusNotes(
           updatedAssignment.assignmentType,
@@ -359,10 +376,11 @@ export async function PUT(request: NextRequest) {
           notes
         );
 
-        await OrderTrackingService.updateOrderStatus({
+        await OrderTrackingService.updateOrderStatusWithEmail({
           orderId: updatedAssignment.orderId,
           newStatus: newOrderStatus,
           notes: statusNotes,
+          shouldSendEmail: true,
         });
       }
     }
@@ -386,6 +404,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+
+
     // Send delivery confirmation email with invoice when delivery is completed
     if (
       updatedAssignment.assignmentType === 'delivery' &&
@@ -406,7 +426,10 @@ export async function PUT(request: NextRequest) {
       });
 
       if (orderWithInvoice && orderWithInvoice.customer) {
-        await sendDeliveryConfirmationEmail(updatedAssignment, orderWithInvoice);
+        await sendDeliveryConfirmationEmail(
+          updatedAssignment,
+          orderWithInvoice
+        );
       }
     }
 
@@ -455,7 +478,10 @@ export async function GET(request: NextRequest) {
     // Filter out completed, dropped off, and failed assignments unless explicitly requested
     if (!showCompleted) {
       where.status = {
-        notIn: [DriverAssignmentStatus.DROPPED_OFF, DriverAssignmentStatus.FAILED],
+        notIn: [
+          DriverAssignmentStatus.DROPPED_OFF,
+          DriverAssignmentStatus.FAILED,
+        ],
       };
     }
 
@@ -464,18 +490,18 @@ export async function GET(request: NextRequest) {
       // Include all non-delivery assignments
       { assignmentType: { not: 'delivery' } },
       // Include delivery assignments that are not completed
-      { 
+      {
         assignmentType: 'delivery',
-        status: { not: 'COMPLETED' }
+        status: { not: 'COMPLETED' },
       },
       // Include delivery assignments that are completed but order is not delivered
       {
         assignmentType: 'delivery',
         status: 'COMPLETED',
         order: {
-          status: { not: 'DELIVERED' }
-        }
-      }
+          status: { not: 'DELIVERED' },
+        },
+      },
     ];
 
     const assignments = await prisma.driverAssignment.findMany({
@@ -505,7 +531,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(assignments);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('Error fetching driver assignments:', errorMessage);
     return NextResponse.json(
       { error: 'Failed to fetch driver assignments' },

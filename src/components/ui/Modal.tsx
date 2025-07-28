@@ -36,28 +36,36 @@ export default function Modal({
         ></div>
 
         {/* Modal panel */}
-        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} sm:w-full`}>
+        <div
+          className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} sm:w-full`}
+        >
           {/* Header */}
           <div className='bg-white px-4 pt-5 pb-4 sm:p-6'>
             <div className='flex items-center justify-between'>
-              <h3 className='text-lg font-semibold text-gray-900'>
-                {title}
-              </h3>
+              <h3 className='text-lg font-semibold text-gray-900'>{title}</h3>
               <button
                 type='button'
                 className='text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600'
                 onClick={onClose}
               >
-                <svg className='h-6 w-6' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+                <svg
+                  className='h-6 w-6'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  stroke='currentColor'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
                 </svg>
               </button>
             </div>
-            
+
             {/* Content */}
-            <div className='mt-4'>
-              {children}
-            </div>
+            <div className='mt-4'>{children}</div>
           </div>
 
           {/* Footer */}
@@ -70,4 +78,4 @@ export default function Modal({
       </div>
     </div>
   );
-} 
+}

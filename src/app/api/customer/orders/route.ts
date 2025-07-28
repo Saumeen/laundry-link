@@ -17,6 +17,7 @@ interface CreateOrderRequest {
   customerEmail: string;
   customerPhone: string;
   customerAddress: string;
+  isExpressService?: boolean;
 }
 
 export async function GET(request: NextRequest) {
@@ -116,18 +117,41 @@ export async function POST(request: NextRequest) {
       customerEmail,
       customerPhone,
       customerAddress,
+      isExpressService,
     } = body;
 
     // Validate required fields
-    if (!pickupTime || !deliveryTime || !services || !Array.isArray(services)) {
+    if (!services || !Array.isArray(services)) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Services are required' },
+        { status: 400 }
+      );
+    }
+
+    // For express service, skip time validation
+    if (!isExpressService && (!pickupTime || !deliveryTime)) {
+      return NextResponse.json(
+        { error: 'Pickup and delivery times are required for regular service' },
         { status: 400 }
       );
     }
 
     // Generate order number
     const orderNumber = `LL${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+    // Handle timing for express vs regular service
+    let finalPickupTime: Date;
+    let finalDeliveryTime: Date;
+
+    if (isExpressService) {
+      // For express service, use the times calculated and passed from frontend
+      finalPickupTime = new Date(pickupTime);
+      finalDeliveryTime = new Date(deliveryTime);
+    } else {
+      // Regular service - use provided times
+      finalPickupTime = new Date(pickupTime);
+      finalDeliveryTime = new Date(deliveryTime);
+    }
 
     // Create order
     const order = await prisma.order.create({
@@ -136,8 +160,10 @@ export async function POST(request: NextRequest) {
         customerId: customer.id,
         addressId,
         status: OrderStatus.ORDER_PLACED,
-        pickupTime: new Date(pickupTime),
-        deliveryTime: new Date(deliveryTime),
+        pickupStartTime: finalPickupTime,
+        pickupEndTime: finalPickupTime,
+        deliveryStartTime: finalDeliveryTime,
+        deliveryEndTime: finalDeliveryTime,
         specialInstructions,
         customerFirstName,
         customerLastName,

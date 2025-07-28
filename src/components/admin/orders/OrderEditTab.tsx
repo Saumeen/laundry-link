@@ -5,12 +5,10 @@ import { useToast } from '@/components/ui/Toast';
 import Modal from '@/components/ui/Modal';
 import StatusTransitionSelect from './StatusTransitionSelect';
 import {
-    convertBahrainToUTC,
-    convertUTCToBahrainDateTimeLocal
+  convertBahrainToUTC,
+  convertUTCToBahrainDateTimeLocal,
 } from '@/lib/utils/timezone';
 import React, { useCallback, useEffect, useState } from 'react';
-
-
 
 interface Order {
   id: number;
@@ -65,8 +63,6 @@ interface Order {
   specialInstructions?: string;
 }
 
-
-
 interface OrderEditTabProps {
   order: Order;
   onUpdate: () => void;
@@ -78,7 +74,7 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [sendEmailNotification, setSendEmailNotification] = useState(false);
-  
+
   // Use Zustand store for form state
   const {
     status,
@@ -111,90 +107,108 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
 
   // Local state for time slot pickers - completely separate from Zustand
   const [localPickupStartTime, setLocalPickupStartTime] = useState(
-    order.pickupStartTime ? convertUTCToBahrainDateTimeLocal(order.pickupStartTime) : ''
+    order.pickupStartTime
+      ? convertUTCToBahrainDateTimeLocal(order.pickupStartTime)
+      : ''
   );
   const [localPickupEndTime, setLocalPickupEndTime] = useState(
-    order.pickupEndTime ? convertUTCToBahrainDateTimeLocal(order.pickupEndTime) : ''
+    order.pickupEndTime
+      ? convertUTCToBahrainDateTimeLocal(order.pickupEndTime)
+      : ''
   );
   const [localDeliveryStartTime, setLocalDeliveryStartTime] = useState(
-    order.deliveryStartTime ? convertUTCToBahrainDateTimeLocal(order.deliveryStartTime) : ''
+    order.deliveryStartTime
+      ? convertUTCToBahrainDateTimeLocal(order.deliveryStartTime)
+      : ''
   );
   const [localDeliveryEndTime, setLocalDeliveryEndTime] = useState(
-    order.deliveryEndTime ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime) : ''
+    order.deliveryEndTime
+      ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime)
+      : ''
   );
 
   // Initialize form when component mounts
   useEffect(() => {
     initializeForm(order);
-    setLocalPickupStartTime(order.pickupStartTime ? convertUTCToBahrainDateTimeLocal(order.pickupStartTime) : '');
-    setLocalPickupEndTime(order.pickupEndTime ? convertUTCToBahrainDateTimeLocal(order.pickupEndTime) : '');
-    setLocalDeliveryStartTime(order.deliveryStartTime ? convertUTCToBahrainDateTimeLocal(order.deliveryStartTime) : '');
-    setLocalDeliveryEndTime(order.deliveryEndTime ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime) : '');
+    setLocalPickupStartTime(
+      order.pickupStartTime
+        ? convertUTCToBahrainDateTimeLocal(order.pickupStartTime)
+        : ''
+    );
+    setLocalPickupEndTime(
+      order.pickupEndTime
+        ? convertUTCToBahrainDateTimeLocal(order.pickupEndTime)
+        : ''
+    );
+    setLocalDeliveryStartTime(
+      order.deliveryStartTime
+        ? convertUTCToBahrainDateTimeLocal(order.deliveryStartTime)
+        : ''
+    );
+    setLocalDeliveryEndTime(
+      order.deliveryEndTime
+        ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime)
+        : ''
+    );
   }, [order, initializeForm]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setShowConfirmModal(true);
-    },
-    []
-  );
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setShowConfirmModal(true);
+  }, []);
 
-  const handleConfirmUpdate = useCallback(
-    async () => {
-      setLoading(true);
-      setError(null);
+  const handleConfirmUpdate = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-      // Convert Bahrain time to UTC for API submission
-      const convertToUTC = (bahrainDateTime: string) => {
-        if (!bahrainDateTime) return '';
-        const [date, time] = bahrainDateTime.split('T');
-        return convertBahrainToUTC(date, time);
-      };
+    // Convert Bahrain time to UTC for API submission
+    const convertToUTC = (bahrainDateTime: string) => {
+      if (!bahrainDateTime) return '';
+      const [date, time] = bahrainDateTime.split('T');
+      return convertBahrainToUTC(date, time);
+    };
 
-      // Get current form data from Zustand store and add local time slot values
-      const formData = {
-        ...getFormData(),
-        pickupStartTime: convertToUTC(localPickupStartTime),
-        pickupEndTime: convertToUTC(localPickupEndTime),
-        deliveryStartTime: convertToUTC(localDeliveryStartTime),
-        deliveryEndTime: convertToUTC(localDeliveryEndTime),
-        sendEmailNotification,
-      };
-
-      try {
-        const response = await fetch(`/api/admin/update-order/${order.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-
-        if (response.ok) {
-          onUpdate();
-          showToast('Order updated successfully', 'success');
-          setShowConfirmModal(false);
-        } else {
-          setError('Failed to update order');
-        }
-      } catch (error) {
-        setError('Failed to update order');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      order.id,
-      getFormData,
-      localPickupStartTime,
-      localPickupEndTime,
-      localDeliveryStartTime,
-      localDeliveryEndTime,
+    // Get current form data from Zustand store and add local time slot values
+    const formData = {
+      ...getFormData(),
+      pickupStartTime: convertToUTC(localPickupStartTime),
+      pickupEndTime: convertToUTC(localPickupEndTime),
+      deliveryStartTime: convertToUTC(localDeliveryStartTime),
+      deliveryEndTime: convertToUTC(localDeliveryEndTime),
       sendEmailNotification,
-      onUpdate,
-    ]
-  );
+    };
+
+    try {
+      const response = await fetch(`/api/admin/update-order/${order.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        onUpdate();
+        showToast('Order updated successfully', 'success');
+        setShowConfirmModal(false);
+      } else {
+        setError('Failed to update order');
+      }
+    } catch (error) {
+      setError('Failed to update order');
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    order.id,
+    getFormData,
+    localPickupStartTime,
+    localPickupEndTime,
+    localDeliveryStartTime,
+    localDeliveryEndTime,
+    sendEmailNotification,
+    onUpdate,
+  ]);
 
   return (
     <div className='max-w-4xl'>
@@ -211,7 +225,9 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
 
         {/* Order Information Section */}
         <div className='bg-gray-50 rounded-lg p-4'>
-          <h4 className='font-medium text-gray-900 mb-4'>Edit Order Information</h4>
+          <h4 className='font-medium text-gray-900 mb-4'>
+            Edit Order Information
+          </h4>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
             <div>
               <label className='block text-sm font-medium text-gray-700 mb-2'>
@@ -246,20 +262,24 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
               </label>
               <div className='grid grid-cols-2 gap-2'>
                 <div>
-                  <label className='block text-xs text-gray-600 mb-1'>Start Time</label>
+                  <label className='block text-xs text-gray-600 mb-1'>
+                    Start Time
+                  </label>
                   <input
                     type='datetime-local'
                     value={localPickupStartTime}
-                    onChange={(e) => setLocalPickupStartTime(e.target.value)}
+                    onChange={e => setLocalPickupStartTime(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   />
                 </div>
                 <div>
-                  <label className='block text-xs text-gray-600 mb-1'>End Time</label>
+                  <label className='block text-xs text-gray-600 mb-1'>
+                    End Time
+                  </label>
                   <input
                     type='datetime-local'
                     value={localPickupEndTime}
-                    onChange={(e) => setLocalPickupEndTime(e.target.value)}
+                    onChange={e => setLocalPickupEndTime(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   />
                 </div>
@@ -272,20 +292,24 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
               </label>
               <div className='grid grid-cols-2 gap-2'>
                 <div>
-                  <label className='block text-xs text-gray-600 mb-1'>Start Time</label>
+                  <label className='block text-xs text-gray-600 mb-1'>
+                    Start Time
+                  </label>
                   <input
                     type='datetime-local'
                     value={localDeliveryStartTime}
-                    onChange={(e) => setLocalDeliveryStartTime(e.target.value)}
+                    onChange={e => setLocalDeliveryStartTime(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   />
                 </div>
                 <div>
-                  <label className='block text-xs text-gray-600 mb-1'>End Time</label>
+                  <label className='block text-xs text-gray-600 mb-1'>
+                    End Time
+                  </label>
                   <input
                     type='datetime-local'
                     value={localDeliveryEndTime}
-                    onChange={(e) => setLocalDeliveryEndTime(e.target.value)}
+                    onChange={e => setLocalDeliveryEndTime(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   />
                 </div>
@@ -445,10 +469,26 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
             onClick={() => {
               // Reset form to original order data
               initializeForm(order);
-              setLocalPickupStartTime(order.pickupStartTime ? convertUTCToBahrainDateTimeLocal(order.pickupStartTime) : '');
-              setLocalPickupEndTime(order.pickupEndTime ? convertUTCToBahrainDateTimeLocal(order.pickupEndTime) : '');
-              setLocalDeliveryStartTime(order.deliveryStartTime ? convertUTCToBahrainDateTimeLocal(order.deliveryStartTime) : '');
-              setLocalDeliveryEndTime(order.deliveryEndTime ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime) : '');
+              setLocalPickupStartTime(
+                order.pickupStartTime
+                  ? convertUTCToBahrainDateTimeLocal(order.pickupStartTime)
+                  : ''
+              );
+              setLocalPickupEndTime(
+                order.pickupEndTime
+                  ? convertUTCToBahrainDateTimeLocal(order.pickupEndTime)
+                  : ''
+              );
+              setLocalDeliveryStartTime(
+                order.deliveryStartTime
+                  ? convertUTCToBahrainDateTimeLocal(order.deliveryStartTime)
+                  : ''
+              );
+              setLocalDeliveryEndTime(
+                order.deliveryEndTime
+                  ? convertUTCToBahrainDateTimeLocal(order.deliveryEndTime)
+                  : ''
+              );
               setError(null);
             }}
             className='px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50'
@@ -469,7 +509,7 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
       <Modal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
-        title="Confirm Order Update"
+        title='Confirm Order Update'
         footer={
           <div className='flex justify-end space-x-3'>
             <button
@@ -491,15 +531,16 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
         }
       >
         <p className='text-gray-600 mb-4'>
-          Are you sure you want to update this order? Please review your changes before proceeding.
+          Are you sure you want to update this order? Please review your changes
+          before proceeding.
         </p>
-        
+
         <div className='mb-4'>
           <label className='flex items-center space-x-2'>
             <input
               type='checkbox'
               checked={sendEmailNotification}
-              onChange={(e) => setSendEmailNotification(e.target.checked)}
+              onChange={e => setSendEmailNotification(e.target.checked)}
               className='rounded border-gray-300 text-blue-600 focus:ring-blue-500'
             />
             <span className='text-sm font-medium text-gray-700'>
@@ -513,4 +554,4 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
       </Modal>
     </div>
   );
-} 
+}

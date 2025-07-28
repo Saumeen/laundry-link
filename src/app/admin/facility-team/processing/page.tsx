@@ -4,11 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFacilityTeamAuth } from '@/admin/hooks/useAdminAuth';
 
-import { 
-  getStatusBadgeColor, 
-  getStatusDisplayName, 
-  formatDate, 
-  formatCurrency 
+import {
+  getStatusBadgeColor,
+  getStatusDisplayName,
+  formatDate,
+  formatCurrency,
 } from '@/admin/utils/orderUtils';
 import { ProcessingStatus } from '@prisma/client';
 
@@ -109,7 +109,7 @@ export default function ProcessingPage() {
 
       const response = await fetch(`/api/admin/facility-team/orders?${params}`);
       if (response.ok) {
-        const data = await response.json() as {
+        const data = (await response.json()) as {
           orders: Order[];
           pagination: {
             page: number;
@@ -142,7 +142,10 @@ export default function ProcessingPage() {
     }
   }, [isAuthorized, fetchOrders]);
 
-  const handleFilterChange = (filterType: keyof typeof state.filters, value: string) => {
+  const handleFilterChange = (
+    filterType: keyof typeof state.filters,
+    value: string
+  ) => {
     setState(prev => ({
       ...prev,
       filters: { ...prev.filters, [filterType]: value },
@@ -180,7 +183,7 @@ export default function ProcessingPage() {
         // Show success message
         console.log('Order marked as received successfully');
       } else {
-        const errorData = await response.json() as { error?: string };
+        const errorData = (await response.json()) as { error?: string };
         console.error('Failed to mark order as received:', errorData.error);
       }
     } catch (error) {
@@ -227,6 +230,11 @@ export default function ProcessingPage() {
   };
 
   const getOrderPriority = (order: Order) => {
+    // Check if this is an express order
+    const isExpressOrder = order.orderServiceMappings?.some(
+      mapping => mapping.service.name === 'express-service'
+    );
+
     // Priority based on order status and processing status
     if (order.status === 'DELIVERED') {
       return 'completed'; // Completed orders
@@ -235,24 +243,30 @@ export default function ProcessingPage() {
       return 'low'; // In delivery - low priority for facility team
     }
     if (order.status === 'PICKUP_COMPLETED' && !order.orderProcessing) {
-      return 'high'; // Just picked up, needs to be received
+      return isExpressOrder ? 'urgent' : 'high'; // Express orders get urgent priority
     }
     if (order.status === 'RECEIVED_AT_FACILITY' && !order.orderProcessing) {
-      return 'medium'; // Received, ready for processing
+      return isExpressOrder ? 'urgent' : 'medium'; // Express orders get urgent priority
     }
-    if (order.orderProcessing?.processingStatus === ProcessingStatus.IN_PROGRESS) {
-      return 'medium'; // Currently being processed
+    if (
+      order.orderProcessing?.processingStatus === ProcessingStatus.IN_PROGRESS
+    ) {
+      return isExpressOrder ? 'high' : 'medium'; // Express orders get higher priority
     }
-    if (order.orderProcessing?.processingStatus === ProcessingStatus.QUALITY_CHECK) {
-      return 'low'; // In quality check
+    if (
+      order.orderProcessing?.processingStatus === ProcessingStatus.QUALITY_CHECK
+    ) {
+      return isExpressOrder ? 'medium' : 'low'; // Express orders get higher priority
     }
-    return 'low';
+    return isExpressOrder ? 'high' : 'low';
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high':
+      case 'urgent':
         return 'bg-red-100 text-red-800';
+      case 'high':
+        return 'bg-orange-100 text-orange-800';
       case 'medium':
         return 'bg-yellow-100 text-yellow-800';
       case 'low':
@@ -325,17 +339,33 @@ export default function ProcessingPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0'>
                 <div className='w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center'>
-                  <svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' />
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+                    />
                   </svg>
                 </div>
               </div>
               <div className='ml-4'>
-                <p className='text-sm font-medium text-gray-500'>Ready for Processing</p>
+                <p className='text-sm font-medium text-gray-500'>
+                  Ready for Processing
+                </p>
                 <p className='text-2xl font-semibold text-gray-900'>
-                  {state.orders.filter(order => 
-                    order.status === 'RECEIVED_AT_FACILITY' && !order.orderProcessing
-                  ).length}
+                  {
+                    state.orders.filter(
+                      order =>
+                        order.status === 'RECEIVED_AT_FACILITY' &&
+                        !order.orderProcessing
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -345,17 +375,33 @@ export default function ProcessingPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0'>
                 <div className='w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center'>
-                  <svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' />
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+                    />
                   </svg>
                 </div>
               </div>
               <div className='ml-4'>
-                <p className='text-sm font-medium text-gray-500'>In Processing</p>
+                <p className='text-sm font-medium text-gray-500'>
+                  In Processing
+                </p>
                 <p className='text-2xl font-semibold text-gray-900'>
-                  {state.orders.filter(order => 
-                    order.orderProcessing?.processingStatus === ProcessingStatus.IN_PROGRESS
-                  ).length}
+                  {
+                    state.orders.filter(
+                      order =>
+                        order.orderProcessing?.processingStatus ===
+                        ProcessingStatus.IN_PROGRESS
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -365,17 +411,33 @@ export default function ProcessingPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0'>
                 <div className='w-8 h-8 bg-green-500 rounded-md flex items-center justify-center'>
-                  <svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' />
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+                    />
                   </svg>
                 </div>
               </div>
               <div className='ml-4'>
-                <p className='text-sm font-medium text-gray-500'>Ready for Delivery</p>
+                <p className='text-sm font-medium text-gray-500'>
+                  Ready for Delivery
+                </p>
                 <p className='text-2xl font-semibold text-gray-900'>
-                  {state.orders.filter(order => 
-                    order.orderProcessing?.processingStatus === ProcessingStatus.READY_FOR_DELIVERY
-                  ).length}
+                  {
+                    state.orders.filter(
+                      order =>
+                        order.orderProcessing?.processingStatus ===
+                        ProcessingStatus.READY_FOR_DELIVERY
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -385,17 +447,31 @@ export default function ProcessingPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0'>
                 <div className='w-8 h-8 bg-indigo-500 rounded-md flex items-center justify-center'>
-                  <svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M13 10V3L4 14h7v7l9-11h-7z' />
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M13 10V3L4 14h7v7l9-11h-7z'
+                    />
                   </svg>
                 </div>
               </div>
               <div className='ml-4'>
                 <p className='text-sm font-medium text-gray-500'>In Delivery</p>
                 <p className='text-2xl font-semibold text-gray-900'>
-                  {state.orders.filter(order => 
-                    ['DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS'].includes(order.status)
-                  ).length}
+                  {
+                    state.orders.filter(order =>
+                      ['DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS'].includes(
+                        order.status
+                      )
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -405,17 +481,28 @@ export default function ProcessingPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0'>
                 <div className='w-8 h-8 bg-emerald-500 rounded-md flex items-center justify-center'>
-                  <svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M5 13l4 4L19 7'
+                    />
                   </svg>
                 </div>
               </div>
               <div className='ml-4'>
                 <p className='text-sm font-medium text-gray-500'>Completed</p>
                 <p className='text-2xl font-semibold text-gray-900'>
-                  {state.orders.filter(order => 
-                    order.status === 'DELIVERED'
-                  ).length}
+                  {
+                    state.orders.filter(order => order.status === 'DELIVERED')
+                      .length
+                  }
                 </p>
               </div>
             </div>
@@ -425,17 +512,33 @@ export default function ProcessingPage() {
             <div className='flex items-center'>
               <div className='flex-shrink-0'>
                 <div className='w-8 h-8 bg-red-500 rounded-md flex items-center justify-center'>
-                  <svg className='w-5 h-5 text-white' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z' />
+                  <svg
+                    className='w-5 h-5 text-white'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z'
+                    />
                   </svg>
                 </div>
               </div>
               <div className='ml-4'>
-                <p className='text-sm font-medium text-gray-500'>Issues Reported</p>
+                <p className='text-sm font-medium text-gray-500'>
+                  Issues Reported
+                </p>
                 <p className='text-2xl font-semibold text-gray-900'>
-                  {state.orders.filter(order => 
-                    order.orderProcessing?.processingStatus === ProcessingStatus.ISSUE_REPORTED
-                  ).length}
+                  {
+                    state.orders.filter(
+                      order =>
+                        order.orderProcessing?.processingStatus ===
+                        ProcessingStatus.ISSUE_REPORTED
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -456,13 +559,15 @@ export default function ProcessingPage() {
                 </label>
                 <select
                   value={state.filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
+                  onChange={e => handleFilterChange('status', e.target.value)}
                   className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                 >
                   <option value='all'>All Orders</option>
                   <option value='picked_up'>Picked Up</option>
                   <option value='received'>Received at Facility</option>
-                  <option value='ready_for_processing'>Ready for Processing</option>
+                  <option value='ready_for_processing'>
+                    Ready for Processing
+                  </option>
                   <option value='in_processing'>In Processing</option>
                   <option value='quality_check'>Quality Check</option>
                   <option value='ready_for_delivery'>Ready for Delivery</option>
@@ -481,7 +586,7 @@ export default function ProcessingPage() {
                   type='text'
                   placeholder='Order number, customer name...'
                   value={state.filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  onChange={e => handleFilterChange('search', e.target.value)}
                   className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                 />
               </div>
@@ -493,7 +598,9 @@ export default function ProcessingPage() {
                 </label>
                 <select
                   value={state.filters.dateRange}
-                  onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+                  onChange={e =>
+                    handleFilterChange('dateRange', e.target.value)
+                  }
                   className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500'
                 >
                   <option value='today'>Today</option>
@@ -579,7 +686,10 @@ export default function ProcessingPage() {
                   </tr>
                 ) : state.orders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className='px-6 py-4 text-center text-gray-500'>
+                    <td
+                      colSpan={9}
+                      className='px-6 py-4 text-center text-gray-500'
+                    >
                       No orders found matching your criteria
                     </td>
                   </tr>
@@ -596,7 +706,16 @@ export default function ProcessingPage() {
                           </span>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
-                          {order.orderNumber}
+                          <div className='flex items-center space-x-2'>
+                            <span>{order.orderNumber}</span>
+                            {order.orderServiceMappings?.some(
+                              mapping => mapping.service.name === 'express-service'
+                            ) && (
+                              <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800'>
+                                Express
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
                           <div>
@@ -634,7 +753,9 @@ export default function ProcessingPage() {
                             <span
                               className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getProcessingStatusColor(order.orderProcessing.processingStatus)}`}
                             >
-                              {getProcessingStatusDisplayName(order.orderProcessing.processingStatus)}
+                              {getProcessingStatusDisplayName(
+                                order.orderProcessing.processingStatus
+                              )}
                             </span>
                           ) : (
                             <span className='inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800'>
@@ -646,7 +767,8 @@ export default function ProcessingPage() {
                           <div className='space-y-1'>
                             {order.orderServiceMappings.map(mapping => (
                               <div key={mapping.id} className='text-xs'>
-                                {mapping.service.displayName} (x{mapping.quantity})
+                                {mapping.service.displayName} (x
+                                {mapping.quantity})
                               </div>
                             ))}
                           </div>
@@ -660,7 +782,9 @@ export default function ProcessingPage() {
                               {formatDate(order.pickupStartTime)}
                             </div>
                             <div className='text-xs text-gray-400'>
-                              {new Date(order.pickupStartTime).toLocaleTimeString([], {
+                              {new Date(
+                                order.pickupStartTime
+                              ).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}
@@ -671,33 +795,45 @@ export default function ProcessingPage() {
                           <div className='flex flex-col space-y-1'>
                             {order.status === 'DELIVERED' ? (
                               <button
-                                onClick={() => router.push(`/admin/orders/${order.id}`)}
+                                onClick={() =>
+                                  router.push(`/admin/facility-team/process/${order.id}`)
+                                }
                                 className='text-gray-600 hover:text-gray-900 font-medium text-xs'
                               >
                                 View Details
                               </button>
-                            ) : ['DELIVERY_ASSIGNED', 'DELIVERY_IN_PROGRESS'].includes(order.status) ? (
+                            ) : [
+                                'DELIVERY_ASSIGNED',
+                                'DELIVERY_IN_PROGRESS',
+                              ].includes(order.status) ? (
                               <button
-                                onClick={() => router.push(`/admin/orders/${order.id}`)}
+                                onClick={() =>
+                                  router.push(`/admin/facility-team/process/${order.id}`)
+                                }
                                 className='text-indigo-600 hover:text-indigo-900 font-medium text-xs'
                               >
                                 View Details
                               </button>
                             ) : (
                               <>
-                                {order.status === 'PICKUP_COMPLETED' && !order.orderProcessing && (
-                                  <button
-                                    onClick={() => handleMarkAsReceived(order)}
-                                    className='text-green-600 hover:text-green-900 font-medium text-xs'
-                                  >
-                                    Mark as Received
-                                  </button>
-                                )}
+                                {order.status === 'PICKUP_COMPLETED' &&
+                                  !order.orderProcessing && (
+                                    <button
+                                      onClick={() =>
+                                        handleMarkAsReceived(order)
+                                      }
+                                      className='text-green-600 hover:text-green-900 font-medium text-xs'
+                                    >
+                                      Mark as Received
+                                    </button>
+                                  )}
                                 <button
                                   onClick={() => handleProcessOrder(order)}
                                   className='text-blue-600 hover:text-blue-900 font-medium text-xs'
                                 >
-                                  {order.orderProcessing ? 'Continue Processing' : 'Start Processing'}
+                                  {order.orderProcessing
+                                    ? 'Continue Processing'
+                                    : 'Start Processing'}
                                 </button>
                               </>
                             )}
@@ -716,9 +852,13 @@ export default function ProcessingPage() {
             <div className='px-6 py-4 border-t border-gray-200'>
               <div className='flex items-center justify-between'>
                 <div className='text-sm text-gray-700'>
-                  Showing {((state.pagination.page - 1) * state.pagination.limit) + 1} to{' '}
-                  {Math.min(state.pagination.page * state.pagination.limit, state.pagination.total)} of{' '}
-                  {state.pagination.total} results
+                  Showing{' '}
+                  {(state.pagination.page - 1) * state.pagination.limit + 1} to{' '}
+                  {Math.min(
+                    state.pagination.page * state.pagination.limit,
+                    state.pagination.total
+                  )}{' '}
+                  of {state.pagination.total} results
                 </div>
                 <div className='flex space-x-2'>
                   <button
@@ -730,7 +870,9 @@ export default function ProcessingPage() {
                   </button>
                   <button
                     onClick={() => handlePageChange(state.pagination.page + 1)}
-                    disabled={state.pagination.page === state.pagination.totalPages}
+                    disabled={
+                      state.pagination.page === state.pagination.totalPages
+                    }
                     className='px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
                   >
                     Next
@@ -743,4 +885,4 @@ export default function ProcessingPage() {
       </div>
     </div>
   );
-} 
+}

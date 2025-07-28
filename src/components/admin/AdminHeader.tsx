@@ -28,7 +28,7 @@ export default function AdminHeader({
   // Get the appropriate dashboard URL based on user role
   const getDashboardUrl = () => {
     if (!user?.role?.name) return '/admin';
-    
+
     switch (user.role.name) {
       case 'SUPER_ADMIN':
         return '/admin/super-admin';

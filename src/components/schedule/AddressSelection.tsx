@@ -16,8 +16,12 @@ export default function AddressSelection({
 }: AddressSelectionProps) {
   return (
     <div className='space-y-6'>
-      <h2 className='text-2xl font-bold text-gray-900'>Choose Pickup Address</h2>
-      <p className='text-gray-600'>Select where you'd like us to pick up your laundry</p>
+      <h2 className='text-2xl font-bold text-gray-900'>
+        Choose Pickup Address
+      </h2>
+      <p className='text-gray-600'>
+        Select where you'd like us to pick up your laundry
+      </p>
 
       <AddressSelector
         selectedAddressId={selectedAddressId}
@@ -30,4 +34,4 @@ export default function AddressSelection({
       />
     </div>
   );
-} 
+}

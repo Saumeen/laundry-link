@@ -68,10 +68,14 @@ export async function GET(
       pickupEndTime: order.pickupEndTime.toISOString(),
       deliveryStartTime: order.deliveryStartTime?.toISOString(),
       deliveryEndTime: order.deliveryEndTime?.toISOString(),
-      pickupTimeSlot: formatTimeSlot(order.pickupStartTime, order.pickupEndTime),
-      deliveryTimeSlot: order.deliveryStartTime && order.deliveryEndTime 
-        ? formatTimeSlot(order.deliveryStartTime, order.deliveryEndTime)
-        : null,
+      pickupTimeSlot: formatTimeSlot(
+        order.pickupStartTime,
+        order.pickupEndTime
+      ),
+      deliveryTimeSlot:
+        order.deliveryStartTime && order.deliveryEndTime
+          ? formatTimeSlot(order.deliveryStartTime, order.deliveryEndTime)
+          : null,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       customerNotes: order.specialInstructions || null,

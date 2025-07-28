@@ -5,8 +5,133 @@ import {
   getStatusBadgeColor,
   getStatusDisplayName,
 } from '@/admin/utils/orderUtils';
-import { getCurrentBahrainDate, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
+import {
+  getCurrentBahrainDate,
+  formatUTCForTimeDisplay,
+} from '@/lib/utils/timezone';
 import type { DriverAssignment } from '@/admin/api/driver';
+
+// Utility function to format address based on assignment type and available data
+const formatAddress = (assignment: DriverAssignment): string => {
+  const { assignmentType, order } = assignment;
+
+  // If we have structured address data, use it
+  if (order.address) {
+    const address = order.address;
+    const locationType = address.locationType || 'flat';
+
+    // Helper function to check if a word/phrase exists in text using word boundaries
+    const containsWord = (text: string, searchWord: string): boolean => {
+      if (!searchWord || !text) return false;
+
+      const normalizedText = text.toLowerCase().trim();
+      const normalizedSearch = searchWord.toLowerCase().trim();
+
+      // Split search word into individual words for more accurate matching
+      const searchWords = normalizedSearch.split(/\s+/);
+
+      // Check if all search words are present in the text
+      return searchWords.every(word => {
+        // Use word boundary regex for exact word matching
+        const wordRegex = new RegExp(
+          `\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+          'i'
+        );
+        return wordRegex.test(normalizedText);
+      });
+    };
+
+    // Helper function to check if text contains a complete phrase
+    const containsPhrase = (text: string, phrase: string): boolean => {
+      if (!phrase || !text) return false;
+
+      const normalizedText = text.toLowerCase().trim();
+      const normalizedPhrase = phrase.toLowerCase().trim();
+
+      // For phrases, check if the complete phrase exists
+      return normalizedText.includes(normalizedPhrase);
+    };
+
+    // Build the full address
+    const parts: string[] = [];
+    const allAddressText = [
+      address.addressLine1 || '',
+      address.addressLine2 || '',
+      address.building || '',
+      address.area || '',
+      address.city || '',
+      address.landmark || '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    // Add location-specific details first
+    switch (locationType) {
+      case 'hotel':
+        if (address.building && address.floor) {
+          parts.push(`Hotel: ${address.building} - Room ${address.floor}`);
+        } else if (address.building) {
+          parts.push(`Hotel: ${address.building}`);
+        }
+        break;
+      case 'home':
+        if (address.building) {
+          parts.push(`Home: ${address.building}`);
+        }
+        break;
+      case 'flat':
+        if (address.building && address.floor) {
+          parts.push(`Building: ${address.building}, Floor: ${address.floor}`);
+        } else if (address.building) {
+          parts.push(`Building: ${address.building}`);
+        }
+        break;
+      case 'office':
+        if (address.building && address.apartment) {
+          parts.push(`Office: ${address.building}, ${address.apartment}`);
+        } else if (address.building) {
+          parts.push(`Office: ${address.building}`);
+        }
+        break;
+    }
+
+    // Add address lines (avoiding duplicates with location details)
+    if (address.addressLine1) {
+      const buildingAlreadyIncluded =
+        address.building &&
+        (containsWord(address.addressLine1, address.building) ||
+          containsPhrase(address.addressLine1, address.building));
+
+      if (!buildingAlreadyIncluded) {
+        parts.push(address.addressLine1);
+      }
+    }
+
+    if (address.addressLine2) {
+      parts.push(address.addressLine2);
+    }
+
+    // Add area only if not already mentioned in any part
+    if (address.area && !containsWord(allAddressText, address.area)) {
+      parts.push(address.area);
+    }
+
+    // Add city only if not already mentioned in any part
+    if (address.city && !containsWord(allAddressText, address.city)) {
+      parts.push(address.city);
+    }
+
+    // Add landmark if available and not already mentioned
+    if (address.landmark && !containsWord(allAddressText, address.landmark)) {
+      parts.push(`Near: ${address.landmark}`);
+    }
+
+    return parts.length > 0 ? parts.join(', ') : 'Address not available';
+  }
+
+  // Fallback to customer address if no structured address
+  return order.customerAddress || 'No address provided';
+};
 
 export const DriverAssignments = memo(() => {
   const router = useRouter();
@@ -25,34 +150,44 @@ export const DriverAssignments = memo(() => {
 
   // Filter today's assignments based on Bahraini time and additional filters
   const todaysAssignments = useMemo(() => {
-    return assignments.filter(assignment => {
-      if (!assignment.estimatedTime) return false;
-      
-      // Get current Bahrain date
-      const bahrainToday = getCurrentBahrainDate();
-      
-      // Convert assignment time to Bahrain time for comparison
-      const assignmentDate = new Date(assignment.estimatedTime);
-      const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
-        timeZone: 'Asia/Bahrain' 
-      }); // Returns YYYY-MM-DD format
-      
-      const isToday = bahrainToday === assignmentBahrainDate;
-      
-      // Apply status filter
-      const statusMatches = statusFilter === 'all' || assignment.status === statusFilter;
-      
-      // Apply type filter
-      const typeMatches = typeFilter === 'all' || assignment.assignmentType === typeFilter;
-      
-      return isToday && statusMatches && typeMatches;
-    }).sort((a, b) => {
-      // Sort by estimated time, then by status priority
-      if (a.estimatedTime && b.estimatedTime) {
-        return new Date(a.estimatedTime).getTime() - new Date(b.estimatedTime).getTime();
-      }
-      return 0;
-    });
+    return assignments
+      .filter(assignment => {
+        if (!assignment.estimatedTime) return false;
+
+        // Get current Bahrain date
+        const bahrainToday = getCurrentBahrainDate();
+
+        // Convert assignment time to Bahrain time for comparison
+        const assignmentDate = new Date(assignment.estimatedTime);
+        const assignmentBahrainDate = assignmentDate.toLocaleDateString(
+          'en-CA',
+          {
+            timeZone: 'Asia/Bahrain',
+          }
+        ); // Returns YYYY-MM-DD format
+
+        const isToday = bahrainToday === assignmentBahrainDate;
+
+        // Apply status filter
+        const statusMatches =
+          statusFilter === 'all' || assignment.status === statusFilter;
+
+        // Apply type filter
+        const typeMatches =
+          typeFilter === 'all' || assignment.assignmentType === typeFilter;
+
+        return isToday && statusMatches && typeMatches;
+      })
+      .sort((a, b) => {
+        // Sort by estimated time, then by status priority
+        if (a.estimatedTime && b.estimatedTime) {
+          return (
+            new Date(a.estimatedTime).getTime() -
+            new Date(b.estimatedTime).getTime()
+          );
+        }
+        return 0;
+      });
   }, [assignments, statusFilter, typeFilter]);
 
   if (loading) {
@@ -101,11 +236,11 @@ export const DriverAssignments = memo(() => {
           <h4 className='text-sm font-medium text-gray-900'>
             Today&apos;s Assignments ({todaysAssignments.length})
           </h4>
-          
+
           {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={e => setStatusFilter(e.target.value)}
             className='text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500'
           >
             <option value='all'>All Status</option>
@@ -114,11 +249,11 @@ export const DriverAssignments = memo(() => {
             <option value='COMPLETED'>Completed</option>
             <option value='CANCELLED'>Cancelled</option>
           </select>
-          
+
           {/* Type Filter */}
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={e => setTypeFilter(e.target.value)}
             className='text-xs border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500'
           >
             <option value='all'>All Types</option>
@@ -130,53 +265,65 @@ export const DriverAssignments = memo(() => {
 
       {/* Assignments Grid */}
       <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
-        {(showAll ? todaysAssignments : todaysAssignments.slice(0, 6)).map(assignment => (
-          <div
-            key={assignment.id}
-            className='bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer'
-            onClick={() => handleViewAssignment(assignment)}
-          >
-            <div className='flex justify-between items-start mb-2'>
-              <div className='flex-1 min-w-0'>
-                <div className='flex items-center space-x-2 mb-1'>
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      assignment.assignmentType === 'pickup' ? 'bg-blue-500' : 'bg-green-500'
-                    }`}
-                  ></div>
-                  <h5 className='font-medium text-gray-900 truncate'>
-                    {assignment.assignmentType === 'pickup' ? 'Pickup' : 'Delivery'} - {assignment.order.orderNumber}
-                  </h5>
+        {(showAll ? todaysAssignments : todaysAssignments.slice(0, 6)).map(
+          assignment => (
+            <div
+              key={assignment.id}
+              className='bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer'
+              onClick={() => handleViewAssignment(assignment)}
+            >
+              <div className='flex justify-between items-start mb-2'>
+                <div className='flex-1 min-w-0'>
+                  <div className='flex items-center space-x-2 mb-1'>
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        assignment.assignmentType === 'pickup'
+                          ? 'bg-blue-500'
+                          : 'bg-green-500'
+                      }`}
+                    ></div>
+                    <h5 className='font-medium text-gray-900 truncate'>
+                      {assignment.assignmentType === 'pickup'
+                        ? 'Pickup'
+                        : 'Delivery'}{' '}
+                      - {assignment.order.orderNumber}
+                    </h5>
+                  </div>
+                  <p className='text-sm text-gray-600 truncate'>
+                    {assignment.order.customerFirstName}{' '}
+                    {assignment.order.customerLastName}
+                  </p>
                 </div>
-                <p className='text-sm text-gray-600 truncate'>
-                  {assignment.order.customerFirstName} {assignment.order.customerLastName}
+                <span
+                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ml-2 flex-shrink-0 ${getStatusBadgeColor(assignment.status)}`}
+                >
+                  {getStatusDisplayName(assignment.status)}
+                </span>
+              </div>
+
+              <div className='text-sm text-gray-500 space-y-1'>
+                <div className='flex items-start'>
+                  <span className='mr-1 mt-0.5 flex-shrink-0'>📍</span>
+                  <p className='text-xs leading-relaxed break-words line-clamp-2'>
+                    {formatAddress(assignment)}
+                  </p>
+                </div>
+                <p className='flex items-center'>
+                  <span className='mr-1'>⏰</span>
+                  {assignment.estimatedTime
+                    ? formatUTCForTimeDisplay(assignment.estimatedTime)
+                    : 'Time TBD'}
                 </p>
               </div>
-              <span
-                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ml-2 flex-shrink-0 ${getStatusBadgeColor(assignment.status)}`}
-              >
-                {getStatusDisplayName(assignment.status)}
-              </span>
-            </div>
 
-            <div className='text-sm text-gray-500 space-y-1'>
-              <p className='truncate flex items-center'>
-                <span className='mr-1'>📍</span>
-                {assignment.order.customerAddress || 'No address provided'}
-              </p>
-              <p className='flex items-center'>
-                <span className='mr-1'>⏰</span>
-                {assignment.estimatedTime ? formatUTCForTimeDisplay(assignment.estimatedTime) : 'Time TBD'}
-              </p>
+              {assignment.order.specialInstructions && (
+                <div className='mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800'>
+                  <strong>Note:</strong> {assignment.order.specialInstructions}
+                </div>
+              )}
             </div>
-
-            {assignment.order.specialInstructions && (
-              <div className='mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800'>
-                <strong>Note:</strong> {assignment.order.specialInstructions}
-              </div>
-            )}
-          </div>
-        ))}
+          )
+        )}
       </div>
 
       {/* Show More/Less Button */}
@@ -186,7 +333,9 @@ export const DriverAssignments = memo(() => {
             onClick={() => setShowAll(!showAll)}
             className='text-sm text-blue-600 hover:text-blue-800 font-medium'
           >
-            {showAll ? 'Show Less' : `Show ${todaysAssignments.length - 6} More Assignments`}
+            {showAll
+              ? 'Show Less'
+              : `Show ${todaysAssignments.length - 6} More Assignments`}
           </button>
         </div>
       )}

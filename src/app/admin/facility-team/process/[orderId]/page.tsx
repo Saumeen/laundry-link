@@ -23,6 +23,10 @@ export default function ProcessOrderPage() {
   // State for image uploads
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
+  
+  // State for delete confirmation
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: number; name: string } | null>(null);
 
   // Zustand store
   const {
@@ -42,6 +46,7 @@ export default function ProcessOrderPage() {
     fetchOrder,
     fetchServicePricing,
     addOrderItem,
+    deleteOrderItem,
     updateItemProcessing,
     uploadIssueImages,
     fetchIssueReports,
@@ -77,11 +82,16 @@ export default function ProcessOrderPage() {
         fetchServicePricing(selectedService.service.id);
       }
     }
-  }, [newItemData.orderServiceMappingId, order, fetchServicePricing, setNewItemData]);
+  }, [
+    newItemData.orderServiceMappingId,
+    order,
+    fetchServicePricing,
+    setNewItemData,
+  ]);
 
   useEffect(() => {
     console.log('Order fetch effect:', { authLoading, isAuthorized, orderId });
-    
+
     // Wait for authentication to be determined
     if (authLoading) {
       console.log('Order fetch: Waiting for auth to load...');
@@ -186,31 +196,64 @@ export default function ProcessOrderPage() {
     }
   };
 
+  const handleDeleteOrderItem = async (itemId: number, itemName: string) => {
+    if (!order?.id) {
+      showToast('Order not found', 'error');
+      return;
+    }
+
+    // Set item to delete and show confirmation modal
+    setItemToDelete({ id: itemId, name: itemName });
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete || !order?.id) {
+      return;
+    }
+
+    try {
+      await deleteOrderItem(order.id, itemToDelete.id);
+      showToast('Item deleted successfully!', 'success');
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+    } catch (error) {
+      showToast('Failed to delete item. Please try again.', 'error');
+    }
+  };
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     setSelectedImages((prev: File[]) => [...prev, ...files]);
-    
+
     // Create preview URLs
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreviewUrls((prev: string[]) => [...prev, e.target?.result as string]);
+      reader.onload = e => {
+        setImagePreviewUrls((prev: string[]) => [
+          ...prev,
+          e.target?.result as string,
+        ]);
       };
       reader.readAsDataURL(file);
     });
   };
 
   const removeImage = (index: number) => {
-    setSelectedImages((prev: File[]) => prev.filter((_: File, i: number) => i !== index));
-    setImagePreviewUrls((prev: string[]) => prev.filter((_: string, i: number) => i !== index));
+    setSelectedImages((prev: File[]) =>
+      prev.filter((_: File, i: number) => i !== index)
+    );
+    setImagePreviewUrls((prev: string[]) =>
+      prev.filter((_: string, i: number) => i !== index)
+    );
   };
 
   const convertImagesToBase64 = async (files: File[]): Promise<string[]> => {
     return Promise.all(
       files.map(file => {
-        return new Promise<string>((resolve) => {
+        return new Promise<string>(resolve => {
           const reader = new FileReader();
-          reader.onload = (e) => {
+          reader.onload = e => {
             resolve(e.target?.result as string);
           };
           reader.readAsDataURL(file);
@@ -224,13 +267,18 @@ export default function ProcessOrderPage() {
 
     try {
       // If status is ISSUE_REPORTED and images are selected, upload them first
-      if (itemProcessingData.status === 'ISSUE_REPORTED' && selectedImages.length > 0) {
+      if (
+        itemProcessingData.status === 'ISSUE_REPORTED' &&
+        selectedImages.length > 0
+      ) {
         const base64Images = await convertImagesToBase64(selectedImages);
         await uploadIssueImages(
           selectedItemDetail.id,
           base64Images,
           itemProcessingData.issueType || 'damage',
-          itemProcessingData.issueDescription || itemProcessingData.processingNotes || 'Issue reported',
+          itemProcessingData.issueDescription ||
+            itemProcessingData.processingNotes ||
+            'Issue reported',
           itemProcessingData.issueSeverity || 'medium'
         );
         showToast('Issue report with images uploaded successfully!', 'success');
@@ -243,7 +291,7 @@ export default function ProcessOrderPage() {
         );
         showToast('Item processing updated successfully!', 'success');
       }
-      
+
       // Clear image state
       setSelectedImages([]);
       setImagePreviewUrls([]);
@@ -398,8 +446,6 @@ export default function ProcessOrderPage() {
     return order?.invoiceGenerated === true;
   };
 
-
-
   const canMarkProcessingCompleted = () => {
     return (
       order?.orderProcessing &&
@@ -444,7 +490,9 @@ export default function ProcessOrderPage() {
             <div className='text-center'>
               <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto'></div>
               <p className='mt-4 text-gray-600'>
-                {authLoading ? 'Checking authentication...' : 'Loading order details...'}
+                {authLoading
+                  ? 'Checking authentication...'
+                  : 'Loading order details...'}
               </p>
               {authLoading && (
                 <p className='mt-2 text-sm text-gray-500'>
@@ -603,40 +651,10 @@ export default function ProcessOrderPage() {
                       disabled={processingForm.loading}
                       className='mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
                     >
-                      {processingForm.loading ? 'Starting...' : 'Start Processing'}
+                      {processingForm.loading
+                        ? 'Starting...'
+                        : 'Start Processing'}
                     </button>
-                  )}
-                  {order.orderProcessing && (
-                    <div className='mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm'>
-                      <div>
-                        <span className='font-medium text-gray-700'>
-                          Total Pieces:
-                        </span>
-                        <span className='ml-2 text-gray-600'>
-                          {order.orderProcessing.totalPieces || 'Not set'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className='font-medium text-gray-700'>
-                          Total Weight:
-                        </span>
-                        <span className='ml-2 text-gray-600'>
-                          {order.orderProcessing.totalWeight
-                            ? `${order.orderProcessing.totalWeight} kg`
-                            : 'Not set'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className='font-medium text-gray-700'>
-                          Quality Score:
-                        </span>
-                        <span className='ml-2 text-gray-600'>
-                          {order.orderProcessing.qualityScore
-                            ? `${order.orderProcessing.qualityScore}/10`
-                            : 'Not set'}
-                        </span>
-                      </div>
-                    </div>
                   )}
                 </div>
 
@@ -897,7 +915,9 @@ export default function ProcessOrderPage() {
                                 onClick={async () => {
                                   if (processingDetail) {
                                     openItemModal(processingDetail);
-                                    await fetchIssueReports(processingDetail.id);
+                                    await fetchIssueReports(
+                                      processingDetail.id
+                                    );
                                   } else {
                                     await startProcessingForItem(item);
                                   }
@@ -912,6 +932,14 @@ export default function ProcessOrderPage() {
                                   : processingDetail
                                     ? 'Update'
                                     : 'Start Processing'}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOrderItem(item.id, item.itemName)}
+                                disabled={itemForm.loading}
+                                className='text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed'
+                                title='Delete this item'
+                              >
+                                {itemForm.loading ? 'Deleting...' : 'Delete'}
                               </button>
                             </div>
                           </div>
@@ -948,6 +976,71 @@ export default function ProcessOrderPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Current Items Section */}
+                {hasOrderItems() && (
+                  <div className='bg-white border border-gray-200 rounded-lg p-6'>
+                    <h4 className='text-md font-medium text-gray-900 mb-4 flex items-center justify-between'>
+                      <span>Current Items ({order?.orderServiceMappings?.reduce(
+                        (total, mapping) => total + (mapping.orderItems?.length || 0),
+                        0
+                      ) || 0})</span>
+                      <span className='text-sm text-gray-500'>
+                        Total: BD {order?.orderServiceMappings?.reduce(
+                          (total, mapping) => total + (mapping.orderItems?.reduce(
+                            (itemTotal, item) => itemTotal + item.totalPrice,
+                            0
+                          ) || 0),
+                          0
+                        ).toFixed(2)}
+                      </span>
+                    </h4>
+                    <div className='space-y-3'>
+                      {order.orderServiceMappings.map(mapping => (
+                        <div key={mapping.id} className='border rounded-lg p-4'>
+                          <h5 className='font-medium text-gray-900 mb-2 text-sm'>
+                            {mapping.service.displayName}
+                          </h5>
+                          <div className='space-y-2'>
+                            {mapping.orderItems.map(item => (
+                              <div
+                                key={item.id}
+                                className='flex items-center justify-between p-3 bg-gray-50 rounded-md'
+                              >
+                                <div className='flex-1'>
+                                  <div className='flex items-center space-x-2'>
+                                    <span className='font-medium text-sm'>
+                                      {item.itemName}
+                                    </span>
+                                    <span className='text-xs text-gray-500'>
+                                      ({item.itemType})
+                                    </span>
+                                  </div>
+                                  <div className='text-xs text-gray-600 mt-1'>
+                                    Quantity: {item.quantity} | Price: BD {item.pricePerItem.toFixed(2)} | Total: BD {item.totalPrice.toFixed(2)}
+                                  </div>
+                                  {item.notes && (
+                                    <div className='text-xs text-gray-500 mt-1'>
+                                      Notes: {item.notes}
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleDeleteOrderItem(item.id, item.itemName)}
+                                  disabled={itemForm.loading}
+                                  className='ml-3 text-red-600 hover:text-red-800 text-sm disabled:opacity-50 disabled:cursor-not-allowed px-2 py-1 border border-red-200 rounded hover:bg-red-50'
+                                  title='Delete this item'
+                                >
+                                  {itemForm.loading ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Service Selection */}
                 <div className='bg-white border border-gray-200 rounded-lg p-6'>
@@ -1246,58 +1339,76 @@ export default function ProcessOrderPage() {
                 </div>
 
                 {/* Existing Issue Reports */}
-                {selectedItemDetail.issueReports && selectedItemDetail.issueReports.length > 0 && (
-                  <div>
-                    <label className='block text-sm font-medium text-gray-700 mb-2'>
-                      Existing Issue Reports
-                    </label>
-                    <div className='space-y-3 max-h-32 overflow-y-auto'>
-                      {selectedItemDetail.issueReports.map((report, index) => (
-                        <div key={report.id} className='bg-red-50 border border-red-200 rounded-md p-3'>
-                          <div className='flex justify-between items-start'>
-                            <div className='flex-1'>
-                              <div className='flex items-center space-x-2 mb-1'>
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  report.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                                  report.severity === 'high' ? 'bg-orange-100 text-orange-800' :
-                                  report.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {report.severity.toUpperCase()}
-                                </span>
-                                <span className='text-xs text-gray-500'>
-                                  {report.issueType.replace('_', ' ')}
-                                </span>
+                {selectedItemDetail.issueReports &&
+                  selectedItemDetail.issueReports.length > 0 && (
+                    <div>
+                      <label className='block text-sm font-medium text-gray-700 mb-2'>
+                        Existing Issue Reports
+                      </label>
+                      <div className='space-y-3 max-h-32 overflow-y-auto'>
+                        {selectedItemDetail.issueReports.map(
+                          (report, index) => (
+                            <div
+                              key={report.id}
+                              className='bg-red-50 border border-red-200 rounded-md p-3'
+                            >
+                              <div className='flex justify-between items-start'>
+                                <div className='flex-1'>
+                                  <div className='flex items-center space-x-2 mb-1'>
+                                    <span
+                                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                        report.severity === 'critical'
+                                          ? 'bg-red-100 text-red-800'
+                                          : report.severity === 'high'
+                                            ? 'bg-orange-100 text-orange-800'
+                                            : report.severity === 'medium'
+                                              ? 'bg-yellow-100 text-yellow-800'
+                                              : 'bg-blue-100 text-blue-800'
+                                      }`}
+                                    >
+                                      {report.severity.toUpperCase()}
+                                    </span>
+                                    <span className='text-xs text-gray-500'>
+                                      {report.issueType.replace('_', ' ')}
+                                    </span>
+                                  </div>
+                                  <p className='text-sm text-gray-700 mb-2'>
+                                    {report.description}
+                                  </p>
+                                  <p className='text-xs text-gray-500'>
+                                    Reported by {report.staff.firstName}{' '}
+                                    {report.staff.lastName} on{' '}
+                                    {new Date(
+                                      report.reportedAt
+                                    ).toLocaleDateString()}
+                                  </p>
+                                </div>
                               </div>
-                              <p className='text-sm text-gray-700 mb-2'>{report.description}</p>
-                              <p className='text-xs text-gray-500'>
-                                Reported by {report.staff.firstName} {report.staff.lastName} on{' '}
-                                {new Date(report.reportedAt).toLocaleDateString()}
-                              </p>
+
+                              {/* Issue Images */}
+                              {report.images && report.images.length > 0 && (
+                                <div className='mt-2'>
+                                  <p className='text-xs text-gray-600 mb-1'>
+                                    Images ({report.images.length}):
+                                  </p>
+                                  <div className='grid grid-cols-3 gap-1'>
+                                    {report.images.map((image, imgIndex) => (
+                                      <img
+                                        key={imgIndex}
+                                        src={image}
+                                        alt={`Issue ${index + 1} - Image ${imgIndex + 1}`}
+                                        className='w-full h-12 object-cover rounded border'
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                          
-                          {/* Issue Images */}
-                          {report.images && report.images.length > 0 && (
-                            <div className='mt-2'>
-                              <p className='text-xs text-gray-600 mb-1'>Images ({report.images.length}):</p>
-                              <div className='grid grid-cols-3 gap-1'>
-                                {report.images.map((image, imgIndex) => (
-                                  <img
-                                    key={imgIndex}
-                                    src={image}
-                                    alt={`Issue ${index + 1} - Image ${imgIndex + 1}`}
-                                    className='w-full h-12 object-cover rounded border'
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
                 <div>
                   <label className='block text-sm font-medium text-gray-700'>
                     Processed Quantity
@@ -1450,7 +1561,8 @@ export default function ProcessOrderPage() {
                         className='mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                       />
                       <p className='mt-1 text-xs text-gray-500'>
-                        You can select multiple images. Images will be stored directly in the database.
+                        You can select multiple images. Images will be stored
+                        directly in the database.
                       </p>
                     </div>
 
@@ -1623,6 +1735,48 @@ export default function ProcessOrderPage() {
                     Regenerate Invoice
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && itemToDelete && (
+        <div className='fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50'>
+          <div className='relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white'>
+            <div className='mt-3'>
+              <div className='mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4'>
+                <AlertCircle className='h-6 w-6 text-red-600' />
+              </div>
+              <h3 className='text-lg font-medium text-gray-900 mb-4 text-center'>
+                Delete Item
+              </h3>
+              <div className='text-sm text-gray-600 mb-6'>
+                <p className='mb-3'>
+                  Are you sure you want to delete <strong>"{itemToDelete.name}"</strong>?
+                </p>
+                <p className='font-medium text-red-600'>
+                  This action cannot be undone.
+                </p>
+              </div>
+              <div className='flex justify-end space-x-3'>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setItemToDelete(null);
+                  }}
+                  className='px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300'
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteItem}
+                  disabled={itemForm.loading}
+                  className='px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {itemForm.loading ? 'Deleting...' : 'Delete Item'}
+                </button>
               </div>
             </div>
           </div>

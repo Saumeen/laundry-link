@@ -3,7 +3,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 import { MapPin, ExternalLink } from 'lucide-react';
-import { formatUTCForDisplay, getCurrentBahrainDate, convertUTCToBahrainDateTimeLocal, convertBahrainDateTimeToUTC } from '@/lib/utils/timezone';
+import {
+  formatUTCForDisplay,
+  getCurrentBahrainDate,
+  convertUTCToBahrainDateTimeLocal,
+  convertBahrainDateTimeToUTC,
+} from '@/lib/utils/timezone';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 
 // Constants
@@ -65,38 +70,53 @@ interface DriverAssignmentsTabProps {
   onRefresh: () => void;
 }
 
-export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignmentsTabProps) {
+export default function DriverAssignmentsTab({
+  order,
+  onRefresh,
+}: DriverAssignmentsTabProps) {
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [driverAssignments, setDriverAssignments] = useState<DriverAssignment[]>([]);
+  const [driverAssignments, setDriverAssignments] = useState<
+    DriverAssignment[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [pickupAssignmentLoading, setPickupAssignmentLoading] = useState(false);
-  const [deliveryAssignmentLoading, setDeliveryAssignmentLoading] = useState(false);
+  const [deliveryAssignmentLoading, setDeliveryAssignmentLoading] =
+    useState(false);
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
 
   // Confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [assignmentToDelete, setAssignmentToDelete] = useState<number | null>(null);
+  const [assignmentToDelete, setAssignmentToDelete] = useState<number | null>(
+    null
+  );
 
   // Reassignment modal state
   const [showReassignModal, setShowReassignModal] = useState(false);
-  const [assignmentToReassign, setAssignmentToReassign] = useState<DriverAssignment | null>(null);
+  const [assignmentToReassign, setAssignmentToReassign] =
+    useState<DriverAssignment | null>(null);
   const [reassignLoading, setReassignLoading] = useState(false);
-  const [selectedReassignDriver, setSelectedReassignDriver] = useState<number | ''>('');
+  const [selectedReassignDriver, setSelectedReassignDriver] = useState<
+    number | ''
+  >('');
   const [reassignEstimatedTime, setReassignEstimatedTime] = useState('');
   const [reassignNotes, setReassignNotes] = useState('');
 
   // Form states for new assignments
-  const [selectedPickupDriver, setSelectedPickupDriver] = useState<number | ''>('');
-  const [selectedDeliveryDriver, setSelectedDeliveryDriver] = useState<number | ''>('');
+  const [selectedPickupDriver, setSelectedPickupDriver] = useState<number | ''>(
+    ''
+  );
+  const [selectedDeliveryDriver, setSelectedDeliveryDriver] = useState<
+    number | ''
+  >('');
   const [pickupEstimatedTime, setPickupEstimatedTime] = useState('');
   const [deliveryEstimatedTime, setDeliveryEstimatedTime] = useState('');
   const [pickupNotes, setPickupNotes] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
 
-
-
   // Edit states
-  const [editingAssignment, setEditingAssignment] = useState<number | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<number | null>(
+    null
+  );
   const [editDriverId, setEditDriverId] = useState<number | ''>('');
   const [editEstimatedTime, setEditEstimatedTime] = useState('');
   const [editNotes, setEditNotes] = useState('');
@@ -174,7 +194,10 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
     try {
       const response = await fetch('/api/admin/drivers');
       if (response.ok) {
-        const data = await response.json() as { success: boolean; data: Driver[] };
+        const data = (await response.json()) as {
+          success: boolean;
+          data: Driver[];
+        };
         if (data.success) {
           setDrivers(data.data || []);
         } else {
@@ -190,9 +213,14 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
 
   const loadDriverAssignments = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/driver-assignments?orderId=${order.id}`);
+      const response = await fetch(
+        `/api/admin/driver-assignments?orderId=${order.id}`
+      );
       if (response.ok) {
-        const data = await response.json() as { success: boolean; assignments?: DriverAssignment[] };
+        const data = (await response.json()) as {
+          success: boolean;
+          assignments?: DriverAssignment[];
+        };
         console.log('Driver assignments API response:', data); // Debug log
         if (data.success) {
           setDriverAssignments(data.assignments || []);
@@ -210,13 +238,17 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
             setSelectedPickupDriver(pickupAssignment.driverId);
             setPickupEstimatedTime(
               pickupAssignment.estimatedTime
-                ? convertUTCToBahrainDateTimeLocal(pickupAssignment.estimatedTime)
+                ? convertUTCToBahrainDateTimeLocal(
+                    pickupAssignment.estimatedTime
+                  )
                 : ''
             );
             setPickupNotes(pickupAssignment.notes || '');
 
             if (pickupAssignment.estimatedTime) {
-              const warning = checkPickupTimeWarning(pickupAssignment.estimatedTime);
+              const warning = checkPickupTimeWarning(
+                pickupAssignment.estimatedTime
+              );
               setPickupTimeWarning(warning);
             }
           }
@@ -225,13 +257,17 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
             setSelectedDeliveryDriver(deliveryAssignment.driverId);
             setDeliveryEstimatedTime(
               deliveryAssignment.estimatedTime
-                ? convertUTCToBahrainDateTimeLocal(deliveryAssignment.estimatedTime)
+                ? convertUTCToBahrainDateTimeLocal(
+                    deliveryAssignment.estimatedTime
+                  )
                 : ''
             );
             setDeliveryNotes(deliveryAssignment.notes || '');
           }
         } else {
-          console.error('Failed to load driver assignments: API returned error');
+          console.error(
+            'Failed to load driver assignments: API returned error'
+          );
         }
       } else {
         console.error('Failed to load driver assignments:', response.status);
@@ -254,14 +290,18 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
       }
 
       if (assignmentType === 'delivery' && pickupEstimatedTime) {
-        const pickupDate = new Date(convertBahrainDateTimeToUTC(pickupEstimatedTime));
+        const pickupDate = new Date(
+          convertBahrainDateTimeToUTC(pickupEstimatedTime)
+        );
         if (selectedDate <= pickupDate) {
           return 'Delivery time must be after pickup time';
         }
       }
 
       if (assignmentType === 'pickup' && deliveryEstimatedTime) {
-        const deliveryDate = new Date(convertBahrainDateTimeToUTC(deliveryEstimatedTime));
+        const deliveryDate = new Date(
+          convertBahrainDateTimeToUTC(deliveryEstimatedTime)
+        );
         if (selectedDate >= deliveryDate) {
           return 'Pickup time must be before delivery time';
         }
@@ -338,7 +378,7 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
           await loadDriverAssignments();
           onRefresh();
         } else {
-          const error = await response.json() as { error?: string };
+          const error = (await response.json()) as { error?: string };
           console.error('Failed to assign driver:', error);
           // Show error message to user
           const errorMessage = error.error || 'Failed to assign driver';
@@ -348,16 +388,17 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
             setDeliveryTimeError(errorMessage);
           }
         }
-              } catch (error: unknown) {
-          console.error('Error assigning driver:', error);
-          // Show error message to user
-          const errorMessage = error instanceof Error ? error.message : 'Failed to assign driver';
-          if (assignmentType === 'pickup') {
-            setPickupTimeError(errorMessage);
-          } else {
-            setDeliveryTimeError(errorMessage);
-          }
-        } finally {
+      } catch (error: unknown) {
+        console.error('Error assigning driver:', error);
+        // Show error message to user
+        const errorMessage =
+          error instanceof Error ? error.message : 'Failed to assign driver';
+        if (assignmentType === 'pickup') {
+          setPickupTimeError(errorMessage);
+        } else {
+          setDeliveryTimeError(errorMessage);
+        }
+      } finally {
         if (assignmentType === 'pickup') {
           setPickupAssignmentLoading(false);
         } else {
@@ -387,7 +428,11 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
   const handleReassignClick = useCallback((assignment: DriverAssignment) => {
     setAssignmentToReassign(assignment);
     setSelectedReassignDriver('');
-    setReassignEstimatedTime(assignment.estimatedTime ? convertUTCToBahrainDateTimeLocal(assignment.estimatedTime) : '');
+    setReassignEstimatedTime(
+      assignment.estimatedTime
+        ? convertUTCToBahrainDateTimeLocal(assignment.estimatedTime)
+        : ''
+    );
     setReassignNotes(assignment.notes || '');
     setShowReassignModal(true);
   }, []);
@@ -427,7 +472,14 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
     } finally {
       setReassignLoading(false);
     }
-  }, [assignmentToReassign, selectedReassignDriver, reassignEstimatedTime, reassignNotes, loadDriverAssignments, onRefresh]);
+  }, [
+    assignmentToReassign,
+    selectedReassignDriver,
+    reassignEstimatedTime,
+    reassignNotes,
+    loadDriverAssignments,
+    onRefresh,
+  ]);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!assignmentToDelete) return;
@@ -566,7 +618,9 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                             </svg>
                             <span className='text-sm text-gray-600'>
                               Estimated:{' '}
-                              {assignment.estimatedTime ? formatUTCForDisplay(assignment.estimatedTime) : 'Not set'}
+                              {assignment.estimatedTime
+                                ? formatUTCForDisplay(assignment.estimatedTime)
+                                : 'Not set'}
                             </span>
                           </div>
                         )}
@@ -667,7 +721,7 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                           </svg>
                         </button>
                       )}
-                      
+
                       <button
                         onClick={() => handleDeleteClick(assignment.id)}
                         disabled={deleteLoading === assignment.id}
@@ -728,8 +782,10 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
           a => a.assignmentType === 'delivery'
         );
 
-        const hasFailedAssignments = driverAssignments.some(a => a.status === 'FAILED');
-        
+        const hasFailedAssignments = driverAssignments.some(
+          a => a.status === 'FAILED'
+        );
+
         if (hasPickupAssignment && hasDeliveryAssignment) {
           return (
             <div className='space-y-4'>
@@ -754,11 +810,12 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                     </span>
                   </div>
                   <p className='text-orange-700 text-sm mt-1'>
-                    Some assignments have failed. You can reassign them to new drivers using the reassign button above.
+                    Some assignments have failed. You can reassign them to new
+                    drivers using the reassign button above.
                   </p>
                 </div>
               )}
-              
+
               <div className='bg-green-50 border border-green-200 rounded-lg p-4'>
                 <div className='flex items-center space-x-2'>
                   <svg
@@ -841,22 +898,26 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                         Estimated Pickup Time
                       </label>
                       <input
-                        type="datetime-local"
+                        type='datetime-local'
                         value={pickupEstimatedTime}
-                        onChange={(e) => {
+                        onChange={e => {
                           setPickupEstimatedTime(e.target.value);
                           setPickupTimeError('');
-                          const warning = checkPickupTimeWarning(convertBahrainDateTimeToUTC(e.target.value));
+                          const warning = checkPickupTimeWarning(
+                            convertBahrainDateTimeToUTC(e.target.value)
+                          );
                           setPickupTimeWarning(warning);
                         }}
                         min={getCurrentBahrainDate()}
                         className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                       />
                       {pickupTimeError && (
-                        <p className="mt-1 text-sm text-red-600">{pickupTimeError}</p>
+                        <p className='mt-1 text-sm text-red-600'>
+                          {pickupTimeError}
+                        </p>
                       )}
                       {pickupTimeWarning && (
-                        <p className="mt-1 text-sm text-yellow-600 bg-yellow-50 p-2 rounded border border-yellow-200">
+                        <p className='mt-1 text-sm text-yellow-600 bg-yellow-50 p-2 rounded border border-yellow-200'>
                           ⚠️ {pickupTimeWarning}
                         </p>
                       )}
@@ -876,7 +937,9 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
 
                     <button
                       onClick={() => assignDriver('pickup')}
-                      disabled={pickupAssignmentLoading || !selectedPickupDriver}
+                      disabled={
+                        pickupAssignmentLoading || !selectedPickupDriver
+                      }
                       className='w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
                     >
                       {pickupAssignmentLoading
@@ -923,9 +986,9 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                         Estimated Delivery Time
                       </label>
                       <input
-                        type="datetime-local"
+                        type='datetime-local'
                         value={deliveryEstimatedTime}
-                        onChange={(e) => {
+                        onChange={e => {
                           setDeliveryEstimatedTime(e.target.value);
                           setDeliveryTimeError('');
                         }}
@@ -933,7 +996,9 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                         className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                       />
                       {deliveryTimeError && (
-                        <p className="mt-1 text-sm text-red-600">{deliveryTimeError}</p>
+                        <p className='mt-1 text-sm text-red-600'>
+                          {deliveryTimeError}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -951,7 +1016,9 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
 
                     <button
                       onClick={() => assignDriver('delivery')}
-                      disabled={deliveryAssignmentLoading || !selectedDeliveryDriver}
+                      disabled={
+                        deliveryAssignmentLoading || !selectedDeliveryDriver
+                      }
                       className='w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
                     >
                       {deliveryAssignmentLoading
@@ -978,26 +1045,41 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                 onClick={() => setShowReassignModal(false)}
                 className='text-gray-400 hover:text-gray-600'
               >
-                <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+                <svg
+                  className='w-6 h-6'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M6 18L18 6M6 6l12 12'
+                  />
                 </svg>
               </button>
             </div>
-            
+
             <div className='space-y-4'>
               <div>
                 <p className='text-sm text-gray-600 mb-3'>
-                  Reassigning {assignmentToReassign.assignmentType} assignment to a new driver.
+                  Reassigning {assignmentToReassign.assignmentType} assignment
+                  to a new driver.
                 </p>
               </div>
-              
+
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
                   New Driver
                 </label>
                 <select
                   value={selectedReassignDriver}
-                  onChange={e => setSelectedReassignDriver(e.target.value ? parseInt(e.target.value) : '')}
+                  onChange={e =>
+                    setSelectedReassignDriver(
+                      e.target.value ? parseInt(e.target.value) : ''
+                    )
+                  }
                   className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                 >
                   <option value=''>Select new driver</option>
@@ -1008,20 +1090,20 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Estimated Time
                 </label>
                 <input
-                  type="datetime-local"
+                  type='datetime-local'
                   value={reassignEstimatedTime}
-                  onChange={(e) => setReassignEstimatedTime(e.target.value)}
+                  onChange={e => setReassignEstimatedTime(e.target.value)}
                   min={getCurrentBahrainDate()}
                   className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                 />
               </div>
-              
+
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-1'>
                   Notes
@@ -1035,7 +1117,7 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
                 />
               </div>
             </div>
-            
+
             <div className='flex space-x-3 mt-6'>
               <button
                 onClick={() => setShowReassignModal(false)}
@@ -1068,4 +1150,4 @@ export default function DriverAssignmentsTab({ order, onRefresh }: DriverAssignm
       />
     </div>
   );
-} 
+}

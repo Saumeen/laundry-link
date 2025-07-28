@@ -44,7 +44,7 @@ export default function TimeSelection({
       try {
         const response = await fetch('/api/time-slots');
         if (response.ok) {
-          const data = await response.json() as { config: TimeSlotConfig };
+          const data = (await response.json()) as { config: TimeSlotConfig };
           setConfig(data.config);
         } else {
           console.error('Failed to fetch time slot configuration');
@@ -76,13 +76,13 @@ export default function TimeSelection({
     const slots: TimeSlot[] = [];
     const startHour = parseInt(config.startTime.split(':')[0]);
     const endHour = parseInt(config.endTime.split(':')[0]);
-    
+
     for (let hour = startHour; hour < endHour; hour += config.slotDuration) {
       const startTime = `${hour.toString().padStart(2, '0')}:00`;
       const endHour = hour + config.slotDuration;
       const endTime = `${endHour.toString().padStart(2, '0')}:00`;
       const id = `${startTime.replace(':', '-')}-${endTime.replace(':', '-')}`;
-      
+
       slots.push({
         id,
         label: `${startTime} - ${endTime}`,
@@ -91,7 +91,7 @@ export default function TimeSelection({
         isActive: true,
       });
     }
-    
+
     return slots;
   };
 
@@ -105,14 +105,14 @@ export default function TimeSelection({
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false
+      hour12: false,
     });
   };
 
   // Get current Bahrain date
   const getCurrentBahrainDate = () => {
     return new Date().toLocaleDateString('en-CA', {
-      timeZone: 'Asia/Bahrain'
+      timeZone: 'Asia/Bahrain',
     });
   };
 
@@ -120,10 +120,10 @@ export default function TimeSelection({
   const convertBahrainToUTC = (date: string, time: string) => {
     // Create a date string in Bahrain timezone
     const bahrainDateTimeString = `${date}T${time}`;
-    
+
     // Parse the date as Bahrain time and convert to UTC
     const bahrainDate = new Date(bahrainDateTimeString + '+03:00'); // Bahrain is UTC+3
-    
+
     // Return ISO string in UTC
     return bahrainDate.toISOString();
   };
@@ -138,7 +138,7 @@ export default function TimeSelection({
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false
+      hour12: false,
     });
   };
 
@@ -146,19 +146,21 @@ export default function TimeSelection({
   const isTimeSlotInPast = (slot: TimeSlot, date: string) => {
     const currentDate = getCurrentBahrainDate();
     if (date !== currentDate) return false;
-    
+
     const currentTime = new Date().toLocaleString('en-US', {
       timeZone: 'Asia/Bahrain',
-      hour12: false
+      hour12: false,
     });
     const currentHour = parseInt(currentTime.split(', ')[1].split(':')[0]);
     const currentMinute = parseInt(currentTime.split(', ')[1].split(':')[1]);
-    
+
     const slotStartHour = parseInt(slot.startTime.split(':')[0]);
     const slotStartMinute = parseInt(slot.startTime.split(':')[1]);
-    
-    return (slotStartHour < currentHour) || 
-           (slotStartHour === currentHour && slotStartMinute <= currentMinute);
+
+    return (
+      slotStartHour < currentHour ||
+      (slotStartHour === currentHour && slotStartMinute <= currentMinute)
+    );
   };
 
   // Generate time slots if config is available
@@ -168,13 +170,17 @@ export default function TimeSelection({
   }
 
   // Filter available time slots (hide past slots for current day)
-  const availableTimeSlots = timeSlots.filter(slot => !isTimeSlotInPast(slot, pickupDate));
+  const availableTimeSlots = timeSlots.filter(
+    slot => !isTimeSlotInPast(slot, pickupDate)
+  );
 
   // Get available delivery slots based on pickup slot and dates
   const getAvailableDeliverySlots = () => {
     // Filter delivery time slots based on delivery date (not pickup date)
-    const deliveryTimeSlots = timeSlots.filter(slot => !isTimeSlotInPast(slot, deliveryDate));
-    
+    const deliveryTimeSlots = timeSlots.filter(
+      slot => !isTimeSlotInPast(slot, deliveryDate)
+    );
+
     // If delivery date is different from pickup date, show all available delivery slots
     if (pickupDate !== deliveryDate) {
       return deliveryTimeSlots;
@@ -183,18 +189,20 @@ export default function TimeSelection({
     // If no pickup slot selected, show all available delivery slots
     if (!pickupTimeSlot) return deliveryTimeSlots;
 
-    const pickupSlot = availableTimeSlots.find(slot => slot.id === pickupTimeSlot);
-    
+    const pickupSlot = availableTimeSlots.find(
+      slot => slot.id === pickupTimeSlot
+    );
+
     if (!pickupSlot) return deliveryTimeSlots;
 
     // Same day delivery - filter out slots that are before pickup time
     return deliveryTimeSlots.filter(slot => {
       const pickupStart = new Date(`${pickupDate}T${pickupSlot.startTime}`);
       const deliveryStart = new Date(`${deliveryDate}T${slot.startTime}`);
-      
+
       // Delivery must be after pickup (minimum 1 hour gap)
       const minDeliveryTime = new Date(pickupStart.getTime() + 60 * 60 * 1000);
-      
+
       return deliveryStart >= minDeliveryTime;
     });
   };
@@ -203,7 +211,10 @@ export default function TimeSelection({
   useEffect(() => {
     const availableSlots = getAvailableDeliverySlots();
     // If current delivery slot is not available, clear it
-    if (deliveryTimeSlot && !availableSlots.find(slot => slot.id === deliveryTimeSlot)) {
+    if (
+      deliveryTimeSlot &&
+      !availableSlots.find(slot => slot.id === deliveryTimeSlot)
+    ) {
       onTimeChange('deliveryTimeSlot', '');
     }
   }, [pickupDate, deliveryDate, pickupTimeSlot]);
@@ -211,7 +222,10 @@ export default function TimeSelection({
   const availableDeliverySlots = getAvailableDeliverySlots();
 
   // Enhanced time change handler that stores time ranges
-  const handleTimeSlotChange = (type: 'pickup' | 'delivery', slotId: string) => {
+  const handleTimeSlotChange = (
+    type: 'pickup' | 'delivery',
+    slotId: string
+  ) => {
     const slot = timeSlots.find(s => s.id === slotId);
     if (slot) {
       let date: string;
@@ -222,7 +236,7 @@ export default function TimeSelection({
       }
       const startTimeUTC = convertBahrainToUTC(date, slot.startTime);
       const endTimeUTC = convertBahrainToUTC(date, slot.endTime);
-      
+
       // Store the slot ID and time ranges
       onTimeChange(`${type}TimeSlot`, slotId);
       onTimeChange(`${type}StartTimeUTC`, startTimeUTC || '');
@@ -237,7 +251,9 @@ export default function TimeSelection({
   if (loading) {
     return (
       <div className='space-y-6'>
-        <h2 className='text-2xl font-bold text-gray-900'>Select Time (Bahrain Time)</h2>
+        <h2 className='text-2xl font-bold text-gray-900'>
+          Select Time (Bahrain Time)
+        </h2>
         <div className='flex items-center justify-center py-8'>
           <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
           <span className='ml-2 text-gray-600'>Loading time slots...</span>
@@ -248,9 +264,13 @@ export default function TimeSelection({
 
   return (
     <div className='space-y-6'>
-      <h2 className='text-2xl font-bold text-gray-900'>Select Time (Bahrain Time)</h2>
-      <p className='text-gray-600'>Choose your preferred pickup and delivery times</p>
-      
+      <h2 className='text-2xl font-bold text-gray-900'>
+        Select Time (Bahrain Time)
+      </h2>
+      <p className='text-gray-600'>
+        Choose your preferred pickup and delivery times
+      </p>
+
       {/* Current Bahrain Time Display - Dev Only */}
       {isDevelopment && (
         <div className='p-3 bg-blue-50 border border-blue-200 rounded-lg'>
@@ -259,7 +279,8 @@ export default function TimeSelection({
           </p>
           {config && (
             <p className='text-xs text-blue-600 mt-1'>
-              <strong>Time Slot Configuration:</strong> {config.slotDuration}-hour slots from {config.startTime} to {config.endTime}
+              <strong>Time Slot Configuration:</strong> {config.slotDuration}
+              -hour slots from {config.startTime} to {config.endTime}
             </p>
           )}
         </div>
@@ -276,7 +297,7 @@ export default function TimeSelection({
         {/* Pickup Section */}
         <div className='space-y-4'>
           <h3 className='text-lg font-semibold text-gray-900'>Pickup</h3>
-          
+
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-2'>
               Date *
@@ -284,7 +305,7 @@ export default function TimeSelection({
             <input
               type='date'
               value={pickupDate}
-              onChange={(e) => onTimeChange('pickupDate', e.target.value)}
+              onChange={e => onTimeChange('pickupDate', e.target.value)}
               min={getCurrentBahrainDate()}
               className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
             />
@@ -316,7 +337,7 @@ export default function TimeSelection({
         {/* Delivery Section */}
         <div className='space-y-4'>
           <h3 className='text-lg font-semibold text-gray-900'>Delivery</h3>
-          
+
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-2'>
               Date *
@@ -324,7 +345,7 @@ export default function TimeSelection({
             <input
               type='date'
               value={deliveryDate}
-              onChange={(e) => onTimeChange('deliveryDate', e.target.value)}
+              onChange={e => onTimeChange('deliveryDate', e.target.value)}
               min={pickupDate || getCurrentBahrainDate()}
               className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
             />
@@ -355,4 +376,4 @@ export default function TimeSelection({
       </div>
     </div>
   );
-} 
+}

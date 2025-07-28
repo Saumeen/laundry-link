@@ -1,11 +1,14 @@
 'use client';
 
-import { getStatusBadgeColor, getStatusDisplayName } from '@/admin/utils/orderUtils';
+import {
+  getStatusBadgeColor,
+  getStatusDisplayName,
+} from '@/admin/utils/orderUtils';
 import AdminHeader from '@/components/admin/AdminHeader';
 import { ToastProvider } from '@/components/ui/Toast';
 import {
   formatUTCForDisplay,
-  formatUTCForTimeDisplay
+  formatUTCForTimeDisplay,
 } from '@/lib/utils/timezone';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -86,7 +89,7 @@ interface OrderWithRelations {
 import {
   DriverAssignmentsTab,
   OrderEditTab,
-  OrderOverviewTab
+  OrderOverviewTab,
 } from '@/components/admin/orders';
 import ServicesTab from '@/components/admin/orders/ServicesTab';
 import OrderItemsTab from '@/components/admin/orders/OrderItemsTab';
@@ -101,8 +104,6 @@ const ALLOWED_ROLES = [
   'FACILITY_TEAM',
 ] as const;
 
-
-
 // API Response interfaces
 interface OrderResponse {
   order: OrderWithRelations;
@@ -112,7 +113,14 @@ interface ErrorResponse {
   error: string;
 }
 
-type TabType = 'overview' | 'edit' | 'assignments' | 'services' | 'order-items' | 'invoice' | 'history';
+type TabType =
+  | 'overview'
+  | 'edit'
+  | 'assignments'
+  | 'services'
+  | 'order-items'
+  | 'invoice'
+  | 'history';
 
 // Tab Button Component
 const TabButton = React.memo(
@@ -222,7 +230,7 @@ function OrderEditPageContent() {
   // Get the appropriate dashboard URL based on user role
   const getDashboardUrl = useCallback(() => {
     if (!session?.role) return '/admin';
-    
+
     switch (session.role) {
       case 'SUPER_ADMIN':
         return '/admin/super-admin';
@@ -256,6 +264,28 @@ function OrderEditPageContent() {
     }
 
     return order.invoiceTotal || subtotal;
+  };
+
+  const handleDeleteOrderItem = async (orderId: number, itemId: number) => {
+    try {
+      const response = await fetch(`/api/admin/delete-order-item?id=${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to delete item');
+      }
+
+      // Refresh the order data
+      await fetchOrder();
+    } catch (error) {
+      console.error('Error deleting order item:', error);
+      throw error;
+    }
   };
 
   const total = getOrderTotal(order!);
@@ -358,7 +388,9 @@ function OrderEditPageContent() {
           <div className='grid grid-cols-1 md:grid-cols-4 gap-4 text-center'>
             <div>
               <div className='text-sm text-gray-600'>Order Status</div>
-              <div className='font-semibold text-gray-900'>{order.status}</div>
+              <div className='font-semibold text-gray-900'>
+                {getStatusDisplayName(order.status)}
+              </div>
             </div>
             <div>
               <div className='text-sm text-gray-600'>Total Amount</div>
@@ -390,22 +422,36 @@ function OrderEditPageContent() {
                 <div className='font-semibold text-gray-900'>
                   {formatUTCForDisplay(order.pickupTime)}
                 </div>
-                {order.pickupTimeSlot && (
+                {order.orderServiceMappings?.some(
+                  mapping => mapping.service.name === 'express-service'
+                ) ? (
+                  <div className='text-sm text-orange-600 font-semibold'>
+                    Express Service
+                  </div>
+                ) : order.pickupTimeSlot ? (
                   <div className='text-sm text-blue-600'>
                     Slot: {order.pickupTimeSlot}
                   </div>
-                )}
+                ) : null}
               </div>
               <div>
-                <div className='text-sm text-gray-600'>Delivery Date & Time</div>
+                <div className='text-sm text-gray-600'>
+                  Delivery Date & Time
+                </div>
                 <div className='font-semibold text-gray-900'>
                   {formatUTCForDisplay(order.deliveryTime)}
                 </div>
-                {order.deliveryTimeSlot && (
+                {order.orderServiceMappings?.some(
+                  mapping => mapping.service.name === 'express-service'
+                ) ? (
+                  <div className='text-sm text-orange-600 font-semibold'>
+                    Express Service
+                  </div>
+                ) : order.deliveryTimeSlot ? (
                   <div className='text-sm text-blue-600'>
                     Slot: {order.deliveryTimeSlot}
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -478,13 +524,20 @@ function OrderEditPageContent() {
               <OrderEditTab order={order as any} onUpdate={fetchOrder} />
             )}
             {activeTab === 'assignments' && (
-              <DriverAssignmentsTab order={order as any} onRefresh={fetchOrder} />
+              <DriverAssignmentsTab
+                order={order as any}
+                onRefresh={fetchOrder}
+              />
             )}
             {activeTab === 'services' && (
               <ServicesTab order={order as any} onRefresh={fetchOrder} />
             )}
             {activeTab === 'order-items' && (
-              <OrderItemsTab order={order as any} onRefresh={fetchOrder} />
+              <OrderItemsTab 
+                order={order as any} 
+                onRefresh={fetchOrder} 
+                onDeleteOrderItem={handleDeleteOrderItem}
+              />
             )}
             {activeTab === 'invoice' && (
               <InvoiceTab order={order as any} onRefresh={fetchOrder} />

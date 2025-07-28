@@ -8,14 +8,18 @@ import {
   getStatusBadgeColor,
   getStatusDisplayName,
 } from '@/admin/utils/orderUtils';
-import { getCurrentBahrainDate, formatUTCForTimeDisplay, formatUTCForDisplay } from '@/lib/utils/timezone';
+import {
+  getCurrentBahrainDate,
+  formatUTCForTimeDisplay,
+  formatUTCForDisplay,
+} from '@/lib/utils/timezone';
 import type { DriverAssignment } from '@/admin/api/driver';
 
 export default function DriverAssignmentsPage() {
   const router = useRouter();
   const { user, isLoading, isAuthorized, logout } = useDriverAuth();
   const { assignments, loading, fetchAssignments } = useDriverStore();
-  
+
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -39,38 +43,49 @@ export default function DriverAssignmentsPage() {
       filtered = filtered.filter(assignment => {
         if (!assignment.estimatedTime) return false;
         const assignmentDate = new Date(assignment.estimatedTime);
-        const assignmentBahrainDate = assignmentDate.toLocaleDateString('en-CA', { 
-          timeZone: 'Asia/Bahrain' 
-        });
+        const assignmentBahrainDate = assignmentDate.toLocaleDateString(
+          'en-CA',
+          {
+            timeZone: 'Asia/Bahrain',
+          }
+        );
         return bahrainToday === assignmentBahrainDate;
       });
     }
 
     // Status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(assignment => assignment.status === statusFilter);
+      filtered = filtered.filter(
+        assignment => assignment.status === statusFilter
+      );
     }
 
     // Type filter
     if (typeFilter !== 'all') {
-      filtered = filtered.filter(assignment => assignment.assignmentType === typeFilter);
+      filtered = filtered.filter(
+        assignment => assignment.assignmentType === typeFilter
+      );
     }
 
     // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(assignment => 
-        assignment.order.orderNumber.toLowerCase().includes(term) ||
-        assignment.order.customerFirstName.toLowerCase().includes(term) ||
-        assignment.order.customerLastName.toLowerCase().includes(term) ||
-        assignment.order.customerAddress?.toLowerCase().includes(term)
+      filtered = filtered.filter(
+        assignment =>
+          assignment.order.orderNumber.toLowerCase().includes(term) ||
+          assignment.order.customerFirstName.toLowerCase().includes(term) ||
+          assignment.order.customerLastName.toLowerCase().includes(term) ||
+          assignment.order.customerAddress?.toLowerCase().includes(term)
       );
     }
 
     // Sort by estimated time
     return filtered.sort((a, b) => {
       if (a.estimatedTime && b.estimatedTime) {
-        return new Date(a.estimatedTime).getTime() - new Date(b.estimatedTime).getTime();
+        return (
+          new Date(a.estimatedTime).getTime() -
+          new Date(b.estimatedTime).getTime()
+        );
       }
       return 0;
     });
@@ -81,7 +96,11 @@ export default function DriverAssignmentsPage() {
   };
 
   // Check if any filters are active
-  const hasActiveFilters = statusFilter !== 'all' || typeFilter !== 'all' || dateFilter !== 'today' || searchTerm !== '';
+  const hasActiveFilters =
+    statusFilter !== 'all' ||
+    typeFilter !== 'all' ||
+    dateFilter !== 'today' ||
+    searchTerm !== '';
 
   const clearFilters = () => {
     setStatusFilter('all');
@@ -113,7 +132,8 @@ export default function DriverAssignmentsPage() {
                 My Assignments
               </h1>
               <p className='mt-1 text-sm text-gray-500'>
-                Manage your pickup and delivery assignments - {user?.firstName} {user?.lastName}
+                Manage your pickup and delivery assignments - {user?.firstName}{' '}
+                {user?.lastName}
               </p>
             </div>
             <div className='flex items-center space-x-4'>
@@ -163,7 +183,7 @@ export default function DriverAssignmentsPage() {
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
         {/* Filters Accordion */}
         <div className='bg-white shadow rounded-lg mb-8'>
-          <div 
+          <div
             className='px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors'
             onClick={() => setFiltersExpanded(!filtersExpanded)}
           >
@@ -179,7 +199,7 @@ export default function DriverAssignmentsPage() {
               <div className='flex items-center space-x-2'>
                 {hasActiveFilters && (
                   <button
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       clearFilters();
                     }}
@@ -206,11 +226,13 @@ export default function DriverAssignmentsPage() {
               </div>
             </div>
           </div>
-          
+
           {/* Collapsible Filters Content */}
-          <div className={`transition-all duration-200 ease-in-out overflow-hidden ${
-            filtersExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-          }`}>
+          <div
+            className={`transition-all duration-200 ease-in-out overflow-hidden ${
+              filtersExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
             <div className='p-6 border-t border-gray-100'>
               <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4'>
                 {/* Search */}
@@ -222,7 +244,7 @@ export default function DriverAssignmentsPage() {
                     type='text'
                     placeholder='Order #, customer, address...'
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={e => setSearchTerm(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   />
                 </div>
@@ -234,7 +256,7 @@ export default function DriverAssignmentsPage() {
                   </label>
                   <select
                     value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
+                    onChange={e => setDateFilter(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   >
                     <option value='today'>Today</option>
@@ -249,7 +271,7 @@ export default function DriverAssignmentsPage() {
                   </label>
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={e => setStatusFilter(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   >
                     <option value='all'>All Status</option>
@@ -268,7 +290,7 @@ export default function DriverAssignmentsPage() {
                   </label>
                   <select
                     value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
+                    onChange={e => setTypeFilter(e.target.value)}
                     className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                   >
                     <option value='all'>All Types</option>
@@ -328,10 +350,9 @@ export default function DriverAssignmentsPage() {
                 No assignments found
               </h3>
               <p className='text-gray-600 mb-4'>
-                {hasActiveFilters 
+                {hasActiveFilters
                   ? 'Try adjusting your filters to see more results.'
-                  : 'You have no assignments at the moment.'
-                }
+                  : 'You have no assignments at the moment.'}
               </p>
               {hasActiveFilters && (
                 <button
@@ -355,11 +376,16 @@ export default function DriverAssignmentsPage() {
                       <div className='flex items-center space-x-3 mb-2'>
                         <div
                           className={`w-3 h-3 rounded-full ${
-                            assignment.assignmentType === 'pickup' ? 'bg-blue-500' : 'bg-green-500'
+                            assignment.assignmentType === 'pickup'
+                              ? 'bg-blue-500'
+                              : 'bg-green-500'
                           }`}
                         ></div>
                         <h3 className='text-lg font-medium text-gray-900'>
-                          {assignment.assignmentType === 'pickup' ? 'Pickup' : 'Delivery'} - {assignment.order.orderNumber}
+                          {assignment.assignmentType === 'pickup'
+                            ? 'Pickup'
+                            : 'Delivery'}{' '}
+                          - {assignment.order.orderNumber}
                         </h3>
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(assignment.status)}`}
@@ -368,24 +394,30 @@ export default function DriverAssignmentsPage() {
                         </span>
                       </div>
                       <p className='text-sm text-gray-600'>
-                        Customer: {assignment.order.customerFirstName} {assignment.order.customerLastName}
+                        Customer: {assignment.order.customerFirstName}{' '}
+                        {assignment.order.customerLastName}
                       </p>
                     </div>
                     <div className='text-right'>
                       <p className='text-sm font-medium text-gray-900'>
-                        {assignment.estimatedTime ? formatUTCForTimeDisplay(assignment.estimatedTime) : 'Time TBD'}
+                        {assignment.estimatedTime
+                          ? formatUTCForTimeDisplay(assignment.estimatedTime)
+                          : 'Time TBD'}
                       </p>
                       <p className='text-xs text-gray-500'>
-                        {assignment.estimatedTime ? formatUTCForDisplay(assignment.estimatedTime) : ''}
+                        {assignment.estimatedTime
+                          ? formatUTCForDisplay(assignment.estimatedTime)
+                          : ''}
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className='grid grid-cols-1 md:grid-cols-2 gap-4 text-sm'>
                     <div>
                       <span className='text-gray-500'>Address:</span>
                       <p className='text-gray-900 truncate'>
-                        {assignment.order.customerAddress || 'No address provided'}
+                        {assignment.order.customerAddress ||
+                          'No address provided'}
                       </p>
                     </div>
                     <div>
@@ -395,11 +427,12 @@ export default function DriverAssignmentsPage() {
                       </p>
                     </div>
                   </div>
-                  
+
                   {assignment.notes && (
                     <div className='mt-4 p-3 bg-yellow-50 rounded-md'>
                       <p className='text-sm text-yellow-800'>
-                        <span className='font-medium'>Notes:</span> {assignment.notes}
+                        <span className='font-medium'>Notes:</span>{' '}
+                        {assignment.notes}
                       </p>
                     </div>
                   )}
@@ -411,4 +444,4 @@ export default function DriverAssignmentsPage() {
       </div>
     </div>
   );
-} 
+}

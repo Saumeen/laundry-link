@@ -6,14 +6,16 @@ const STATUS_CONFIG = {
     color: 'bg-blue-50 text-blue-700 border-blue-200',
     bgColor: 'bg-blue-100',
     icon: '📋',
-    description: 'Your order has been successfully placed and is awaiting confirmation',
+    description:
+      'Your order has been successfully placed and is awaiting confirmation',
     step: 1,
   },
   [OrderStatus.CONFIRMED]: {
     color: 'bg-green-50 text-green-700 border-green-200',
     bgColor: 'bg-green-100',
     icon: '✅',
-    description: 'Your order has been confirmed and is being prepared for pickup',
+    description:
+      'Your order has been confirmed and is being prepared for pickup',
     step: 2,
   },
   [OrderStatus.PICKUP_ASSIGNED]: {
@@ -173,22 +175,30 @@ interface StatusCardProps {
 
 export function StatusCard({ orderDetails }: StatusCardProps) {
   const statusConfig = getStatusConfig(orderDetails.status);
-  
+
   return (
     <div className='bg-gradient-to-r from-white to-gray-50 border border-gray-200 rounded-xl p-4 sm:p-6 shadow-lg'>
       <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0'>
         <div className='flex items-center space-x-3 sm:space-x-4'>
-          <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center ${statusConfig.bgColor} shadow-md flex-shrink-0`}>
+          <div
+            className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center ${statusConfig.bgColor} shadow-md flex-shrink-0`}
+          >
             <span className='text-lg sm:text-2xl'>{statusConfig.icon}</span>
           </div>
           <div className='flex-1 min-w-0'>
-            <h3 className='text-lg sm:text-xl font-bold text-gray-900 mb-2'>Order Status</h3>
+            <h3 className='text-lg sm:text-xl font-bold text-gray-900 mb-2'>
+              Order Status
+            </h3>
             <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
-              <span className={`inline-flex items-center px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-semibold rounded-full border-2 ${statusConfig.color} shadow-sm`}>
+              <span
+                className={`inline-flex items-center px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-semibold rounded-full border-2 ${statusConfig.color} shadow-sm`}
+              >
                 {statusConfig.icon} {orderDetails.status.replace(/_/g, ' ')}
               </span>
             </div>
-            <p className='text-xs sm:text-sm text-gray-600 mt-2 max-w-md'>{statusConfig.description}</p>
+            <p className='text-xs sm:text-sm text-gray-600 mt-2 max-w-md'>
+              {statusConfig.description}
+            </p>
           </div>
         </div>
         <div className='sm:text-right'>
@@ -196,10 +206,12 @@ export function StatusCard({ orderDetails }: StatusCardProps) {
             <p className='text-xl sm:text-3xl font-bold text-gray-900'>
               {orderDetails.invoiceTotal?.toFixed(3) || '0.000'} BD
             </p>
-            <p className='text-xs sm:text-sm text-gray-600 font-medium'>Total Amount</p>
+            <p className='text-xs sm:text-sm text-gray-600 font-medium'>
+              Total Amount
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -146,21 +146,36 @@ export async function PUT(
 
     // Check if admin actually made changes by comparing with current values
     const hasChanges = !!(
-      (pickupStartTime && new Date(pickupStartTime).getTime() !== currentOrder.pickupStartTime?.getTime()) ||
-      (pickupEndTime && new Date(pickupEndTime).getTime() !== currentOrder.pickupEndTime?.getTime()) ||
-      (deliveryStartTime && new Date(deliveryStartTime).getTime() !== currentOrder.deliveryStartTime?.getTime()) ||
-      (deliveryEndTime && new Date(deliveryEndTime).getTime() !== currentOrder.deliveryEndTime?.getTime()) ||
-      (specialInstructions !== undefined && specialInstructions !== currentOrder.specialInstructions) ||
-      (addressLabel !== undefined && addressLabel !== currentOrder.address?.label) ||
-      (addressLine1 !== undefined && addressLine1 !== currentOrder.address?.addressLine1) ||
-      (addressLine2 !== undefined && addressLine2 !== currentOrder.address?.addressLine2) ||
+      (pickupStartTime &&
+        new Date(pickupStartTime).getTime() !==
+          currentOrder.pickupStartTime?.getTime()) ||
+      (pickupEndTime &&
+        new Date(pickupEndTime).getTime() !==
+          currentOrder.pickupEndTime?.getTime()) ||
+      (deliveryStartTime &&
+        new Date(deliveryStartTime).getTime() !==
+          currentOrder.deliveryStartTime?.getTime()) ||
+      (deliveryEndTime &&
+        new Date(deliveryEndTime).getTime() !==
+          currentOrder.deliveryEndTime?.getTime()) ||
+      (specialInstructions !== undefined &&
+        specialInstructions !== currentOrder.specialInstructions) ||
+      (addressLabel !== undefined &&
+        addressLabel !== currentOrder.address?.label) ||
+      (addressLine1 !== undefined &&
+        addressLine1 !== currentOrder.address?.addressLine1) ||
+      (addressLine2 !== undefined &&
+        addressLine2 !== currentOrder.address?.addressLine2) ||
       (city !== undefined && city !== currentOrder.address?.city) ||
       (area !== undefined && area !== currentOrder.address?.area) ||
       (building !== undefined && building !== currentOrder.address?.building) ||
       (floor !== undefined && floor !== currentOrder.address?.floor) ||
-      (apartment !== undefined && apartment !== currentOrder.address?.apartment) ||
-      (contactNumber !== undefined && contactNumber !== currentOrder.address?.contactNumber) ||
-      (locationType !== undefined && locationType !== currentOrder.address?.locationType) ||
+      (apartment !== undefined &&
+        apartment !== currentOrder.address?.apartment) ||
+      (contactNumber !== undefined &&
+        contactNumber !== currentOrder.address?.contactNumber) ||
+      (locationType !== undefined &&
+        locationType !== currentOrder.address?.locationType) ||
       notes
     );
 
@@ -258,30 +273,35 @@ export async function PUT(
     }
 
     // Update address if provided
-    if (currentOrder.addressId && (
-      addressLabel !== undefined ||
-      addressLine1 !== undefined ||
-      addressLine2 !== undefined ||
-      city !== undefined ||
-      area !== undefined ||
-      building !== undefined ||
-      floor !== undefined ||
-      apartment !== undefined ||
-      contactNumber !== undefined ||
-      locationType !== undefined
-    )) {
+    if (
+      currentOrder.addressId &&
+      (addressLabel !== undefined ||
+        addressLine1 !== undefined ||
+        addressLine2 !== undefined ||
+        city !== undefined ||
+        area !== undefined ||
+        building !== undefined ||
+        floor !== undefined ||
+        apartment !== undefined ||
+        contactNumber !== undefined ||
+        locationType !== undefined)
+    ) {
       const addressUpdateData: any = {};
-      
+
       if (addressLabel !== undefined) addressUpdateData.label = addressLabel;
-      if (addressLine1 !== undefined) addressUpdateData.addressLine1 = addressLine1;
-      if (addressLine2 !== undefined) addressUpdateData.addressLine2 = addressLine2;
+      if (addressLine1 !== undefined)
+        addressUpdateData.addressLine1 = addressLine1;
+      if (addressLine2 !== undefined)
+        addressUpdateData.addressLine2 = addressLine2;
       if (city !== undefined) addressUpdateData.city = city;
       if (area !== undefined) addressUpdateData.area = area;
       if (building !== undefined) addressUpdateData.building = building;
       if (floor !== undefined) addressUpdateData.floor = floor;
       if (apartment !== undefined) addressUpdateData.apartment = apartment;
-      if (contactNumber !== undefined) addressUpdateData.contactNumber = contactNumber;
-      if (locationType !== undefined) addressUpdateData.locationType = locationType;
+      if (contactNumber !== undefined)
+        addressUpdateData.contactNumber = contactNumber;
+      if (locationType !== undefined)
+        addressUpdateData.locationType = locationType;
 
       await prisma.address.update({
         where: { id: currentOrder.addressId },
@@ -314,32 +334,60 @@ export async function PUT(
           if (hasChanges) {
             // If admin made changes, send order update email
             const changes: string[] = [];
-            
-            if (pickupStartTime && new Date(pickupStartTime).getTime() !== currentOrder.pickupStartTime?.getTime()) {
+
+            if (
+              pickupStartTime &&
+              new Date(pickupStartTime).getTime() !==
+                currentOrder.pickupStartTime?.getTime()
+            ) {
               changes.push('Pickup time updated');
             }
-            if (pickupEndTime && new Date(pickupEndTime).getTime() !== currentOrder.pickupEndTime?.getTime()) {
+            if (
+              pickupEndTime &&
+              new Date(pickupEndTime).getTime() !==
+                currentOrder.pickupEndTime?.getTime()
+            ) {
               changes.push('Pickup end time updated');
             }
-            if (deliveryStartTime && new Date(deliveryStartTime).getTime() !== currentOrder.deliveryStartTime?.getTime()) {
+            if (
+              deliveryStartTime &&
+              new Date(deliveryStartTime).getTime() !==
+                currentOrder.deliveryStartTime?.getTime()
+            ) {
               changes.push('Delivery time updated');
             }
-            if (deliveryEndTime && new Date(deliveryEndTime).getTime() !== currentOrder.deliveryEndTime?.getTime()) {
+            if (
+              deliveryEndTime &&
+              new Date(deliveryEndTime).getTime() !==
+                currentOrder.deliveryEndTime?.getTime()
+            ) {
               changes.push('Delivery end time updated');
             }
-            if (specialInstructions !== undefined && specialInstructions !== currentOrder.specialInstructions) {
+            if (
+              specialInstructions !== undefined &&
+              specialInstructions !== currentOrder.specialInstructions
+            ) {
               changes.push('Special instructions updated');
             }
-            if (addressLabel !== undefined && addressLabel !== currentOrder.address?.label ||
-                addressLine1 !== undefined && addressLine1 !== currentOrder.address?.addressLine1 ||
-                addressLine2 !== undefined && addressLine2 !== currentOrder.address?.addressLine2 ||
-                city !== undefined && city !== currentOrder.address?.city ||
-                area !== undefined && area !== currentOrder.address?.area ||
-                building !== undefined && building !== currentOrder.address?.building ||
-                floor !== undefined && floor !== currentOrder.address?.floor ||
-                apartment !== undefined && apartment !== currentOrder.address?.apartment ||
-                contactNumber !== undefined && contactNumber !== currentOrder.address?.contactNumber ||
-                locationType !== undefined && locationType !== currentOrder.address?.locationType) {
+            if (
+              (addressLabel !== undefined &&
+                addressLabel !== currentOrder.address?.label) ||
+              (addressLine1 !== undefined &&
+                addressLine1 !== currentOrder.address?.addressLine1) ||
+              (addressLine2 !== undefined &&
+                addressLine2 !== currentOrder.address?.addressLine2) ||
+              (city !== undefined && city !== currentOrder.address?.city) ||
+              (area !== undefined && area !== currentOrder.address?.area) ||
+              (building !== undefined &&
+                building !== currentOrder.address?.building) ||
+              (floor !== undefined && floor !== currentOrder.address?.floor) ||
+              (apartment !== undefined &&
+                apartment !== currentOrder.address?.apartment) ||
+              (contactNumber !== undefined &&
+                contactNumber !== currentOrder.address?.contactNumber) ||
+              (locationType !== undefined &&
+                locationType !== currentOrder.address?.locationType)
+            ) {
               changes.push('Address details updated');
             }
             if (notes) changes.push('Additional notes added');
@@ -351,8 +399,12 @@ export async function PUT(
               {
                 pickupDateTime: updatedOrder.pickupStartTime,
                 deliveryDateTime: updatedOrder.deliveryStartTime,
-                services: updatedOrder.orderServiceMappings.map(mapping => mapping.serviceId),
-                address: updatedOrder.address?.addressLine1 || updatedOrder.customerAddress,
+                services: updatedOrder.orderServiceMappings.map(
+                  mapping => mapping.serviceId
+                ),
+                address:
+                  updatedOrder.address?.addressLine1 ||
+                  updatedOrder.customerAddress,
               },
               changes
             );
@@ -366,8 +418,12 @@ export async function PUT(
               {
                 pickupDateTime: updatedOrder.pickupStartTime,
                 deliveryDateTime: updatedOrder.deliveryStartTime,
-                services: updatedOrder.orderServiceMappings.map(mapping => mapping.serviceId),
-                address: updatedOrder.address?.addressLine1 || updatedOrder.customerAddress,
+                services: updatedOrder.orderServiceMappings.map(
+                  mapping => mapping.serviceId
+                ),
+                address:
+                  updatedOrder.address?.addressLine1 ||
+                  updatedOrder.customerAddress,
               }
             );
             emailSent = true;

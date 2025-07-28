@@ -27,8 +27,10 @@ export default function ServiceSelection({
   return (
     <div className='space-y-6'>
       <h2 className='text-2xl font-bold text-gray-900'>Select Services</h2>
-      <p className='text-gray-600'>Choose the services you need for your laundry</p>
-      
+      <p className='text-gray-600'>
+        Choose the services you need for your laundry
+      </p>
+
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
         {services.map(service => (
           <div
@@ -72,4 +74,4 @@ export default function ServiceSelection({
       </div>
     </div>
   );
-} 
+}

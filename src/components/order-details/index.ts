@@ -7,4 +7,4 @@ export { ServiceItem } from './ServiceItem';
 export { ServicesTab } from './ServicesTab';
 export { InvoiceTab } from './InvoiceTab';
 export { AddressesTab } from './AddressesTab';
-export { NotesTab } from './NotesTab'; 
+export { NotesTab } from './NotesTab';

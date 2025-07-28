@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { CustomerProfile, UpdateProfileData, FormState } from '@/shared/types/customer';
+import type {
+  CustomerProfile,
+  UpdateProfileData,
+  FormState,
+} from '@/shared/types/customer';
 import { ProfileApi } from '@/customer/api/profile';
 
 interface ProfileState {
@@ -48,27 +52,40 @@ export const useProfileStore = create<ProfileState>()(
       },
 
       updateProfile: async (profileData: UpdateProfileData) => {
-        set((state) => ({
-          updateProfileForm: { ...state.updateProfileForm, loading: true, error: null, success: false }
+        set(state => ({
+          updateProfileForm: {
+            ...state.updateProfileForm,
+            loading: true,
+            error: null,
+            success: false,
+          },
         }));
 
         try {
           const response = await ProfileApi.updateProfile(profileData);
 
           if (response.success && response.data) {
-            set((state) => ({
+            set(state => ({
               profile: response.data.customer,
-              updateProfileForm: { loading: false, error: null, success: true }
+              updateProfileForm: { loading: false, error: null, success: true },
             }));
           } else {
-            set((state) => ({
-              updateProfileForm: { ...state.updateProfileForm, loading: false, error: response.error || 'Failed to update profile' }
+            set(state => ({
+              updateProfileForm: {
+                ...state.updateProfileForm,
+                loading: false,
+                error: response.error || 'Failed to update profile',
+              },
             }));
           }
         } catch (error) {
           console.error('Error updating profile:', error);
-          set((state) => ({
-            updateProfileForm: { ...state.updateProfileForm, loading: false, error: 'Network error occurred' }
+          set(state => ({
+            updateProfileForm: {
+              ...state.updateProfileForm,
+              loading: false,
+              error: 'Network error occurred',
+            },
           }));
         }
       },
@@ -81,4 +98,4 @@ export const useProfileStore = create<ProfileState>()(
       name: 'customer-profile-store',
     }
   )
-); 
+);

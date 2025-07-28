@@ -45,10 +45,6 @@ export interface ScheduleFormData {
   specialInstructions: string;
 }
 
-
-
-
-
 // Customer data interface
 export interface CustomerData {
   firstName: string;
@@ -97,4 +93,4 @@ export interface Service {
   icon?: string;
   pricingType: string;
   pricingUnit: string;
-} 
+}

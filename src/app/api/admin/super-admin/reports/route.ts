@@ -11,15 +11,15 @@ function convertBigIntToNumber(obj: any): any {
   if (obj === null || obj === undefined) {
     return obj;
   }
-  
+
   if (typeof obj === 'bigint') {
     return Number(obj);
   }
-  
+
   if (Array.isArray(obj)) {
     return obj.map(convertBigIntToNumber);
   }
-  
+
   if (typeof obj === 'object') {
     const converted: any = {};
     for (const [key, value] of Object.entries(obj)) {
@@ -27,7 +27,7 @@ function convertBigIntToNumber(obj: any): any {
     }
     return converted;
   }
-  
+
   return obj;
 }
 
@@ -277,13 +277,13 @@ export async function GET(request: Request) {
           id: true,
         },
       });
-      
+
       // Convert BigInt to number to avoid serialization issues
       let invoiceTotal = null;
       if (rawSummaryStats._sum.invoiceTotal) {
         invoiceTotal = Number(rawSummaryStats._sum.invoiceTotal);
       }
-      
+
       summaryStats = {
         _sum: {
           invoiceTotal: invoiceTotal,
@@ -298,25 +298,31 @@ export async function GET(request: Request) {
     }
 
     // Calculate additional stats
-    const completedOrders = Number(await prisma.order.count({
-      where: {
-        status: OrderStatus.DELIVERED,
-        createdAt: { gte: startDate, lte: endDate },
-      },
-    }));
+    const completedOrders = Number(
+      await prisma.order.count({
+        where: {
+          status: OrderStatus.DELIVERED,
+          createdAt: { gte: startDate, lte: endDate },
+        },
+      })
+    );
 
-    const totalCustomers = Number(await prisma.customer.count({
-      where: {
-        createdAt: { gte: startDate, lte: endDate },
-      },
-    }));
+    const totalCustomers = Number(
+      await prisma.customer.count({
+        where: {
+          createdAt: { gte: startDate, lte: endDate },
+        },
+      })
+    );
 
-    const activeDrivers = Number(await prisma.staff.count({
-      where: {
-        role: { name: 'DRIVER' },
-        isActive: true,
-      },
-    }));
+    const activeDrivers = Number(
+      await prisma.staff.count({
+        where: {
+          role: { name: 'DRIVER' },
+          isActive: true,
+        },
+      })
+    );
 
     const totalRevenue = summaryStats?._sum.invoiceTotal || 0;
     const totalOrders = summaryStats?._count.id || 0;
@@ -350,8 +356,8 @@ export async function GET(request: Request) {
 
     // Process order status data for chart
     const orderStatusLabels = (orderStatusData || []).map(item => item.status);
-    const orderStatusValues = (orderStatusData || []).map(
-      item => Number(item._count.status)
+    const orderStatusValues = (orderStatusData || []).map(item =>
+      Number(item._count.status)
     );
     const orderStatusColors = [
       '#3B82F6', // blue
@@ -378,8 +384,8 @@ export async function GET(request: Request) {
         ? `${staff.firstName} ${staff.lastName}`
         : `Staff ${item.staffId}`;
     });
-    const staffValues = (staffPerformanceData || []).map(
-      item => Number(item._count.staffId)
+    const staffValues = (staffPerformanceData || []).map(item =>
+      Number(item._count.staffId)
     );
 
     // Process driver performance data for chart
@@ -389,8 +395,8 @@ export async function GET(request: Request) {
         ? `${driver.firstName} ${driver.lastName}`
         : `Driver ${item.driverId}`;
     });
-    const driverValues = (driverPerformanceData || []).map(
-      item => Number(item._count.driverId)
+    const driverValues = (driverPerformanceData || []).map(item =>
+      Number(item._count.driverId)
     );
 
     const reportData = {

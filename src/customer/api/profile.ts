@@ -7,7 +7,9 @@ import type {
 class ProfileApi {
   private static baseUrl = '/api/customer/profile';
 
-  static async getProfile(): Promise<ApiResponse<{ customer: CustomerProfile }>> {
+  static async getProfile(): Promise<
+    ApiResponse<{ customer: CustomerProfile }>
+  > {
     try {
       const response = await fetch(this.baseUrl, {
         method: 'GET',
@@ -39,7 +41,9 @@ class ProfileApi {
     }
   }
 
-  static async updateProfile(profileData: UpdateProfileData): Promise<ApiResponse<{ customer: CustomerProfile }>> {
+  static async updateProfile(
+    profileData: UpdateProfileData
+  ): Promise<ApiResponse<{ customer: CustomerProfile }>> {
     try {
       const response = await fetch(this.baseUrl, {
         method: 'PUT',
@@ -73,4 +77,4 @@ class ProfileApi {
   }
 }
 
-export { ProfileApi }; 
+export { ProfileApi };

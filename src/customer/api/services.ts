@@ -20,18 +20,20 @@ class ServicesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { services: Service[] }
+        | { error: string };
 
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || 'Failed to fetch services',
+          error: 'error' in data ? data.error : 'Failed to fetch services',
         };
       }
 
       return {
         success: true,
-        data,
+        data: data as { services: Service[] },
       };
     } catch (error) {
       console.error('Error fetching services:', error);
@@ -52,18 +54,20 @@ class ServicesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { pricing: PricingItem[] }
+        | { error: string };
 
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || 'Failed to fetch pricing',
+          error: 'error' in data ? data.error : 'Failed to fetch pricing',
         };
       }
 
       return {
         success: true,
-        data,
+        data: data as { pricing: PricingItem[] },
       };
     } catch (error) {
       console.error('Error fetching pricing:', error);
@@ -74,7 +78,9 @@ class ServicesApi {
     }
   }
 
-  static async getTimeSlots(date: string): Promise<ApiResponse<{ timeSlots: TimeSlot[] }>> {
+  static async getTimeSlots(
+    date: string
+  ): Promise<ApiResponse<{ timeSlots: TimeSlot[] }>> {
     try {
       const response = await fetch(`${this.baseUrl}/time-slots?date=${date}`, {
         method: 'GET',
@@ -84,18 +90,20 @@ class ServicesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { timeSlots: TimeSlot[] }
+        | { error: string };
 
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || 'Failed to fetch time slots',
+          error: 'error' in data ? data.error : 'Failed to fetch time slots',
         };
       }
 
       return {
         success: true,
-        data,
+        data: data as { timeSlots: TimeSlot[] },
       };
     } catch (error) {
       console.error('Error fetching time slots:', error);
@@ -106,7 +114,9 @@ class ServicesApi {
     }
   }
 
-  static async getTimeSlotConfig(): Promise<ApiResponse<{ config: TimeSlotConfig }>> {
+  static async getTimeSlotConfig(): Promise<
+    ApiResponse<{ config: TimeSlotConfig }>
+  > {
     try {
       const response = await fetch(`${this.baseUrl}/time-slots/config`, {
         method: 'GET',
@@ -116,18 +126,21 @@ class ServicesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as
+        | { config: TimeSlotConfig }
+        | { error: string };
 
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || 'Failed to fetch time slot config',
+          error:
+            'error' in data ? data.error : 'Failed to fetch time slot config',
         };
       }
 
       return {
         success: true,
-        data,
+        data: data as { config: TimeSlotConfig },
       };
     } catch (error) {
       console.error('Error fetching time slot config:', error);
@@ -139,4 +152,4 @@ class ServicesApi {
   }
 }
 
-export { ServicesApi }; 
+export { ServicesApi };

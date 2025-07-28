@@ -208,7 +208,9 @@ export default function ProfileEditModal({
           <div className='mb-6'>
             <PhoneInput
               value={formData.phone}
-              onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
+              onChange={value =>
+                setFormData(prev => ({ ...prev, phone: value }))
+              }
               placeholder='Enter your phone number'
               label='Phone Number'
             />

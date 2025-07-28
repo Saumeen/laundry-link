@@ -7,68 +7,58 @@ import { useServices } from '@/hooks/useServices';
 import { useSession } from 'next-auth/react';
 import { useProfileStore } from '@/customer';
 import { useLogout } from '@/hooks/useAuth';
+import { useScheduleStore } from '@/customer/stores/scheduleStore';
 
 import ServiceSelection from '@/components/schedule/ServiceSelection';
 import TimeSelection from '@/components/schedule/TimeSelection';
 import AddressSelection from '@/components/schedule/AddressSelection';
 import OrderSummary from '@/components/schedule/OrderSummary';
-import { 
-  ScheduleFormData, 
-  CustomerData, 
-  Address, 
-  ApiAddressesResponse, 
-  ApiOrderResponse
+import {
+  ScheduleFormData,
+  CustomerData,
+  Address,
+  ApiAddressesResponse,
+  ApiOrderResponse,
 } from '@/types/schedule';
 
 function ScheduleContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [addresses, setAddresses] = useState<Address[]>([]);
   const { services, loading: servicesLoading } = useServices();
   const { profile, fetchProfile } = useProfileStore();
   const logout = useLogout();
 
-  // Step management
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [timeValidationError, setTimeValidationError] = useState('');
-
-  // Form data
-  const [formData, setFormData] = useState<ScheduleFormData>({
-    selectedAddressId: '',
-    firstName: '',
-    lastName: '',
-    locationType: '',
-    hotelName: '',
-    roomNumber: '',
-    collectionMethod: '',
-    house: '',
-    road: '',
-    block: '',
-    homeCollectionMethod: '',
-    building: '',
-    flatNumber: '',
-    officeNumber: '',
-    contactNumber: '',
-    email: '',
-    addressLabel: '',
-    pickupDate: '',
-    pickupTimeSlot: '',
-    deliveryDate: '',
-    deliveryTimeSlot: '',
-    services: [],
-    specialInstructions: '',
-  });
+  // Zustand store
+  const {
+    formData,
+    customerData,
+    addresses,
+    currentStep,
+    isLoading,
+    isSubmitting,
+    submitError,
+    timeValidationError,
+    isExpressService,
+    setFormData,
+    setCustomerData,
+    setAddresses,
+    setServices,
+    setCurrentStep,
+    setIsLoading,
+    setIsSubmitting,
+    setSubmitError,
+    setTimeValidationError,
+    toggleService,
+    nextStep,
+    previousStep,
+    selectAddress,
+    addAddress,
+  } = useScheduleStore();
 
   // Type guard for custom session.user fields
-  function isCustomUser(
-    user: Record<string, unknown>
-  ): user is {
+  function isCustomUser(user: Record<string, unknown>): user is {
     firstName: string;
     lastName: string;
     phone: string;
@@ -81,6 +71,13 @@ function ScheduleContent() {
       typeof user?.email === 'string'
     );
   }
+
+  // Set services in store when loaded
+  useEffect(() => {
+    if (services && services.length > 0) {
+      setServices(services);
+    }
+  }, [services, setServices]);
 
   // Fetch profile data
   useEffect(() => {
@@ -127,7 +124,7 @@ function ScheduleContent() {
       setShowLoginPrompt(true);
       setIsLoading(false);
     }
-  }, [session, status]);
+  }, [session, status, setCustomerData, setIsLoading]);
 
   // Fetch customer addresses for logged-in users
   const fetchCustomerAddresses = useCallback(async () => {
@@ -136,83 +133,63 @@ function ScheduleContent() {
       const result: ApiAddressesResponse = await response.json();
       if (response.ok) {
         setAddresses(result.addresses || []);
-        // Auto-select default address if available
-        const defaultAddress = result.addresses?.find(
-          (addr: Address) => addr.isDefault
-        );
-        if (defaultAddress) {
-          setFormData(prev => ({
-            ...prev,
-            selectedAddressId: defaultAddress.id.toString(),
-          }));
-        }
       }
     } catch (error) {
       console.error('Error fetching addresses:', error);
     }
-  }, []);
+  }, [setAddresses]);
 
   // Handle form field changes
-  const handleFormChange = useCallback((field: string, value: string | any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleFormChange = useCallback(
+    (field: string, value: string | any) => {
+      setFormData({ [field]: value });
 
-    // Clear validation errors when user makes changes
-    if (timeValidationError) {
-      setTimeValidationError('');
-    }
-  }, [timeValidationError]);
+      // Clear validation errors when user makes changes
+      if (timeValidationError) {
+        setTimeValidationError('');
+      }
+    },
+    [timeValidationError, setFormData, setTimeValidationError]
+  );
 
   // Handle service toggle
-  const handleServiceToggle = useCallback((serviceId: string) => {
-    setFormData(prev => {
-      let newServices: string[];
-      if (prev.services.includes(serviceId)) {
-        newServices = prev.services.filter((id: string) => id !== serviceId);
-      } else {
-        newServices = [...prev.services, serviceId];
-      }
-      return {
-        ...prev,
-        services: newServices,
-      };
-    });
-  }, []);
+  const handleServiceToggle = useCallback(
+    (serviceId: string) => {
+      toggleService(serviceId);
+    },
+    [toggleService]
+  );
 
   // Handle address selection
-  const handleAddressSelect = useCallback((addressId: string) => {
-    setFormData(prev => ({ ...prev, selectedAddressId: addressId }));
-  }, []);
+  const handleAddressSelect = useCallback(
+    (addressId: string) => {
+      selectAddress(addressId);
+    },
+    [selectAddress]
+  );
 
   // Handle address creation
   const handleAddressCreate = useCallback(
     (newAddress: Address) => {
-      setFormData(prev => ({
-        ...prev,
-        selectedAddressId: newAddress.id.toString(),
-      }));
+      addAddress(newAddress);
       fetchCustomerAddresses();
     },
-    [fetchCustomerAddresses]
+    [addAddress, fetchCustomerAddresses]
   );
 
   // Get selected address for display
-  const selectedAddress = addresses.find(addr => addr.id.toString() === formData.selectedAddressId);
+  const selectedAddress = addresses.find(
+    addr => addr.id.toString() === formData.selectedAddressId
+  );
 
   // Navigation functions
   const handleNext = useCallback(() => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
-  }, [currentStep]);
+    nextStep();
+  }, [nextStep]);
 
   const handlePrevious = useCallback(() => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  }, [currentStep]);
+    previousStep();
+  }, [previousStep]);
 
   // Submit order
   const handleSubmit = useCallback(async () => {
@@ -220,14 +197,19 @@ function ScheduleContent() {
       alert('Please select an address');
       return;
     }
-    if (!formData.pickupDate || !formData.pickupTimeSlot) {
-      alert('Please select pickup date and time slot');
-      return;
+
+    // For express service, skip time slot validation
+    if (!isExpressService) {
+      if (!formData.pickupDate || !formData.pickupTimeSlot) {
+        alert('Please select pickup date and time slot');
+        return;
+      }
+      if (!formData.deliveryDate || !formData.deliveryTimeSlot) {
+        alert('Please select delivery date and time slot');
+        return;
+      }
     }
-    if (!formData.deliveryDate || !formData.deliveryTimeSlot) {
-      alert('Please select delivery date and time slot');
-      return;
-    }
+
     if (formData.services.length === 0) {
       alert('Please select at least one service');
       return;
@@ -267,6 +249,9 @@ function ScheduleContent() {
 
         // Flag to indicate this is from a logged-in customer
         isLoggedInCustomer: true,
+
+        // Express service flag
+        isExpressService,
       };
 
       const response = await fetch('/api/orders', {
@@ -288,7 +273,14 @@ function ScheduleContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, customerData, selectedAddress]);
+  }, [
+    formData,
+    customerData,
+    selectedAddress,
+    isExpressService,
+    setIsSubmitting,
+    setSubmitError,
+  ]);
 
   // Show loading while checking login status
   if (isLoading) {
@@ -310,7 +302,9 @@ function ScheduleContent() {
           <h2 className='text-2xl font-bold text-gray-900 mb-4'>
             Schedule Pickup
           </h2>
-          <p className='text-gray-600 mb-6'>Please log in to schedule a pickup</p>
+          <p className='text-gray-600 mb-6'>
+            Please log in to schedule a pickup
+          </p>
           <div className='space-y-3'>
             <Link
               href='/registerlogin'
@@ -330,113 +324,174 @@ function ScheduleContent() {
 
   // Main schedule flow for logged-in users
   if (isLoggedIn && customerData) {
-    const steps = [
-      { id: 1, title: 'Services', description: 'Choose your services' },
-      { id: 2, title: 'Time', description: 'Select pickup & delivery time' },
-      { id: 3, title: 'Address', description: 'Choose pickup address' },
-      { id: 4, title: 'Confirm', description: 'Review & submit order' },
-    ];
+    const steps = isExpressService
+      ? [
+          { id: 1, title: 'Services', description: 'Choose your services' },
+          { id: 2, title: 'Address', description: 'Choose pickup address' },
+          { id: 3, title: 'Confirm', description: 'Review & submit order' },
+        ]
+      : [
+          { id: 1, title: 'Services', description: 'Choose your services' },
+          {
+            id: 2,
+            title: 'Time',
+            description: 'Select pickup & delivery time',
+          },
+          { id: 3, title: 'Address', description: 'Choose pickup address' },
+          { id: 4, title: 'Confirm', description: 'Review & submit order' },
+        ];
 
     const renderStepContent = () => {
-      switch (currentStep) {
-        case 1:
-          return (
-            <ServiceSelection
-              services={services}
-              loading={servicesLoading}
-              selectedServices={formData.services}
-              onServiceToggle={handleServiceToggle}
-            />
-          );
-        case 2:
-          return (
-            <TimeSelection
-              pickupDate={formData.pickupDate}
-              deliveryDate={formData.deliveryDate}
-              pickupTimeSlot={formData.pickupTimeSlot}
-              deliveryTimeSlot={formData.deliveryTimeSlot}
-              onTimeChange={handleFormChange}
-              validationError={timeValidationError}
-            />
-          );
-        case 3:
-          return (
-            <AddressSelection
-              selectedAddressId={formData.selectedAddressId}
-              onAddressSelect={handleAddressSelect}
-              onAddressCreate={handleAddressCreate}
-            />
-          );
-        case 4:
-          return (
-            <OrderSummary
-              customerData={customerData}
-              selectedAddress={selectedAddress}
-              services={services}
-              selectedServices={formData.services}
-              pickupDate={formData.pickupDate}
-              deliveryDate={formData.deliveryDate}
-              pickupTimeSlot={formData.pickupTimeSlot}
-              deliveryTimeSlot={formData.deliveryTimeSlot}
-              specialInstructions={formData.specialInstructions}
-              onSpecialInstructionsChange={(value) => handleFormChange('specialInstructions', value)}
-            />
-          );
-        default:
-          return null;
+      if (isExpressService) {
+        // Express service flow: Services -> Address -> Confirm
+        switch (currentStep) {
+          case 1:
+            return (
+              <ServiceSelection
+                services={services}
+                loading={servicesLoading}
+                selectedServices={formData.services}
+                onServiceToggle={handleServiceToggle}
+              />
+            );
+          case 2:
+            return (
+              <AddressSelection
+                selectedAddressId={formData.selectedAddressId}
+                onAddressSelect={handleAddressSelect}
+                onAddressCreate={handleAddressCreate}
+              />
+            );
+          case 3:
+            return (
+              <OrderSummary
+                customerData={customerData}
+                selectedAddress={selectedAddress}
+                services={services}
+                selectedServices={formData.services}
+                pickupDate={formData.pickupDate}
+                deliveryDate={formData.deliveryDate}
+                pickupTimeSlot={formData.pickupTimeSlot}
+                deliveryTimeSlot={formData.deliveryTimeSlot}
+                specialInstructions={formData.specialInstructions}
+                onSpecialInstructionsChange={value =>
+                  handleFormChange('specialInstructions', value)
+                }
+                isExpressService={true}
+              />
+            );
+          default:
+            return null;
+        }
+      } else {
+        // Regular service flow: Services -> Time -> Address -> Confirm
+        switch (currentStep) {
+          case 1:
+            return (
+              <ServiceSelection
+                services={services}
+                loading={servicesLoading}
+                selectedServices={formData.services}
+                onServiceToggle={handleServiceToggle}
+              />
+            );
+          case 2:
+            return (
+              <TimeSelection
+                pickupDate={formData.pickupDate}
+                deliveryDate={formData.deliveryDate}
+                pickupTimeSlot={formData.pickupTimeSlot}
+                deliveryTimeSlot={formData.deliveryTimeSlot}
+                onTimeChange={handleFormChange}
+                validationError={timeValidationError}
+              />
+            );
+          case 3:
+            return (
+              <AddressSelection
+                selectedAddressId={formData.selectedAddressId}
+                onAddressSelect={handleAddressSelect}
+                onAddressCreate={handleAddressCreate}
+              />
+            );
+          case 4:
+            return (
+              <OrderSummary
+                customerData={customerData}
+                selectedAddress={selectedAddress}
+                services={services}
+                selectedServices={formData.services}
+                pickupDate={formData.pickupDate}
+                deliveryDate={formData.deliveryDate}
+                pickupTimeSlot={formData.pickupTimeSlot}
+                deliveryTimeSlot={formData.deliveryTimeSlot}
+                specialInstructions={formData.specialInstructions}
+                onSpecialInstructionsChange={value =>
+                  handleFormChange('specialInstructions', value)
+                }
+                isExpressService={false}
+              />
+            );
+          default:
+            return null;
+        }
       }
     };
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
         {/* Header */}
-        <div className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center space-x-3 sm:space-x-4">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm sm:text-lg">📅</span>
+        <div className='bg-white shadow-sm border-b border-gray-200'>
+          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+            <div className='flex items-center justify-between h-16'>
+              <div className='flex items-center space-x-3 sm:space-x-4'>
+                <div className='w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center'>
+                  <span className='text-white font-bold text-sm sm:text-lg'>
+                    📅
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">Schedule Pickup</h1>
-                  <p className="text-xs sm:text-sm text-gray-600 truncate">
+                <div className='min-w-0 flex-1'>
+                  <h1 className='text-lg sm:text-2xl font-bold text-gray-900 truncate'>
+                    Schedule Pickup
+                  </h1>
+                  <p className='text-xs sm:text-sm text-gray-600 truncate'>
                     Book your laundry pickup and delivery
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2 sm:space-x-4">
-                <div className="hidden sm:block text-right">
-                  <p className="text-sm text-gray-600">Wallet Balance</p>
-                  <p className="text-lg font-bold text-green-600">
+              <div className='flex items-center space-x-2 sm:space-x-4'>
+                <div className='hidden sm:block text-right'>
+                  <p className='text-sm text-gray-600'>Wallet Balance</p>
+                  <p className='text-lg font-bold text-green-600'>
                     {formatCurrency(profile?.walletBalance || 0)}
                   </p>
                 </div>
                 <button
                   onClick={logout}
-                  className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors duration-200"
+                  className='flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors duration-200'
                 >
                   <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    className='w-3 h-3 sm:w-4 sm:h-4'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
                   >
                     <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
                       strokeWidth={2}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'
                     />
                   </svg>
-                  <span className="hidden sm:inline">Logout</span>
+                  <span className='hidden sm:inline'>Logout</span>
                 </button>
               </div>
             </div>
             {/* Mobile wallet balance */}
-            <div className="sm:hidden pb-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">Wallet Balance</p>
-                <p className="text-sm font-bold text-green-600">
+            <div className='sm:hidden pb-3'>
+              <div className='flex items-center justify-between'>
+                <p className='text-sm text-gray-600'>Wallet Balance</p>
+                <p className='text-sm font-bold text-green-600'>
                   {formatCurrency(profile?.walletBalance || 0)}
                 </p>
               </div>
@@ -445,63 +500,63 @@ function ScheduleContent() {
         </div>
 
         {/* Navigation Bar */}
-        <div className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-8 overflow-x-auto">
+        <div className='bg-white shadow-sm border-b border-gray-200'>
+          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+            <nav className='flex space-x-8 overflow-x-auto'>
               <Link
-                href="/customer/dashboard"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/customer/dashboard'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">📊</span>
+                <span className='mr-2'>📊</span>
                 Dashboard
               </Link>
               <Link
-                href="/customer/orders"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/customer/orders'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">📦</span>
+                <span className='mr-2'>📦</span>
                 Orders
               </Link>
               <Link
-                href="/customer/schedule"
-                className="flex items-center px-3 py-4 text-sm font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap"
+                href='/customer/schedule'
+                className='flex items-center px-3 py-4 text-sm font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap'
               >
-                <span className="mr-2">📅</span>
+                <span className='mr-2'>📅</span>
                 Schedule
               </Link>
               <Link
-                href="/services"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/services'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">🧺</span>
+                <span className='mr-2'>🧺</span>
                 Services
               </Link>
               <Link
-                href="/pricing"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/pricing'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">💰</span>
+                <span className='mr-2'>💰</span>
                 Pricing
               </Link>
               <Link
-                href="/customer/addresses"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/customer/addresses'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">📍</span>
+                <span className='mr-2'>📍</span>
                 Addresses
               </Link>
               <Link
-                href="/customer/profile"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/customer/profile'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">👤</span>
+                <span className='mr-2'>👤</span>
                 Profile
               </Link>
               <Link
-                href="/faq"
-                className="flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap"
+                href='/faq'
+                className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
               >
-                <span className="mr-2">❓</span>
+                <span className='mr-2'>❓</span>
                 FAQ
               </Link>
             </nav>
@@ -509,127 +564,120 @@ function ScheduleContent() {
         </div>
 
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
           <div className='max-w-4xl mx-auto'>
-          <div className='bg-white rounded-lg shadow-md p-6'>
-            {/* Header */}
-            <div className='mb-8'>
-              <h1 className='text-3xl font-bold text-gray-900'>
-                Schedule Pickup
-              </h1>
-              <p className='text-gray-600 mt-2'>
-                Welcome back, {customerData?.firstName}! Let's get your laundry scheduled.
-              </p>
-            </div>
+            <div className='bg-white rounded-lg shadow-md p-6'>
+              {/* Header */}
+              <div className='mb-8'>
+                <h1 className='text-3xl font-bold text-gray-900'>
+                  Schedule Pickup
+                </h1>
+                <p className='text-gray-600 mt-2'>
+                  Welcome back, {customerData?.firstName}! Let's get your
+                  laundry scheduled.
+                </p>
+              </div>
 
-            {/* Progress Steps */}
-            <div className='mb-8'>
-              <div className='flex items-center justify-between mb-4'>
-                {steps.map((step, index) => (
-                  <div key={step.id} className='flex items-center'>
-                    <div
-                      className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-medium ${
-                        (() => {
+              {/* Progress Steps */}
+              <div className='mb-8'>
+                <div className='flex items-center justify-between mb-4'>
+                  {steps.map((step, index) => (
+                    <div key={step.id} className='flex items-center'>
+                      <div
+                        className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-medium ${(() => {
                           if (step.id <= currentStep) {
                             return 'bg-blue-600 text-white';
                           } else {
                             return 'bg-gray-300 text-gray-600';
                           }
-                        })()
-                      }`}
-                    >
-                      {step.id}
-                    </div>
-                    <div className='ml-3'>
-                      <div className='text-sm font-medium text-gray-900'>
-                        {step.title}
+                        })()}`}
+                      >
+                        {step.id}
                       </div>
-                      <div className='text-xs text-gray-500'>
-                        {step.description}
+                      <div className='ml-3'>
+                        <div className='text-sm font-medium text-gray-900'>
+                          {step.title}
+                        </div>
+                        <div className='text-xs text-gray-500'>
+                          {step.description}
+                        </div>
                       </div>
-                    </div>
-                    {index < steps.length - 1 && (
-                      <div
-                        className={`flex-1 h-0.5 mx-4 ${
-                          (() => {
+                      {index < steps.length - 1 && (
+                        <div
+                          className={`flex-1 h-0.5 mx-4 ${(() => {
                             if (step.id < currentStep) {
                               return 'bg-blue-600';
                             } else {
                               return 'bg-gray-300';
                             }
-                          })()
-                        }`}
-                      />
-                    )}
-                  </div>
-                ))}
+                          })()}`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step Content */}
+              <div className='mb-8'>{renderStepContent()}</div>
+
+              {/* Error Message */}
+              {submitError && (
+                <div className='mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded'>
+                  {submitError}
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className='flex justify-between'>
+                <div>
+                  {currentStep > 1 && (
+                    <button
+                      onClick={handlePrevious}
+                      className='bg-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 transition-colors'
+                    >
+                      Previous
+                    </button>
+                  )}
+                  {currentStep === 1 && (
+                    <Link
+                      href='/customer/dashboard'
+                      className='bg-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 transition-colors inline-block'
+                    >
+                      Back to Dashboard
+                    </Link>
+                  )}
+                </div>
+
+                <div>
+                  {currentStep < (isExpressService ? 3 : 4) && (
+                    <button
+                      onClick={handleNext}
+                      className='bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 transition-colors'
+                    >
+                      Next
+                    </button>
+                  )}
+                  {currentStep === (isExpressService ? 3 : 4) && (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className='bg-green-600 text-white py-3 px-8 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
+                    >
+                      {(() => {
+                        if (isSubmitting) {
+                          return 'Confirming Pickup...';
+                        } else {
+                          return 'Confirm Pickup';
+                        }
+                      })()}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Step Content */}
-            <div className='mb-8'>
-              {renderStepContent()}
-            </div>
-
-            {/* Error Message */}
-            {submitError && (
-              <div className='mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded'>
-                {submitError}
-              </div>
-            )}
-
-            {/* Navigation Buttons */}
-            <div className='flex justify-between'>
-              <div>
-                {currentStep > 1 && (
-                  <button
-                    onClick={handlePrevious}
-                    className='bg-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 transition-colors'
-                  >
-                    Previous
-                  </button>
-                )}
-                {currentStep === 1 && (
-                  <Link
-                    href='/customer/dashboard'
-                    className='bg-gray-600 text-white py-3 px-6 rounded-md hover:bg-gray-700 transition-colors inline-block'
-                  >
-                    Back to Dashboard
-                  </Link>
-                )}
-              </div>
-
-              <div>
-                {currentStep < 4 && (
-                  <button
-                    onClick={handleNext}
-                    className='bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 transition-colors'
-                  >
-                    Next
-                  </button>
-                )}
-                {currentStep === 4 && (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className='bg-green-600 text-white py-3 px-8 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
-                  >
-                    {(() => {
-                      if (isSubmitting) {
-                        return 'Confirming Pickup...';
-                      } else {
-                        return 'Confirm Pickup';
-                      }
-                    })()}
-                  </button>
-                )}
-              </div>
-
-            </div>
           </div>
-          </div>
-
-          </div>
+        </div>
       </div>
     );
   }
@@ -643,4 +691,4 @@ export default function SchedulePage() {
       <ScheduleContent />
     </Suspense>
   );
-} 
+}

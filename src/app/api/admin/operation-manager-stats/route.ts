@@ -38,40 +38,38 @@ export async function GET() {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // Fetch statistics
-    const [pendingOrders, completedOrders, activeDrivers] =
-      await Promise.all([
-        // Pending orders (today)
-        prisma.order.count({
-          where: {
-            createdAt: { gte: today, lt: tomorrow },
-            status: {
-              in: [
-                'ORDER_PLACED',
-                'CONFIRMED',
-                'PICKUP_ASSIGNED',
-                'PICKUP_IN_PROGRESS',
-              ],
-            },
+    const [pendingOrders, completedOrders, activeDrivers] = await Promise.all([
+      // Pending orders (today)
+      prisma.order.count({
+        where: {
+          createdAt: { gte: today, lt: tomorrow },
+          status: {
+            in: [
+              'ORDER_PLACED',
+              'CONFIRMED',
+              'PICKUP_ASSIGNED',
+              'PICKUP_IN_PROGRESS',
+            ],
           },
-        }),
+        },
+      }),
 
-        // Completed orders (today)
-        prisma.order.count({
-          where: {
-            createdAt: { gte: today, lt: tomorrow },
-            status: 'DELIVERED',
-          },
-        }),
+      // Completed orders (today)
+      prisma.order.count({
+        where: {
+          createdAt: { gte: today, lt: tomorrow },
+          status: 'DELIVERED',
+        },
+      }),
 
-        // Active drivers
-        prisma.staff.count({
-          where: {
-            role: { name: 'DRIVER' },
-            isActive: true,
-          },
-        }),
-
-      ]);
+      // Active drivers
+      prisma.staff.count({
+        where: {
+          role: { name: 'DRIVER' },
+          isActive: true,
+        },
+      }),
+    ]);
 
     const stats = {
       totalOrders: pendingOrders + completedOrders,
