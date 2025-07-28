@@ -1,6 +1,7 @@
 'use client';
 
 import OrderDetailsModal from '@/components/OrderDetailsModal';
+import WalletModal from '@/components/WalletModal';
 import { useOrdersStore, useProfileStore } from '@/customer';
 import type { OrderWithDetails } from '@/shared/types/customer';
 import { useEffect, useState } from 'react';
@@ -18,6 +19,7 @@ export function CustomerDashboard() {
   } = useOrdersStore();
   const { profile, fetchProfile } = useProfileStore();
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const logout = useLogout();
 
   useEffect(() => {
@@ -39,6 +41,14 @@ export function CustomerDashboard() {
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleWalletClick = () => {
+    setShowWalletModal(true);
+  };
+
+  const handleCloseWalletModal = () => {
+    setShowWalletModal(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -179,13 +189,13 @@ export function CustomerDashboard() {
               <span className='mr-2'>🧺</span>
               Services
             </Link>
-            <Link
-              href='/pricing'
+            <button
+              onClick={handleWalletClick}
               className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
             >
               <span className='mr-2'>💰</span>
-              Pricing
-            </Link>
+              Wallet
+            </button>
             <Link
               href='/customer/addresses'
               className='flex items-center px-3 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-b-2 hover:border-gray-300 transition-colors whitespace-nowrap'
@@ -219,7 +229,7 @@ export function CustomerDashboard() {
             <h2 className='text-lg font-bold text-gray-900 mb-4'>
               Quick Actions
             </h2>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
               <Link
                 href='/customer/schedule'
                 className='flex items-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer border border-blue-200'
@@ -237,31 +247,20 @@ export function CustomerDashboard() {
                 </div>
               </Link>
 
-              <Link
-                href='/tracking'
-                className='flex items-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer border border-green-200'
-              >
-                <div className='w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center mr-3'>
-                  <span className='text-white text-lg'>📍</span>
-                </div>
-                <div>
-                  <h3 className='font-semibold text-gray-900'>Track Order</h3>
-                  <p className='text-sm text-gray-600'>Check order status</p>
-                </div>
-              </Link>
+      
 
-              <Link
-                href='/pricing'
-                className='flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer border border-purple-200'
+              <button
+                onClick={handleWalletClick}
+                className='flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer border border-purple-200 w-full text-left'
               >
                 <div className='w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center mr-3'>
                   <span className='text-white text-lg'>💰</span>
                 </div>
                 <div>
-                  <h3 className='font-semibold text-gray-900'>View Pricing</h3>
-                  <p className='text-sm text-gray-600'>See our rates</p>
+                  <h3 className='font-semibold text-gray-900'>Wallet</h3>
+                  <p className='text-sm text-gray-600'>View balance & details</p>
                 </div>
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -404,6 +403,12 @@ export function CustomerDashboard() {
         isOpen={showOrderDetails}
         onClose={handleCloseOrderDetails}
         orderId={selectedOrderId}
+      />
+
+      {/* Wallet Modal */}
+      <WalletModal
+        isOpen={showWalletModal}
+        onClose={handleCloseWalletModal}
       />
     </div>
   );
