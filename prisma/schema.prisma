@@ -56,15 +56,97 @@ model Customer {
   password        String?
   isActive        Boolean   @default(false)
   activationToken String?   @unique
-  walletBalance   Float     @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   
   // Relations
   addresses       Address[]
   orders          Order[]
+  wallet          Wallet?
+  paymentRecords  PaymentRecord[]
 
   @@map("customers")
+}
+
+// ===== WALLET SYSTEM =====
+model Wallet {
+  id              Int       @id @default(autoincrement())
+  customerId      Int       @unique
+  balance         Float     @default(0)
+  currency        String    @default("BHD") // Bahraini Dinar
+  isActive        Boolean   @default(true)
+  lastTransactionAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions    WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id              Int       @id @default(autoincrement())
+  walletId        Int
+  transactionType TransactionType
+  amount          Float
+  balanceBefore   Float
+  balanceAfter    Float
+  description     String
+  reference       String?   // External reference (order number, payment ID, etc.)
+  metadata        String?   // JSON string for additional data
+  status          TransactionStatus @default(PENDING)
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  wallet          Wallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  paymentRecords  PaymentRecord[]
+
+  @@map("wallet_transactions")
+}
+
+// ===== PAYMENT SYSTEM =====
+model PaymentRecord {
+  id              Int       @id @default(autoincrement())
+  walletTransactionId Int?  // Link to wallet transaction if applicable
+  orderId         Int?      // Link to order if applicable
+  customerId      Int
+  amount          Float
+  currency        String    @default("BHD")
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus @default(PENDING)
+  
+  // Tap Payment Integration Fields
+  tapChargeId     String?   // Tap charge ID
+  tapAuthorizeId  String?   // Tap authorize ID
+  tapTransactionId String?  // Tap transaction ID
+  tapReference    String?   // Tap reference number
+  tapResponse     String?   // Full Tap API response (JSON)
+  
+  // Card Information (encrypted)
+  cardLastFour    String?
+  cardBrand       String?
+  cardExpiry      String?
+  
+  // Additional Payment Details
+  description     String?
+  failureReason   String?
+  refundAmount    Float?    // If partial refund
+  refundReason    String?
+  
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order           Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  walletTransaction WalletTransaction? @relation(fields: [walletTransactionId], references: [id], onDelete: Cascade)
+
+  @@map("payment_records")
 }
 
 model Address {
@@ -146,6 +228,7 @@ model Order {
   createdByStaff      Staff?        @relation("CreatedByStaff", fields: [createdByStaffId], references: [id])
   orderProcessing     OrderProcessing?
   orderHistory        OrderHistory[]
+  paymentRecords      PaymentRecord[]
 
   @@map("orders")
 }
@@ -564,6 +647,35 @@ model ServicePricingMapping {
 
   @@unique([serviceId, pricingItemId])
   @@map("service_pricing_mappings")
+}
+
+enum TransactionType {
+  DEPOSIT         // Money added to wallet
+  WITHDRAWAL      // Money removed from wallet
+  PAYMENT         // Payment for order
+  REFUND          // Refund from order
+  ADJUSTMENT      // Manual adjustment by admin
+  TRANSFER        // Transfer between wallets (if needed)
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  WALLET          // Using wallet balance
+  CARD            // Credit/Debit card
+  CASH            // Cash payment
+  BANK_TRANSFER   // Bank transfer
+  TAP_PAY         // Tap payment gateway
+  APPLE_PAY       // Apple Pay
+  GOOGLE_PAY      // Google Pay
+  SAMSUNG_PAY     // Samsung Pay
 }
 
 

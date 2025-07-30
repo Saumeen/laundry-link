@@ -8,7 +8,6 @@ export interface AuthenticatedCustomer {
   firstName: string;
   lastName: string;
   isActive: boolean;
-  walletBalance: number;
 }
 
 /**
@@ -37,7 +36,6 @@ export async function getAuthenticatedCustomer(): Promise<AuthenticatedCustomer 
       firstName: customer.firstName,
       lastName: customer.lastName,
       isActive: customer.isActive,
-      walletBalance: customer.walletBalance,
     };
   } catch (error) {
     console.error('Error getting authenticated customer:', error);

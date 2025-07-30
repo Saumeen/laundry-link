@@ -10,7 +10,7 @@ export async function GET() {
     // Get authenticated customer using NextAuth
     const authenticatedCustomer = await requireAuthenticatedCustomer();
 
-    // Find customer by ID (more secure than email)
+    // Get customer profile with wallet balance
     const customer = await prisma.customer.findUnique({
       where: { id: authenticatedCustomer.id },
       select: {
@@ -19,7 +19,6 @@ export async function GET() {
         firstName: true,
         lastName: true,
         phone: true,
-        walletBalance: true,
         createdAt: true,
         updatedAt: true,
         isActive: true,
@@ -38,7 +37,7 @@ export async function GET() {
       customer,
     });
   } catch (error) {
-    console.error('Error fetching customer profile:', error || 'Unknown error');
+    console.error('Error fetching customer profile:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
@@ -96,7 +95,6 @@ export async function PUT(request: Request) {
         firstName: true,
         lastName: true,
         phone: true,
-        walletBalance: true,
         createdAt: true,
         updatedAt: true,
         isActive: true,

@@ -6,6 +6,7 @@ import { useOrdersStore, useProfileStore } from '@/customer';
 import type { OrderWithDetails } from '@/shared/types/customer';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLogout } from '@/hooks/useAuth';
 
 export function CustomerDashboard() {
@@ -20,6 +21,7 @@ export function CustomerDashboard() {
   const { profile, fetchProfile } = useProfileStore();
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const router = useRouter();
   const logout = useLogout();
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export function CustomerDashboard() {
   };
 
   const handleWalletClick = () => {
-    setShowWalletModal(true);
+    router.push('/customer/wallet');
   };
 
   const handleCloseWalletModal = () => {
@@ -125,8 +127,6 @@ export function CustomerDashboard() {
                 </div>
               </Link>
 
-      
-
               <button
                 onClick={handleWalletClick}
                 className='flex items-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors cursor-pointer border border-purple-200 w-full text-left'
@@ -142,6 +142,8 @@ export function CustomerDashboard() {
             </div>
           </div>
         </div>
+
+
 
         {/* Stats Cards */}
         <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>

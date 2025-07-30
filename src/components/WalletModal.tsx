@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useProfileStore } from '@/customer';
+import { useProfileStore, useWalletStore } from '@/customer';
+import { useRouter } from 'next/navigation';
 
 interface WalletModalProps {
   isOpen: boolean;
@@ -10,7 +11,9 @@ interface WalletModalProps {
 
 export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { profile } = useProfileStore();
+  const { balance } = useWalletStore();
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const formatCurrency = (amount: number) => {
     return `${amount.toFixed(3)} BD`;
@@ -57,7 +60,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
                         Current Balance
                       </span>
                       <span className="text-2xl font-bold text-green-600">
-                        {formatCurrency(profile?.walletBalance || 0)}
+                        {formatCurrency(balance)}
                       </span>
                     </div>
                   </div>
@@ -139,7 +142,7 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
               className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               onClick={() => {
                 // Navigate to profile page for more wallet options
-                window.location.href = '/customer/profile';
+                router.push('/customer/profile');
               }}
             >
               Manage Wallet

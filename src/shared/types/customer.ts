@@ -8,7 +8,6 @@ export interface CustomerProfile {
   lastName: string;
   phone?: string;
   isActive: boolean;
-  walletBalance: number;
   createdAt: string;
   updatedAt: string;
 }

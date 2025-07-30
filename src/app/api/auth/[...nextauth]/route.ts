@@ -110,7 +110,6 @@ export const authOptions: NextAuthOptions = {
                 lastName: credentials.name.split(' ').slice(1).join(' ') || '',
                 phone: credentials.phoneNumber,
                 isActive: true,
-                walletBalance: 0,
               },
             });
           } else {
@@ -212,8 +211,8 @@ export const authOptions: NextAuthOptions = {
                 email: user.email!,
                 firstName: user.name?.split(' ')[0] || '',
                 lastName: user.name?.split(' ').slice(1).join(' ') || '',
+                phone: credentials.phoneNumber,
                 isActive: true,
-                walletBalance: 0,
               },
             });
           }
@@ -263,7 +262,6 @@ export const authOptions: NextAuthOptions = {
           if (customer) {
             // Add customer data to token
             token.customerId = customer.id;
-            token.walletBalance = customer.walletBalance;
           }
         } catch (error) {
           console.error('Error updating JWT token:', error);
@@ -282,7 +280,6 @@ export const authOptions: NextAuthOptions = {
         session.adminId = token.adminId as number;
       } else if (token.userType === 'customer') {
         session.customerId = token.customerId as number;
-        session.walletBalance = token.walletBalance as number;
       }
 
       return session;
