@@ -296,7 +296,7 @@ export async function processTapPayment(
     const paymentRecord = await prisma.paymentRecord.create({
       data: {
         customerId,
-        orderId,
+        orderId: orderId !== 0 ? orderId : null,
         amount,
         currency: 'BHD',
         paymentMethod: 'TAP_PAY',

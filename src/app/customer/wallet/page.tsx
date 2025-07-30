@@ -6,6 +6,21 @@ import { walletApi, type WalletTransaction, type TopUpRequest } from '@/customer
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
+import TapCardForm from '@/components/ui/TapCardForm';
+import { CustomerLayout } from '@/customer/components/CustomerLayout';
+
+// Enhanced state interface for card verification
+interface CardVerificationState {
+  isVerified: boolean;
+  token: string | null;
+  cardDetails: {
+    lastFour?: string;
+    brand?: string;
+    expiryMonth?: string;
+    expiryYear?: string;
+  } | null;
+  verificationTimestamp: number | null;
+}
 
 export default function WalletPage() {
   const { profile } = useProfileStore();
@@ -18,20 +33,24 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [topUpLoading, setTopUpLoading] = useState(false);
-  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [showTopUpForm, setShowTopUpForm] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'TAP_PAY' | 'CARD' | 'BANK_TRANSFER'>('TAP_PAY');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'TAP_PAY' | 'BANK_TRANSFER'>('TAP_PAY');
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-
-  // Tap payment specific states
-  const [cardDetails, setCardDetails] = useState({
-    number: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvc: '',
-    name: ''
+  const [topUpSuccess, setTopUpSuccess] = useState(false);
+  const [refreshingWallet, setRefreshingWallet] = useState(false);
+  
+  // Enhanced card verification state
+  const [cardVerification, setCardVerification] = useState<CardVerificationState>({
+    isVerified: false,
+    token: null,
+    cardDetails: null,
+    verificationTimestamp: null
   });
+
+  // Card form state
+  const [cardFormKey, setCardFormKey] = useState(0); // Key to force re-render when needed
 
   useEffect(() => {
     if (profile?.id) {
@@ -40,27 +59,78 @@ export default function WalletPage() {
     }
   }, [profile?.id]);
 
+  // Load saved card verification state from localStorage
+  useEffect(() => {
+    if (profile?.id) {
+      const savedState = localStorage.getItem(`cardVerification_${profile.id}`);
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          // Check if the verification is still valid (within 30 minutes)
+          const isValid = parsed.verificationTimestamp && 
+            (Date.now() - parsed.verificationTimestamp) < 30 * 60 * 1000;
+          
+          if (isValid) {
+            setCardVerification(parsed);
+          } else {
+            // Clear expired verification
+            localStorage.removeItem(`cardVerification_${profile.id}`);
+          }
+        } catch (error) {
+          console.warn('Failed to parse saved card verification state:', error);
+          localStorage.removeItem(`cardVerification_${profile.id}`);
+        }
+      }
+    }
+  }, [profile?.id]);
+
+  // Save card verification state to localStorage
+  useEffect(() => {
+    if (profile?.id && cardVerification.isVerified && cardVerification.token) {
+      localStorage.setItem(`cardVerification_${profile.id}`, JSON.stringify(cardVerification));
+    }
+  }, [cardVerification, profile?.id]);
+
   const fetchWalletInfo = async () => {
     try {
       if (!profile?.id) return;
-      const data = await walletApi.getWalletInfo(profile.id);
-      setWalletInfo(data);
+      setRefreshingWallet(true);
+      const response = await walletApi.getWalletInfo(profile.id);
+      
+      // Add null check for data
+      if (!response) {
+        console.error('Invalid response from wallet info API:', response);
+        showToast('Failed to load wallet information - invalid response', 'error');
+        return;
+      }
+      
+      setWalletInfo(response);
     } catch (error) {
       console.error('Error fetching wallet info:', error);
       showToast('Failed to load wallet information', 'error');
+    } finally {
+      setRefreshingWallet(false);
     }
   };
 
   const fetchTransactionHistory = async (page = 1) => {
     try {
       if (!profile?.id) return;
-      const data = await walletApi.getTransactionHistory(profile.id, page, 20);
-      if (page === 1) {
-        setTransactions(data.transactions);
-      } else {
-        setTransactions(prev => [...prev, ...data.transactions]);
+      const response = await walletApi.getTransactionHistory(profile.id, page, 20);
+      
+      // Add null check for data
+      if (!response || !response.transactions) {
+        console.error('Invalid response from transaction history API:', response);
+        showToast('Failed to load transaction history - invalid response', 'error');
+        return;
       }
-      setHasMore(data.hasMore);
+      
+      if (page === 1) {
+        setTransactions(response.transactions);
+      } else {
+        setTransactions(prev => [...prev, ...response.transactions]);
+      }
+      setHasMore(response.hasMore);
       setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
@@ -81,6 +151,12 @@ export default function WalletPage() {
       return;
     }
 
+    // For TAP_PAY, we need to wait for the token to be generated
+    if (selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified) {
+      showToast('Please complete the payment form verification first', 'error');
+      return;
+    }
+
     setTopUpLoading(true);
     try {
       const topUpData: TopUpRequest = {
@@ -90,7 +166,7 @@ export default function WalletPage() {
       };
 
       // Add customer data for Tap payments
-      if (selectedPaymentMethod === 'TAP_PAY' && profile) {
+      if (selectedPaymentMethod === 'TAP_PAY' && profile && cardVerification.token) {
         topUpData.customerData = {
           firstName: profile.firstName || '',
           lastName: profile.lastName || '',
@@ -98,9 +174,7 @@ export default function WalletPage() {
           phone: profile.phone || ''
         };
 
-        // For now, we'll use a placeholder token ID
-        // In a real implementation, you would create a token from card details
-        topUpData.tokenId = 'tok_test_placeholder'; // This should be created from card details
+        topUpData.tokenId = cardVerification.token;
       }
 
       const response = await walletApi.topUpWallet(topUpData);
@@ -109,28 +183,92 @@ export default function WalletPage() {
         if (response.data.redirectUrl) {
           // Redirect to payment gateway (external URL)
           window.location.href = response.data.redirectUrl;
-      } else if (response.data.message) {
+        } else if (response.data.message) {
           showToast(response.data.message, 'success');
-          setShowTopUpModal(false);
-          setTopUpAmount('');
-          // Refresh wallet info
-          await fetchWalletInfo();
+          handleTopUpSuccess();
         } else {
           showToast('Top-up request submitted successfully', 'success');
-          setShowTopUpModal(false);
-          setTopUpAmount('');
-          // Refresh wallet info
-          await fetchWalletInfo();
+          handleTopUpSuccess();
         }
       } else {
         showToast(response.error || 'Failed to process top-up request', 'error');
+        setTopUpLoading(false);
       }
     } catch (error) {
       console.error('Error processing top-up:', error);
       showToast('Failed to process top-up request', 'error');
-    } finally {
       setTopUpLoading(false);
     }
+  };
+
+  const handleTopUpSuccess = () => {
+    setShowTopUpForm(false);
+    setTopUpAmount('');
+    setTopUpLoading(false);
+    setTopUpSuccess(true);
+    // Don't clear card verification state - keep it for future use
+    // Only clear if user explicitly wants to change payment method
+    
+    // Add a small delay to ensure the payment is processed
+    setTimeout(() => {
+      fetchWalletInfo();
+      fetchTransactionHistory(1); // Refresh transaction history
+    }, 1000);
+    
+    // Reset success state after 5 seconds
+    setTimeout(() => {
+      setTopUpSuccess(false);
+    }, 5000);
+  };
+
+  const handleTokenReceived = (token: string, cardDetails?: any) => {
+    const verificationState: CardVerificationState = {
+      isVerified: true,
+      token,
+      cardDetails: cardDetails ? {
+        lastFour: cardDetails.lastFour,
+        brand: cardDetails.brand,
+        expiryMonth: cardDetails.expiryMonth,
+        expiryYear: cardDetails.expiryYear
+      } : null,
+      verificationTimestamp: Date.now()
+    };
+    
+    setCardVerification(verificationState);
+    showToast('Payment method verified successfully', 'success');
+  };
+
+  const handlePaymentError = (error: string) => {
+    showToast(error, 'error');
+    // Don't clear verification state on error - let user retry
+  };
+
+  const handlePaymentMethodChange = (method: 'TAP_PAY' | 'BANK_TRANSFER') => {
+    setSelectedPaymentMethod(method);
+    // Only clear card verification if switching away from TAP_PAY
+    if (method !== 'TAP_PAY') {
+      clearCardVerification();
+    }
+  };
+
+  const clearCardVerification = () => {
+    setCardVerification({
+      isVerified: false,
+      token: null,
+      cardDetails: null,
+      verificationTimestamp: null
+    });
+    if (profile?.id) {
+      localStorage.removeItem(`cardVerification_${profile.id}`);
+    }
+    // Force re-render of card form
+    setCardFormKey(prev => prev + 1);
+  };
+
+  const handleTopUpCancel = () => {
+    setShowTopUpForm(false);
+    setTopUpAmount('');
+    // Don't clear card verification - keep it for next time
   };
 
   const formatDate = (dateString: string) => {
@@ -178,6 +316,18 @@ export default function WalletPage() {
     }
   };
 
+  // Show loading state if profile is not loaded yet
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -190,31 +340,237 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Wallet</h1>
-          <p className="text-gray-600">Manage your wallet balance and view transaction history</p>
-        </div>
+    <CustomerLayout>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">My Wallet</h1>
+                <p className="text-gray-600">Manage your wallet balance and view transaction history</p>
+              </div>
+              <button
+                onClick={() => router.push('/customer/dashboard')}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Dashboard
+              </button>
+            </div>
+          </div>
 
         {/* Balance Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Current Balance</h2>
-              <p className="text-3xl font-bold text-green-600">
-                {formatCurrency(walletInfo?.balance || 0, 'BHD')}
-              </p>
+              <div className="flex items-center">
+                <p className="text-3xl font-bold text-green-600">
+                  {formatCurrency(walletInfo?.balance || 0, 'BHD')}
+                </p>
+                {refreshingWallet && (
+                  <div className="ml-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                  </div>
+                )}
+              </div>
+              {topUpSuccess && (
+                <div className="mt-2 flex items-center text-green-600">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium">Top-up successful!</span>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setShowTopUpModal(true)}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Top Up Wallet
-            </button>
+            {!showTopUpForm && (
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowTopUpForm(true);
+                    setTopUpSuccess(false);
+                  }}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Top Up Wallet
+                </button>
+                <button
+                  onClick={() => {
+                    fetchWalletInfo();
+                    fetchTransactionHistory(1);
+                  }}
+                  disabled={refreshingWallet}
+                  className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {refreshingWallet ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-transparent mr-2"></div>
+                      Refreshing...
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Refresh
+                    </div>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Top-up Form - Conditional Rendering */}
+        {showTopUpForm && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Top Up Your Wallet</h2>
+              <button
+                onClick={handleTopUpCancel}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Amount and Payment Method */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount (BD)
+                  </label>
+                  <input
+                    type="number"
+                    value={topUpAmount}
+                    onChange={(e) => setTopUpAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    min="0.001"
+                    step="0.001"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payment Method
+                  </label>
+                  <select
+                    value={selectedPaymentMethod}
+                    onChange={(e) => handlePaymentMethodChange(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="TAP_PAY">Tap Pay</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
+                </div>
+
+                {/* Card Verification Status */}
+                {selectedPaymentMethod === 'TAP_PAY' && cardVerification.isVerified && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-green-800">Payment Method Verified</p>
+                        {cardVerification.cardDetails?.lastFour && (
+                          <p className="text-xs text-green-600">
+                            Card ending in {cardVerification.cardDetails.lastFour}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={clearCardVerification}
+                        className="ml-auto text-xs text-green-600 hover:text-green-800 underline"
+                      >
+                        Change Card
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified && (
+                  <div className="bg-blue-50 p-3 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      💳 Complete your payment securely using the form on the right.
+                    </p>
+                  </div>
+                )}
+
+                {selectedPaymentMethod === 'BANK_TRANSFER' && (
+                  <div className="bg-yellow-50 p-3 rounded-md">
+                    <p className="text-sm text-yellow-800">
+                      🏦 Bank transfer details will be provided. Please contact support after completing the transfer.
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex space-x-3 pt-4">
+                  {selectedPaymentMethod === 'BANK_TRANSFER' && (
+                    <button
+                      type="button"
+                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={handleTopUp}
+                    >
+                      {topUpLoading ? 'Processing...' : 'Top Up'}
+                    </button>
+                  )}
+                  
+                  {selectedPaymentMethod === 'TAP_PAY' && cardVerification.isVerified && (
+                    <button
+                      type="button"
+                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={handleTopUp}
+                    >
+                      {topUpLoading ? 'Processing...' : 'Top Up'}
+                    </button>
+                  )}
+                  
+                  <button
+                    type="button"
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    onClick={handleTopUpCancel}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column - Payment Form */}
+              <div>
+                {selectedPaymentMethod === 'TAP_PAY' && profile && !cardVerification.isVerified && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Details</h3>
+                    <TapCardForm
+                      key={cardFormKey}
+                      amount={parseFloat(topUpAmount) || 0}
+                      currency="BHD"
+                      customerData={{
+                        firstName: profile.firstName || '',
+                        lastName: profile.lastName || '',
+                        email: profile.email || '',
+                        phone: profile.phone || ''
+                      }}
+                      onTokenReceived={handleTokenReceived}
+                      onError={handlePaymentError}
+                      isLoading={topUpLoading}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -288,7 +644,7 @@ export default function WalletPage() {
                   Your transaction history will appear here
                 </p>
                 <button
-                  onClick={() => setShowTopUpModal(true)}
+                  onClick={() => setShowTopUpForm(true)}
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   Make Your First Top-up
@@ -349,98 +705,7 @@ export default function WalletPage() {
           )}
         </div>
       </div>
-
-      {/* Top-up Modal */}
-      {showTopUpModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
-              onClick={() => setShowTopUpModal(false)}
-            />
-
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <span className="text-2xl">💰</span>
-                  </div>
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Top Up Your Wallet
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Amount (BD)
-                        </label>
-                        <input
-                          type="number"
-                          value={topUpAmount}
-                          onChange={(e) => setTopUpAmount(e.target.value)}
-                          placeholder="Enter amount"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          min="0.001"
-                          step="0.001"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Payment Method
-                        </label>
-                        <select
-                          value={selectedPaymentMethod}
-                          onChange={(e) => setSelectedPaymentMethod(e.target.value as any)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="TAP_PAY">Tap Pay (Card/Apple Pay/Google Pay)</option>
-                          <option value="BANK_TRANSFER">Bank Transfer</option>
-                        </select>
-                      </div>
-
-                      {selectedPaymentMethod === 'TAP_PAY' && (
-                        <div className="bg-blue-50 p-3 rounded-md">
-                          <p className="text-sm text-blue-800">
-                            💳 You'll be redirected to Tap's secure payment gateway to complete your payment.
-                          </p>
-                        </div>
-                      )}
-
-                      {selectedPaymentMethod === 'BANK_TRANSFER' && (
-                        <div className="bg-yellow-50 p-3 rounded-md">
-                          <p className="text-sm text-yellow-800">
-                            🏦 Bank transfer details will be provided. Please contact support after completing the transfer.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  disabled={topUpLoading}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={handleTopUp}
-                >
-                  {topUpLoading ? 'Processing...' : 'Top Up'}
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={() => setShowTopUpModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
+    </CustomerLayout>
   );
 } 

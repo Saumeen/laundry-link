@@ -18,7 +18,7 @@ export interface WalletTransaction {
 
 export interface TopUpRequest {
   amount: number;
-  paymentMethod: 'TAP_PAY' | 'CARD' | 'BANK_TRANSFER';
+  paymentMethod: 'TAP_PAY' | 'BANK_TRANSFER';
   description?: string;
   // Tap payment specific fields
   tokenId?: string;
@@ -47,6 +47,12 @@ export interface TransactionHistoryResponse {
   hasMore: boolean;
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
+
 export const walletApi = {
   // Get wallet information including balance and transaction history
   getWalletInfo: async (customerId: number): Promise<WalletInfo> => {
@@ -57,8 +63,7 @@ export const walletApi = {
   // Process wallet top-up using dedicated endpoint
   topUpWallet: async (data: TopUpRequest): Promise<TopUpResponse> => {
     const response = await apiClient.post('/api/wallet/top-up', {
-      ...data,
-      customerId: data.customerData ? undefined : undefined // Will be set from auth context
+      ...data
     });
     return response.data as TopUpResponse;
   },

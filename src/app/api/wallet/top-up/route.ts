@@ -1,12 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processTapPayment } from '@/lib/utils/tapPaymentUtils';
 import prisma from '@/lib/prisma';
+import { requireAuthenticatedCustomer } from '@/lib/auth';
+
+interface TopUpRequest {
+  amount: number;
+  paymentMethod: 'TAP_PAY' | 'BANK_TRANSFER';
+  description?: string;
+  tokenId?: string;
+  customerData?: any;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Get authenticated customer
+    const customer = await requireAuthenticatedCustomer();
+    
+    // Parse and validate request body
+    let body: TopUpRequest;
+    try {
+      const rawBody = await request.json();
+      body = rawBody as TopUpRequest;
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid request body format' },
+        { status: 400 }
+      );
+    }
+
     const {
-      customerId,
       amount,
       paymentMethod,
       description,
@@ -16,9 +39,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!customerId || !amount || !paymentMethod) {
+    if (!amount || !paymentMethod) {
       return NextResponse.json(
-        { error: 'Missing required fields: customerId, amount, paymentMethod' },
+        { error: 'Missing required fields: amount, paymentMethod' },
         { status: 400 }
       );
     }
@@ -45,7 +68,7 @@ export async function POST(request: NextRequest) {
 
         // Process wallet top-up using Tap
         result = await processTapPayment(
-          customerId,
+          customer.id,
           0, // No order ID for wallet top-ups
           amount,
           customerData,
@@ -59,7 +82,7 @@ export async function POST(request: NextRequest) {
         // Create payment record for bank transfer
         const paymentRecord = await prisma.paymentRecord.create({
           data: {
-            customerId,
+            customerId: customer.id,
             amount,
             currency: 'BHD',
             paymentMethod: 'BANK_TRANSFER',
@@ -70,7 +93,7 @@ export async function POST(request: NextRequest) {
 
         result = { 
           paymentRecord,
-          message: 'Bank transfer initiated. Please complete the transfer and contact support for confirmation.'
+          message: 'Bank transfer request submitted successfully. Please complete the transfer and contact support for confirmation.'
         };
         break;
 
@@ -88,6 +111,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error processing wallet top-up:', error);
+    
+    // Handle authentication errors specifically
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         error: 'Failed to process wallet top-up',

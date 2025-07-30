@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export interface WalletTransactionData {
   walletId: number;
@@ -26,6 +27,26 @@ export interface PaymentRecordData {
   cardLastFour?: string;
   cardBrand?: string;
   cardExpiry?: string;
+}
+
+export interface TapResponse {
+  id: string;
+  status: string;
+  amount: number;
+  currency: string;
+  reference?: string;
+  charge?: { id: string };
+  authorize?: { id: string };
+  source?: {
+    card?: {
+      last4: string;
+      brand: string;
+      exp_month: number;
+      exp_year: number;
+    };
+  };
+  created?: number;
+  live_mode?: boolean;
 }
 
 /**
@@ -304,19 +325,18 @@ export async function getPaymentHistory(customerId: number, limit = 50) {
  */
 export async function processTapPaymentResponse(
   paymentId: number,
-  tapResponse: any,
+  tapResponse: TapResponse | any,
   status: 'PENDING' | 'PAID' | 'FAILED'
 ) {
   try {
-    const updateData: any = {
+    const updateData: Prisma.PaymentRecordUpdateInput = {
       paymentStatus: status,
-      tapResponse: JSON.stringify(tapResponse),
       processedAt: status === 'PAID' ? new Date() : undefined
     };
 
     // Extract Tap-specific fields
     if (tapResponse.id) updateData.tapTransactionId = tapResponse.id;
-    if (tapResponse.reference) updateData.tapReference = tapResponse.reference;
+    if (tapResponse.reference) updateData.tapReference = JSON.stringify(tapResponse.reference);
     if (tapResponse.charge?.id) updateData.tapChargeId = tapResponse.charge.id;
     if (tapResponse.authorize?.id) updateData.tapAuthorizeId = tapResponse.authorize.id;
 
@@ -327,6 +347,24 @@ export async function processTapPaymentResponse(
       updateData.cardExpiry = `${tapResponse.source.card.exp_month}/${tapResponse.source.card.exp_year}`;
     }
 
+    // Store only essential response data to avoid size issues
+    const essentialResponse = extractEssentialTapResponse(tapResponse);
+    const responseString = JSON.stringify(essentialResponse);
+    
+    // Check if the response is still too large (PostgreSQL TEXT limit is ~1GB, but let's be conservative)
+    if (responseString.length > 10000) {
+      // If still too large, store only the most critical fields
+      const minimalResponse = {
+        id: tapResponse.id,
+        status: tapResponse.status,
+        amount: tapResponse.amount,
+        currency: tapResponse.currency
+      };
+      updateData.tapResponse = JSON.stringify(minimalResponse);
+    } else {
+      updateData.tapResponse = responseString;
+    }
+
     const paymentRecord = await prisma.paymentRecord.update({
       where: { id: paymentId },
       data: updateData
@@ -335,6 +373,55 @@ export async function processTapPaymentResponse(
     return paymentRecord;
   } catch (error) {
     console.error('Error processing Tap payment response:', error);
+    
+    // Handle specific Prisma validation errors
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      console.error('Prisma validation error details:', error.message);
+      throw new Error(`Database validation error: ${error.message}`);
+    }
+    
+    // Handle other Prisma errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error('Prisma known request error:', error.code, error.message);
+      throw new Error(`Database error: ${error.message}`);
+    }
+    
     throw new Error('Failed to process Tap payment response');
   }
-} 
+}
+
+/**
+ * Safely store Tap payment response by extracting only essential data
+ */
+export function extractEssentialTapResponse(tapResponse: TapResponse | any) {
+  try {
+    return {
+      id: tapResponse.id,
+      status: tapResponse.status,
+      amount: tapResponse.amount,
+      currency: tapResponse.currency,
+      reference: tapResponse.reference,
+      charge: tapResponse.charge ? { id: tapResponse.charge.id } : undefined,
+      authorize: tapResponse.authorize ? { id: tapResponse.authorize.id } : undefined,
+      source: tapResponse.source ? {
+        card: tapResponse.source.card ? {
+          last4: tapResponse.source.card.last4,
+          brand: tapResponse.source.card.brand,
+          exp_month: tapResponse.source.card.exp_month,
+          exp_year: tapResponse.source.card.exp_year
+        } : undefined
+      } : undefined,
+      // Add any other essential fields you need
+      created: tapResponse.created,
+      live_mode: tapResponse.live_mode
+    };
+  } catch (error) {
+    console.error('Error extracting essential Tap response:', error);
+    // Return minimal data if extraction fails
+    return {
+      id: tapResponse.id,
+      status: tapResponse.status,
+      error: 'Failed to extract full response data'
+    };
+  }
+}
