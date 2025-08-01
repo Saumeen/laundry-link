@@ -10,6 +10,16 @@ import TapCardForm from '@/components/ui/TapCardForm';
 import BenefitPayButton from '@/components/ui/BenefitPayButton';
 import { CustomerLayout } from '@/customer/components/CustomerLayout';
 
+// Step enum for the wizard flow
+enum WalletStep {
+  OVERVIEW = 'overview',
+  AMOUNT = 'amount',
+  PAYMENT_METHOD = 'payment_method',
+  CARD_VERIFICATION = 'card_verification',
+  PAYMENT = 'payment',
+  SUCCESS = 'success'
+}
+
 // Enhanced state interface for card verification
 interface CardVerificationState {
   isVerified: boolean;
@@ -24,23 +34,27 @@ interface CardVerificationState {
 }
 
 export default function WalletPage() {
-  const { profile } = useProfileStore();
+  const { profile, fetchProfile, loading: profileLoading } = useProfileStore();
   const { showToast } = useToast();
   const router = useRouter();
+  
+  // Main state
   const [walletInfo, setWalletInfo] = useState<{
     balance: number;
     transactions: WalletTransaction[];
   } | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [topUpLoading, setTopUpLoading] = useState(false);
-  const [showTopUpForm, setShowTopUpForm] = useState(false);
+  const [refreshingWallet, setRefreshingWallet] = useState(false);
+  
+  // Wizard flow state
+  const [currentStep, setCurrentStep] = useState<WalletStep>(WalletStep.OVERVIEW);
   const [topUpAmount, setTopUpAmount] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER'>('TAP_PAY');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [topUpSuccess, setTopUpSuccess] = useState(false);
-  const [refreshingWallet, setRefreshingWallet] = useState(false);
+  
+  // Payment processing state
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [cardFormKey, setCardFormKey] = useState(0);
   
   // Enhanced card verification state
   const [cardVerification, setCardVerification] = useState<CardVerificationState>({
@@ -61,108 +75,60 @@ export default function WalletPage() {
     verificationTimestamp: null
   });
 
-  // Card form state
-  const [cardFormKey, setCardFormKey] = useState(0); // Key to force re-render when needed
+  useEffect(() => {
+    // Fetch profile if not already loaded
+    if (!profile && !profileLoading) {
+      fetchProfile();
+    }
+  }, [profile, profileLoading, fetchProfile]);
 
   useEffect(() => {
     if (profile?.id) {
       fetchWalletInfo();
       fetchTransactionHistory();
-      
-      // Check for pending payments and payments in progress
-      const pendingPayment = localStorage.getItem(`pendingPayment_${profile.id}`);
-      const paymentInProgress = localStorage.getItem(`paymentInProgress_${profile.id}`);
-      
-      if (pendingPayment || paymentInProgress) {
-        try {
-          const payment = pendingPayment ? JSON.parse(pendingPayment) : JSON.parse(paymentInProgress!);
-          const timeDiff = Date.now() - payment.timestamp;
-          
-          // If payment was initiated within the last 30 minutes, refresh wallet
-          if (timeDiff < 30 * 60 * 1000) {
-            showToast('Checking payment status...', 'info');
-            // Refresh wallet after a short delay to allow for webhook processing
-            setTimeout(() => {
-              fetchWalletInfo();
-              fetchTransactionHistory(1);
-            }, 2000);
-          }
-          
-          // Clear the payment records
-          localStorage.removeItem(`pendingPayment_${profile.id}`);
-          localStorage.removeItem(`paymentInProgress_${profile.id}`);
-        } catch (error) {
-          console.warn('Failed to parse payment data:', error);
-          localStorage.removeItem(`pendingPayment_${profile.id}`);
-          localStorage.removeItem(`paymentInProgress_${profile.id}`);
-        }
-      }
+      loadSavedVerificationStates();
     }
   }, [profile?.id]);
 
-  // Load saved card verification state from localStorage
-  useEffect(() => {
-    if (profile?.id) {
-      const savedState = localStorage.getItem(`cardVerification_${profile.id}`);
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState);
-          // Check if the verification is still valid (within 30 minutes)
-          const isValid = parsed.verificationTimestamp && 
-            (Date.now() - parsed.verificationTimestamp) < 30 * 60 * 1000;
-          
-          if (isValid) {
-            setCardVerification(parsed);
-          } else {
-            // Clear expired verification
-            localStorage.removeItem(`cardVerification_${profile.id}`);
-          }
-        } catch (error) {
-          console.warn('Failed to parse saved card verification state:', error);
+  const loadSavedVerificationStates = () => {
+    if (!profile?.id) return;
+    
+    // Load card verification
+    const savedCardState = localStorage.getItem(`cardVerification_${profile.id}`);
+    if (savedCardState) {
+      try {
+        const parsed = JSON.parse(savedCardState);
+        const isValid = parsed.verificationTimestamp && 
+          (Date.now() - parsed.verificationTimestamp) < 30 * 60 * 1000;
+        
+        if (isValid) {
+          setCardVerification(parsed);
+        } else {
           localStorage.removeItem(`cardVerification_${profile.id}`);
         }
+      } catch (error) {
+        localStorage.removeItem(`cardVerification_${profile.id}`);
       }
     }
-  }, [profile?.id]);
-
-  // Load saved Benefit Pay verification state from localStorage
-  useEffect(() => {
-    if (profile?.id) {
-      const savedState = localStorage.getItem(`benefitPayVerification_${profile.id}`);
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState);
-          // Check if the verification is still valid (within 30 minutes)
-          const isValid = parsed.verificationTimestamp && 
-            (Date.now() - parsed.verificationTimestamp) < 30 * 60 * 1000;
-          
-          if (isValid) {
-            setBenefitPayVerification(parsed);
-          } else {
-            // Clear expired verification
-            localStorage.removeItem(`benefitPayVerification_${profile.id}`);
-          }
-        } catch (error) {
-          console.warn('Failed to parse saved Benefit Pay verification state:', error);
+    
+    // Load Benefit Pay verification
+    const savedBenefitState = localStorage.getItem(`benefitPayVerification_${profile.id}`);
+    if (savedBenefitState) {
+      try {
+        const parsed = JSON.parse(savedBenefitState);
+        const isValid = parsed.verificationTimestamp && 
+          (Date.now() - parsed.verificationTimestamp) < 30 * 60 * 1000;
+        
+        if (isValid) {
+          setBenefitPayVerification(parsed);
+        } else {
           localStorage.removeItem(`benefitPayVerification_${profile.id}`);
         }
+      } catch (error) {
+        localStorage.removeItem(`benefitPayVerification_${profile.id}`);
       }
     }
-  }, [profile?.id]);
-
-  // Save card verification state to localStorage
-  useEffect(() => {
-    if (profile?.id && cardVerification.isVerified && cardVerification.token) {
-      localStorage.setItem(`cardVerification_${profile.id}`, JSON.stringify(cardVerification));
-    }
-  }, [cardVerification, profile?.id]);
-
-  // Save Benefit Pay verification state to localStorage
-  useEffect(() => {
-    if (profile?.id && benefitPayVerification.isVerified && benefitPayVerification.token) {
-      localStorage.setItem(`benefitPayVerification_${profile.id}`, JSON.stringify(benefitPayVerification));
-    }
-  }, [benefitPayVerification, profile?.id]);
+  };
 
   const fetchWalletInfo = async () => {
     try {
@@ -182,15 +148,13 @@ export default function WalletPage() {
   const fetchTransactionHistory = async (page = 1) => {
     try {
       if (!profile?.id) return;
-      const response = await walletApi.getTransactionHistory(profile.id, page, 20);
+      const response = await walletApi.getTransactionHistory(profile.id, page, 10);
       
       if (page === 1) {
         setTransactions(response.transactions);
       } else {
         setTransactions(prev => [...prev, ...response.transactions]);
       }
-      setHasMore(response.hasMore);
-      setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load transaction history';
@@ -200,26 +164,65 @@ export default function WalletPage() {
     }
   };
 
-  const handleTopUp = async () => {
+  // Wizard navigation functions
+  const startTopUp = () => {
+    setCurrentStep(WalletStep.AMOUNT);
+  };
+
+  const goToPaymentMethod = () => {
     if (!topUpAmount || parseFloat(topUpAmount) <= 0) {
       showToast('Please enter a valid amount', 'error');
       return;
     }
+    setCurrentStep(WalletStep.PAYMENT_METHOD);
+  };
 
+  const goToCardVerification = () => {
+    setCurrentStep(WalletStep.CARD_VERIFICATION);
+  };
+
+  const goToPayment = () => {
+    if (selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified) {
+      showToast('Please verify your card first', 'error');
+      return;
+    }
+    if (selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified) {
+      showToast('Please verify your Benefit Pay account first', 'error');
+      return;
+    }
+    setCurrentStep(WalletStep.PAYMENT);
+  };
+
+  const goBack = () => {
+    switch (currentStep) {
+      case WalletStep.AMOUNT:
+        setCurrentStep(WalletStep.OVERVIEW);
+        break;
+      case WalletStep.PAYMENT_METHOD:
+        setCurrentStep(WalletStep.AMOUNT);
+        break;
+      case WalletStep.CARD_VERIFICATION:
+        setCurrentStep(WalletStep.PAYMENT_METHOD);
+        break;
+      case WalletStep.PAYMENT:
+        setCurrentStep(WalletStep.CARD_VERIFICATION);
+        break;
+      default:
+        setCurrentStep(WalletStep.OVERVIEW);
+    }
+  };
+
+  const resetFlow = () => {
+    setCurrentStep(WalletStep.OVERVIEW);
+    setTopUpAmount('');
+    setSelectedPaymentMethod('TAP_PAY');
+    setTopUpLoading(false);
+  };
+
+  // Payment processing
+  const handleTopUp = async () => {
     if (!profile?.id) {
       showToast('Please log in to top up your wallet', 'error');
-      return;
-    }
-
-    // For TAP_PAY, we need to wait for the token to be generated
-    if (selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified) {
-      showToast('Please complete the payment form verification first', 'error');
-      return;
-    }
-
-    // For BENEFIT_PAY, we need to wait for the token to be generated
-    if (selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified) {
-      showToast('Please complete the Benefit Pay verification first', 'error');
       return;
     }
 
@@ -231,7 +234,6 @@ export default function WalletPage() {
         description: `Wallet top-up - ${formatCurrency(parseFloat(topUpAmount), 'BHD')}`
       };
 
-      // Add customer data for Tap payments
       if (selectedPaymentMethod === 'TAP_PAY' && profile && cardVerification.token) {
         topUpData.customerData = {
           firstName: profile.firstName || '',
@@ -239,11 +241,9 @@ export default function WalletPage() {
           email: profile.email || '',
           phone: profile.phone || ''
         };
-
         topUpData.tokenId = cardVerification.token;
       }
 
-      // Add customer data for Benefit Pay payments
       if (selectedPaymentMethod === 'BENEFIT_PAY' && profile && benefitPayVerification.token) {
         topUpData.customerData = {
           firstName: profile.firstName || '',
@@ -251,57 +251,33 @@ export default function WalletPage() {
           email: profile.email || '',
           phone: profile.phone || ''
         };
-
         topUpData.tokenId = benefitPayVerification.token;
       }
 
       const response = await walletApi.topUpWallet(topUpData);
       if (response) {
         if (response.redirectUrl) {
-          // Handle redirect to payment gateway
           handlePaymentRedirect(response.redirectUrl);
-        } else if (response.message) {
-          showToast(response.message, 'success');
-          handleTopUpSuccess();
         } else {
-          showToast('Top-up request submitted successfully', 'success');
-          handleTopUpSuccess();
+          showToast('Top-up successful!', 'success');
+          setCurrentStep(WalletStep.SUCCESS);
+          setTimeout(() => {
+            fetchWalletInfo();
+            fetchTransactionHistory(1);
+          }, 1000);
         }
-      } else {
-        showToast('Failed to process top-up request', 'error');
-        setTopUpLoading(false);
       }
     } catch (error) {
       console.error('Error processing top-up:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to process top-up request';
       showToast(errorMessage, 'error');
+    } finally {
       setTopUpLoading(false);
     }
   };
 
-  const handleTopUpSuccess = () => {
-    setShowTopUpForm(false);
-    setTopUpAmount('');
-    setTopUpLoading(false);
-    setTopUpSuccess(true);
-    // Don't clear card verification state - keep it for future use
-    // Only clear if user explicitly wants to change payment method
-    
-    // Add a small delay to ensure the payment is processed
-    setTimeout(() => {
-      fetchWalletInfo();
-      fetchTransactionHistory(1); // Refresh transaction history
-    }, 1000);
-    
-    // Reset success state after 5 seconds
-    setTimeout(() => {
-      setTopUpSuccess(false);
-    }, 5000);
-  };
-
   const handlePaymentRedirect = (redirectUrl: string) => {
     showToast('Redirecting to payment gateway...', 'info');
-    // Store current state for when user returns
     if (profile?.id) {
       localStorage.setItem(`paymentInProgress_${profile.id}`, JSON.stringify({
         amount: topUpAmount,
@@ -309,11 +285,10 @@ export default function WalletPage() {
         timestamp: Date.now()
       }));
     }
-    
-    // Redirect to payment gateway
     window.location.href = redirectUrl;
   };
 
+  // Card verification handlers
   const handleTokenReceived = (token: string, cardDetails?: {
     lastFour?: string;
     brand?: string;
@@ -323,20 +298,19 @@ export default function WalletPage() {
     const verificationState: CardVerificationState = {
       isVerified: true,
       token,
-      cardDetails: cardDetails ? {
-        lastFour: cardDetails.lastFour,
-        brand: cardDetails.brand,
-        expiryMonth: cardDetails.expiryMonth,
-        expiryYear: cardDetails.expiryYear
-      } : null,
+      cardDetails: cardDetails || null,
       verificationTimestamp: Date.now()
     };
     
     setCardVerification(verificationState);
-    showToast('Payment method verified successfully', 'success');
+    if (profile?.id) {
+      localStorage.setItem(`cardVerification_${profile.id}`, JSON.stringify(verificationState));
+    }
+    showToast('Card verified successfully!', 'success');
+    goToPayment();
   };
 
-  const handleBenefitPayTokenReceived = (token: string, paymentDetails?: Record<string, unknown>) => {
+  const handleBenefitPayTokenReceived = (token: string) => {
     const verificationState = {
       isVerified: true,
       token,
@@ -344,15 +318,17 @@ export default function WalletPage() {
     };
     
     setBenefitPayVerification(verificationState);
-    showToast('Benefit Pay verified successfully', 'success');
+    if (profile?.id) {
+      localStorage.setItem(`benefitPayVerification_${profile.id}`, JSON.stringify(verificationState));
+    }
+    showToast('Benefit Pay verified successfully!', 'success');
+    goToPayment();
   };
 
   const handlePaymentError = (error: string) => {
-    // Don't show toast for validation feedback messages
     if (!error.includes('Invalid input') && !error.includes('validation')) {
       showToast(error, 'error');
     }
-    // Don't clear verification state on error - let user retry
   };
 
   const clearCardVerification = () => {
@@ -365,7 +341,6 @@ export default function WalletPage() {
     if (profile?.id) {
       localStorage.removeItem(`cardVerification_${profile.id}`);
     }
-    // Force re-render of card form
     setCardFormKey(prev => prev + 1);
   };
 
@@ -380,24 +355,7 @@ export default function WalletPage() {
     }
   };
 
-  const handlePaymentMethodChange = (method: 'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER') => {
-    setSelectedPaymentMethod(method);
-    // Only clear card verification if switching away from TAP_PAY
-    if (method !== 'TAP_PAY') {
-      clearCardVerification();
-    }
-    // Only clear Benefit Pay verification if switching away from BENEFIT_PAY
-    if (method !== 'BENEFIT_PAY') {
-      clearBenefitPayVerification();
-    }
-  };
-
-  const handleTopUpCancel = () => {
-    setShowTopUpForm(false);
-    setTopUpAmount('');
-    // Don't clear card verification - keep it for next time
-  };
-
+  // Utility functions
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -410,20 +368,13 @@ export default function WalletPage() {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'DEPOSIT':
-        return '💰';
-      case 'WITHDRAWAL':
-        return '💸';
-      case 'PAYMENT':
-        return '💳';
-      case 'REFUND':
-        return '↩️';
-      case 'ADJUSTMENT':
-        return '⚖️';
-      case 'TRANSFER':
-        return '🔄';
-      default:
-        return '📊';
+      case 'DEPOSIT': return '💰';
+      case 'WITHDRAWAL': return '💸';
+      case 'PAYMENT': return '💳';
+      case 'REFUND': return '↩️';
+      case 'ADJUSTMENT': return '⚖️';
+      case 'TRANSFER': return '🔄';
+      default: return '📊';
     }
   };
 
@@ -443,8 +394,63 @@ export default function WalletPage() {
     }
   };
 
-  // Show loading state if profile is not loaded yet
-  if (!profile) {
+  const getTransactionStatusInfo = (transaction: WalletTransaction) => {
+    try {
+      const metadata = transaction.metadata ? JSON.parse(transaction.metadata) : {};
+      return {
+        tapTransactionId: metadata.tapTransactionId,
+        tapChargeId: metadata.tapChargeId,
+        tapPaymentInProgress: metadata.tapPaymentInProgress,
+        failureReason: metadata.failureReason,
+        paymentRecordId: metadata.paymentRecordId
+      };
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const getTransactionStatusBadge = (transaction: WalletTransaction) => {
+    const statusInfo = getTransactionStatusInfo(transaction);
+    
+    if (transaction.status === 'PENDING' && statusInfo?.tapPaymentInProgress) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-600 border-t-transparent mr-1"></div>
+          PAYMENT IN PROGRESS
+        </span>
+      );
+    }
+    
+    switch (transaction.status) {
+      case 'PENDING':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            PENDING
+          </span>
+        );
+      case 'COMPLETED':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            COMPLETED
+          </span>
+        );
+      case 'FAILED':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            FAILED
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+            {transaction.status}
+          </span>
+        );
+    }
+  };
+
+  // Loading states
+  if (profileLoading || !profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
@@ -466,16 +472,627 @@ export default function WalletPage() {
     );
   }
 
+  // Step indicator component
+  const StepIndicator = () => {
+    const steps = [
+      { key: WalletStep.OVERVIEW, label: 'Overview', icon: '🏠' },
+      { key: WalletStep.AMOUNT, label: 'Amount', icon: '💰' },
+      { key: WalletStep.PAYMENT_METHOD, label: 'Payment Method', icon: '💳' },
+      { key: WalletStep.CARD_VERIFICATION, label: 'Verification', icon: '✅' },
+      { key: WalletStep.PAYMENT, label: 'Payment', icon: '🔒' },
+      { key: WalletStep.SUCCESS, label: 'Success', icon: '🎉' }
+    ];
+
+    const currentIndex = steps.findIndex(step => step.key === currentStep);
+
+    return (
+      <div className="mb-8">
+        <div className="flex items-center justify-center space-x-2 md:space-x-4">
+          {steps.map((step, index) => {
+            const isActive = step.key === currentStep;
+            const isCompleted = index < currentIndex;
+            const isUpcoming = index > currentIndex;
+
+            return (
+              <div key={step.key} className="flex items-center">
+                <div className={`flex flex-col items-center ${isUpcoming ? 'opacity-50' : ''}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                    isActive 
+                      ? 'bg-blue-600 text-white shadow-lg scale-110' 
+                      : isCompleted 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {isCompleted ? '✓' : step.icon}
+                  </div>
+                  <span className={`text-xs mt-1 font-medium ${
+                    isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-8 h-0.5 mx-2 ${
+                    isCompleted ? 'bg-green-500' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Render different steps
+  const renderStep = () => {
+    switch (currentStep) {
+      case WalletStep.OVERVIEW:
+        return <OverviewStep onStartTopUp={startTopUp} />;
+      case WalletStep.AMOUNT:
+        return <AmountStep onNext={goToPaymentMethod} onBack={goBack} />;
+      case WalletStep.PAYMENT_METHOD:
+        return <PaymentMethodStep onNext={goToCardVerification} onBack={goBack} />;
+      case WalletStep.CARD_VERIFICATION:
+        return <CardVerificationStep onNext={goToPayment} onBack={goBack} />;
+      case WalletStep.PAYMENT:
+        return <PaymentStep onBack={goBack} />;
+      case WalletStep.SUCCESS:
+        return <SuccessStep onReset={resetFlow} />;
+      default:
+        return <OverviewStep onStartTopUp={startTopUp} />;
+    }
+  };
+
+  // Step components
+  const OverviewStep = ({ onStartTopUp }: { onStartTopUp: () => void }) => (
+    <div className="space-y-6">
+      {/* Balance Card */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-medium opacity-90">Current Balance</h2>
+            <p className="text-4xl font-bold mt-2">
+              {formatCurrency(walletInfo?.balance || 0, 'BHD')}
+            </p>
+            {refreshingWallet && (
+              <div className="mt-2 flex items-center text-sm opacity-90">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Updating...
+              </div>
+            )}
+          </div>
+          <div className="text-right">
+            <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+              <span className="text-2xl">💰</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          onClick={onStartTopUp}
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-6 text-left transition-all duration-200 hover:shadow-lg hover:scale-105"
+        >
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mr-4">
+              <span className="text-xl">➕</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Top Up Wallet</h3>
+              <p className="text-sm opacity-90">Add funds to your wallet</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => {
+            fetchWalletInfo();
+            fetchTransactionHistory(1);
+          }}
+          disabled={refreshingWallet}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl p-6 text-left transition-all duration-200 hover:shadow-lg disabled:opacity-50"
+        >
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+              <span className="text-xl">🔄</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Refresh</h3>
+              <p className="text-sm opacity-90">Update wallet information</p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
+        </div>
+        <div className="divide-y divide-gray-200">
+          {transactions.length === 0 ? (
+            <div className="px-6 py-8 text-center">
+              <div className="text-4xl mb-4">📊</div>
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No transactions yet</h4>
+              <p className="text-gray-600 mb-4">Your transaction history will appear here</p>
+              <button
+                onClick={onStartTopUp}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Make Your First Top-up
+              </button>
+            </div>
+          ) : (
+            transactions.slice(0, 5).map((transaction) => {
+              const statusInfo = getTransactionStatusInfo(transaction);
+              return (
+                <div key={transaction.id} className="px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <span className="text-lg">{getTransactionIcon(transaction.transactionType)}</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900">{transaction.description}</h4>
+                        <p className="text-sm text-gray-600">{formatDate(transaction.createdAt)}</p>
+                        {statusInfo?.tapTransactionId && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            TAP ID: {statusInfo.tapTransactionId}
+                          </p>
+                        )}
+                        {statusInfo?.failureReason && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Failed: {statusInfo.failureReason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${getTransactionColor(transaction.transactionType)}`}>
+                        {transaction.transactionType === 'WITHDRAWAL' || transaction.transactionType === 'PAYMENT' ? '-' : '+'}
+                        {formatCurrency(transaction.amount, 'BHD')}
+                      </p>
+                      {getTransactionStatusBadge(transaction)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        {transactions.length > 5 && (
+          <div className="px-6 py-4 border-t border-gray-200">
+            <button
+              onClick={() => router.push('/customer/wallet?view=transactions')}
+              className="w-full text-center text-blue-600 hover:text-blue-700 font-medium"
+            >
+              View All Transactions
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const AmountStep = ({ onNext, onBack }: { onNext: () => void; onBack: () => void }) => (
+    <div className="max-w-md mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">💰</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">How much would you like to add?</h2>
+          <p className="text-gray-600">Enter the amount you want to top up your wallet with</p>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Amount (BHD)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                BD
+              </span>
+              <input
+                type="number"
+                value={topUpAmount}
+                onChange={(e) => setTopUpAmount(e.target.value)}
+                placeholder="0.000"
+                className="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-medium"
+                min="0.001"
+                step="0.001"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Quick Amount Buttons */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Quick Select
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[5, 10, 20, 50, 100, 200].map((amount) => (
+                <button
+                  key={amount}
+                  onClick={() => setTopUpAmount(amount.toString())}
+                  className={`py-3 px-4 rounded-lg border-2 transition-all duration-200 ${
+                    topUpAmount === amount.toString()
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
+                >
+                  {formatCurrency(amount, 'BHD')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <button
+              onClick={onBack}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+            >
+              Back
+            </button>
+            <button
+              onClick={onNext}
+              disabled={!topUpAmount || parseFloat(topUpAmount) <= 0}
+              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const PaymentMethodStep = ({ onNext, onBack }: { onNext: () => void; onBack: () => void }) => (
+    <div className="max-w-md mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">💳</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Choose Payment Method</h2>
+          <p className="text-gray-600">Select how you'd like to pay {formatCurrency(parseFloat(topUpAmount), 'BHD')}</p>
+        </div>
+
+        <div className="space-y-4 mb-8">
+          {[
+            { value: 'TAP_PAY', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, American Express' },
+            { value: 'BANK_TRANSFER', label: 'Bank Transfer', icon: '🏦', description: 'Direct bank transfer (manual processing)' }
+          ].map((method) => (
+            <button
+              key={method.value}
+              onClick={() => setSelectedPaymentMethod(method.value as any)}
+              className={`w-full p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                selectedPaymentMethod === method.value
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
+                  <span className="text-xl">{method.icon}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{method.label}</h3>
+                  <p className="text-sm text-gray-600">{method.description}</p>
+                </div>
+                {selectedPaymentMethod === method.value && (
+                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex space-x-3">
+          <button
+            onClick={onBack}
+            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+          >
+            Back
+          </button>
+          <button
+            onClick={onNext}
+            className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const CardVerificationStep = ({ onNext, onBack }: { onNext: () => void; onBack: () => void }) => {
+    if (selectedPaymentMethod === 'BANK_TRANSFER') {
+      return (
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">🏦</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Bank Transfer</h2>
+              <p className="text-gray-600">Contact support for bank transfer details</p>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={onBack}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              >
+                Back
+              </button>
+              <button
+                onClick={onNext}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+              >
+                Contact Support
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">✅</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify Payment Method</h2>
+            <p className="text-gray-600">
+              {selectedPaymentMethod === 'TAP_PAY' 
+                ? 'Enter your card details to verify your payment method'
+                : 'Verify your Benefit Pay account to proceed'
+              }
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {selectedPaymentMethod === 'TAP_PAY' && (
+              <div>
+                {cardVerification.isVerified ? (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-green-800">Card Verified ✓</h3>
+                        {cardVerification.cardDetails?.lastFour && (
+                          <p className="text-sm text-green-600">
+                            Card ending in {cardVerification.cardDetails.lastFour}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={clearCardVerification}
+                        className="text-sm text-green-600 hover:text-green-800 underline"
+                      >
+                        Change Card
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl p-6">
+                    <h3 className="font-semibold text-gray-900 mb-4">Card Details</h3>
+                    {profile && (
+                      <TapCardForm
+                        key={cardFormKey}
+                        amount={parseFloat(topUpAmount) || 0}
+                        currency="BHD"
+                        customerData={{
+                          firstName: profile.firstName || '',
+                          lastName: profile.lastName || '',
+                          email: profile.email || '',
+                          phone: profile.phone || ''
+                        }}
+                        onTokenReceived={handleTokenReceived}
+                        onError={handlePaymentError}
+                        isLoading={topUpLoading}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedPaymentMethod === 'BENEFIT_PAY' && (
+              <div>
+                {benefitPayVerification.isVerified ? (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-6">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+                        <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-green-800">Benefit Pay Verified ✓</h3>
+                        <p className="text-sm text-green-600">Ready to process payment</p>
+                      </div>
+                      <button
+                        onClick={clearBenefitPayVerification}
+                        className="text-sm text-green-600 hover:text-green-800 underline"
+                      >
+                        Change Method
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl p-6">
+                    <h3 className="font-semibold text-gray-900 mb-4">Benefit Pay Verification</h3>
+                    {profile && (
+                      <BenefitPayButton
+                        amount={parseFloat(topUpAmount) || 0}
+                        currency="BHD"
+                        customerData={{
+                          firstName: profile.firstName || '',
+                          lastName: profile.lastName || '',
+                          email: profile.email || '',
+                          phone: profile.phone || ''
+                        }}
+                        onTokenReceived={handleBenefitPayTokenReceived}
+                        onError={handlePaymentError}
+                        isLoading={topUpLoading}
+                        transactionReference={`wallet_topup_${Date.now()}`}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={onBack}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+              >
+                Back
+              </button>
+              <button
+                onClick={onNext}
+                disabled={
+                  (selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified) ||
+                  (selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified)
+                }
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const PaymentStep = ({ onBack }: { onBack: () => void }) => (
+    <div className="max-w-md mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">🔒</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Complete Payment</h2>
+          <p className="text-gray-600">Review and confirm your payment</p>
+        </div>
+
+        <div className="space-y-6">
+          {/* Payment Summary */}
+          <div className="bg-gray-50 rounded-xl p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Payment Summary</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Amount:</span>
+                <span className="font-semibold">{formatCurrency(parseFloat(topUpAmount), 'BHD')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Payment Method:</span>
+                <span className="font-semibold">
+                  {selectedPaymentMethod === 'TAP_PAY' ? 'Credit/Debit Card' : 'Bank Transfer'}
+                </span>
+              </div>
+              {selectedPaymentMethod === 'TAP_PAY' && cardVerification.cardDetails?.lastFour && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Card:</span>
+                  <span className="font-semibold">•••• {cardVerification.cardDetails.lastFour}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={onBack}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleTopUp}
+              disabled={topUpLoading}
+              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            >
+              {topUpLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                  Processing...
+                </div>
+              ) : (
+                `Pay ${formatCurrency(parseFloat(topUpAmount), 'BHD')}`
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const SuccessStep = ({ onReset }: { onReset: () => void }) => (
+    <div className="max-w-md mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-10 h-10 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        </div>
+        
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
+        <p className="text-gray-600 mb-6">
+          Your wallet has been topped up with {formatCurrency(parseFloat(topUpAmount), 'BHD')}
+        </p>
+        
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+          <p className="text-sm text-green-800">
+            Your new balance will be updated shortly. You can refresh the page to see the latest balance.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={onReset}
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+          >
+            Top Up Again
+          </button>
+          <button
+            onClick={() => router.push('/customer/dashboard')}
+            className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <CustomerLayout>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">My Wallet</h1>
-                <p className="text-gray-600">Manage your wallet balance and view transaction history</p>
+                <p className="text-gray-600">Manage your wallet balance and transactions</p>
               </div>
               <button
                 onClick={() => router.push('/customer/dashboard')}
@@ -489,426 +1106,13 @@ export default function WalletPage() {
             </div>
           </div>
 
-        {/* Balance Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Current Balance</h2>
-              <div className="flex items-center">
-                <p className="text-3xl font-bold text-green-600">
-                  {formatCurrency(walletInfo?.balance || 0, 'BHD')}
-                </p>
-                {refreshingWallet && (
-                  <div className="ml-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                  </div>
-                )}
-              </div>
-              {topUpSuccess && (
-                <div className="mt-2 flex items-center text-green-600">
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm font-medium">Top-up successful!</span>
-                </div>
-              )}
-            </div>
-            {!showTopUpForm && (
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => {
-                    setShowTopUpForm(true);
-                    setTopUpSuccess(false);
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Top Up Wallet
-                </button>
-                <button
-                  onClick={() => {
-                    fetchWalletInfo();
-                    fetchTransactionHistory(1);
-                  }}
-                  disabled={refreshingWallet}
-                  className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {refreshingWallet ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-transparent mr-2"></div>
-                      Refreshing...
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Refresh
-                    </div>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+          {/* Step Indicator */}
+          {currentStep !== WalletStep.OVERVIEW && <StepIndicator />}
 
-        {/* Top-up Form - Conditional Rendering */}
-        {showTopUpForm && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Top Up Your Wallet</h2>
-              <button
-                onClick={handleTopUpCancel}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Amount and Payment Method */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Amount (BD)
-                  </label>
-                  <input
-                    type="number"
-                    value={topUpAmount}
-                    onChange={(e) => setTopUpAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    min="0.001"
-                    step="0.001"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Payment Method
-                  </label>
-                  <select
-                    value={selectedPaymentMethod}
-                    onChange={(e) => handlePaymentMethodChange(e.target.value as 'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="TAP_PAY">Tap Pay (Card)</option>
-                    <option value="BENEFIT_PAY">Benefit Pay</option>
-                    <option value="BANK_TRANSFER">Bank Transfer</option>
-                  </select>
-                </div>
-
-                {/* Card Verification Status */}
-                {selectedPaymentMethod === 'TAP_PAY' && cardVerification.isVerified && (
-                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                    <div className="flex items-center">
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <p className="text-sm font-medium text-green-800">Card Verified ✓</p>
-                        {cardVerification.cardDetails?.lastFour && (
-                          <p className="text-xs text-green-600">
-                            Card ending in {cardVerification.cardDetails.lastFour} - Ready to process payment
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={clearCardVerification}
-                        className="ml-auto text-xs text-green-600 hover:text-green-800 underline"
-                      >
-                        Change Card
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified && (
-                  <div className="bg-blue-50 p-3 rounded-md">
-                    <p className="text-sm text-blue-800">
-                      💳 <strong>Step 1:</strong> Verify your card details using the form on the right. 
-                      <br />
-                      <span className="text-xs text-blue-600 mt-1 block">
-                        • Enter your card information to verify it's valid
-                        <br />
-                        • Click "Verify Card" to complete the verification
-                        <br />
-                        • After verification, you'll see a "Pay" button to process the payment
-                      </span>
-                    </p>
-                  </div>
-                )}
-
-                {selectedPaymentMethod === 'BENEFIT_PAY' && benefitPayVerification.isVerified && (
-                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                    <div className="flex items-center">
-                      <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      <div>
-                        <p className="text-sm font-medium text-green-800">Benefit Pay Verified ✓</p>
-                        <p className="text-xs text-green-600">
-                          Ready to process payment
-                        </p>
-                      </div>
-                      <button
-                        onClick={clearBenefitPayVerification}
-                        className="ml-auto text-xs text-green-600 hover:text-green-800 underline"
-                      >
-                        Change Method
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified && (
-                  <div className="bg-blue-50 p-3 rounded-md">
-                    <p className="text-sm text-blue-800">
-                      📱 <strong>Step 1:</strong> Verify your Benefit Pay account using the button on the right.
-                      <br />
-                      <span className="text-xs text-blue-600 mt-1 block">
-                        • Click the Benefit Pay button to verify your account
-                        <br />
-                        • After verification, you'll see a "Pay" button to process the payment
-                      </span>
-                    </p>
-                  </div>
-                )}
-
-                {selectedPaymentMethod === 'BANK_TRANSFER' && (
-                  <div className="bg-yellow-50 p-3 rounded-md">
-                    <p className="text-sm text-yellow-800">
-                      🏦 Bank transfer details will be provided. Please contact support after completing the transfer.
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex space-x-3 pt-4">
-                  {selectedPaymentMethod === 'BANK_TRANSFER' && (
-                    <button
-                      type="button"
-                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      onClick={handleTopUp}
-                    >
-                      {topUpLoading ? 'Processing...' : 'Top Up'}
-                    </button>
-                  )}
-                  
-                  {selectedPaymentMethod === 'TAP_PAY' && cardVerification.isVerified && (
-                    <button
-                      type="button"
-                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      onClick={handleTopUp}
-                    >
-                      {topUpLoading ? 'Processing Payment...' : `Pay ${formatCurrency(parseFloat(topUpAmount), 'BHD')}`}
-                    </button>
-                  )}
-
-                  {selectedPaymentMethod === 'BENEFIT_PAY' && benefitPayVerification.isVerified && (
-                    <button
-                      type="button"
-                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      onClick={handleTopUp}
-                    >
-                      {topUpLoading ? 'Processing Payment...' : `Pay ${formatCurrency(parseFloat(topUpAmount), 'BHD')}`}
-                    </button>
-                  )}
-                  
-                  <button
-                    type="button"
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-                    onClick={handleTopUpCancel}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-
-              {/* Right Column - Payment Form */}
-              <div>
-                {selectedPaymentMethod === 'TAP_PAY' && profile && !cardVerification.isVerified && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Details</h3>
-                    <TapCardForm
-                      key={cardFormKey}
-                      amount={parseFloat(topUpAmount) || 0}
-                      currency="BHD"
-                      customerData={{
-                        firstName: profile.firstName || '',
-                        lastName: profile.lastName || '',
-                        email: profile.email || '',
-                        phone: profile.phone || ''
-                      }}
-                      onTokenReceived={handleTokenReceived}
-                      onError={handlePaymentError}
-                      isLoading={topUpLoading}
-                    />
-                  </div>
-                )}
-
-                {selectedPaymentMethod === 'BENEFIT_PAY' && profile && !benefitPayVerification.isVerified && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Benefit Pay</h3>
-                    <BenefitPayButton
-                      amount={parseFloat(topUpAmount) || 0}
-                      currency="BHD"
-                      customerData={{
-                        firstName: profile.firstName || '',
-                        lastName: profile.lastName || '',
-                        email: profile.email || '',
-                        phone: profile.phone || ''
-                      }}
-                      onTokenReceived={handleBenefitPayTokenReceived}
-                      onError={handlePaymentError}
-                      isLoading={topUpLoading}
-                      transactionReference={`wallet_topup_${Date.now()}`}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">💰</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Deposits</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(
-                    transactions
-                      .filter(t => t.transactionType === 'DEPOSIT')
-                      .reduce((sum, t) => sum + t.amount, 0),
-                    'BHD'
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">💸</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Payments</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(
-                    transactions
-                      .filter(t => t.transactionType === 'PAYMENT')
-                      .reduce((sum, t) => sum + t.amount, 0),
-                    'BHD'
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">📊</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Transactions</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {transactions.length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Transaction History */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">Transaction History</h2>
-          </div>
-
-          <div className="divide-y divide-gray-200">
-            {transactions.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No transactions yet
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Your transaction history will appear here
-                </p>
-                <button
-                  onClick={() => setShowTopUpForm(true)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Make Your First Top-up
-                </button>
-              </div>
-            ) : (
-              transactions.map((transaction) => (
-                <div key={transaction.id} className="px-6 py-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <span className="text-lg">{getTransactionIcon(transaction.transactionType)}</span>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {transaction.description}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {formatDate(transaction.createdAt)}
-                        </p>
-                        {transaction.reference && (
-                          <p className="text-xs text-gray-500">
-                            Ref: {transaction.reference}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-bold ${getTransactionColor(transaction.transactionType)}`}>
-                        {transaction.transactionType === 'WITHDRAWAL' || transaction.transactionType === 'PAYMENT' ? '-' : '+'}
-                        {formatCurrency(transaction.amount, 'BHD')}
-                      </p>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        transaction.transactionType === 'DEPOSIT' || transaction.transactionType === 'REFUND'
-                          ? 'bg-green-100 text-green-800'
-                          : transaction.transactionType === 'WITHDRAWAL' || transaction.transactionType === 'PAYMENT'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {transaction.transactionType.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {hasMore && (
-            <div className="px-6 py-4 border-t border-gray-200">
-              <button
-                onClick={() => fetchTransactionHistory(currentPage + 1)}
-                className="w-full text-center text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Load More Transactions
-              </button>
-            </div>
-          )}
+          {/* Step Content */}
+          {renderStep()}
         </div>
       </div>
-    </div>
     </CustomerLayout>
   );
 } 

@@ -15,6 +15,13 @@ interface PaymentStatus {
   createdAt: string;
   isWalletTopUp: boolean;
   tapTransactionId?: string;
+  walletTransaction?: {
+    id: number;
+    status: 'PENDING' | 'COMPLETED' | 'FAILED';
+    amount: number;
+    description: string;
+    metadata?: string;
+  };
 }
 
 export default function PaymentSuccessPage() {
@@ -93,6 +100,21 @@ export default function PaymentSuccessPage() {
     }
   };
 
+  const getTransactionStatusInfo = (transaction?: PaymentStatus['walletTransaction']) => {
+    if (!transaction) return null;
+    
+    try {
+      const metadata = transaction.metadata ? JSON.parse(transaction.metadata) : {};
+      return {
+        tapTransactionId: metadata.tapTransactionId,
+        tapChargeId: metadata.tapChargeId,
+        failureReason: metadata.failureReason
+      };
+    } catch (error) {
+      return null;
+    }
+  };
+
   if (loading) {
     return (
       <CustomerLayout>
@@ -150,6 +172,9 @@ export default function PaymentSuccessPage() {
     );
   }
 
+  const transactionInfo = getTransactionStatusInfo(paymentStatus.walletTransaction);
+  const displayTapId = tapId || paymentStatus.tapTransactionId || transactionInfo?.tapTransactionId;
+
   return (
     <CustomerLayout>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -169,9 +194,18 @@ export default function PaymentSuccessPage() {
                 </div>
                 <p className="text-gray-600 mb-6">
                   {paymentStatus.isWalletTopUp 
-                    ? 'Your wallet has been topped up successfully!' 
+                    ? 'Your wallet top-up has been processed successfully! The amount has been added to your wallet balance.' 
                     : 'Your payment has been processed successfully!'}
                 </p>
+                {paymentStatus.isWalletTopUp && paymentStatus.walletTransaction && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-blue-800 text-sm">
+                      💡 <strong>Wallet Transaction:</strong> {paymentStatus.walletTransaction.status === 'COMPLETED' 
+                        ? 'Your wallet has been credited successfully!' 
+                        : 'Your wallet transaction is being processed...'}
+                    </p>
+                  </div>
+                )}
               </>
             ) : paymentStatus.paymentStatus === 'FAILED' ? (
               <>
@@ -184,6 +218,11 @@ export default function PaymentSuccessPage() {
                   <p className="text-red-600 text-sm mt-1">
                     {paymentStatus.description}
                   </p>
+                  {transactionInfo?.failureReason && (
+                    <p className="text-red-600 text-sm mt-2">
+                      Reason: {transactionInfo.failureReason}
+                    </p>
+                  )}
                 </div>
                 <p className="text-gray-600 mb-6">
                   Your payment could not be processed. Please try again.
@@ -204,6 +243,14 @@ export default function PaymentSuccessPage() {
                 <p className="text-gray-600 mb-6">
                   Your payment is being processed. You will receive a confirmation shortly.
                 </p>
+                {paymentStatus.isWalletTopUp && paymentStatus.walletTransaction && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-blue-800 text-sm">
+                      💡 <strong>Note:</strong> Your wallet transaction is currently in pending status. 
+                      You can view the pending transaction in your wallet section.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 
@@ -225,11 +272,16 @@ export default function PaymentSuccessPage() {
               )}
             </div>
 
-            {(tapId || paymentStatus.tapTransactionId) && (
+            {displayTapId && (
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <p className="text-xs text-gray-500">
-                  Transaction ID: {paymentStatus.tapTransactionId || tapId}
+                  Transaction ID: {displayTapId}
                 </p>
+                {transactionInfo?.tapChargeId && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Charge ID: {transactionInfo.tapChargeId}
+                  </p>
+                )}
               </div>
             )}
           </div>

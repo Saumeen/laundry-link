@@ -18,11 +18,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get payment record
+    // Get payment record with wallet transaction
     const paymentRecord = await prisma.paymentRecord.findFirst({
       where: {
         id: parseInt(paymentId),
         customerId: customer.id // Ensure customer can only access their own payments
+      },
+      include: {
+        walletTransaction: {
+          select: {
+            id: true,
+            status: true,
+            amount: true,
+            description: true,
+            metadata: true
+          }
+        }
       }
     });
 
@@ -48,7 +59,8 @@ export async function GET(request: NextRequest) {
         description: paymentRecord.description,
         createdAt: paymentRecord.createdAt,
         isWalletTopUp,
-        tapTransactionId: paymentRecord.tapTransactionId
+        tapTransactionId: paymentRecord.tapTransactionId,
+        walletTransaction: paymentRecord.walletTransaction
       }
     });
 

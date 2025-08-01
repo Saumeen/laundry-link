@@ -12,6 +12,8 @@ export interface WalletTransaction {
   description: string;
   reference?: string;
   metadata?: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
+  processedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -292,7 +292,7 @@ export async function processTapPayment(
   isWalletTopUp: boolean = false
 ) {
   try {
-    // Create payment record first
+    // Create payment record
     const paymentRecord = await prisma.paymentRecord.create({
       data: {
         customerId,
@@ -304,6 +304,36 @@ export async function processTapPayment(
         paymentStatus: 'PENDING'
       }
     });
+
+    // If this is a wallet top-up, create a pending wallet transaction
+    let pendingWalletTransaction = null;
+    if (isWalletTopUp) {
+      const wallet = await createWalletForCustomer(customerId);
+      pendingWalletTransaction = await prisma.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          transactionType: 'DEPOSIT',
+          amount,
+          balanceBefore: wallet.balance,
+          balanceAfter: wallet.balance, // Will be updated when payment is confirmed
+          description: `Wallet top-up - ${description || `${amount} BHD`}`,
+          reference: `Payment: ${paymentRecord.id}`,
+          metadata: JSON.stringify({
+            paymentRecordId: paymentRecord.id,
+            status: 'PENDING',
+            tapPaymentInProgress: true
+          }),
+          status: 'PENDING',
+          processedAt: null
+        }
+      });
+
+      // Link the payment record to the wallet transaction
+      await prisma.paymentRecord.update({
+        where: { id: paymentRecord.id },
+        data: { walletTransactionId: pendingWalletTransaction.id }
+      });
+    }
 
     // Create Tap charge
     const chargeData: TapChargeRequest = {
@@ -337,7 +367,8 @@ export async function processTapPayment(
         paymentRecordId: paymentRecord.id,
         orderId,
         customerId,
-        isWalletTopUp
+        isWalletTopUp,
+        walletTransactionId: pendingWalletTransaction?.id
       }
     };
 
@@ -350,10 +381,27 @@ export async function processTapPayment(
       tapResponse.status === 'CAPTURED' ? 'PAID' : 'PENDING'
     );
 
+    // If this is a wallet top-up and we have a pending transaction, update it with TAP ID
+    if (isWalletTopUp && pendingWalletTransaction && tapResponse.id) {
+      await prisma.walletTransaction.update({
+        where: { id: pendingWalletTransaction.id },
+        data: {
+          metadata: JSON.stringify({
+            paymentRecordId: paymentRecord.id,
+            status: 'PENDING',
+            tapPaymentInProgress: true,
+            tapTransactionId: tapResponse.id,
+            tapChargeId: tapResponse.charge?.id || null
+          })
+        }
+      });
+    }
+
     return {
       paymentRecord,
       tapResponse,
-      redirectUrl: tapResponse.transaction?.url || tapResponse.redirect?.url
+      redirectUrl: tapResponse.transaction?.url || tapResponse.redirect?.url,
+      pendingWalletTransaction
     };
   } catch (error) {
     console.error('Error processing Tap payment:', error);
@@ -369,6 +417,7 @@ export async function handleTapWebhook(webhookData: any) {
     // Extract payment record ID from metadata
     const metadata = webhookData.metadata;
     const paymentRecordId = metadata?.paymentRecordId;
+    const walletTransactionId = metadata?.walletTransactionId;
 
     if (!paymentRecordId) {
       throw new Error('Payment record ID not found in webhook metadata');
@@ -392,16 +441,82 @@ export async function handleTapWebhook(webhookData: any) {
 
     await processTapPaymentResponse(paymentRecordId, webhookData, status);
 
-    // If payment is successful and it's a wallet top-up, add to wallet
-    if (status === 'PAID' && metadata?.isWalletTopUp) {
+    // If this is a wallet top-up, handle the wallet transaction
+    if (metadata?.isWalletTopUp && walletTransactionId) {
+      const walletTransaction = await prisma.walletTransaction.findUnique({
+        where: { id: walletTransactionId }
+      });
+
+      if (walletTransaction) {
+        if (status === 'PAID') {
+          // Update the pending wallet transaction to completed
+          const wallet = await prisma.wallet.findUnique({
+            where: { id: walletTransaction.walletId }
+          });
+
+          if (wallet) {
+            const newBalance = wallet.balance + walletTransaction.amount;
+            
+            await prisma.walletTransaction.update({
+              where: { id: walletTransactionId },
+              data: {
+                status: 'COMPLETED',
+                balanceAfter: newBalance,
+                processedAt: new Date(),
+                metadata: JSON.stringify({
+                  paymentRecordId,
+                  status: 'COMPLETED',
+                  tapTransactionId: webhookData.id,
+                  tapChargeId: webhookData.charge?.id || null,
+                  processedAt: new Date().toISOString()
+                })
+              }
+            });
+
+            // Update wallet balance
+            await prisma.wallet.update({
+              where: { id: wallet.id },
+              data: {
+                balance: newBalance,
+                lastTransactionAt: new Date()
+              }
+            });
+          }
+        } else if (status === 'FAILED') {
+          // Update the pending wallet transaction to failed
+          await prisma.walletTransaction.update({
+            where: { id: walletTransactionId },
+            data: {
+              status: 'FAILED',
+              processedAt: new Date(),
+              metadata: JSON.stringify({
+                paymentRecordId,
+                status: 'FAILED',
+                tapTransactionId: webhookData.id,
+                tapChargeId: webhookData.charge?.id || null,
+                failureReason: webhookData.failure_reason || 'Payment failed',
+                processedAt: new Date().toISOString()
+              })
+            }
+          });
+        }
+      }
+    }
+
+    // Legacy handling for backward compatibility
+    if (status === 'PAID' && metadata?.isWalletTopUp && !walletTransactionId) {
       const wallet = await createWalletForCustomer(metadata.customerId);
       await processWalletTransaction({
         walletId: wallet.id,
         transactionType: 'DEPOSIT',
         amount: webhookData.amount / 1000, // Convert from fils to BHD
-        description: 'Wallet top-up via Tap payment',
-        reference: `Tap Payment: ${webhookData.id}`,
-        metadata: JSON.stringify({ paymentRecordId })
+        description: `Wallet top-up via TAP payment`,
+        reference: `Payment: ${paymentRecordId}`,
+        metadata: JSON.stringify({
+          paymentRecordId,
+          tapTransactionId: webhookData.id,
+          tapChargeId: webhookData.charge?.id || null
+        })
       });
     }
 

@@ -29,11 +29,24 @@ export const tapConfig = {
   
   // Benefit Pay configuration
   benefitPay: {
-    // Benefit Pay SDK URL
+    // Benefit Pay SDK URLs (with fallbacks)
+    sdkUrls: [
+      'https://cdn.tap.company/benefit-pay-button/1.0.0/index.js',
+      'https://tap-sdks.b-cdn.net/benefit-pay-button/1.0.0/index.js',
+      'https://cdn.jsdelivr.net/npm/@tap-payments/benefit-pay-button@1.0.0/dist/index.js'
+    ],
+    
+    // Primary SDK URL (first in the array)
     sdkUrl: 'https://cdn.tap.company/benefit-pay-button/1.0.0/index.js',
     
     // Webhook URL for Benefit Pay
-    webhookUrl: process.env.NEXT_PUBLIC_BENEFIT_PAY_WEBHOOK_URL || '/api/payment/benefit-pay-webhook'
+    webhookUrl: process.env.NEXT_PUBLIC_BENEFIT_PAY_WEBHOOK_URL || '/api/payment/benefit-pay-webhook',
+    
+    // Timeout for script loading (in milliseconds)
+    loadTimeout: 30000,
+    
+    // Retry attempts for script loading
+    maxRetries: 3
   }
 };
 
@@ -49,6 +62,10 @@ export const validateTapConfig = () => {
     errors.push('TAP_MERCHANT_ID is not configured');
   }
   
+  if (!tapConfig.secretKey || tapConfig.secretKey === 'sk_test_...') {
+    errors.push('TAP_SECRET_KEY is not configured');
+  }
+  
   return errors;
 };
 
@@ -61,4 +78,16 @@ export const getTapConfig = () => {
   }
   
   return tapConfig;
+};
+
+// Get Benefit Pay SDK URL with fallback
+export const getBenefitPaySDKUrl = (attempt: number = 0): string => {
+  const urls = tapConfig.benefitPay.sdkUrls;
+  return urls[attempt] || urls[0];
+};
+
+// Check if all required environment variables are set
+export const isTapConfigValid = (): boolean => {
+  const errors = validateTapConfig();
+  return errors.length === 0;
 }; 

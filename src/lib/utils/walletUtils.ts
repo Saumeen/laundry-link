@@ -335,16 +335,18 @@ export async function processTapPaymentResponse(
     };
 
     // Extract Tap-specific fields
-    if (tapResponse.id) updateData.tapTransactionId = tapResponse.id;
+    if (tapResponse.id) {
+      updateData.tapTransactionId = tapResponse.id;
+      updateData.tapChargeId = tapResponse.id;
+    }
     if (tapResponse.reference) updateData.tapReference = JSON.stringify(tapResponse.reference);
-    if (tapResponse.charge?.id) updateData.tapChargeId = tapResponse.charge.id;
     if (tapResponse.authorize?.id) updateData.tapAuthorizeId = tapResponse.authorize.id;
 
     // Extract card information if available
-    if (tapResponse.source?.card) {
-      updateData.cardLastFour = tapResponse.source.card.last4;
-      updateData.cardBrand = tapResponse.source.card.brand;
-      updateData.cardExpiry = `${tapResponse.source.card.exp_month}/${tapResponse.source.card.exp_year}`;
+    if (tapResponse.card) {
+      updateData.cardLastFour = tapResponse.card.last_four;
+      updateData.cardBrand = tapResponse.card.brand;
+      updateData.cardExpiry = `${tapResponse.card.exp_month}/${tapResponse.card.exp_year}`;
     }
 
     // Store only essential response data to avoid size issues
