@@ -68,6 +68,7 @@ export interface OrderFilters extends BaseFilters {
   customerId?: number;
   dateFrom?: string;
   dateTo?: string;
+  serviceType?: 'EXPRESS' | 'REGULAR' | 'ALL';
 }
 
 export interface CustomerFilters extends BaseFilters {

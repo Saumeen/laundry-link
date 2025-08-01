@@ -13,6 +13,7 @@ import {
   formatDate,
   formatCurrency,
 } from '@/admin/utils/orderUtils';
+import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
 import type { OrderWithDetails } from '@/admin/api/orders';
 
 export default function OperationManagerDashboard() {
@@ -255,6 +256,9 @@ export default function OperationManagerDashboard() {
                     Service Type
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Delivery Time
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Actions
                   </th>
                 </tr>
@@ -262,14 +266,14 @@ export default function OperationManagerDashboard() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {ordersLoading ? (
                   <tr>
-                    <td colSpan={7} className='px-6 py-4 text-center'>
+                    <td colSpan={8} className='px-6 py-4 text-center'>
                       <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'></div>
                     </td>
                   </tr>
                 ) : orders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className='px-6 py-4 text-center text-gray-500'
                     >
                       No orders found
@@ -300,10 +304,8 @@ export default function OperationManagerDashboard() {
                         {formatDate(order.createdAt)}
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap'>
-                        {order.orderServiceMappings?.some(
-                          mapping => mapping.service.name === 'express-service'
-                        ) ? (
-                          <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800'>
+                        {order.isExpressService ? (
+                          <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800'>
                             <svg
                               className='w-3 h-3 mr-1'
                               fill='none'
@@ -320,11 +322,21 @@ export default function OperationManagerDashboard() {
                             Express
                           </span>
                         ) : (
-                          <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800'>
+                          <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800'>
                             Regular
                           </span>
                         )}
                       </td>
+                                 <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+             <div>
+               <div className='text-xs'>
+                 {formatUTCForDisplay(order.deliveryStartTime.toString())}
+               </div>
+               <div className='text-xs text-gray-400'>
+                 {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+               </div>
+             </div>
+           </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                         <button
                           onClick={() => handleOpenOrderDetails(order)}

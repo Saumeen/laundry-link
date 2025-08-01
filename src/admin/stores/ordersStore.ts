@@ -65,6 +65,7 @@ const initialState = {
   filters: {
     page: 1,
     limit: 10,
+    serviceType: 'ALL' as 'EXPRESS' | 'REGULAR' | 'ALL',
   },
   showOrderDetails: false,
   statusUpdateForm: { loading: false, error: null, success: false },
@@ -251,7 +252,7 @@ export const useOrdersStore = create<OrdersState>()(
       },
 
       resetFilters: () => {
-        set({ filters: { page: 1, limit: 10 } });
+        set({ filters: { page: 1, limit: 10, serviceType: 'ALL' } });
       },
 
       toggleOrderDetails: () => {

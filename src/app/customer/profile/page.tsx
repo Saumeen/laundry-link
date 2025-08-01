@@ -270,7 +270,7 @@ export default function CustomerProfilePage() {
                     Wallet Balance
                   </label>
                   <p className='text-2xl font-bold text-green-600'>
-                    {formatCurrency(profile?.walletBalance || 0)}
+                    {profile?.wallet?.balance ? formatCurrency(profile.wallet.balance) : formatCurrency(0)}
                   </p>
                 </div>
 

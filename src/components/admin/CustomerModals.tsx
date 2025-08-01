@@ -10,7 +10,10 @@ interface Customer {
   lastName: string;
   phone: string | null;
   isActive: boolean;
-  walletBalance: number;
+  wallet?: {
+    balance: number;
+    currency: string;
+  };
   createdAt: string;
   updatedAt: string;
   addresses: Address[];
@@ -355,7 +358,7 @@ export function CustomerDetailsModal({
               <div>
                 <span className='text-sm text-gray-500'>Wallet Balance:</span>
                 <p className='font-medium text-green-600'>
-                  ${customer.walletBalance.toFixed(2)}
+                  {customer.wallet?.balance ? `${customer.wallet.currency} ${customer.wallet.balance.toFixed(2)}` : 'No wallet'}
                 </p>
               </div>
             </div>

@@ -44,9 +44,14 @@ export async function GET(req: Request) {
         lastName: true,
         phone: true,
         isActive: true,
-        walletBalance: true,
         createdAt: true,
         updatedAt: true,
+        wallet: {
+          select: {
+            balance: true,
+            currency: true,
+          },
+        },
         addresses: {
           select: {
             id: true,
@@ -157,9 +162,14 @@ export async function PUT(req: Request) {
         lastName: true,
         phone: true,
         isActive: true,
-        walletBalance: true,
         createdAt: true,
         updatedAt: true,
+        wallet: {
+          select: {
+            balance: true,
+            currency: true,
+          },
+        },
       },
     });
 

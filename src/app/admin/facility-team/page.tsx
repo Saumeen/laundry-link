@@ -13,6 +13,7 @@ import {
   formatDate,
   formatCurrency,
 } from '@/admin/utils/orderUtils';
+import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
 import type { OrderWithDetails } from '@/admin/api/orders';
 
 export default function FacilityTeamDashboard() {
@@ -233,6 +234,9 @@ export default function FacilityTeamDashboard() {
                     Date
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Delivery Time
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Actions
                   </th>
                 </tr>
@@ -240,14 +244,14 @@ export default function FacilityTeamDashboard() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {ordersLoading ? (
                   <tr>
-                    <td colSpan={6} className='px-6 py-4 text-center'>
+                    <td colSpan={7} className='px-6 py-4 text-center'>
                       <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'></div>
                     </td>
                   </tr>
                 ) : orders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className='px-6 py-4 text-center text-gray-500'
                     >
                       No orders found
@@ -259,10 +263,8 @@ export default function FacilityTeamDashboard() {
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                         <div className='flex items-center space-x-2'>
                           <span>{order.orderNumber}</span>
-                          {order.orderServiceMappings?.some(
-                            mapping => mapping.service.name === 'express-service'
-                          ) && (
-                            <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800'>
+                          {order.isExpressService && (
+                            <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800'>
                               Express
                             </span>
                           )}
@@ -286,6 +288,16 @@ export default function FacilityTeamDashboard() {
                       <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
                         {formatDate(order.createdAt)}
                       </td>
+                                 <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+             <div>
+               <div className='text-xs'>
+                 {formatUTCForDisplay(order.deliveryStartTime.toString())}
+               </div>
+               <div className='text-xs text-gray-400'>
+                 {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+               </div>
+             </div>
+           </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                         <button
                           onClick={() => handleOpenOrderDetails(order)}

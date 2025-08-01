@@ -110,7 +110,7 @@ class CronScheduler {
         console.log(`Cron job ${job.name} completed successfully`);
       } else {
         console.error(`Cron job ${job.name} failed:`, result);
-        execution.error = result.error || 'Unknown error';
+        execution.error = (result as any)?.error || 'Unknown error';
       }
     } catch (error) {
       execution.endTime = new Date();

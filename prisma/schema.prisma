@@ -216,6 +216,7 @@ model Order {
   paymentMethod       String?
   notes               String?       // General order notes
   createdByStaffId    Int?          // Track which staff member created the order
+  isExpressService    Boolean       @default(false) // Track if this is an express service order
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   

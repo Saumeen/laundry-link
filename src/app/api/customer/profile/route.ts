@@ -22,6 +22,12 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         isActive: true,
+        wallet: {
+          select: {
+            balance: true,
+            currency: true,
+          },
+        },
       },
     });
 

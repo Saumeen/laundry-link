@@ -12,7 +12,9 @@ import {
   formatDate,
   formatCurrency,
 } from '@/admin/utils/orderUtils';
+import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
 import type { OrderWithDetails } from '@/admin/api/orders';
+import { OrderStatus } from '@prisma/client';
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -131,7 +133,7 @@ export default function AdminPanel() {
             />
             <StatsCard
               title='Pending Orders'
-              value={orders.filter(order => order.status === 'PENDING').length}
+              value={orders.filter(order => order.status === OrderStatus.ORDER_PLACED).length}
               icon={
                 <svg
                   className='w-5 h-5 text-white'
@@ -153,7 +155,7 @@ export default function AdminPanel() {
             <StatsCard
               title='Processing Orders'
               value={
-                orders.filter(order => order.status === 'PROCESSING').length
+                orders.filter(order => order.status === OrderStatus.PROCESSING_STARTED).length
               }
               icon={
                 <svg
@@ -322,6 +324,9 @@ export default function AdminPanel() {
                     Date
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Delivery Time
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Actions
                   </th>
                 </tr>
@@ -329,14 +334,14 @@ export default function AdminPanel() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className='px-6 py-4 text-center'>
+                    <td colSpan={8} className='px-6 py-4 text-center'>
                       <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'></div>
                     </td>
                   </tr>
                 ) : orders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className='px-6 py-4 text-center text-gray-500'
                     >
                       No orders found
@@ -368,11 +373,21 @@ export default function AdminPanel() {
                         </span>
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
-                        {formatCurrency(order.invoiceTotal)}
+                        {formatCurrency(order.invoiceTotal || 0)}
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
                         {formatDate(order.createdAt)}
                       </td>
+                                 <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+             <div>
+               <div className='text-xs'>
+                 {formatUTCForDisplay(order.deliveryStartTime.toString())}
+               </div>
+               <div className='text-xs text-gray-400'>
+                 {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+               </div>
+             </div>
+           </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                         <button
                           onClick={() => handleOpenOrderDetails(order)}

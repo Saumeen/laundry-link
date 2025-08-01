@@ -10,6 +10,10 @@ export interface CustomerProfile {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  wallet?: {
+    balance: number;
+    currency: string;
+  };
 }
 
 export interface CustomerAddress {
@@ -133,6 +137,7 @@ export interface OrderWithDetails {
   paymentMethod?: string;
   notes?: string;
   createdByStaffId?: number;
+  isExpressService: boolean;
   createdAt: string;
   updatedAt: string;
 

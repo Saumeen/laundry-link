@@ -24,21 +24,10 @@ interface OrderDetails {
   invoiceItems?: any[];
   items?: any[];
   processingDetails?: any;
+  invoiceGenerated: boolean;
 }
 
-const isInvoiceReady = (status: OrderStatus): boolean => {
-  switch (status) {
-    case OrderStatus.PROCESSING_COMPLETED:
-    case OrderStatus.QUALITY_CHECK:
-    case OrderStatus.READY_FOR_DELIVERY:
-    case OrderStatus.DELIVERY_ASSIGNED:
-    case OrderStatus.DELIVERY_IN_PROGRESS:
-    case OrderStatus.DELIVERED:
-      return true;
-    default:
-      return false;
-  }
-};
+
 
 interface InvoiceTabProps {
   orderDetails: OrderDetails;
@@ -53,7 +42,7 @@ export function InvoiceTab({
   onPrint,
   invoiceLoading,
 }: InvoiceTabProps) {
-  const isReady = isInvoiceReady(orderDetails.status);
+  const isReady = orderDetails.invoiceGenerated;
 
   return (
     <div className='space-y-6'>

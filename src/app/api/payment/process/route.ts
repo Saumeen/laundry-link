@@ -8,7 +8,16 @@ import { processTapPayment } from '@/lib/utils/tapPaymentUtils';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json() as {
+      customerId: number;
+      orderId?: number;
+      amount: number;
+      paymentMethod: string;
+      description?: string;
+      paymentType?: string;
+      tokenId?: string;
+      customerData?: any;
+    };
     const {
       customerId,
       orderId,
@@ -36,9 +45,9 @@ export async function POST(request: NextRequest) {
         // Process payment using wallet balance
         result = await processWalletPayment(
           customerId,
-          orderId,
+          orderId ?? 0,
           amount,
-          description || `Payment for order ${orderId}`
+          description || `Payment for order ${orderId ?? 'wallet top-up'}`
         );
         break;
 
@@ -57,7 +66,7 @@ export async function POST(request: NextRequest) {
         // Process payment using Tap
         result = await processTapPayment(
           customerId,
-          orderId || 0, // Use 0 for wallet top-ups
+          orderId ?? 0, // Use 0 for wallet top-ups
           amount,
           customerData,
           tokenId,
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
           orderId,
           amount,
           paymentMethod,
-          description: description || `Payment for order ${orderId}`
+          description: description || `Payment for order ${orderId ?? 'wallet top-up'}`
         });
 
         // Mark as pending - will be updated manually by admin

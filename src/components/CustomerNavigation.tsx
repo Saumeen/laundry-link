@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useProfileStore, useWalletStore } from '@/customer';
+import { useProfileStore } from '@/customer';
 import { useLogout } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 
@@ -27,7 +27,7 @@ export default function CustomerNavigation({
   icon,
 }: CustomerNavigationProps) {
   const { profile } = useProfileStore();
-  const { balance } = useWalletStore();
+  const balance = profile?.wallet?.balance || 0;
   const logout = useLogout();
 
   useEffect(() => {
