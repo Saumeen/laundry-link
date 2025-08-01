@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import { UserRole } from '@/types/global';
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
@@ -211,7 +212,7 @@ export const authOptions: NextAuthOptions = {
                 email: user.email!,
                 firstName: user.name?.split(' ')[0] || '',
                 lastName: user.name?.split(' ').slice(1).join(' ') || '',
-                phone: credentials.phoneNumber,
+                phone: null, // OAuth users don't have phone number initially
                 isActive: true,
               },
             });
@@ -294,4 +295,25 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 
-export { handler as GET, handler as POST };
+// Add error handling wrapper
+const wrappedHandler = async (req: Request, context: any) => {
+  try {
+    return await handler(req, context);
+  } catch (error) {
+    console.error('NextAuth handler error:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Authentication error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  }
+};
+
+export { wrappedHandler as GET, wrappedHandler as POST };

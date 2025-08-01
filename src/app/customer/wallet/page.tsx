@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 import TapCardForm from '@/components/ui/TapCardForm';
+import BenefitPayButton from '@/components/ui/BenefitPayButton';
 import { CustomerLayout } from '@/customer/components/CustomerLayout';
 
 // Enhanced state interface for card verification
@@ -35,7 +36,7 @@ export default function WalletPage() {
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [showTopUpForm, setShowTopUpForm] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'TAP_PAY' | 'BANK_TRANSFER'>('TAP_PAY');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER'>('TAP_PAY');
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [topUpSuccess, setTopUpSuccess] = useState(false);
@@ -49,6 +50,17 @@ export default function WalletPage() {
     verificationTimestamp: null
   });
 
+  // Benefit Pay verification state
+  const [benefitPayVerification, setBenefitPayVerification] = useState<{
+    isVerified: boolean;
+    token: string | null;
+    verificationTimestamp: number | null;
+  }>({
+    isVerified: false,
+    token: null,
+    verificationTimestamp: null
+  });
+
   // Card form state
   const [cardFormKey, setCardFormKey] = useState(0); // Key to force re-render when needed
 
@@ -56,6 +68,35 @@ export default function WalletPage() {
     if (profile?.id) {
       fetchWalletInfo();
       fetchTransactionHistory();
+      
+      // Check for pending payments and payments in progress
+      const pendingPayment = localStorage.getItem(`pendingPayment_${profile.id}`);
+      const paymentInProgress = localStorage.getItem(`paymentInProgress_${profile.id}`);
+      
+      if (pendingPayment || paymentInProgress) {
+        try {
+          const payment = pendingPayment ? JSON.parse(pendingPayment) : JSON.parse(paymentInProgress!);
+          const timeDiff = Date.now() - payment.timestamp;
+          
+          // If payment was initiated within the last 30 minutes, refresh wallet
+          if (timeDiff < 30 * 60 * 1000) {
+            showToast('Checking payment status...', 'info');
+            // Refresh wallet after a short delay to allow for webhook processing
+            setTimeout(() => {
+              fetchWalletInfo();
+              fetchTransactionHistory(1);
+            }, 2000);
+          }
+          
+          // Clear the payment records
+          localStorage.removeItem(`pendingPayment_${profile.id}`);
+          localStorage.removeItem(`paymentInProgress_${profile.id}`);
+        } catch (error) {
+          console.warn('Failed to parse payment data:', error);
+          localStorage.removeItem(`pendingPayment_${profile.id}`);
+          localStorage.removeItem(`paymentInProgress_${profile.id}`);
+        }
+      }
     }
   }, [profile?.id]);
 
@@ -84,6 +125,31 @@ export default function WalletPage() {
     }
   }, [profile?.id]);
 
+  // Load saved Benefit Pay verification state from localStorage
+  useEffect(() => {
+    if (profile?.id) {
+      const savedState = localStorage.getItem(`benefitPayVerification_${profile.id}`);
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          // Check if the verification is still valid (within 30 minutes)
+          const isValid = parsed.verificationTimestamp && 
+            (Date.now() - parsed.verificationTimestamp) < 30 * 60 * 1000;
+          
+          if (isValid) {
+            setBenefitPayVerification(parsed);
+          } else {
+            // Clear expired verification
+            localStorage.removeItem(`benefitPayVerification_${profile.id}`);
+          }
+        } catch (error) {
+          console.warn('Failed to parse saved Benefit Pay verification state:', error);
+          localStorage.removeItem(`benefitPayVerification_${profile.id}`);
+        }
+      }
+    }
+  }, [profile?.id]);
+
   // Save card verification state to localStorage
   useEffect(() => {
     if (profile?.id && cardVerification.isVerified && cardVerification.token) {
@@ -91,23 +157,23 @@ export default function WalletPage() {
     }
   }, [cardVerification, profile?.id]);
 
+  // Save Benefit Pay verification state to localStorage
+  useEffect(() => {
+    if (profile?.id && benefitPayVerification.isVerified && benefitPayVerification.token) {
+      localStorage.setItem(`benefitPayVerification_${profile.id}`, JSON.stringify(benefitPayVerification));
+    }
+  }, [benefitPayVerification, profile?.id]);
+
   const fetchWalletInfo = async () => {
     try {
       if (!profile?.id) return;
       setRefreshingWallet(true);
       const response = await walletApi.getWalletInfo(profile.id);
-      
-      // Add null check for data
-      if (!response) {
-        console.error('Invalid response from wallet info API:', response);
-        showToast('Failed to load wallet information - invalid response', 'error');
-        return;
-      }
-      
       setWalletInfo(response);
     } catch (error) {
       console.error('Error fetching wallet info:', error);
-      showToast('Failed to load wallet information', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load wallet information';
+      showToast(errorMessage, 'error');
     } finally {
       setRefreshingWallet(false);
     }
@@ -118,13 +184,6 @@ export default function WalletPage() {
       if (!profile?.id) return;
       const response = await walletApi.getTransactionHistory(profile.id, page, 20);
       
-      // Add null check for data
-      if (!response || !response.transactions) {
-        console.error('Invalid response from transaction history API:', response);
-        showToast('Failed to load transaction history - invalid response', 'error');
-        return;
-      }
-      
       if (page === 1) {
         setTransactions(response.transactions);
       } else {
@@ -134,7 +193,8 @@ export default function WalletPage() {
       setCurrentPage(page);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
-      showToast('Failed to load transaction history', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load transaction history';
+      showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -154,6 +214,12 @@ export default function WalletPage() {
     // For TAP_PAY, we need to wait for the token to be generated
     if (selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified) {
       showToast('Please complete the payment form verification first', 'error');
+      return;
+    }
+
+    // For BENEFIT_PAY, we need to wait for the token to be generated
+    if (selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified) {
+      showToast('Please complete the Benefit Pay verification first', 'error');
       return;
     }
 
@@ -177,26 +243,38 @@ export default function WalletPage() {
         topUpData.tokenId = cardVerification.token;
       }
 
+      // Add customer data for Benefit Pay payments
+      if (selectedPaymentMethod === 'BENEFIT_PAY' && profile && benefitPayVerification.token) {
+        topUpData.customerData = {
+          firstName: profile.firstName || '',
+          lastName: profile.lastName || '',
+          email: profile.email || '',
+          phone: profile.phone || ''
+        };
+
+        topUpData.tokenId = benefitPayVerification.token;
+      }
+
       const response = await walletApi.topUpWallet(topUpData);
-      
-      if (response.success && response.data) {
-        if (response.data.redirectUrl) {
-          // Redirect to payment gateway (external URL)
-          window.location.href = response.data.redirectUrl;
-        } else if (response.data.message) {
-          showToast(response.data.message, 'success');
+      if (response) {
+        if (response.redirectUrl) {
+          // Handle redirect to payment gateway
+          handlePaymentRedirect(response.redirectUrl);
+        } else if (response.message) {
+          showToast(response.message, 'success');
           handleTopUpSuccess();
         } else {
           showToast('Top-up request submitted successfully', 'success');
           handleTopUpSuccess();
         }
       } else {
-        showToast(response.error || 'Failed to process top-up request', 'error');
+        showToast('Failed to process top-up request', 'error');
         setTopUpLoading(false);
       }
     } catch (error) {
       console.error('Error processing top-up:', error);
-      showToast('Failed to process top-up request', 'error');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process top-up request';
+      showToast(errorMessage, 'error');
       setTopUpLoading(false);
     }
   };
@@ -221,7 +299,27 @@ export default function WalletPage() {
     }, 5000);
   };
 
-  const handleTokenReceived = (token: string, cardDetails?: any) => {
+  const handlePaymentRedirect = (redirectUrl: string) => {
+    showToast('Redirecting to payment gateway...', 'info');
+    // Store current state for when user returns
+    if (profile?.id) {
+      localStorage.setItem(`paymentInProgress_${profile.id}`, JSON.stringify({
+        amount: topUpAmount,
+        paymentMethod: selectedPaymentMethod,
+        timestamp: Date.now()
+      }));
+    }
+    
+    // Redirect to payment gateway
+    window.location.href = redirectUrl;
+  };
+
+  const handleTokenReceived = (token: string, cardDetails?: {
+    lastFour?: string;
+    brand?: string;
+    expiryMonth?: string;
+    expiryYear?: string;
+  }) => {
     const verificationState: CardVerificationState = {
       isVerified: true,
       token,
@@ -238,17 +336,23 @@ export default function WalletPage() {
     showToast('Payment method verified successfully', 'success');
   };
 
-  const handlePaymentError = (error: string) => {
-    showToast(error, 'error');
-    // Don't clear verification state on error - let user retry
+  const handleBenefitPayTokenReceived = (token: string, paymentDetails?: Record<string, unknown>) => {
+    const verificationState = {
+      isVerified: true,
+      token,
+      verificationTimestamp: Date.now()
+    };
+    
+    setBenefitPayVerification(verificationState);
+    showToast('Benefit Pay verified successfully', 'success');
   };
 
-  const handlePaymentMethodChange = (method: 'TAP_PAY' | 'BANK_TRANSFER') => {
-    setSelectedPaymentMethod(method);
-    // Only clear card verification if switching away from TAP_PAY
-    if (method !== 'TAP_PAY') {
-      clearCardVerification();
+  const handlePaymentError = (error: string) => {
+    // Don't show toast for validation feedback messages
+    if (!error.includes('Invalid input') && !error.includes('validation')) {
+      showToast(error, 'error');
     }
+    // Don't clear verification state on error - let user retry
   };
 
   const clearCardVerification = () => {
@@ -263,6 +367,29 @@ export default function WalletPage() {
     }
     // Force re-render of card form
     setCardFormKey(prev => prev + 1);
+  };
+
+  const clearBenefitPayVerification = () => {
+    setBenefitPayVerification({
+      isVerified: false,
+      token: null,
+      verificationTimestamp: null
+    });
+    if (profile?.id) {
+      localStorage.removeItem(`benefitPayVerification_${profile.id}`);
+    }
+  };
+
+  const handlePaymentMethodChange = (method: 'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER') => {
+    setSelectedPaymentMethod(method);
+    // Only clear card verification if switching away from TAP_PAY
+    if (method !== 'TAP_PAY') {
+      clearCardVerification();
+    }
+    // Only clear Benefit Pay verification if switching away from BENEFIT_PAY
+    if (method !== 'BENEFIT_PAY') {
+      clearBenefitPayVerification();
+    }
   };
 
   const handleTopUpCancel = () => {
@@ -463,10 +590,11 @@ export default function WalletPage() {
                   </label>
                   <select
                     value={selectedPaymentMethod}
-                    onChange={(e) => handlePaymentMethodChange(e.target.value as any)}
+                    onChange={(e) => handlePaymentMethodChange(e.target.value as 'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="TAP_PAY">Tap Pay</option>
+                    <option value="TAP_PAY">Tap Pay (Card)</option>
+                    <option value="BENEFIT_PAY">Benefit Pay</option>
                     <option value="BANK_TRANSFER">Bank Transfer</option>
                   </select>
                 </div>
@@ -479,10 +607,10 @@ export default function WalletPage() {
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                       <div>
-                        <p className="text-sm font-medium text-green-800">Payment Method Verified</p>
+                        <p className="text-sm font-medium text-green-800">Card Verified ✓</p>
                         {cardVerification.cardDetails?.lastFour && (
                           <p className="text-xs text-green-600">
-                            Card ending in {cardVerification.cardDetails.lastFour}
+                            Card ending in {cardVerification.cardDetails.lastFour} - Ready to process payment
                           </p>
                         )}
                       </div>
@@ -499,7 +627,51 @@ export default function WalletPage() {
                 {selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified && (
                   <div className="bg-blue-50 p-3 rounded-md">
                     <p className="text-sm text-blue-800">
-                      💳 Complete your payment securely using the form on the right.
+                      💳 <strong>Step 1:</strong> Verify your card details using the form on the right. 
+                      <br />
+                      <span className="text-xs text-blue-600 mt-1 block">
+                        • Enter your card information to verify it's valid
+                        <br />
+                        • Click "Verify Card" to complete the verification
+                        <br />
+                        • After verification, you'll see a "Pay" button to process the payment
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {selectedPaymentMethod === 'BENEFIT_PAY' && benefitPayVerification.isVerified && (
+                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-green-800">Benefit Pay Verified ✓</p>
+                        <p className="text-xs text-green-600">
+                          Ready to process payment
+                        </p>
+                      </div>
+                      <button
+                        onClick={clearBenefitPayVerification}
+                        className="ml-auto text-xs text-green-600 hover:text-green-800 underline"
+                      >
+                        Change Method
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified && (
+                  <div className="bg-blue-50 p-3 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      📱 <strong>Step 1:</strong> Verify your Benefit Pay account using the button on the right.
+                      <br />
+                      <span className="text-xs text-blue-600 mt-1 block">
+                        • Click the Benefit Pay button to verify your account
+                        <br />
+                        • After verification, you'll see a "Pay" button to process the payment
+                      </span>
                     </p>
                   </div>
                 )}
@@ -532,7 +704,18 @@ export default function WalletPage() {
                       className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       onClick={handleTopUp}
                     >
-                      {topUpLoading ? 'Processing...' : 'Top Up'}
+                      {topUpLoading ? 'Processing Payment...' : `Pay ${formatCurrency(parseFloat(topUpAmount), 'BHD')}`}
+                    </button>
+                  )}
+
+                  {selectedPaymentMethod === 'BENEFIT_PAY' && benefitPayVerification.isVerified && (
+                    <button
+                      type="button"
+                      disabled={topUpLoading || !topUpAmount || parseFloat(topUpAmount) <= 0}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={handleTopUp}
+                    >
+                      {topUpLoading ? 'Processing Payment...' : `Pay ${formatCurrency(parseFloat(topUpAmount), 'BHD')}`}
                     </button>
                   )}
                   
@@ -564,6 +747,26 @@ export default function WalletPage() {
                       onTokenReceived={handleTokenReceived}
                       onError={handlePaymentError}
                       isLoading={topUpLoading}
+                    />
+                  </div>
+                )}
+
+                {selectedPaymentMethod === 'BENEFIT_PAY' && profile && !benefitPayVerification.isVerified && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Benefit Pay</h3>
+                    <BenefitPayButton
+                      amount={parseFloat(topUpAmount) || 0}
+                      currency="BHD"
+                      customerData={{
+                        firstName: profile.firstName || '',
+                        lastName: profile.lastName || '',
+                        email: profile.email || '',
+                        phone: profile.phone || ''
+                      }}
+                      onTokenReceived={handleBenefitPayTokenReceived}
+                      onError={handlePaymentError}
+                      isLoading={topUpLoading}
+                      transactionReference={`wallet_topup_${Date.now()}`}
                     />
                   </div>
                 )}

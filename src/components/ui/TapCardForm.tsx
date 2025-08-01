@@ -77,6 +77,7 @@ export default function TapCardForm({
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const [isCardReady, setIsCardReady] = useState(false);
   const [isTokenizing, setIsTokenizing] = useState(false);
+  const [cardValidationState, setCardValidationState] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle');
   const { showToast } = useToast();
   const unmountRef = useRef<(() => void) | null>(null);
 
@@ -187,6 +188,7 @@ export default function TapCardForm({
         onReady: () => {
           console.log('Tap Card SDK is ready');
           setIsCardReady(true);
+          setCardValidationState('idle');
         },
         onFocus: () => {
           console.log('Card field focused');
@@ -196,17 +198,26 @@ export default function TapCardForm({
         },
         onValidInput: (data: any) => {
           console.log('Valid input:', data);
+          setCardValidationState('valid');
+          setIsCardReady(true);
         },
         onInvalidInput: (data: any) => {
           console.log('Invalid input:', data);
+          setCardValidationState('invalid');
+          // Don't treat this as an error - it's just validation feedback
+          // The card might still be valid when the user completes entering it
         },
         onError: (data: any) => {
           console.error('Tap Card SDK error:', data);
-          const errorMessage = data?.message || data?.error || 'Card validation error';
-          onError(errorMessage);
+          // Only treat as error if it's a critical error, not just validation feedback
+          if (data?.code && data.code !== 'VALIDATION_ERROR') {
+            const errorMessage = data?.message || data?.error || 'Card validation error';
+            onError(errorMessage);
+          }
         },
         onSuccess: (data: any) => {
           console.log('Card tokenization successful:', data);
+          setCardValidationState('valid');
           if (data?.id) {
             // Extract card details if available
             const cardDetails = data.source?.card ? {
@@ -262,8 +273,16 @@ export default function TapCardForm({
             Payment Details
           </h3>
           <p className="text-sm text-gray-600">
-            Enter your card information to complete the payment
+            Enter your card information to verify your payment method
           </p>
+          {cardValidationState === 'valid' && (
+            <div className="mt-2 flex items-center text-green-600">
+              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-medium">Card details look good!</span>
+            </div>
+          )}
         </div>
         
         <div 
@@ -278,17 +297,23 @@ export default function TapCardForm({
         type="button"
         onClick={handleSubmit}
         disabled={!isCardReady || isLoading || isTokenizing}
-        className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className={`w-full py-3 px-4 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+          cardValidationState === 'valid' 
+            ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500' 
+            : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+        }`}
       >
         {isTokenizing ? (
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-            Processing...
+            Verifying Card...
           </div>
         ) : isLoading ? (
           'Processing Payment...'
+        ) : cardValidationState === 'valid' ? (
+          `Verify Card - ${amount.toFixed(3)} BHD`
         ) : (
-          `Pay ${amount.toFixed(3)} BHD`
+          `Enter Card Details - ${amount.toFixed(3)} BHD`
         )}
       </button>
 

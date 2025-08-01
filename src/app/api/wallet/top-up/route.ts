@@ -5,10 +5,15 @@ import { requireAuthenticatedCustomer } from '@/lib/auth';
 
 interface TopUpRequest {
   amount: number;
-  paymentMethod: 'TAP_PAY' | 'BANK_TRANSFER';
+  paymentMethod: 'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER';
   description?: string;
   tokenId?: string;
-  customerData?: any;
+  customerData?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -58,15 +63,16 @@ export async function POST(request: NextRequest) {
 
     switch (paymentMethod) {
       case 'TAP_PAY':
+      case 'BENEFIT_PAY':
         // Validate Tap payment required fields
         if (!tokenId || !customerData) {
           return NextResponse.json(
-            { error: 'Missing required fields for Tap payment: tokenId, customerData' },
+            { error: 'Missing required fields for payment: tokenId, customerData' },
             { status: 400 }
           );
         }
 
-        // Process wallet top-up using Tap
+        // Process wallet top-up using Tap (works for both TAP_PAY and BENEFIT_PAY)
         result = await processTapPayment(
           customer.id,
           0, // No order ID for wallet top-ups

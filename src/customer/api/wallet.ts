@@ -18,7 +18,7 @@ export interface WalletTransaction {
 
 export interface TopUpRequest {
   amount: number;
-  paymentMethod: 'TAP_PAY' | 'BANK_TRANSFER';
+  paymentMethod: 'TAP_PAY' | 'BENEFIT_PAY' | 'BANK_TRANSFER';
   description?: string;
   // Tap payment specific fields
   tokenId?: string;
@@ -33,10 +33,42 @@ export interface TopUpRequest {
 export interface TopUpResponse {
   success: boolean;
   data?: {
-    paymentId: number;
+    paymentId?: number;
+    paymentRecord?: {
+      id: number;
+      walletTransactionId: number | null;
+      orderId: number | null;
+      customerId: number;
+      amount: number;
+      currency: string;
+      paymentMethod: string;
+      paymentStatus: string;
+      description: string;
+      cardBrand: string | null;
+      cardExpiry: string | null;
+      cardLastFour: string | null;
+      failureReason: string | null;
+      processedAt: string | null;
+      refundAmount: number | null;
+      refundReason: string | null;
+      tapAuthorizeId: string | null;
+      tapChargeId: string | null;
+      tapReference: string | null;
+      tapResponse: string | null;
+      tapTransactionId: string | null;
+      createdAt: string;
+      updatedAt: string;
+    };
     redirectUrl?: string;
     chargeId?: string;
     message?: string;
+    tapResponse?: {
+      id: string;
+      object: string;
+      live_mode: boolean;
+      customer_initiated: boolean;
+      [key: string]: unknown;
+    };
   };
   error?: string;
 }
@@ -56,16 +88,26 @@ export interface ApiResponse<T> {
 export const walletApi = {
   // Get wallet information including balance and transaction history
   getWalletInfo: async (customerId: number): Promise<WalletInfo> => {
-    const response = await apiClient.get(`/api/wallet?customerId=${customerId}`);
-    return response.data as WalletInfo;
+    const response = await apiClient.get<WalletInfo>(`/api/wallet?customerId=${customerId}`);
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Failed to fetch wallet info');
+    }
   },
 
   // Process wallet top-up using dedicated endpoint
-  topUpWallet: async (data: TopUpRequest): Promise<TopUpResponse> => {
-    const response = await apiClient.post('/api/wallet/top-up', {
+  topUpWallet: async (data: TopUpRequest): Promise<TopUpResponse['data']> => {
+    const response = await apiClient.post<TopUpResponse['data']>('/api/wallet/top-up', {
       ...data
     });
-    return response.data as TopUpResponse;
+    
+    // Return the data directly since the API now returns the actual data
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Failed to process top-up request');
+    }
   },
 
   // Get transaction history with pagination
@@ -74,15 +116,23 @@ export const walletApi = {
     page: number = 1, 
     limit: number = 20
   ): Promise<TransactionHistoryResponse> => {
-    const response = await apiClient.get(
+    const response = await apiClient.get<TransactionHistoryResponse>(
       `/api/wallet/transactions?customerId=${customerId}&page=${page}&limit=${limit}`
     );
-    return response.data as TransactionHistoryResponse;
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Failed to fetch transaction history');
+    }
   },
 
   // Get wallet statistics
   getWalletStats: async (customerId: number) => {
     const response = await apiClient.get(`/api/wallet/stats?customerId=${customerId}`);
-    return response.data;
+    if (response.success && response.data) {
+      return response.data;
+    } else {
+      throw new Error(response.error || 'Failed to fetch wallet stats');
+    }
   }
 }; 
