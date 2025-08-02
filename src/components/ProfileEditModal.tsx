@@ -10,7 +10,10 @@ interface Customer {
   firstName: string;
   lastName: string;
   phone?: string;
-  walletBalance: number;
+  wallet?: {
+    balance: number;
+    currency: string;
+  };
   createdAt?: string;
 }
 

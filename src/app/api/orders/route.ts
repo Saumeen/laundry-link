@@ -70,7 +70,10 @@ async function handleLoggedInCustomerOrder(
     firstName: string;
     lastName: string;
     isActive: boolean;
-    walletBalance: number;
+    wallet?: {
+      balance: number;
+      currency: string;
+    };
   }
 ) {
   try {
@@ -143,6 +146,7 @@ async function handleLoggedInCustomerOrder(
           customerPhone: address.contactNumber || body.contactNumber || '',
           customerAddress: address.address || address.addressLine1,
           paymentStatus: PaymentStatus.PENDING,
+          isExpressService: body.isExpressService || false,
         },
       });
 

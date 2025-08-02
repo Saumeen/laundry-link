@@ -21,6 +21,7 @@ interface OrderDetails {
   invoiceItems?: any[];
   items?: any[];
   processingDetails?: any;
+  invoiceGenerated: boolean;
 }
 
 import {

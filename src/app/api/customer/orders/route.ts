@@ -84,6 +84,15 @@ export async function GET(request: NextRequest) {
             issueReports: true,
           },
         },
+        paymentRecords: {
+          where: {
+            paymentMethod: 'TAP_INVOICE',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
       },
       orderBy: {
         [sort]: order,
@@ -92,7 +101,38 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
-    return NextResponse.json({ orders, total });
+    // Transform orders to include payment information
+    const transformedOrders = orders.map(order => {
+      const latestPaymentRecord = order.paymentRecords[0];
+      const paymentInfo = latestPaymentRecord ? {
+        paymentStatus: latestPaymentRecord.paymentStatus,
+        paymentMethod: latestPaymentRecord.paymentMethod,
+        tapInvoiceUrl: latestPaymentRecord.metadata ? 
+          JSON.parse(latestPaymentRecord.metadata).tapInvoiceUrl : undefined,
+        tapInvoiceId: latestPaymentRecord.tapReference,
+      } : {};
+
+      return {
+        ...order,
+        ...paymentInfo,
+        paymentRecords: undefined, // Remove payment records from response
+      };
+    });
+
+    // Sort orders by delivery start time and completion status
+    const sortedOrders = transformedOrders.sort((a, b) => {
+      // First, prioritize non-completed orders
+      const aIsCompleted = ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(a.status);
+      const bIsCompleted = ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(b.status);
+      
+      if (aIsCompleted && !bIsCompleted) return 1;
+      if (!aIsCompleted && bIsCompleted) return -1;
+      
+      // Then sort by delivery start time (earliest first)
+      return new Date(a.deliveryStartTime).getTime() - new Date(b.deliveryStartTime).getTime();
+    });
+
+    return NextResponse.json({ orders: sortedOrders, total });
   } catch (error) {
     console.error('Error fetching customer orders:', error);
     return NextResponse.json(
@@ -171,6 +211,7 @@ export async function POST(request: NextRequest) {
         customerPhone,
         customerAddress,
         paymentStatus: PaymentStatus.PENDING,
+        isExpressService: isExpressService || false,
       },
     });
 

@@ -5,3 +5,4 @@ export { default as ServicesTab } from './ServicesTab';
 export { default as OrderItemsTab } from './OrderItemsTab';
 export { default as InvoiceTab } from './InvoiceTab';
 export { default as OrderHistoryTab } from './OrderHistoryTab';
+export { default as PaymentTab } from './PaymentTab';

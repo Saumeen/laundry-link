@@ -14,7 +14,15 @@ class InvoiceApi {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to download invoice');
+        // Try to get error message from response
+        let errorMessage = 'Failed to download invoice';
+        try {
+          const errorData = await response.json();
+          errorMessage = (errorData as { error: string }).error || errorMessage;
+        } catch {
+          // If we can't parse the error response, use default message
+        }
+        throw new Error(errorMessage);
       }
 
       return await response.blob();

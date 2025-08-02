@@ -11,6 +11,7 @@ import {
   formatDate,
   formatCurrency,
 } from '@/admin/utils/orderUtils';
+import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
 
 import type { OrderStatus, PaymentStatus } from '@/shared/types';
 
@@ -60,6 +61,13 @@ export default function AdminOrdersPage() {
       // Payment status filter
       if (filters.paymentStatus && filters.paymentStatus !== 'ALL') {
         if (order.paymentStatus !== filters.paymentStatus) return false;
+      }
+
+      // Service type filter
+      if (filters.serviceType && filters.serviceType !== 'ALL') {
+        const isExpress = order.isExpressService || false;
+        if (filters.serviceType === 'EXPRESS' && !isExpress) return false;
+        if (filters.serviceType === 'REGULAR' && isExpress) return false;
       }
 
       // Search filter
@@ -120,6 +128,10 @@ export default function AdminOrdersPage() {
     paymentStatus: PaymentStatus | 'ALL'
   ) => {
     setFilters({ paymentStatus });
+  };
+
+  const handleServiceTypeFilterChange = (serviceType: 'EXPRESS' | 'REGULAR' | 'ALL') => {
+    setFilters({ serviceType });
   };
 
   const handleSearchChange = (search: string) => {
@@ -312,7 +324,7 @@ export default function AdminOrdersPage() {
             </h3>
           </div>
           <div className='px-6 py-4'>
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-1 md:grid-cols-5 gap-4'>
               {/* Status Filter */}
               <div>
                 <label
@@ -388,6 +400,31 @@ export default function AdminOrdersPage() {
                 </select>
               </div>
 
+              {/* Service Type Filter */}
+              <div>
+                <label
+                  htmlFor='service-type-filter'
+                  className='block text-sm font-medium text-gray-700 mb-2'
+                >
+                  Service Type
+                </label>
+                <select
+                  id='service-type-filter'
+                  value={filters.serviceType || 'ALL'}
+                  onChange={e =>
+                    handleServiceTypeFilterChange(
+                      e.target.value as 'EXPRESS' | 'REGULAR' | 'ALL'
+                    )
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                  aria-label='Filter by service type'
+                >
+                  <option value='ALL'>All Service Types</option>
+                  <option value='EXPRESS'>Express Service</option>
+                  <option value='REGULAR'>Regular Service</option>
+                </select>
+              </div>
+
               {/* Search */}
               <div>
                 <label
@@ -458,6 +495,12 @@ export default function AdminOrdersPage() {
                     scope='col'
                     className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
                   >
+                    Service Type
+                  </th>
+                  <th
+                    scope='col'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                  >
                     Payment
                   </th>
                   <th
@@ -476,6 +519,12 @@ export default function AdminOrdersPage() {
                     scope='col'
                     className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
                   >
+                    Delivery Time
+                  </th>
+                  <th
+                    scope='col'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                  >
                     Actions
                   </th>
                 </tr>
@@ -483,7 +532,7 @@ export default function AdminOrdersPage() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className='px-6 py-4 text-center'>
+                    <td colSpan={9} className='px-6 py-4 text-center'>
                       <div
                         className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'
                         aria-label='Loading orders'
@@ -493,7 +542,7 @@ export default function AdminOrdersPage() {
                 ) : filteredOrders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={9}
                       className='px-6 py-4 text-center text-gray-500'
                     >
                       No orders found
@@ -519,6 +568,17 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap'>
                         <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            order.isExpressService 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {order.isExpressService ? 'Express' : 'Regular'}
+                        </span>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap'>
+                        <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(order.paymentStatus)}`}
                         >
                           {getStatusDisplayName(order.paymentStatus)}
@@ -533,6 +593,16 @@ export default function AdminOrdersPage() {
                       <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
                         {formatDate(order.createdAt)}
                       </td>
+                                             <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                         <div>
+                           <div className='text-xs'>
+                             {formatUTCForDisplay(order.deliveryStartTime.toString())}
+                           </div>
+                           <div className='text-xs text-gray-400'>
+                             {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+                           </div>
+                         </div>
+                       </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                         <button
                           onClick={() => {

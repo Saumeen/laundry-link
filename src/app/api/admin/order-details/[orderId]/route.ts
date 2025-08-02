@@ -31,9 +31,20 @@ export async function GET(
         ? { id: parseInt(orderIdOrNumber) }
         : { orderNumber: orderIdOrNumber },
       include: {
-        customer: true,
+        customer: {
+          include: {
+            wallet: true,
+          },
+        },
         address: true,
-
+        paymentRecords: {
+          include: {
+            walletTransaction: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
         orderServiceMappings: {
           include: {
             service: true,

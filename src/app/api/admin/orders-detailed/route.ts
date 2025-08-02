@@ -14,18 +14,20 @@ const SORTABLE_FIELDS: Record<string, string> = {
   status: 'status',
   totalAmount: 'invoiceTotal',
   createdAt: 'createdAt',
+  deliveryStartTime: 'deliveryStartTime',
 };
 
 export async function GET(req: Request) {
   try {
     const admin = await requireAuthenticatedAdmin();
     const { searchParams } = new URL(req.url);
-    const sortField = searchParams.get('sortField') || 'createdAt';
+    const sortField = searchParams.get('sortField') || 'deliveryStartTime';
     const sortDirection =
       searchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
     const skip = (page - 1) * pageSize;
+    const serviceType = searchParams.get('serviceType') || 'ALL';
 
     // Special case for customerName sorting
     let orderBy: Record<string, unknown> = {};
@@ -37,11 +39,11 @@ export async function GET(req: Request) {
       };
     } else {
       orderBy[
-        sortField in SORTABLE_FIELDS ? SORTABLE_FIELDS[sortField] : 'createdAt'
+        sortField in SORTABLE_FIELDS ? SORTABLE_FIELDS[sortField] : 'deliveryStartTime'
       ] = sortDirection;
     }
 
-    // Build where clause based on admin role
+    // Build where clause based on admin role and filters
     let whereClause: Record<string, unknown> = {};
 
     // For FACILITY_TEAM role, only show orders with DROPPED_OFF status
@@ -49,6 +51,11 @@ export async function GET(req: Request) {
       whereClause.status = OrderStatus.DROPPED_OFF;
     }
     // For SUPER_ADMIN and OPERATION_MANAGER, show all orders (no filter needed)
+
+    // Add service type filter
+    if (serviceType !== 'ALL') {
+      whereClause.isExpressService = serviceType === 'EXPRESS';
+    }
 
     // Get total count for pagination with role-based filtering
     const total = await prisma.order.count({ where: whereClause });
@@ -81,8 +88,21 @@ export async function GET(req: Request) {
       take: pageSize,
     });
 
+    // Sort orders by delivery start time and completion status
+    const sortedOrders = orders.sort((a, b) => {
+      // First, prioritize non-completed orders
+      const aIsCompleted = ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(a.status);
+      const bIsCompleted = ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(b.status);
+      
+      if (aIsCompleted && !bIsCompleted) return 1;
+      if (!aIsCompleted && bIsCompleted) return -1;
+      
+      // Then sort by delivery start time (earliest first)
+      return new Date(a.deliveryStartTime).getTime() - new Date(b.deliveryStartTime).getTime();
+    });
+
     // Transform orders to include service information
-    const transformedOrders = orders.map(order => {
+    const transformedOrders = sortedOrders.map(order => {
       // Flatten all orderItems from all services into a single array
       const orderItems =
         order.orderServiceMappings?.flatMap(

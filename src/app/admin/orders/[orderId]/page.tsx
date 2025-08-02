@@ -37,6 +37,10 @@ interface OrderWithRelations {
     lastName: string;
     email: string;
     phone: string;
+    wallet?: {
+      balance: number;
+      currency: string;
+    };
   };
   address?: {
     id: number;
@@ -83,6 +87,30 @@ interface OrderWithRelations {
   invoiceTotal?: number | null;
   minimumOrderApplied?: boolean | null;
   orderProcessing?: any;
+  paymentRecords?: Array<{
+    id: number;
+    amount: number;
+    currency: string;
+    paymentMethod: string;
+    paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIAL_REFUND';
+    description?: string;
+    tapTransactionId?: string;
+    tapReference?: string;
+    refundAmount?: number;
+    refundReason?: string;
+    processedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+    walletTransaction?: {
+      id: number;
+      transactionType: string;
+      amount: number;
+      balanceBefore: number;
+      balanceAfter: number;
+      status: string;
+      description: string;
+    };
+  }>;
 }
 
 // Import the new modular components
@@ -95,6 +123,7 @@ import ServicesTab from '@/components/admin/orders/ServicesTab';
 import OrderItemsTab from '@/components/admin/orders/OrderItemsTab';
 import InvoiceTab from '@/components/admin/orders/InvoiceTab';
 import OrderHistoryTab from '@/components/admin/orders/OrderHistoryTab';
+import PaymentTab from '@/components/admin/orders/PaymentTab';
 
 // Constants
 const ALLOWED_ROLES = [
@@ -120,7 +149,8 @@ type TabType =
   | 'services'
   | 'order-items'
   | 'invoice'
-  | 'history';
+  | 'history'
+  | 'payment';
 
 // Tab Button Component
 const TabButton = React.memo(
@@ -512,6 +542,15 @@ function OrderEditPageContent() {
               >
                 Order History
               </TabButton>
+              {session?.role === 'SUPER_ADMIN' && (
+                <TabButton
+                  isActive={activeTab === 'payment'}
+                  onClick={() => handleTabClick('payment')}
+                  count={(order.paymentRecords || []).length}
+                >
+                  Payment Management
+                </TabButton>
+              )}
             </nav>
           </div>
 
@@ -544,6 +583,9 @@ function OrderEditPageContent() {
             )}
             {activeTab === 'history' && (
               <OrderHistoryTab order={order as any} onRefresh={fetchOrder} />
+            )}
+            {activeTab === 'payment' && (
+              <PaymentTab order={order as any} onRefresh={fetchOrder} />
             )}
           </div>
         </div>

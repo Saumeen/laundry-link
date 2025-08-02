@@ -16,6 +16,7 @@ const navigation = [
   { name: 'Schedule', href: '/schedule', icon: '📅' },
   { name: 'Services', href: '/services', icon: '🧺' },
   { name: 'Pricing', href: '/pricing', icon: '💰' },
+  { name: 'Wallet', href: '/customer/wallet', icon: '💳' },
   { name: 'Addresses', href: '/customer/addresses', icon: '📍' },
   { name: 'Profile', href: '/customer/profile', icon: '👤' },
   { name: 'FAQ', href: '/faq', icon: '❓' },
@@ -153,12 +154,6 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                 </p>
               </div>
             </div>
-            <div className='mb-4 pt-4 border-t border-gray-100'>
-              <p className='text-xs text-gray-500'>Wallet Balance</p>
-              <p className='text-sm font-bold text-green-600'>
-                {(profile?.walletBalance || 0).toFixed(3)} BD
-              </p>
-            </div>
             <button
               onClick={handleLogout}
               className='flex items-center space-x-3 w-full px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100 transition-colors'
@@ -192,7 +187,7 @@ export function CustomerLayout({ children }: CustomerLayoutProps) {
                   {profile?.firstName} {profile?.lastName}
                 </p>
                 <p className='text-xs text-gray-500'>
-                  {(profile?.walletBalance || 0).toFixed(3)} BD
+                  {profile?.email}
                 </p>
               </div>
             </div>

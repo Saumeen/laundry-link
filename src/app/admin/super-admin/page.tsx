@@ -6,6 +6,7 @@ import { useSuperAdminAuth } from '@/admin/hooks/useAdminAuth';
 import { useDashboardStore } from '@/admin/stores/dashboardStore';
 import { DashboardStats } from '@/admin/components/DashboardStats';
 import { QuickActionButton } from '@/admin/components/QuickActionButton';
+import CronJobMonitor from '@/components/admin/CronJobMonitor';
 import PageTransition from '@/components/ui/PageTransition';
 
 export default function SuperAdminDashboard() {
@@ -46,6 +47,10 @@ export default function SuperAdminDashboard() {
 
   const handleNavigateToConfigurations = () => {
     router.push('/admin/super-admin/configurations');
+  };
+
+  const handleNavigateToCronMonitor = () => {
+    router.push('/admin/super-admin/cron-monitor');
   };
 
   // Stats card click handlers
@@ -276,6 +281,42 @@ export default function SuperAdminDashboard() {
                       strokeLinejoin='round'
                       strokeWidth={2}
                       d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'
+                    />
+                  </svg>
+                }
+              />
+            </div>
+          </div>
+
+          {/* Cron Job Monitor Section */}
+          <div className='mt-8'>
+            <h2 className='text-lg font-medium text-gray-900 mb-4'>
+              System Monitoring
+            </h2>
+            <div className='bg-white rounded-lg shadow p-6'>
+              <h3 className='text-lg font-medium text-gray-900 mb-4'>
+                Cron Job Monitor
+              </h3>
+              <p className='text-gray-600 mb-4'>
+                Monitor and control automated payment status checking jobs.
+                View execution history and payment statistics.
+              </p>
+              <QuickActionButton
+                title='Open Cron Monitor'
+                onClick={handleNavigateToCronMonitor}
+                bgColor='bg-purple-600 hover:bg-purple-700'
+                icon={
+                  <svg
+                    className='w-4 h-4'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
                     />
                   </svg>
                 }

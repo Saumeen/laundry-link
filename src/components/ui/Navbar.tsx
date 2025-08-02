@@ -98,7 +98,7 @@ export default function Navbar() {
                       </p>
                       <p className='text-sm text-gray-600'>{customer.email}</p>
                       <p className='text-sm text-blue-600 font-medium'>
-                        Wallet: {(customer.walletBalance || 0).toFixed(3)} BD
+                        Wallet: {customer.wallet?.balance ? `${customer.wallet.currency} ${customer.wallet.balance.toFixed(3)}` : 'No wallet'}
                       </p>
                     </div>
 
@@ -310,7 +310,7 @@ export default function Navbar() {
               <div className='border-t pt-2 mt-2'>
                 <p className='py-2 text-sm text-gray-600'>👤 {customerName}</p>
                 <p className='text-xs text-blue-600 mb-2'>
-                  Wallet: {(customer.walletBalance || 0).toFixed(3)} BD
+                  Wallet: {customer.wallet?.balance ? `${customer.wallet.currency} ${customer.wallet.balance.toFixed(3)}` : 'No wallet'}
                 </p>
               </div>
               <Link

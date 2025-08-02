@@ -5,7 +5,6 @@ declare module "next-auth" {
   interface Session {
     userType?: "admin" | "customer"
     customerId?: number
-    walletBalance?: number
     adminId?: number
     role?: UserRole
     isActive?: boolean
@@ -23,7 +22,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     userType?: "admin" | "customer"
     customerId?: number
-    walletBalance?: number
     adminId?: number
     role?: UserRole
     isActive?: boolean

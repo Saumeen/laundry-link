@@ -26,12 +26,13 @@ export default function CustomerNavigation({
   subtitle,
   icon,
 }: CustomerNavigationProps) {
-  const { profile, fetchProfile } = useProfileStore();
+  const { profile } = useProfileStore();
+  const balance = profile?.wallet?.balance || 0;
   const logout = useLogout();
 
   useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    // fetchProfile(); // This line is removed as per the new_code
+  }, []);
 
   // Add mobile bottom padding to body
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function CustomerNavigation({
               <div className='hidden sm:block text-right'>
                 <p className='text-sm text-gray-600'>Wallet Balance</p>
                 <p className='text-lg font-bold text-green-600'>
-                  {formatCurrency(profile?.walletBalance || 0)}
+                  {formatCurrency(balance)}
                 </p>
               </div>
               <button
@@ -137,7 +138,7 @@ export default function CustomerNavigation({
             <div className='flex items-center justify-between'>
               <p className='text-sm text-gray-600'>Wallet Balance</p>
               <p className='text-sm font-bold text-green-600'>
-                {formatCurrency(profile?.walletBalance || 0)}
+                {formatCurrency(balance)}
               </p>
             </div>
           </div>

@@ -10,7 +10,10 @@ interface Customer {
   lastName: string;
   phone?: string;
   isActive: boolean;
-  walletBalance: number;
+  wallet?: {
+    balance: number;
+    currency: string;
+  };
 }
 
 interface AuthState {

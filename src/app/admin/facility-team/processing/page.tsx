@@ -10,6 +10,7 @@ import {
   formatDate,
   formatCurrency,
 } from '@/admin/utils/orderUtils';
+import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
 import { ProcessingStatus } from '@prisma/client';
 
 interface Order {
@@ -29,6 +30,7 @@ interface Order {
   deliveryEndTime: string;
   specialInstructions?: string;
   invoiceTotal?: number;
+  isExpressService: boolean;
   createdAt: string;
   orderProcessing?: {
     id: number;
@@ -673,6 +675,9 @@ export default function ProcessingPage() {
                     Pickup Time
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
+                    Delivery Time
+                  </th>
+                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Actions
                   </th>
                 </tr>
@@ -680,14 +685,14 @@ export default function ProcessingPage() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {state.loading ? (
                   <tr>
-                    <td colSpan={9} className='px-6 py-4 text-center'>
+                    <td colSpan={10} className='px-6 py-4 text-center'>
                       <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'></div>
                     </td>
                   </tr>
                 ) : state.orders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className='px-6 py-4 text-center text-gray-500'
                     >
                       No orders found matching your criteria
@@ -708,10 +713,8 @@ export default function ProcessingPage() {
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                           <div className='flex items-center space-x-2'>
                             <span>{order.orderNumber}</span>
-                            {order.orderServiceMappings?.some(
-                              mapping => mapping.service.name === 'express-service'
-                            ) && (
-                              <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800'>
+                            {order.isExpressService && (
+                              <span className='inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800'>
                                 Express
                               </span>
                             )}
@@ -791,6 +794,16 @@ export default function ProcessingPage() {
                             </div>
                           </div>
                         </td>
+                                                 <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                           <div>
+                             <div className='text-xs'>
+                               {formatUTCForDisplay(order.deliveryStartTime.toString())}
+                             </div>
+                             <div className='text-xs text-gray-400'>
+                               {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+                             </div>
+                           </div>
+                         </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                           <div className='flex flex-col space-y-1'>
                             {order.status === 'DELIVERED' ? (
