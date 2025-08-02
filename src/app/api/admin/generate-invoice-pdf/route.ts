@@ -59,12 +59,12 @@ export async function POST(request: NextRequest) {
     doc.text(`Order #${order.orderNumber}`, 120, 30);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `Date: ${new Date(order.createdAt).toLocaleDateString()}`,
+      `Date: ${new Date(order.createdAt).toLocaleDateString('en-US', { timeZone: 'Asia/Bahrain' })}`,
       120,
       40
     );
     doc.text(
-      `Due Date: ${new Date(order.deliveryTime).toLocaleDateString()}`,
+      `Due Date: ${new Date(order.deliveryEndTime).toLocaleDateString('en-US', { timeZone: 'Asia/Bahrain' })}`,
       120,
       47
     );
@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
     doc.text('Order Details:', 20, 140);
     doc.setFont('helvetica', 'normal');
     doc.text(`Status: ${order.status}`, 20, 150);
-    doc.text(`Pickup: ${new Date(order.pickupTime).toLocaleString()}`, 20, 157);
+    doc.text(`Pickup: ${new Date(order.pickupStartTime).toLocaleString('en-US', { timeZone: 'Asia/Bahrain' })}`, 20, 157);
     doc.text(
-      `Delivery: ${new Date(order.deliveryTime).toLocaleString()}`,
+      `Delivery: ${new Date(order.deliveryEndTime).toLocaleString('en-US', { timeZone: 'Asia/Bahrain' })}`,
       20,
       164
     );

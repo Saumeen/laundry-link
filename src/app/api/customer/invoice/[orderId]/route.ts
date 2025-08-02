@@ -56,22 +56,6 @@ export async function GET(
       );
     }
 
-    // Check if order is in a valid status for invoice generation
-    const validStatuses: OrderStatus[] = [
-      OrderStatus.READY_FOR_DELIVERY,
-      OrderStatus.DELIVERY_ASSIGNED,
-      OrderStatus.DELIVERY_IN_PROGRESS,
-      OrderStatus.DELIVERED,
-    ];
-
-    if (!validStatuses.includes(order.status)) {
-      return NextResponse.json(
-        {
-          error: `Invoice is not available yet. Current status: ${order.status}. Invoice will be available when your order is ready for delivery.`,
-        },
-        { status: 400 }
-      );
-    }
 
     // Check if invoice is generated (has order items)
     const hasOrderItems = order.orderServiceMappings.some(

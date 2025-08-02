@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { createOrderHistoryEntry, validateStatusChange } from './orderStatus';
 import emailService from './emailService';
+import { TapInvoiceService } from './tapInvoiceService';
 
 export interface OrderUpdateData {
   orderId: number;
@@ -310,20 +311,29 @@ export class OrderTrackingService {
     try {
       // Handle generate_invoice action separately - only send email, don't change status
       if (action === 'generate_invoice') {
-        // Send invoice email without changing order status
-        await this.sendInvoiceEmail(orderId);
-
-        // Update order to mark invoice as generated
+        // Update order to mark invoice as generated and set status to PROCESSING_COMPLETED
         await prisma.order.update({
           where: { id: orderId },
           data: { invoiceGenerated: true },
         });
 
+        // Create Tap invoice if payment is required
+        const tapInvoiceResult = await this.createTapInvoiceIfNeeded(orderId);
+
+        // Send appropriate email based on payment requirement
+        if (tapInvoiceResult.requiresPayment) {
+          await this.sendInvoiceWithPaymentEmail(orderId, tapInvoiceResult.tapInvoice);
+        } else {
+          await this.sendInvoiceEmail(orderId);
+        }
+
         // Add to order history for tracking
         await this.addOrderNote(
           orderId,
           staffId,
-          'Invoice generated and sent to customer',
+          tapInvoiceResult.requiresPayment 
+            ? 'Invoice generated with payment required - Tap invoice created'
+            : 'Invoice generated and sent to customer - no payment required',
           metadata
         );
 
@@ -665,6 +675,94 @@ export class OrderTrackingService {
       );
     } catch (error) {
       console.error('Error sending invoice email:', error);
+    }
+  }
+
+  /**
+   * Create Tap invoice if payment is required
+   */
+  private static async createTapInvoiceIfNeeded(orderId: number): Promise<{
+    requiresPayment: boolean;
+    tapInvoice?: any;
+    walletBalance: number;
+    invoiceTotal: number;
+    amountToCharge?: number;
+  }> {
+    try {
+      return await TapInvoiceService.createTapInvoiceIfNeeded(orderId);
+    } catch (error) {
+      console.error('Error creating Tap invoice:', error);
+      // Fallback to requiring payment
+      return {
+        requiresPayment: true,
+        walletBalance: 0,
+        invoiceTotal: 0,
+      };
+    }
+  }
+
+  /**
+   * Send invoice email with payment link
+   */
+  private static async sendInvoiceWithPaymentEmail(
+    orderId: number,
+    tapInvoice: any
+  ): Promise<void> {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          customer: true,
+          orderServiceMappings: {
+            include: {
+              service: true,
+              orderItems: true,
+            },
+          },
+        },
+      });
+
+      if (!order || !order.customer?.email) {
+        return;
+      }
+
+      // Prepare invoice data
+      const invoiceItems: Array<{
+        serviceName: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+        notes?: string;
+      }> = [];
+
+      order.orderServiceMappings.forEach(mapping => {
+        mapping.orderItems.forEach(item => {
+          invoiceItems.push({
+            serviceName: `${mapping.service.displayName} - ${item.itemName}`,
+            quantity: item.quantity,
+            unitPrice: item.pricePerItem,
+            totalPrice: item.totalPrice,
+            notes: item.notes || undefined,
+          });
+        });
+      });
+
+      const invoiceData = {
+        totalAmount: order.invoiceTotal || 0,
+        items: invoiceItems,
+        tapInvoiceUrl: tapInvoice?.url || null,
+        amountToPay: tapInvoice?.amount || 0,
+      };
+
+      // Send invoice with payment notification email
+      await emailService.sendInvoiceGeneratedNotification(
+        order,
+        order.customer.email,
+        `${order.customer.firstName} ${order.customer.lastName}`,
+        invoiceData
+      );
+    } catch (error) {
+      console.error('Error sending invoice with payment email:', error);
     }
   }
 

@@ -43,6 +43,15 @@ export async function GET(
             },
           },
         },
+        paymentRecords: {
+          where: {
+            paymentMethod: 'TAP_INVOICE',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
       },
     });
 
@@ -83,6 +92,8 @@ export async function GET(
       customerAddress: order.customerAddress,
       specialInstructions: order.specialInstructions,
       invoiceGenerated: order.invoiceGenerated,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
 
       // Transform orderServiceMappings to items (for services tab)
       items: order.orderServiceMappings.map(mapping => ({
@@ -166,6 +177,19 @@ export async function GET(
             stainTreatment: null, // Not currently stored in the schema
           }
         : null,
+
+      // Payment information
+      ...(() => {
+        const latestPaymentRecord = order.paymentRecords[0];
+        if (latestPaymentRecord) {
+          const metadata = JSON.parse(latestPaymentRecord.metadata || '{}');
+          return {
+            tapInvoiceUrl: metadata.tapInvoiceUrl,
+            tapInvoiceId: latestPaymentRecord.tapReference,
+          };
+        }
+        return {};
+      })(),
     };
 
     return NextResponse.json({ order: transformedOrder });

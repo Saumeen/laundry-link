@@ -192,10 +192,3 @@ class CronScheduler {
 // Export singleton instance
 export const cronScheduler = new CronScheduler();
 
-// Auto-start scheduler in production
-if (process.env.NODE_ENV === 'production') {
-  // Start scheduler after a short delay to ensure app is ready
-  setTimeout(() => {
-    cronScheduler.start();
-  }, 5000);
-} 

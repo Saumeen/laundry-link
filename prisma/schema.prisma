@@ -136,6 +136,7 @@ model PaymentRecord {
   failureReason   String?
   refundAmount    Float?    // If partial refund
   refundReason    String?
+  metadata        String?   // JSON string for additional data (e.g., Tap invoice URL)
   
   processedAt     DateTime?
   createdAt       DateTime  @default(now())
@@ -674,6 +675,7 @@ enum PaymentMethod {
   CASH            // Cash payment
   BANK_TRANSFER   // Bank transfer
   TAP_PAY         // Tap payment gateway
+  TAP_INVOICE     // Tap invoice payment
   APPLE_PAY       // Apple Pay
   GOOGLE_PAY      // Google Pay
   SAMSUNG_PAY     // Samsung Pay

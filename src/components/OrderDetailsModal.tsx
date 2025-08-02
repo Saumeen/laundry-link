@@ -86,6 +86,10 @@ interface OrderDetails {
   items?: any[];
   processingDetails?: any;
   invoiceGenerated: boolean;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  tapInvoiceUrl?: string;
+  tapInvoiceId?: string;
 }
 
 interface OrderDetailsModalProps {
@@ -102,6 +106,7 @@ export default function OrderDetailsModal({
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
@@ -163,6 +168,36 @@ export default function OrderDetailsModal({
   const handlePrintInvoice = useCallback(() => {
     window.print();
   }, []);
+
+  const handlePayInvoice = useCallback(async () => {
+    if (!orderId) return;
+
+    setPaymentLoading(true);
+    try {
+      const response = await fetch('/api/customer/pay-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const data = await response.json() as any;
+
+      if (data.success && data.paymentUrl) {
+        // Redirect to Tap payment page
+        window.open(data.paymentUrl, '_blank');
+      } else {
+        console.error('Payment error:', data.error);
+        setError('Failed to initiate payment');
+      }
+    } catch (err) {
+      console.error('Error initiating payment:', err);
+      setError('An error occurred while initiating payment');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }, [orderId]);
 
   const handleRetry = useCallback(() => {
     setError(null);
@@ -319,6 +354,8 @@ export default function OrderDetailsModal({
                       onDownload={handleDownloadInvoice}
                       onPrint={handlePrintInvoice}
                       invoiceLoading={invoiceLoading}
+                      onPayInvoice={handlePayInvoice}
+                      paymentLoading={paymentLoading}
                     />
                   )}
                   {activeTab === 'addresses' && (
