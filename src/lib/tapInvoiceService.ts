@@ -103,14 +103,56 @@ export class TapInvoiceService {
    * Create Tap invoice via Tap API
    */
   private static async createTapInvoice(order: any, amount: number): Promise<any> {
+    // Prepare phone number - only include if it's a Bahrain number
+    let phoneData = undefined;
+    if (order.customer.phone && order.customer.phone.trim()) {
+      let cleanPhone = order.customer.phone.trim();
+      
+      // Check if it's a Bahrain number (starts with +973 or 973)
+      const isBahrainNumber = cleanPhone.startsWith('+973') || cleanPhone.startsWith('973');
+      
+      if (isBahrainNumber) {
+        // Remove country code prefixes for Bahrain numbers
+        if (cleanPhone.startsWith('+973')) {
+          cleanPhone = cleanPhone.substring(4);
+        } else if (cleanPhone.startsWith('973')) {
+          cleanPhone = cleanPhone.substring(3);
+        }
+        
+        // Remove any non-digit characters except for spaces
+        cleanPhone = cleanPhone.replace(/[^\d\s]/g, '').trim();
+        
+        if (cleanPhone && cleanPhone.length > 0) {
+          phoneData = {
+            country_code: '973',
+            number: cleanPhone
+          };
+          console.log('Phone data for Tap API (Bahrain):', phoneData);
+        }
+      } else {
+        // For non-Bahrain numbers, log but don't include in API call
+        console.log('Non-Bahrain phone number detected, omitting from Tap API:', cleanPhone);
+      }
+    }
+
+    // Validate customer data
+    if (!order.customer.firstName || !order.customer.lastName || !order.customer.email) {
+      throw new Error('Customer data is incomplete. First name, last name, and email are required.');
+    }
+
+    // Validate and format amount
+    if (!amount || amount <= 0) {
+      throw new Error('Invalid amount for invoice creation');
+    }
+
     const invoiceData = {
-      amount: amount,
+      amount: parseFloat(amount.toFixed(3)), // Ensure proper decimal format
       currency: 'BHD',
       customer: {
-        first_name: order.customer.firstName,
-        last_name: order.customer.lastName,
-        email: order.customer.email,
-        phone: order.customer.phone || '',
+        first_name: order.customer.firstName.trim(),
+        last_name: order.customer.lastName.trim(),
+        email: order.customer.email.trim(),
+        phone: phoneData,
       },
       source: {
         id: 'src_all', // Allow all payment methods
@@ -133,6 +175,8 @@ export class TapInvoiceService {
       },
     };
 
+    console.log('Sending invoice data to Tap API:', JSON.stringify(invoiceData, null, 2));
+
     const response = await fetch('https://api.tap.company/v2/invoices/', {
       method: 'POST',
       headers: {
@@ -145,6 +189,7 @@ export class TapInvoiceService {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Tap API error:', errorText);
+      console.error('Request data that failed:', JSON.stringify(invoiceData, null, 2));
       throw new Error(`Failed to create Tap invoice: ${response.status} ${errorText}`);
     }
 
