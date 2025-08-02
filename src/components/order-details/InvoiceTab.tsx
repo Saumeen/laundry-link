@@ -51,8 +51,9 @@ export function InvoiceTab({
   paymentLoading = false,
 }: InvoiceTabProps) {
   const isReady = orderDetails.invoiceGenerated;
-  const requiresPayment = orderDetails.paymentStatus === 'PENDING' && orderDetails.paymentMethod === 'TAP_INVOICE';
+  const requiresPayment = orderDetails.paymentStatus === 'PENDING';
   const paymentCompleted = orderDetails.paymentStatus === 'COMPLETED';
+
 
   return (
     <div className='space-y-6'>
@@ -219,6 +220,16 @@ export function InvoiceTab({
                 You can view your items in the Services tab to verify everything
                 is correct.
               </p>
+              {requiresPayment && (
+                <div className='mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg'>
+                  <p className='text-sm font-medium text-orange-800 mb-1'>
+                    💳 Payment Required
+                  </p>
+                  <p className='text-xs text-orange-700'>
+                    Once the invoice is generated, you'll be able to make payment here.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
