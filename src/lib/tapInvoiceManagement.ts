@@ -591,6 +591,24 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
       logger.warn(`Amount mismatch: requested amount ${amount} vs items total ${itemsTotal}, difference: ${amountDifference}`);
     }
 
+    // Calculate due date - 6 hours from now (avoiding midnight and specific time constraints)
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const dueTimestamp = currentTimestamp + (6 * 60 * 60); // 6 hours from now
+    
+    logger.info(`Due date calculation: current=${currentTimestamp}, due=${dueTimestamp}, difference=${dueTimestamp - currentTimestamp} seconds`);
+    logger.info(`Due date in human readable: current=${new Date(currentTimestamp * 1000).toISOString()}, due=${new Date(dueTimestamp * 1000).toISOString()}`);
+
+    // Validate due date is in the future
+    if (dueTimestamp <= currentTimestamp) {
+      throw new Error(`Invalid due date: due timestamp (${dueTimestamp}) must be greater than current timestamp (${currentTimestamp})`);
+    }
+
+    // Validate due date is not too far in the future (max 30 days)
+    const maxDueTimestamp = currentTimestamp + (30 * 24 * 60 * 60); // 30 days from now
+    if (dueTimestamp > maxDueTimestamp) {
+      throw new Error(`Due date too far in the future: ${dueTimestamp} (max allowed: ${maxDueTimestamp})`);
+    }
+
     const invoiceData: TapInvoiceRequest = {
       amount: Math.round(amount * 1000) / 1000, // Ensure proper decimal format (3 decimal places)
       currency: 'BHD',
@@ -625,7 +643,8 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         dispatch: true,
         channels: ['SMS', 'EMAIL'],
       },
-      due: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days from now
+      // Temporarily comment out due date to test if it's causing the issue
+      // due: dueTimestamp,
     };
 
     // Log the invoice data being sent to TAP API
