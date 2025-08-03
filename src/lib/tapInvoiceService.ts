@@ -195,7 +195,7 @@ export class TapInvoiceService {
     }
 
     const data = await response.json();
-    logger.info('Tap API response:', data);
+    console.log('Tap API response:', data);
     return data;
   }
 } 
