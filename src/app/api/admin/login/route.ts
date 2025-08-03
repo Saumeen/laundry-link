@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateAdmin } from '@/lib/adminAuth';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       role: adminUser.role,
     });
   } catch (error) {
-    console.error('Admin login error:', error);
+    logger.error('Admin login error:', error);
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
+import logger from '@/lib/logger';
   processWalletPayment, 
   createPaymentRecord, 
   updatePaymentStatus 
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error processing payment:', error);
+    logger.error('Error processing payment:', error);
     return NextResponse.json(
       { 
         error: 'Failed to process payment',

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -76,7 +77,7 @@ export async function GET(req: Request) {
       assignments,
     });
   } catch (error) {
-    console.error('Error fetching driver assignments:', error);
+    logger.error('Error fetching driver assignments:', error);
 
     if (
       error instanceof Error &&
@@ -226,7 +227,7 @@ export async function POST(req: Request) {
       assignment,
     });
   } catch (error) {
-    console.error('Error creating driver assignment:', error);
+    logger.error('Error creating driver assignment:', error);
 
     if (
       error instanceof Error &&
@@ -325,7 +326,7 @@ export async function PUT(req: Request) {
       assignment,
     });
   } catch (error) {
-    console.error('Error updating driver assignment:', error);
+    logger.error('Error updating driver assignment:', error);
 
     if (
       error instanceof Error &&
@@ -508,7 +509,7 @@ export async function DELETE(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error processing driver assignment:', error);
+    logger.error('Error processing driver assignment:', error);
 
     if (
       error instanceof Error &&
@@ -662,7 +663,7 @@ export async function PATCH(req: Request) {
       assignment: updatedAssignment,
     });
   } catch (error) {
-    console.error('Error reassigning driver assignment:', error);
+    logger.error('Error reassigning driver assignment:', error);
 
     if (
       error instanceof Error &&

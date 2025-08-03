@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
 import { getCurrentBahrainDate } from '@/lib/utils/timezone';
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -187,7 +188,7 @@ export async function GET(request: NextRequest) {
       data: stats,
     });
   } catch (error) {
-    console.error('Error fetching driver stats:', error);
+    logger.error('Error fetching driver stats:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

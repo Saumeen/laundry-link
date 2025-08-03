@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -58,7 +59,7 @@ export async function GET() {
       data: drivers,
     });
   } catch (error) {
-    console.error('Error fetching drivers:', error);
+    logger.error('Error fetching drivers:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

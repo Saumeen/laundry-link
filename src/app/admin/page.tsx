@@ -7,6 +7,7 @@ import { useOrdersStore } from '@/admin/stores/ordersStore';
 import { StatsCard } from '@/admin/components/StatsCard';
 import { QuickActionButton } from '@/admin/components/QuickActionButton';
 import {
+import logger from '@/lib/logger';
   getStatusBadgeColor,
   getStatusDisplayName,
   formatDate,
@@ -46,7 +47,7 @@ export default function AdminPanel() {
 
   const handleOpenOrderDetails = (order: OrderWithDetails) => {
     // This would open order details modal in a real implementation
-    console.log('Opening order details for:', order.orderNumber);
+    logger.info('Opening order details for:', order.orderNumber);
   };
 
   if (isLoading) {

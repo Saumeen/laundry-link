@@ -3,6 +3,7 @@ import { OrderTrackingService } from '@/lib/orderTracking';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 import { ProcessingStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -109,8 +110,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(
-      `Facility action completed: ${action} for order ${orderId} by staff ${admin.id}`
+    logger.info(`Facility action completed: ${action} for order ${orderId} by staff ${admin.id}`
     );
 
     return NextResponse.json({
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
       orderId,
     });
   } catch (error) {
-    console.error('Error handling facility action:', error);
+    logger.error('Error handling facility action:', error);
     return NextResponse.json(
       { error: 'Failed to handle facility action' },
       { status: 500 }

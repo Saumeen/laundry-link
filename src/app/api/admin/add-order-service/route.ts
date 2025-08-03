@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import logger from '@/lib/logger';
 
 interface AddOrderServiceRequest {
   orderId: number;
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
       newTotalAmount: totalAmount,
     });
   } catch (error) {
-    console.error('Error adding service to order:', error);
+    logger.error('Error adding service to order:', error);
     return NextResponse.json(
       { error: 'Failed to add service to order' },
       { status: 500 }

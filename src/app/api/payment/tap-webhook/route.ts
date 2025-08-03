@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { tapConfig } from '@/lib/config/tapConfig';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!paymentRecord) {
-      console.error('Payment record not found for Tap invoice:', id);
+      logger.error('Payment record not found for Tap invoice:', id);
       return NextResponse.json(
         { error: 'Payment record not found' },
         { status: 404 }
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
      const order = paymentRecord.order;
 
      if (!orderId || !order) {
-       console.error('Order not found for payment record:', paymentRecord.id);
+       logger.error('Order not found for payment record:', paymentRecord.id);
        return NextResponse.json(
          { error: 'Order not found' },
          { status: 404 }
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error processing Tap webhook:', error);
+    logger.error('Error processing Tap webhook:', error);
     return NextResponse.json(
       { error: 'Failed to process webhook' },
       { status: 500 }

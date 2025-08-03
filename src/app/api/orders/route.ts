@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 interface AddressData {
   customerId: number;
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   } catch (error) {
-    console.error('Error in order creation:', error);
+    logger.error('Error in order creation:', error);
     return NextResponse.json(
       { error: 'Failed to create order' },
       { status: 500 }
@@ -167,7 +168,7 @@ async function handleLoggedInCustomerOrder(
               },
             });
           } else {
-            console.error(`Service not found for ID: ${serviceId}`);
+            logger.error(`Service not found for ID: ${serviceId}`);
           }
         }
       }
@@ -213,7 +214,7 @@ async function handleLoggedInCustomerOrder(
         services: body.services.map(id => id.toString()),
       });
     } catch (emailError) {
-      console.error('Email sending failed:', emailError);
+      logger.error('Email sending failed:', emailError);
       // Continue with order creation even if emails fail
     }
 
@@ -223,7 +224,7 @@ async function handleLoggedInCustomerOrder(
       message: 'Order created successfully',
     });
   } catch (error) {
-    console.error('Error creating logged-in customer order:', error);
+    logger.error('Error creating logged-in customer order:', error);
     return NextResponse.json(
       { error: 'Failed to create order' },
       { status: 500 }
@@ -262,7 +263,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(order);
   } catch (error) {
-    console.error('Error fetching order:', error);
+    logger.error('Error fetching order:', error);
     return NextResponse.json(
       { error: 'Failed to fetch order' },
       { status: 500 }

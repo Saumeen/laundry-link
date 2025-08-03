@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import emailService from '@/lib/emailService';
 import {
+import logger from '@/lib/logger';
   OrderStatus,
   PaymentStatus,
   ProcessingStatus,
@@ -430,7 +431,7 @@ export async function PUT(
           }
         }
       } catch (emailError) {
-        console.error('Failed to send email notification:', emailError);
+        logger.error('Failed to send email notification:', emailError);
         // Continue with order update even if email fails
       }
     }
@@ -442,7 +443,7 @@ export async function PUT(
       changesDetected: hasChanges,
     });
   } catch (error) {
-    console.error('Error updating order:', error);
+    logger.error('Error updating order:', error);
     return NextResponse.json(
       { error: 'Failed to update order' },
       { status: 500 }

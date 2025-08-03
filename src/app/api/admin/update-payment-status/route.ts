@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { OrderTrackingService } from '@/lib/orderTracking';
 import { PaymentStatus } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -46,8 +47,7 @@ export async function POST(req: Request) {
       await OrderTrackingService.checkPaymentAndUpdateStatus(orderId);
     }
 
-    console.log(
-      `Payment status updated for order ${orderId}: ${paymentStatus}`
+    logger.info(`Payment status updated for order ${orderId}: ${paymentStatus}`
     );
 
     return NextResponse.json({
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       order: updatedOrder,
     });
   } catch (error) {
-    console.error('Error updating payment status:', error);
+    logger.error('Error updating payment status:', error);
     return NextResponse.json(
       { error: 'Failed to update payment status' },
       { status: 500 }

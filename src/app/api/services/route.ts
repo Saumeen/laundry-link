@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -28,7 +29,7 @@ export async function GET() {
 
     return NextResponse.json(services);
   } catch (error) {
-    console.error('Error fetching services:', error);
+    logger.error('Error fetching services:', error);
     return NextResponse.json(
       { error: 'Failed to fetch services' },
       { status: 500 }

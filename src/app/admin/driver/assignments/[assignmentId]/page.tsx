@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useDriverAuth } from '@/admin/hooks/useAdminAuth';
 import { useDriverStore } from '@/admin/stores/driverStore';
 import {
+import logger from '@/lib/logger';
   getStatusBadgeColor,
   getStatusDisplayName,
 } from '@/admin/utils/orderUtils';
@@ -167,7 +168,7 @@ export default function DriverAssignmentDetailPage() {
         );
       }
     } catch (error) {
-      console.error('Error updating assignment status:', error);
+      logger.error('Error updating assignment status:', error);
       showToast('An unexpected error occurred while updating status', 'error');
     } finally {
       setStatusUpdateLoading(false);
@@ -235,7 +236,7 @@ export default function DriverAssignmentDetailPage() {
         setPhotoError('Failed to update assignment status');
       }
     } catch (error) {
-      console.error('Error updating assignment with photo:', error);
+      logger.error('Error updating assignment with photo:', error);
       showToast(
         'An unexpected error occurred while updating assignment with photo',
         'error'

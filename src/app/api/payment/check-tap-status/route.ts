@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTapCharge } from '@/lib/utils/tapPaymentUtils';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
       try {
         tapStatus = await getTapCharge(paymentRecord.tapTransactionId);
       } catch (error) {
-        console.error('Error fetching TAP charge:', error);
+        logger.error('Error fetching TAP charge:', error);
         tapStatus = { error: 'Failed to fetch TAP status' };
       }
     }
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error checking TAP payment status:', error);
+    logger.error('Error checking TAP payment status:', error);
     
     // Handle authentication errors specifically
     if (error instanceof Error && error.message === 'Authentication required') {

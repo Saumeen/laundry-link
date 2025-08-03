@@ -4,6 +4,7 @@ import type { DashboardStats, AdminUser, FormState } from '@/shared/types';
 import { DashboardApi } from '@/admin/api/dashboard';
 import type { DriverStats } from '@/admin/api/driver';
 import { DriverApi } from '@/admin/api/driver';
+import logger from '@/lib/logger';
 
 interface DashboardState {
   // Data
@@ -62,7 +63,7 @@ export const useDashboardStore = create<DashboardState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching super admin stats:', error);
+          logger.error('Error fetching super admin stats:', error);
           set({
             statsForm: {
               loading: false,
@@ -98,7 +99,7 @@ export const useDashboardStore = create<DashboardState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching operation manager stats:', error);
+          logger.error('Error fetching operation manager stats:', error);
           set({
             statsForm: {
               loading: false,
@@ -145,7 +146,7 @@ export const useDashboardStore = create<DashboardState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching driver stats:', error);
+          logger.error('Error fetching driver stats:', error);
           set({
             statsForm: {
               loading: false,
@@ -192,7 +193,7 @@ export const useDashboardStore = create<DashboardState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching facility team stats:', error);
+          logger.error('Error fetching facility team stats:', error);
           set({
             statsForm: {
               loading: false,
@@ -225,7 +226,7 @@ export const useDashboardStore = create<DashboardState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching current user:', error);
+          logger.error('Error fetching current user:', error);
           set({
             userForm: {
               loading: false,

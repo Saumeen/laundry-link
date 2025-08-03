@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { ORDER_STATUS_CONFIG } from '@/lib/orderStatus';
 import { OrderStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 export async function GET(req: Request) {
   try {
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
       allowedTransitions,
     });
   } catch (error) {
-    console.error('Error fetching status transitions:', error);
+    logger.error('Error fetching status transitions:', error);
     return NextResponse.json(
       { error: 'Failed to fetch status transitions' },
       { status: 500 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { IssueStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 interface IssueReportRequest {
   orderProcessingId: number;
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
       issueReport,
     });
   } catch (error) {
-    console.error('Error creating issue report:', error);
+    logger.error('Error creating issue report:', error);
     return NextResponse.json(
       { error: 'Failed to create issue report' },
       { status: 500 }
@@ -140,7 +141,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(issueReports);
   } catch (error) {
-    console.error('Error fetching issue reports:', error);
+    logger.error('Error fetching issue reports:', error);
     return NextResponse.json(
       { error: 'Failed to fetch issue reports' },
       { status: 500 }

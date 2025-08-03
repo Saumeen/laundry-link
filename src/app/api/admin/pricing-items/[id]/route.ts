@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // PUT - Update pricing item
 export async function PUT(
@@ -99,7 +100,7 @@ export async function PUT(
 
     return NextResponse.json(updatedItem);
   } catch (error) {
-    console.error('Error updating pricing item:', error);
+    logger.error('Error updating pricing item:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -149,7 +150,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Item deleted successfully' });
   } catch (error) {
-    console.error('Error deleting pricing item:', error);
+    logger.error('Error deleting pricing item:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

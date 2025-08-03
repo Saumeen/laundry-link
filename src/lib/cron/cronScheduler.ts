@@ -1,4 +1,5 @@
 import { CRON_JOBS, CronJobConfig, CRON_SECRET_TOKEN } from './cronConfig';
+import logger from '@/lib/logger';
 
 interface CronJobExecution {
   jobName: string;
@@ -19,11 +20,11 @@ class CronScheduler {
    */
   start(): void {
     if (this.isRunning) {
-      console.log('Cron scheduler is already running');
+      logger.info('Cron scheduler is already running');
       return;
     }
 
-    console.log('Starting cron scheduler...');
+    logger.info('Starting cron scheduler...');
     this.isRunning = true;
 
     // Start each enabled cron job
@@ -33,7 +34,7 @@ class CronScheduler {
       }
     });
 
-    console.log(`Cron scheduler started with ${CRON_JOBS.filter(j => j.enabled).length} jobs`);
+    logger.info(`Cron scheduler started with ${CRON_JOBS.filter(j => j.enabled).length} jobs`);
   }
 
   /**
@@ -41,18 +42,18 @@ class CronScheduler {
    */
   stop(): void {
     if (!this.isRunning) {
-      console.log('Cron scheduler is not running');
+      logger.info('Cron scheduler is not running');
       return;
     }
 
-    console.log('Stopping cron scheduler...');
+    logger.info('Stopping cron scheduler...');
     this.isRunning = false;
 
     // Clear all intervals
     this.intervals.forEach(interval => clearInterval(interval));
     this.intervals = [];
 
-    console.log('Cron scheduler stopped');
+    logger.info('Cron scheduler stopped');
   }
 
   /**
@@ -62,11 +63,11 @@ class CronScheduler {
     const intervalMs = this.getIntervalFromCronExpression(job.schedule);
     
     if (intervalMs === null) {
-      console.error(`Invalid cron expression for job ${job.name}: ${job.schedule}`);
+      logger.error(`Invalid cron expression for job ${job.name}: ${job.schedule}`);
       return;
     }
 
-    console.log(`Scheduling job ${job.name} to run every ${intervalMs / 1000} seconds`);
+    logger.info(`Scheduling job ${job.name} to run every ${intervalMs / 1000} seconds`);
 
     const interval = setInterval(async () => {
       if (this.isRunning) {
@@ -90,7 +91,7 @@ class CronScheduler {
     };
 
     try {
-      console.log(`Executing cron job: ${job.name}`);
+      logger.info(`Executing cron job: ${job.name}`);
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${job.endpoint}`, {
         method: 'POST',
@@ -107,9 +108,9 @@ class CronScheduler {
       execution.result = result;
 
       if (response.ok) {
-        console.log(`Cron job ${job.name} completed successfully`);
+        logger.info(`Cron job ${job.name} completed successfully`);
       } else {
-        console.error(`Cron job ${job.name} failed:`, result);
+        logger.error(`Cron job ${job.name} failed:`, result);
         execution.error = (result as any)?.error || 'Unknown error';
       }
     } catch (error) {
@@ -117,7 +118,7 @@ class CronScheduler {
       execution.success = false;
       execution.error = error instanceof Error ? error.message : 'Unknown error';
       
-      console.error(`Cron job ${job.name} failed with error:`, error);
+      logger.error(`Cron job ${job.name} failed with error:`, error);
     }
 
     this.executions.push(execution);

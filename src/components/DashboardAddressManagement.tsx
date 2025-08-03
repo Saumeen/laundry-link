@@ -3,6 +3,7 @@ import { useSession } from 'next-auth/react';
 import { customerApi, parseJsonResponse } from '@/lib/api';
 import EnhancedAddressForm, { FormData } from './EnhancedAddressForm';
 import googleMapsService, { GeocodingResult } from '@/lib/googleMaps';
+import logger from '@/lib/logger';
 
 interface Address {
   id: number;
@@ -159,7 +160,7 @@ export default function DashboardAddressManagement() {
         }));
       }
     } catch (error) {
-      console.error('Error geocoding address:', error);
+      logger.error('Error geocoding address:', error);
     } finally {
       setAddressLoading(false);
     }

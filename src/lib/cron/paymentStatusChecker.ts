@@ -1,5 +1,6 @@
 import { PrismaClient, PaymentStatus, TransactionStatus } from '@prisma/client';
 import { getTapCharge } from '../utils/tapPaymentUtils';
+import logger from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -23,7 +24,7 @@ export class PaymentStatusChecker {
     };
 
     try {
-      console.log('Starting payment status check...');
+      logger.info('Starting payment status check...');
 
       // Get all pending payment records with TAP charge IDs
       const pendingPayments = await prisma.paymentRecord.findMany({
@@ -48,7 +49,7 @@ export class PaymentStatusChecker {
         }
       });
 
-      console.log(`Found ${pendingPayments.length} pending payments to check`);
+      logger.info(`Found ${pendingPayments.length} pending payments to check`);
 
       for (const payment of pendingPayments) {
         try {
@@ -56,15 +57,15 @@ export class PaymentStatusChecker {
           result.updatedCount++;
         } catch (error) {
           const errorMessage = `Error processing payment ${payment.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          console.error(errorMessage);
+          logger.error(errorMessage);
           result.errors.push(errorMessage);
         }
       }
 
-      console.log(`Payment status check completed. Updated: ${result.updatedCount}, Errors: ${result.errors.length}`);
+      logger.info(`Payment status check completed. Updated: ${result.updatedCount}, Errors: ${result.errors.length}`);
     } catch (error) {
       const errorMessage = `Payment status check failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      console.error(errorMessage);
+      logger.error(errorMessage);
       result.success = false;
       result.message = errorMessage;
       result.errors.push(errorMessage);
@@ -81,7 +82,7 @@ export class PaymentStatusChecker {
       throw new Error('No TAP charge ID found');
     }
 
-    console.log(`Checking payment ${payment.id} with TAP charge ID: ${payment.tapChargeId}`);
+    logger.info(`Checking payment ${payment.id} with TAP charge ID: ${payment.tapChargeId}`);
 
     // Get charge status from TAP API
     const tapCharge = await getTapCharge(payment.tapChargeId);
@@ -91,7 +92,7 @@ export class PaymentStatusChecker {
     }
 
     const chargeStatus = (tapCharge as any).status;
-    console.log(`TAP charge status for payment ${payment.id}: ${chargeStatus}`);
+    logger.info(`TAP charge status for payment ${payment.id}: ${chargeStatus}`);
 
     // Update payment status based on TAP charge status
     await this.updatePaymentStatus(payment, chargeStatus, tapCharge);
@@ -129,7 +130,7 @@ export class PaymentStatusChecker {
         break;
 
       default:
-        console.log(`Unknown TAP status: ${tapStatus} for payment ${payment.id}`);
+        logger.info(`Unknown TAP status: ${tapStatus} for payment ${payment.id}`);
         return; // Don't update for unknown statuses
     }
 
@@ -180,7 +181,7 @@ export class PaymentStatusChecker {
       });
     }
 
-    console.log(`Updated payment ${payment.id} to status: ${newPaymentStatus}`);
+    logger.info(`Updated payment ${payment.id} to status: ${newPaymentStatus}`);
   }
 
   /**
@@ -199,7 +200,7 @@ export class PaymentStatusChecker {
       }
     });
 
-    console.log(`Updated wallet ${wallet.id} balance: ${currentBalance} -> ${newBalance}`);
+    logger.info(`Updated wallet ${wallet.id} balance: ${currentBalance} -> ${newBalance}`);
   }
 
   /**
@@ -250,7 +251,7 @@ export class PaymentStatusChecker {
       }
     });
 
-    console.log(`Cleaned up ${result.count} old failed payments`);
+    logger.info(`Cleaned up ${result.count} old failed payments`);
     return result.count;
   }
 } 

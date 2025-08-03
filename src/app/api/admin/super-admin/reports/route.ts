@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAdminRoles,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
       `;
       revenueData = result as any[];
     } catch (error) {
-      console.error('Error fetching revenue data:', error);
+      logger.error('Error fetching revenue data:', error);
       revenueData = [];
     }
 
@@ -98,7 +99,7 @@ export async function GET(request: Request) {
       });
       orderStatusData = result;
     } catch (error) {
-      console.error('Error fetching order status data:', error);
+      logger.error('Error fetching order status data:', error);
       orderStatusData = [];
     }
 
@@ -119,7 +120,7 @@ export async function GET(request: Request) {
         new_customers: number;
       }>;
     } catch (error) {
-      console.error('Error fetching customer growth data:', error);
+      logger.error('Error fetching customer growth data:', error);
       customerGrowthData = [];
     }
 
@@ -145,7 +146,7 @@ export async function GET(request: Request) {
       });
       serviceUsageData = result;
     } catch (error) {
-      console.error('Error fetching service usage data:', error);
+      logger.error('Error fetching service usage data:', error);
       serviceUsageData = [];
     }
 
@@ -161,7 +162,7 @@ export async function GET(request: Request) {
         services = result;
       }
     } catch (error) {
-      console.error('Error fetching services:', error);
+      logger.error('Error fetching services:', error);
       services = [];
     }
 
@@ -187,7 +188,7 @@ export async function GET(request: Request) {
       });
       staffPerformanceData = result;
     } catch (error) {
-      console.error('Error fetching staff performance data:', error);
+      logger.error('Error fetching staff performance data:', error);
       staffPerformanceData = [];
     }
 
@@ -207,7 +208,7 @@ export async function GET(request: Request) {
         staffMembers = result;
       }
     } catch (error) {
-      console.error('Error fetching staff members:', error);
+      logger.error('Error fetching staff members:', error);
       staffMembers = [];
     }
 
@@ -233,7 +234,7 @@ export async function GET(request: Request) {
       });
       driverPerformanceData = result;
     } catch (error) {
-      console.error('Error fetching driver performance data:', error);
+      logger.error('Error fetching driver performance data:', error);
       driverPerformanceData = [];
     }
 
@@ -253,7 +254,7 @@ export async function GET(request: Request) {
         drivers = result;
       }
     } catch (error) {
-      console.error('Error fetching drivers:', error);
+      logger.error('Error fetching drivers:', error);
       drivers = [];
     }
 
@@ -293,7 +294,7 @@ export async function GET(request: Request) {
         },
       };
     } catch (error) {
-      console.error('Error calculating total revenue:', error);
+      logger.error('Error calculating total revenue:', error);
       summaryStats = { _sum: { invoiceTotal: 0 }, _count: { id: 0 } };
     }
 
@@ -494,8 +495,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(serializableReportData);
   } catch (error: any) {
-    console.error(
-      'Error fetching reports:',
+    logger.error('Error fetching reports:',
       error?.message || error || 'Unknown error'
     );
 

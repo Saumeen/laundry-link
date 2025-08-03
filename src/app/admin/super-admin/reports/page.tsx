@@ -6,6 +6,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { AdminUser, UserRole } from '@/types/global';
 import PageTransition from '@/components/ui/PageTransition';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
+import logger from '@/lib/logger';
 
 interface ReportData {
   // Revenue Analytics
@@ -222,10 +223,10 @@ export default function ReportsPage() {
         document.body.removeChild(a);
       } else {
         // Handle export failure
-        console.error('Export failed:', response.statusText);
+        logger.error('Export failed:', response.statusText);
       }
     } catch {
-      console.error('Export error');
+      logger.error('Export error');
     } finally {
       setExportLoading(false);
     }

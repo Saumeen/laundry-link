@@ -1,4 +1,5 @@
 import type { ApiResponse } from '@/shared/types/customer';
+import logger from '@/lib/logger';
 
 class InvoiceApi {
   private static baseUrl = '/api/customer/invoice';
@@ -27,7 +28,7 @@ class InvoiceApi {
 
       return await response.blob();
     } catch (error) {
-      console.error('Error downloading invoice:', error);
+      logger.error('Error downloading invoice:', error);
       throw error;
     }
   }
@@ -61,7 +62,7 @@ class InvoiceApi {
         data: data as { message: string },
       };
     } catch (error) {
-      console.error('Error generating invoice:', error);
+      logger.error('Error generating invoice:', error);
       return {
         success: false,
         error: 'Network error occurred',

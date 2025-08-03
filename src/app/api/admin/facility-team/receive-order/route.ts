@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { OrderStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
       order: updatedOrder,
     });
   } catch (error) {
-    console.error('Error marking order as received:', error);
+    logger.error('Error marking order as received:', error);
     return NextResponse.json(
       { error: 'Failed to mark order as received' },
       { status: 500 }

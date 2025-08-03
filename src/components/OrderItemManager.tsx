@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import logger from '@/lib/logger';
 
 interface OrderItem {
   id?: number;
@@ -105,7 +106,7 @@ export default function OrderItemManager({
         setItems(data.orderItems || []);
       }
     } catch (error) {
-      console.error('Error loading order items:', error);
+      logger.error('Error loading order items:', error);
     }
   };
 
@@ -157,7 +158,7 @@ export default function OrderItemManager({
         alert(error.error || 'Failed to add item');
       }
     } catch (error) {
-      console.error('Error adding item:', error);
+      logger.error('Error adding item:', error);
       alert('Failed to add item');
     }
   };
@@ -201,7 +202,7 @@ export default function OrderItemManager({
         alert(error.error || 'Failed to update item');
       }
     } catch (error) {
-      console.error('Error updating item:', error);
+      logger.error('Error updating item:', error);
       alert('Failed to update item');
     }
   };
@@ -229,7 +230,7 @@ export default function OrderItemManager({
         alert(error.error || 'Failed to delete item');
       }
     } catch (error) {
-      console.error('Error deleting item:', error);
+      logger.error('Error deleting item:', error);
       alert('Failed to delete item');
     }
   };

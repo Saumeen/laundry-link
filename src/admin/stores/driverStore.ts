@@ -3,6 +3,7 @@ import { devtools } from 'zustand/middleware';
 import type { FormState } from '@/shared/types';
 import type { DriverAssignment, DriverStats } from '@/admin/api/driver';
 import { DriverApi } from '@/admin/api/driver';
+import logger from '@/lib/logger';
 
 interface DriverState {
   // Data
@@ -59,7 +60,7 @@ export const useDriverStore = create<DriverState>()(
             set({ assignments: [], loading: false });
           }
         } catch (error) {
-          console.error('Error fetching assignments:', error);
+          logger.error('Error fetching assignments:', error);
           set({ assignments: [], loading: false });
         }
       },
@@ -74,7 +75,7 @@ export const useDriverStore = create<DriverState>()(
             set({ stats: null, statsLoading: false });
           }
         } catch (error) {
-          console.error('Error fetching driver stats:', error);
+          logger.error('Error fetching driver stats:', error);
           set({ stats: null, statsLoading: false });
         }
       },
@@ -118,7 +119,7 @@ export const useDriverStore = create<DriverState>()(
             return { success: false, error: errorMessage };
           }
         } catch (error) {
-          console.error('Error updating assignment status:', error);
+          logger.error('Error updating assignment status:', error);
           const errorMessage = 'An unexpected error occurred.';
           set({
             assignmentForm: {
@@ -161,7 +162,7 @@ export const useDriverStore = create<DriverState>()(
             });
           }
         } catch (error) {
-          console.error('Error uploading photo:', error);
+          logger.error('Error uploading photo:', error);
           set({
             photoForm: {
               loading: false,
@@ -192,7 +193,7 @@ export const useDriverStore = create<DriverState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching profile:', error);
+          logger.error('Error fetching profile:', error);
           set({
             profileForm: {
               loading: false,
@@ -223,7 +224,7 @@ export const useDriverStore = create<DriverState>()(
             });
           }
         } catch (error) {
-          console.error('Error updating profile:', error);
+          logger.error('Error updating profile:', error);
           set({
             profileForm: {
               loading: false,

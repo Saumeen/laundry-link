@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import OrderProcessingManager from './OrderProcessingManager';
+import logger from '@/lib/logger';
 
 interface OrderItem {
   id: number;
@@ -349,7 +350,7 @@ export default function OrderItemsTab({
 
   const handleDeleteOrderItem = async (itemId: number, itemName: string) => {
     if (!onDeleteOrderItem) {
-      console.warn('Delete order item function not provided');
+      logger.warn('Delete order item function not provided');
       return;
     }
 
@@ -362,7 +363,7 @@ export default function OrderItemsTab({
       await onDeleteOrderItem(order.id, itemId);
       onRefresh();
     } catch (error) {
-      console.error('Error deleting order item:', error);
+      logger.error('Error deleting order item:', error);
       alert('Failed to delete item. Please try again.');
     }
   };

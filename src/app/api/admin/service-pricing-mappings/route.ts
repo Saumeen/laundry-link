@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // GET - Fetch all service-pricing mappings
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
 
     return NextResponse.json(mappings);
   } catch (error) {
-    console.error('Error fetching service-pricing mappings:', error);
+    logger.error('Error fetching service-pricing mappings:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(mapping, { status: 201 });
   } catch (error) {
-    console.error('Error creating service-pricing mapping:', error);
+    logger.error('Error creating service-pricing mapping:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

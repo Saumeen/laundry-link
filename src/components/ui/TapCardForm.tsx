@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { getTapConfig } from '@/lib/config/tapConfig';
+import logger from '@/lib/logger';
 
 interface TapCardFormProps {
   amount: number;
@@ -105,7 +106,7 @@ export default function TapCardForm({
         try {
           unmountRef.current();
         } catch (error) {
-          console.warn('Error during Tap Card SDK cleanup:', error);
+          logger.warn('Error during Tap Card SDK cleanup:', error);
         }
       }
     };
@@ -118,7 +119,7 @@ export default function TapCardForm({
         try {
           unmountRef.current();
         } catch (error) {
-          console.warn('Error during Tap Card SDK cleanup:', error);
+          logger.warn('Error during Tap Card SDK cleanup:', error);
         }
       }
     };
@@ -186,29 +187,29 @@ export default function TapCardForm({
           direction: Direction.LTR
         },
         onReady: () => {
-          console.log('Tap Card SDK is ready');
+          logger.info('Tap Card SDK is ready');
           setIsCardReady(true);
           setCardValidationState('idle');
         },
         onFocus: () => {
-          console.log('Card field focused');
+          logger.info('Card field focused');
         },
         onBinIdentification: (data: any) => {
-          console.log('BIN identification:', data);
+          logger.info('BIN identification:', data);
         },
         onValidInput: (data: any) => {
-          console.log('Valid input:', data);
+          logger.info('Valid input:', data);
           setCardValidationState('valid');
           setIsCardReady(true);
         },
         onInvalidInput: (data: any) => {
-          console.log('Invalid input:', data);
+          logger.info('Invalid input:', data);
           setCardValidationState('invalid');
           // Don't treat this as an error - it's just validation feedback
           // The card might still be valid when the user completes entering it
         },
         onError: (data: any) => {
-          console.error('Tap Card SDK error:', data);
+          logger.error('Tap Card SDK error:', data);
           // Only treat as error if it's a critical error, not just validation feedback
           if (data?.code && data.code !== 'VALIDATION_ERROR') {
             const errorMessage = data?.message || data?.error || 'Card validation error';
@@ -216,7 +217,7 @@ export default function TapCardForm({
           }
         },
         onSuccess: (data: any) => {
-          console.log('Card tokenization successful:', data);
+          logger.info('Card tokenization successful:', data);
           setCardValidationState('valid');
           if (data?.id) {
             // Extract card details if available
@@ -233,13 +234,13 @@ export default function TapCardForm({
           }
         },
         onChangeSaveCardLater: (isSaveCardSelected: boolean) => {
-          console.log('Save card preference changed:', isSaveCardSelected);
+          logger.info('Save card preference changed:', isSaveCardSelected);
         }
       });
 
       unmountRef.current = unmount;
     } catch (error) {
-      console.error('Error initializing Tap Card SDK:', error);
+      logger.error('Error initializing Tap Card SDK:', error);
       onError('Failed to initialize payment form');
     }
   };
@@ -257,7 +258,7 @@ export default function TapCardForm({
         throw new Error('Tap Card SDK not loaded or tokenize method not available');
       }
     } catch (error) {
-      console.error('Error tokenizing card:', error);
+      logger.error('Error tokenizing card:', error);
       onError('Failed to process card details');
     } finally {
       setIsTokenizing(false);

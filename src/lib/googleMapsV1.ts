@@ -1,3 +1,4 @@
+import logger from '@/lib/logger';
 // Google Maps Places API v1 service using the new REST endpoints
 // https://places.googleapis.com/v1/places:autocompletePlaces
 // https://places.googleapis.com/v1/places/{placeId}
@@ -270,8 +271,7 @@ class GoogleMapsV1Service {
       );
 
       if (!response.ok) {
-        console.error(
-          'Places API error:',
+        logger.error('Places API error:',
           response.status,
           response.statusText
         );
@@ -290,7 +290,7 @@ class GoogleMapsV1Service {
         },
       }));
     } catch (error) {
-      console.error('Error fetching address suggestions:', error);
+      logger.error('Error fetching address suggestions:', error);
       return [];
     }
   }
@@ -327,8 +327,7 @@ class GoogleMapsV1Service {
       );
 
       if (!response.ok) {
-        console.error(
-          'Place details API error:',
+        logger.error('Place details API error:',
           response.status,
           response.statusText
         );
@@ -386,7 +385,7 @@ class GoogleMapsV1Service {
         locationType,
       };
     } catch (error) {
-      console.error('Error geocoding place ID:', error);
+      logger.error('Error geocoding place ID:', error);
       return null;
     }
   }
@@ -461,7 +460,7 @@ class GoogleMapsV1Service {
         locationType,
       };
     } catch (error) {
-      console.error('Error reverse geocoding:', error);
+      logger.error('Error reverse geocoding:', error);
       return null;
     }
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -96,8 +97,7 @@ export async function POST(req: Request) {
       data: { status: 'ISSUE_REPORTED' },
     });
 
-    console.log(
-      `Issue report created/updated for processing item detail ${processingItemDetailId} by staff ${admin.id}`
+    logger.info(`Issue report created/updated for processing item detail ${processingItemDetailId} by staff ${admin.id}`
     );
 
     return NextResponse.json({
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       issueReport,
     });
   } catch (error) {
-    console.error('Error saving issue report:', error || 'Unknown error');
+    logger.error('Error saving issue report:', error || 'Unknown error');
     return NextResponse.json(
       { error: 'Failed to save issue report' },
       { status: 500 }

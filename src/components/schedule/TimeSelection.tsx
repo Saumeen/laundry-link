@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import logger from '@/lib/logger';
 
 // Time slot configuration interface
 interface TimeSlotConfig {
@@ -47,7 +48,7 @@ export default function TimeSelection({
           const data = (await response.json()) as { config: TimeSlotConfig };
           setConfig(data.config);
         } else {
-          console.error('Failed to fetch time slot configuration');
+          logger.error('Failed to fetch time slot configuration');
           // Fallback to default configuration
           setConfig({
             slotDuration: 3,
@@ -56,7 +57,7 @@ export default function TimeSelection({
           });
         }
       } catch (error) {
-        console.error('Error fetching time slot configuration:', error);
+        logger.error('Error fetching time slot configuration:', error);
         // Fallback to default configuration
         setConfig({
           slotDuration: 3,

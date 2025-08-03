@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+import logger from '@/lib/logger';
   requireAdminRoles,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -362,8 +363,7 @@ export async function POST(request: Request) {
       });
     }
   } catch (error) {
-    console.error(
-      'Error exporting report:',
+    logger.error('Error exporting report:',
       error instanceof Error ? error.message : 'Unknown error'
     );
 

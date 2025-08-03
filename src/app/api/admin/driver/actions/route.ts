@@ -3,6 +3,7 @@ import { OrderTrackingService } from '@/lib/orderTracking';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 import { DriverAssignmentStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -132,8 +133,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(
-      `Driver action completed: ${action} for order ${orderId} by driver ${admin.id}`
+    logger.info(`Driver action completed: ${action} for order ${orderId} by driver ${admin.id}`
     );
 
     return NextResponse.json({
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
       orderId,
     });
   } catch (error) {
-    console.error('Error handling driver action:', error);
+    logger.error('Error handling driver action:', error);
     return NextResponse.json(
       { error: 'Failed to handle driver action' },
       { status: 500 }

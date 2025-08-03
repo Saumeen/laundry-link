@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Camera, RotateCcw, Check } from 'lucide-react';
+import logger from '@/lib/logger';
 
 interface PhotoCaptureProps {
   onCapture: (photoData: string) => void;
@@ -48,7 +49,7 @@ export default function PhotoCapture({
         streamRef.current = stream;
       }
     } catch (err) {
-      console.error('Error accessing camera:', err);
+      logger.error('Error accessing camera:', err);
       setError(
         'Unable to access camera. Please check permissions and try again.'
       );

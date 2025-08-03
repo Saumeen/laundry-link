@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -260,7 +261,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error generating PDF:', error);
+    logger.error('Error generating PDF:', error);
     return NextResponse.json(
       { error: 'Failed to generate PDF' },
       { status: 500 }

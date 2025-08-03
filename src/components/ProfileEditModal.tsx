@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { customerApi } from '@/lib/api';
 import PhoneInput from './PhoneInput';
+import logger from '@/lib/logger';
 
 interface Customer {
   id: number;
@@ -95,7 +96,7 @@ export default function ProfileEditModal({
         setError(result.error || 'Failed to update profile');
       }
     } catch (err) {
-      console.error('Error updating profile:', err);
+      logger.error('Error updating profile:', err);
       setError('Failed to update profile. Please try again.');
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
       order: updatedOrder,
     });
   } catch (error) {
-    console.error('Error updating processing data:', error);
+    logger.error('Error updating processing data:', error);
 
     if (
       error instanceof Error &&

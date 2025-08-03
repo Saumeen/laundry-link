@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import logger from '@/lib/logger';
 
 // POST - Reset customer password
 export async function POST(req: Request) {
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
       activationToken: activationToken, // Only returned if auto-generated password
     });
   } catch (error) {
-    console.error('Error resetting customer password:', error);
+    logger.error('Error resetting customer password:', error);
     return NextResponse.json(
       { error: 'Failed to reset password' },
       { status: 500 }

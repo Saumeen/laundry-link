@@ -1,6 +1,7 @@
 // src/app/api/auth/check-email/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
       isActive: customer?.isActive || false,
     });
   } catch (error) {
-    console.error('Error checking email:', error);
+    logger.error('Error checking email:', error);
     return NextResponse.json(
       { error: 'Failed to check email' },
       { status: 500 }

@@ -2,6 +2,7 @@ import type { FormState } from '@/shared/types';
 import { OrderStatus } from '@prisma/client';
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import logger from '@/lib/logger';
 
 // Types for the facility team store
 export interface OrderItem {
@@ -216,16 +217,15 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
       ...initialState,
 
       fetchOrder: async (orderId: string) => {
-        console.log('Store: Fetching order:', orderId);
+        logger.info('Store: Fetching order:', orderId);
         set({ orderForm: { loading: true, error: null, success: false } });
         try {
           const response = await fetch(`/api/admin/order-details/${orderId}`);
-          console.log('Store: Order fetch response status:', response.status);
+          logger.info('Store: Order fetch response status:', response.status);
 
           if (response.ok) {
             const data = (await response.json()) as { order: Order };
-            console.log(
-              'Store: Order fetched successfully:',
+            logger.info('Store: Order fetched successfully:',
               data.order?.orderNumber
             );
             set({
@@ -244,8 +244,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             }
           } else {
             const errorText = await response.text();
-            console.error(
-              'Store: Order fetch failed:',
+            logger.error('Store: Order fetch failed:',
               response.status,
               errorText
             );
@@ -258,7 +257,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Store: Error fetching order:', error);
+          logger.error('Store: Error fetching order:', error);
           set({
             orderForm: {
               loading: false,
@@ -281,7 +280,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             set({ servicePricing: data.data || null });
           }
         } catch (error) {
-          console.error('Error fetching service pricing:', error);
+          logger.error('Error fetching service pricing:', error);
         }
       },
 
@@ -333,7 +332,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error adding order item:', error);
+          logger.error('Error adding order item:', error);
           set({
             itemForm: {
               loading: false,
@@ -372,7 +371,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error deleting order item:', error);
+          logger.error('Error deleting order item:', error);
           set({
             itemForm: {
               loading: false,
@@ -427,7 +426,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error updating item processing:', error);
+          logger.error('Error updating item processing:', error);
           set({
             itemForm: {
               loading: false,
@@ -485,7 +484,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error uploading issue images:', error);
+          logger.error('Error uploading issue images:', error);
           set({
             itemForm: {
               loading: false,
@@ -519,7 +518,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             }
           }
         } catch (error) {
-          console.error('Error fetching issue reports:', error);
+          logger.error('Error fetching issue reports:', error);
         }
       },
 
@@ -556,7 +555,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error starting processing:', error);
+          logger.error('Error starting processing:', error);
           set({
             processingForm: {
               loading: false,
@@ -600,7 +599,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error marking order as ready for delivery:', error);
+          logger.error('Error marking order as ready for delivery:', error);
           set({
             processingForm: {
               loading: false,
@@ -644,7 +643,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error generating invoice:', error);
+          logger.error('Error generating invoice:', error);
           set({
             invoiceForm: {
               loading: false,
@@ -687,7 +686,7 @@ export const useFacilityTeamStore = create<FacilityTeamState>()(
             });
           }
         } catch (error) {
-          console.error('Error marking processing as completed:', error);
+          logger.error('Error marking processing as completed:', error);
           set({
             processingForm: {
               loading: false,

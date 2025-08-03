@@ -1,4 +1,5 @@
 import type {
+import logger from '@/lib/logger';
   CustomerAddress,
   PaginatedResponse,
   AddressFilters,
@@ -46,7 +47,7 @@ class AddressesApi {
         data,
       };
     } catch (error) {
-      console.error('Error fetching addresses:', error);
+      logger.error('Error fetching addresses:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -80,7 +81,7 @@ class AddressesApi {
         data,
       };
     } catch (error) {
-      console.error('Error fetching address:', error);
+      logger.error('Error fetching address:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -115,7 +116,7 @@ class AddressesApi {
         data,
       };
     } catch (error) {
-      console.error('Error creating address:', error);
+      logger.error('Error creating address:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -150,7 +151,7 @@ class AddressesApi {
         data,
       };
     } catch (error) {
-      console.error('Error updating address:', error);
+      logger.error('Error updating address:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -184,7 +185,7 @@ class AddressesApi {
         data,
       };
     } catch (error) {
-      console.error('Error deleting address:', error);
+      logger.error('Error deleting address:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -218,7 +219,7 @@ class AddressesApi {
         data,
       };
     } catch (error) {
-      console.error('Error setting default address:', error);
+      logger.error('Error setting default address:', error);
       return {
         success: false,
         error: 'Network error occurred',

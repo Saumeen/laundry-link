@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { cronScheduler } from '@/lib/cron/cronScheduler';
 import { PaymentStatusChecker } from '@/lib/cron/paymentStatusChecker';
+import logger from '@/lib/logger';
 
 export async function GET(req: Request) {
   try {
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error getting cron status:', error);
+    logger.error('Error getting cron status:', error);
     
     return NextResponse.json(
       {
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error controlling cron scheduler:', error);
+    logger.error('Error controlling cron scheduler:', error);
     
     return NextResponse.json(
       {

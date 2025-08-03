@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';
@@ -147,7 +148,7 @@ export async function PUT(
       message: 'Address updated successfully',
     });
   } catch (error) {
-    console.error('Error updating address:', error);
+    logger.error('Error updating address:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
@@ -202,7 +203,7 @@ export async function DELETE(
       message: 'Address deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting address:', error);
+    logger.error('Error deleting address:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

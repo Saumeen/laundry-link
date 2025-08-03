@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';
@@ -47,7 +48,7 @@ export async function PUT(
       message: 'Default address updated successfully',
     });
   } catch (error) {
-    console.error('Error setting default address:', error);
+    logger.error('Error setting default address:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

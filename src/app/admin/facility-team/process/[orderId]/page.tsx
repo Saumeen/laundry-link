@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { OrderStatus } from '@prisma/client';
 import { useFacilityTeamStore } from '@/admin/stores/facilityTeamStore';
 import { useFacilityTeamAuth } from '@/admin/hooks/useAdminAuth';
+import logger from '@/lib/logger';
 
 // Types are now imported from the store
 
@@ -90,24 +91,24 @@ export default function ProcessOrderPage() {
   ]);
 
   useEffect(() => {
-    console.log('Order fetch effect:', { authLoading, isAuthorized, orderId });
+    logger.info('Order fetch effect:', { authLoading, isAuthorized, orderId });
 
     // Wait for authentication to be determined
     if (authLoading) {
-      console.log('Order fetch: Waiting for auth to load...');
+      logger.info('Order fetch: Waiting for auth to load...');
       return;
     }
 
     // If not authorized, redirect to login
     if (!isAuthorized) {
-      console.log('Order fetch: Not authorized, redirecting to login');
+      logger.info('Order fetch: Not authorized, redirecting to login');
       router.push('/admin/login');
       return;
     }
 
     // If authorized and we have an orderId, fetch the order
     if (orderId && isAuthorized) {
-      console.log('Order fetch: Authorized, fetching order:', orderId);
+      logger.info('Order fetch: Authorized, fetching order:', orderId);
       fetchOrder(orderId);
     }
   }, [authLoading, isAuthorized, router, orderId, fetchOrder]);

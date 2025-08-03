@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export interface AuthenticatedCustomer {
   id: number;
@@ -38,7 +39,7 @@ export async function getAuthenticatedCustomer(): Promise<AuthenticatedCustomer 
       isActive: customer.isActive,
     };
   } catch (error) {
-    console.error('Error getting authenticated customer:', error);
+    logger.error('Error getting authenticated customer:', error);
     return null;
   }
 }

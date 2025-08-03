@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import googleMapsV1Service, { GoogleMapsAddress } from '../lib/googleMapsV1';
+import logger from '@/lib/logger';
 
 interface GoogleMapsAutocompleteV1Props {
   value: string;
@@ -64,7 +65,7 @@ export default function GoogleMapsAutocompleteV1({
       setSuggestions(results);
       setShowSuggestions(results.length > 0);
     } catch (err) {
-      console.error('Error fetching suggestions:', err);
+      logger.error('Error fetching suggestions:', err);
       setError('Failed to load address suggestions');
       setSuggestions([]);
       setShowSuggestions(false);

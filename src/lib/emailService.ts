@@ -1,6 +1,7 @@
 import * as sgMail from '@sendgrid/mail';
 import prisma from './prisma';
 import { OrderStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 // Helper function to convert UTC time to Bahrain time (AST - UTC+3)
 function convertToBahrainTime(date: Date): string {
@@ -134,7 +135,7 @@ export default {
 
       return serviceMap;
     } catch (error) {
-      console.error('Error fetching service names:', error);
+      logger.error('Error fetching service names:', error);
       // Fallback to hardcoded mapping
       return {
         1: 'Wash (by weight)',
@@ -231,12 +232,11 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(
-        `Order confirmation email sent to customer: ${customerEmail}`
+      logger.info(`Order confirmation email sent to customer: ${customerEmail}`
       );
       return true;
     } catch (error) {
-      console.error('Error sending order confirmation email:', error);
+      logger.error('Error sending order confirmation email:', error);
       return false;
     }
   },
@@ -326,10 +326,10 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(`Order update email sent to customer: ${customerEmail}`);
+      logger.info(`Order update email sent to customer: ${customerEmail}`);
       return true;
     } catch (error) {
-      console.error('Error sending order update email:', error);
+      logger.error('Error sending order update email:', error);
       return false;
     }
   },
@@ -419,10 +419,10 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(`Order creation email sent to customer: ${customerEmail}`);
+      logger.info(`Order creation email sent to customer: ${customerEmail}`);
       return true;
     } catch (error) {
-      console.error('Error sending order creation email:', error);
+      logger.error('Error sending order creation email:', error);
       return false;
     }
   },
@@ -489,10 +489,10 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(`Welcome email sent to customer: ${email}`);
+      logger.info(`Welcome email sent to customer: ${email}`);
       return true;
     } catch (error) {
-      console.error('Error sending welcome email:', error);
+      logger.error('Error sending welcome email:', error);
       return false;
     }
   },
@@ -535,10 +535,10 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(`Order notification email sent to admin: ${adminEmail}`);
+      logger.info(`Order notification email sent to admin: ${adminEmail}`);
       return true;
     } catch (error) {
-      console.error('Error sending admin notification email:', error);
+      logger.error('Error sending admin notification email:', error);
       return false;
     }
   },
@@ -730,12 +730,11 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(
-        `Status update email sent to customer: ${customerEmail} for status: ${newStatus}`
+      logger.info(`Status update email sent to customer: ${customerEmail} for status: ${newStatus}`
       );
       return true;
     } catch (error) {
-      console.error('Error sending status update email:', error);
+      logger.error('Error sending status update email:', error);
       return false;
     }
   },
@@ -861,12 +860,11 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(
-        `Delivery confirmation email with invoice sent to customer: ${customerEmail}`
+      logger.info(`Delivery confirmation email with invoice sent to customer: ${customerEmail}`
       );
       return true;
     } catch (error) {
-      console.error('Error sending delivery confirmation email:', error);
+      logger.error('Error sending delivery confirmation email:', error);
       return false;
     }
   },
@@ -992,12 +990,11 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(
-        `Invoice generation notification sent to customer: ${customerEmail}`
+      logger.info(`Invoice generation notification sent to customer: ${customerEmail}`
       );
       return true;
     } catch (error) {
-      console.error('Error sending invoice generation notification:', error);
+      logger.error('Error sending invoice generation notification:', error);
       return false;
     }
   },
@@ -1123,12 +1120,11 @@ export default {
       };
 
       await sgMail.send(msg);
-      console.log(
-        `Processing completed notification sent to customer: ${customerEmail}`
+      logger.info(`Processing completed notification sent to customer: ${customerEmail}`
       );
       return true;
     } catch (error) {
-      console.error('Error sending processing completed notification:', error);
+      logger.error('Error sending processing completed notification:', error);
       return false;
     }
   },

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import { OrderStatus, ProcessingStatus, ItemStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 // Types
 interface OrderItem {
@@ -453,7 +454,7 @@ export default function OrderProcessingManager({
 
   const handleDeleteOrderItem = async (itemId: number, itemName: string) => {
     if (!onDeleteOrderItem) {
-      console.warn('Delete order item function not provided');
+      logger.warn('Delete order item function not provided');
       return;
     }
 
@@ -467,7 +468,7 @@ export default function OrderProcessingManager({
       showToast('Item deleted successfully!', 'success');
       onRefresh();
     } catch (error) {
-      console.error('Error deleting order item:', error);
+      logger.error('Error deleting order item:', error);
       showToast('Failed to delete item. Please try again.', 'error');
     }
   };

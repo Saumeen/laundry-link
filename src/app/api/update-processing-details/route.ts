@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { OrderTrackingService } from '@/lib/orderTracking';
 import { ProcessingStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
       processing: orderProcessing,
     });
   } catch (error) {
-    console.error('Error updating processing details:', error);
+    logger.error('Error updating processing details:', error);
     return NextResponse.json(
       { error: 'Failed to update processing details' },
       { status: 500 }

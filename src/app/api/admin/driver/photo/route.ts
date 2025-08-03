@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -55,8 +56,7 @@ export async function POST(req: Request) {
       });
     }
 
-    console.log(
-      `Photo saved for assignment ${assignmentId} by driver ${admin.id}`
+    logger.info(`Photo saved for assignment ${assignmentId} by driver ${admin.id}`
     );
 
     return NextResponse.json({
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       photo,
     });
   } catch (error) {
-    console.error('Error saving photo:', error);
+    logger.error('Error saving photo:', error);
     return NextResponse.json(
       { error: 'Failed to save photo' },
       { status: 500 }

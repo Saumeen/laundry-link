@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import logger from '@/lib/logger';
 
 interface ProcessRefundRequest {
   paymentId: number;
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error processing refund:', error);
+    logger.error('Error processing refund:', error);
     
     if (error instanceof Error && error.message.includes('Authentication required')) {
       return NextResponse.json(

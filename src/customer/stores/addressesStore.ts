@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type {
+import logger from '@/lib/logger';
   CustomerAddress,
   AddressFilters,
   CreateAddressData,
@@ -78,10 +79,10 @@ export const useAddressesStore = create<AddressesState>()(
               filters: currentFilters,
             });
           } else {
-            console.error('Failed to fetch addresses:', response.error);
+            logger.error('Failed to fetch addresses:', response.error);
           }
         } catch (error) {
-          console.error('Error fetching addresses:', error);
+          logger.error('Error fetching addresses:', error);
         } finally {
           set({ loading: false });
         }
@@ -120,7 +121,7 @@ export const useAddressesStore = create<AddressesState>()(
             }));
           }
         } catch (error) {
-          console.error('Error creating address:', error);
+          logger.error('Error creating address:', error);
           set(state => ({
             createAddressForm: {
               ...state.createAddressForm,
@@ -166,7 +167,7 @@ export const useAddressesStore = create<AddressesState>()(
             }));
           }
         } catch (error) {
-          console.error('Error updating address:', error);
+          logger.error('Error updating address:', error);
           set(state => ({
             updateAddressForm: {
               ...state.updateAddressForm,
@@ -212,7 +213,7 @@ export const useAddressesStore = create<AddressesState>()(
             }));
           }
         } catch (error) {
-          console.error('Error deleting address:', error);
+          logger.error('Error deleting address:', error);
           set(state => ({
             deleteAddressForm: {
               ...state.deleteAddressForm,
@@ -235,10 +236,10 @@ export const useAddressesStore = create<AddressesState>()(
               })),
             }));
           } else {
-            console.error('Failed to set default address:', response.error);
+            logger.error('Failed to set default address:', response.error);
           }
         } catch (error) {
-          console.error('Error setting default address:', error);
+          logger.error('Error setting default address:', error);
         }
       },
 

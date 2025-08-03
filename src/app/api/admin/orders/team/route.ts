@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { OrderTrackingService } from '@/lib/orderTracking';
+import logger from '@/lib/logger';
 
 export async function GET(req: Request) {
   try {
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
       count: orders.length,
     });
   } catch (error) {
-    console.error('Error getting team orders:', error);
+    logger.error('Error getting team orders:', error);
     return NextResponse.json(
       { error: 'Failed to get team orders' },
       { status: 500 }

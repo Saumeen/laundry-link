@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import logger from '@/lib/logger';
 
 interface CronStatus {
   isRunning: boolean;
@@ -69,7 +70,7 @@ export default function CronJobMonitor() {
         showToast('Failed to fetch cron status', 'error');
       }
     } catch (error) {
-      console.error('Error fetching cron status:', error);
+      logger.error('Error fetching cron status:', error);
       showToast('Error fetching cron status', 'error');
     } finally {
       setLoading(false);
@@ -96,7 +97,7 @@ export default function CronJobMonitor() {
         showToast(`Failed to ${action} cron scheduler`, 'error');
       }
     } catch (error) {
-      console.error(`Error ${action}ing cron scheduler:`, error);
+      logger.error(`Error ${action}ing cron scheduler:`, error);
       showToast(`Error ${action}ing cron scheduler`, 'error');
     }
   };

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { ProcessingStatus, ItemStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 interface ProcessingRequest {
   orderId: number;
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
       processing,
     });
   } catch (error) {
-    console.error('Error starting processing:', error);
+    logger.error('Error starting processing:', error);
     return NextResponse.json(
       { error: 'Failed to start processing' },
       { status: 500 }
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(processing);
   } catch (error) {
-    console.error('Error fetching processing:', error);
+    logger.error('Error fetching processing:', error);
     return NextResponse.json(
       { error: 'Failed to fetch processing' },
       { status: 500 }
@@ -275,7 +276,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Error updating processing:', error);
+    logger.error('Error updating processing:', error);
     return NextResponse.json(
       { error: 'Failed to update processing' },
       { status: 500 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -134,7 +135,7 @@ export async function GET(
 
     return NextResponse.json({ order: transformedOrder });
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    logger.error('Error fetching order details:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

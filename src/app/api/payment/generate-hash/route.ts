@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error generating hash string:', error);
+    logger.error('Error generating hash string:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

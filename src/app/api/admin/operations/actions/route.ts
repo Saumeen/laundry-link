@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { OrderTrackingService } from '@/lib/orderTracking';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -66,8 +67,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(
-      `Operations action completed: ${action} for order ${orderId} by staff ${admin.id}`
+    logger.info(`Operations action completed: ${action} for order ${orderId} by staff ${admin.id}`
     );
 
     return NextResponse.json({
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       driverId,
     });
   } catch (error) {
-    console.error('Error handling operations action:', error);
+    logger.error('Error handling operations action:', error);
     return NextResponse.json(
       { error: 'Failed to handle operations action' },
       { status: 500 }

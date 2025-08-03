@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { customerApi, parseJsonResponse } from '@/lib/api';
 import googleMapsService, { GeocodingResult } from '@/lib/googleMaps';
+import logger from '@/lib/logger';
 
 interface Address {
   id: number;
@@ -139,7 +140,7 @@ export const useAddressSelector = (
         });
       }
     } catch (error) {
-      console.error('Error geocoding address:', error);
+      logger.error('Error geocoding address:', error);
     } finally {
       setAddressLoading(false);
     }
@@ -219,7 +220,7 @@ export const useAddressSelector = (
         resetForm();
         setCurrentView('select');
       } catch (error) {
-        console.error('Error creating address:', error);
+        logger.error('Error creating address:', error);
         setMessage('❌ Failed to create address');
       } finally {
         setSaving(false);

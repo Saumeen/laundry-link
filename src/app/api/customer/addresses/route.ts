@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -34,7 +35,7 @@ export async function GET() {
       addresses,
     });
   } catch (error) {
-    console.error('Error fetching addresses:', error);
+    logger.error('Error fetching addresses:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -240,7 +241,7 @@ export async function POST(req: Request) {
       message: 'Address created successfully',
     });
   } catch (error) {
-    console.error('Error creating address:', error);
+    logger.error('Error creating address:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return NextResponse.json(

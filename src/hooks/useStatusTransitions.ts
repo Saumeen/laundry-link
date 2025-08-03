@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import logger from '@/lib/logger';
 
 interface StatusTransition {
   value: string;
@@ -42,7 +43,7 @@ export function useStatusTransitions(): UseStatusTransitionsReturn {
         setAllowedTransitions([]);
       }
     } catch (error) {
-      console.error('Error fetching status transitions:', error);
+      logger.error('Error fetching status transitions:', error);
       setError('Failed to fetch status transitions');
       setAllowedTransitions([]);
     } finally {

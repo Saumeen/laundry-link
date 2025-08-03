@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { FormState } from '@/shared/types';
 import { OrderStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 // Types
 export interface OrderHistoryEntry {
@@ -197,7 +198,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             });
           }
         } catch (error) {
-          console.error('Error fetching order history:', error);
+          logger.error('Error fetching order history:', error);
           set({
             error: 'An error occurred while fetching order history',
             loading: false,
@@ -258,7 +259,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             }));
           }
         } catch (error) {
-          console.error('Error adding history entry:', error);
+          logger.error('Error adding history entry:', error);
           set(state => ({
             addHistoryForm: {
               loading: false,
@@ -340,7 +341,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             }));
           }
         } catch (error) {
-          console.error('Error uploading photo:', error);
+          logger.error('Error uploading photo:', error);
           set(state => ({
             uploadPhotoForm: {
               loading: false,

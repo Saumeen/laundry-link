@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error setting up account:', error);
+    logger.error('Error setting up account:', error);
     return NextResponse.json(
       { error: 'Failed to set up account' },
       { status: 500 }

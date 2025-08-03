@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -128,7 +129,7 @@ export async function PUT(req: Request) {
       newOrderTotal,
     });
   } catch (error) {
-    console.error('Error updating order item:', error);
+    logger.error('Error updating order item:', error);
 
     if (
       error instanceof Error &&
@@ -215,7 +216,7 @@ export async function DELETE(req: Request) {
       newOrderTotal,
     });
   } catch (error) {
-    console.error('Error deleting order item:', error);
+    logger.error('Error deleting order item:', error);
 
     if (
       error instanceof Error &&

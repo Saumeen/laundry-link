@@ -1,3 +1,4 @@
+import logger from '@/lib/logger';
 // Tap Card SDK Configuration
 export const tapConfig = {
   // Public key for Tap Card SDK (starts with 'pk_')
@@ -74,7 +75,7 @@ export const getTapConfig = () => {
   const errors = validateTapConfig();
   
   if (errors.length > 0) {
-    console.warn('Tap Card SDK Configuration Issues:', errors);
+    logger.warn('Tap Card SDK Configuration Issues:', errors);
   }
   
   return tapConfig;

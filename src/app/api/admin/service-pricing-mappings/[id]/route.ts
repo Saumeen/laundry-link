@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // PUT - Update service-pricing mapping
 export async function PUT(
@@ -107,7 +108,7 @@ export async function PUT(
 
     return NextResponse.json(updatedMapping);
   } catch (error) {
-    console.error('Error updating service-pricing mapping:', error);
+    logger.error('Error updating service-pricing mapping:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -147,7 +148,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Mapping deleted successfully' });
   } catch (error) {
-    console.error('Error deleting service-pricing mapping:', error);
+    logger.error('Error deleting service-pricing mapping:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

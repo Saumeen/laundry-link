@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRoles } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 import { UserRole } from '@/types/global';
+import logger from '@/lib/logger';
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ message: 'Order item deleted successfully' });
   } catch (error) {
-    console.error('Error deleting order item:', error);
+    logger.error('Error deleting order item:', error);
     
     // Handle Prisma foreign key constraint errors
     if (error && typeof error === 'object' && 'code' in error) {

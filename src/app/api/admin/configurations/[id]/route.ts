@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 // GET - Get a specific configuration
 export async function GET(
@@ -28,7 +29,7 @@ export async function GET(
 
     return NextResponse.json({ config });
   } catch (error) {
-    console.error('Error fetching configuration:', error);
+    logger.error('Error fetching configuration:', error);
     return NextResponse.json(
       { error: 'Failed to fetch configuration' },
       { status: 500 }
@@ -92,7 +93,7 @@ export async function PUT(
       config: updatedConfig 
     });
   } catch (error) {
-    console.error('Error updating configuration:', error);
+    logger.error('Error updating configuration:', error);
     return NextResponse.json(
       { error: 'Failed to update configuration' },
       { status: 500 }
@@ -150,7 +151,7 @@ export async function PATCH(
       config: updatedConfig 
     });
   } catch (error) {
-    console.error('Error updating configuration:', error);
+    logger.error('Error updating configuration:', error);
     return NextResponse.json(
       { error: 'Failed to update configuration' },
       { status: 500 }
@@ -193,7 +194,7 @@ export async function DELETE(
       message: 'Configuration deleted successfully' 
     });
   } catch (error) {
-    console.error('Error deleting configuration:', error);
+    logger.error('Error deleting configuration:', error);
     return NextResponse.json(
       { error: 'Failed to delete configuration' },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error checking payment status:', error);
+    logger.error('Error checking payment status:', error);
     
     // Handle authentication errors specifically
     if (error instanceof Error && error.message === 'Authentication required') {

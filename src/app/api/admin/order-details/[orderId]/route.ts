@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -109,7 +110,7 @@ export async function GET(
 
     return NextResponse.json({ order: mappedOrder });
   } catch (error) {
-    console.error('Error fetching order details:', error || 'Unknown error');
+    logger.error('Error fetching order details:', error || 'Unknown error');
 
     if (
       error instanceof Error &&

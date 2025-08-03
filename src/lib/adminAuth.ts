@@ -3,6 +3,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
 import { UserRole } from '@/types/global';
 import bcrypt from 'bcryptjs';
+import logger from '@/lib/logger';
 
 export interface AuthenticatedAdmin {
   id: number;
@@ -47,7 +48,7 @@ export async function getAuthenticatedAdmin(): Promise<AuthenticatedAdmin | null
       isActive: staff.isActive,
     };
   } catch (error) {
-    console.error('Error getting authenticated admin:', error);
+    logger.error('Error getting authenticated admin:', error);
     return null;
   }
 }
@@ -193,7 +194,7 @@ export async function authenticateAdmin(
       isActive: staff.isActive,
     };
   } catch (error) {
-    console.error('Error authenticating admin:', error);
+    logger.error('Error authenticating admin:', error);
     return null;
   }
 }

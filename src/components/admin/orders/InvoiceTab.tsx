@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { formatUTCForDisplay } from '@/lib/utils/timezone';
+import logger from '@/lib/logger';
 
 interface Order {
   id: number;
@@ -98,10 +99,10 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        console.error('Failed to generate invoice');
+        logger.error('Failed to generate invoice');
       }
     } catch (error) {
-      console.error('Error generating invoice:', error);
+      logger.error('Error generating invoice:', error);
     } finally {
       setIsGenerating(false);
     }
@@ -122,7 +123,7 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
         alert('Failed to send invoice');
       }
     } catch (error) {
-      console.error('Error sending invoice:', error);
+      logger.error('Error sending invoice:', error);
       alert('Error sending invoice');
     }
   };

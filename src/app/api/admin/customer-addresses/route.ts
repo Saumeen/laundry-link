@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 interface AddressUpdate {
   label?: string;
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
       addresses,
     });
   } catch (error) {
-    console.error('Error fetching customer addresses:', error);
+    logger.error('Error fetching customer addresses:', error);
     return NextResponse.json(
       { error: 'Failed to fetch addresses' },
       { status: 500 }
@@ -105,7 +106,7 @@ export async function PUT(req: Request) {
       message: 'Address updated successfully',
     });
   } catch (error) {
-    console.error('Error updating address:', error);
+    logger.error('Error updating address:', error);
     return NextResponse.json(
       { error: 'Failed to update address' },
       { status: 500 }
@@ -149,7 +150,7 @@ export async function DELETE(req: Request) {
       message: 'Address deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting address:', error);
+    logger.error('Error deleting address:', error);
     return NextResponse.json(
       { error: 'Failed to delete address' },
       { status: 500 }

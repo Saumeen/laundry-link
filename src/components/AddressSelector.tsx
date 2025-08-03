@@ -5,6 +5,7 @@ import { parseJsonResponse } from '../lib/api';
 import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
 import EnhancedAddressForm, { FormData } from './EnhancedAddressForm';
 import { useAuth } from '../hooks/useAuth';
+import logger from '@/lib/logger';
 
 interface Address {
   id: number;
@@ -157,7 +158,7 @@ export default function AddressSelector({
         });
       }
     } catch (error) {
-      console.error('Error geocoding address:', error);
+      logger.error('Error geocoding address:', error);
     } finally {
       setAddressLoading(false);
     }
@@ -252,7 +253,7 @@ export default function AddressSelector({
         setCurrentView('select');
         resetForm();
       } catch (error) {
-        console.error('Error saving address:', error);
+        logger.error('Error saving address:', error);
         setMessage('❌ Failed to save address. Please try again.');
       }
     },
@@ -356,7 +357,7 @@ export default function AddressSelector({
 
       await saveAddress(addressData);
     } catch (error) {
-      console.error('Error in handleSave:', error);
+      logger.error('Error in handleSave:', error);
       setMessage('❌ Failed to save address. Please try again.');
     } finally {
       setSaving(false);

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLoadScript } from '@react-google-maps/api';
+import logger from '@/lib/logger';
 
 interface GoogleMapsAutocompleteProps {
   value: string;
@@ -61,7 +62,7 @@ export default function GoogleMapsAutocomplete({
 
       // Check if Google Maps API is available
       if (!window.google || !window.google.maps || !window.google.maps.places) {
-        console.error('Google Maps API not loaded properly');
+        logger.error('Google Maps API not loaded properly');
         return;
       }
 
@@ -91,14 +92,14 @@ export default function GoogleMapsAutocomplete({
               setShowSuggestions(false);
               // Log the status for debugging
               if (status !== 'ZERO_RESULTS') {
-                console.warn('AutocompleteService status:', status);
+                logger.warn('AutocompleteService status:', status);
               }
             }
           }
         );
       } catch (error) {
         setLoading(false);
-        console.error('Error with AutocompleteService:', error);
+        logger.error('Error with AutocompleteService:', error);
         setSuggestions([]);
         setShowSuggestions(false);
       }

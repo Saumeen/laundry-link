@@ -1,3 +1,4 @@
+import logger from '@/lib/logger';
 /**
  * Utility functions for making authenticated API calls
  */
@@ -29,7 +30,7 @@ export async function authenticatedFetch(
 
     return response;
   } catch (error) {
-    console.error('API call failed:', error);
+    logger.error('API call failed:', error);
     throw error;
   }
 }

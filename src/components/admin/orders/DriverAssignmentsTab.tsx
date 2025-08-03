@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 import { MapPin, ExternalLink } from 'lucide-react';
 import {
+import logger from '@/lib/logger';
   formatUTCForDisplay,
   getCurrentBahrainDate,
   convertUTCToBahrainDateTimeLocal,
@@ -201,13 +202,13 @@ export default function DriverAssignmentsTab({
         if (data.success) {
           setDrivers(data.data || []);
         } else {
-          console.error('Failed to load drivers: API returned error');
+          logger.error('Failed to load drivers: API returned error');
         }
       } else {
-        console.error('Failed to load drivers:', response.status);
+        logger.error('Failed to load drivers:', response.status);
       }
     } catch (error) {
-      console.error('Error loading drivers:', error);
+      logger.error('Error loading drivers:', error);
     }
   }, []);
 
@@ -221,10 +222,10 @@ export default function DriverAssignmentsTab({
           success: boolean;
           assignments?: DriverAssignment[];
         };
-        console.log('Driver assignments API response:', data); // Debug log
+        logger.info('Driver assignments API response:', data); // Debug log
         if (data.success) {
           setDriverAssignments(data.assignments || []);
-          console.log('Driver assignments set:', data.assignments?.length || 0); // Debug log
+          logger.info('Driver assignments set:', data.assignments?.length || 0); // Debug log
 
           // Set existing assignments
           const pickupAssignment = data.assignments?.find(
@@ -265,15 +266,14 @@ export default function DriverAssignmentsTab({
             setDeliveryNotes(deliveryAssignment.notes || '');
           }
         } else {
-          console.error(
-            'Failed to load driver assignments: API returned error'
+          logger.error('Failed to load driver assignments: API returned error'
           );
         }
       } else {
-        console.error('Failed to load driver assignments:', response.status);
+        logger.error('Failed to load driver assignments:', response.status);
       }
     } catch (error) {
-      console.error('Error loading driver assignments:', error);
+      logger.error('Error loading driver assignments:', error);
     }
   }, [order.id, checkPickupTimeWarning]);
 
@@ -360,7 +360,7 @@ export default function DriverAssignmentsTab({
           notes: notes || undefined,
         };
 
-        console.log('Sending request:', requestBody);
+        logger.info('Sending request:', requestBody);
 
         const response = await fetch('/api/admin/operations/actions', {
           method: 'POST',
@@ -370,16 +370,16 @@ export default function DriverAssignmentsTab({
           body: JSON.stringify(requestBody),
         });
 
-        console.log('Response status:', response.status);
+        logger.info('Response status:', response.status);
 
         if (response.ok) {
           const result = await response.json();
-          console.log('Assignment successful:', result);
+          logger.info('Assignment successful:', result);
           await loadDriverAssignments();
           onRefresh();
         } else {
           const error = (await response.json()) as { error?: string };
-          console.error('Failed to assign driver:', error);
+          logger.error('Failed to assign driver:', error);
           // Show error message to user
           const errorMessage = error.error || 'Failed to assign driver';
           if (assignmentType === 'pickup') {
@@ -389,7 +389,7 @@ export default function DriverAssignmentsTab({
           }
         }
       } catch (error: unknown) {
-        console.error('Error assigning driver:', error);
+        logger.error('Error assigning driver:', error);
         // Show error message to user
         const errorMessage =
           error instanceof Error ? error.message : 'Failed to assign driver';
@@ -464,11 +464,11 @@ export default function DriverAssignmentsTab({
         setAssignmentToReassign(null);
       } else {
         const error = await response.json();
-        console.error('Failed to reassign driver:', error);
+        logger.error('Failed to reassign driver:', error);
         // You can add toast notification here
       }
     } catch (error) {
-      console.error('Error reassigning driver:', error);
+      logger.error('Error reassigning driver:', error);
     } finally {
       setReassignLoading(false);
     }
@@ -498,10 +498,10 @@ export default function DriverAssignmentsTab({
         onRefresh();
       } else {
         const error = await response.json();
-        console.error('Failed to delete assignment:', error);
+        logger.error('Failed to delete assignment:', error);
       }
     } catch (error) {
-      console.error('Error deleting assignment:', error);
+      logger.error('Error deleting assignment:', error);
     } finally {
       setDeleteLoading(null);
       setAssignmentToDelete(null);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // GET - Fetch all pricing categories
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
 
     return NextResponse.json(categories);
   } catch (error) {
-    console.error('Error fetching pricing categories:', error);
+    logger.error('Error fetching pricing categories:', error);
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(category, { status: 201 });
   } catch (error) {
-    console.error('Error creating pricing category:', error);
+    logger.error('Error creating pricing category:', error);
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error updating wallet:', error);
+    logger.error('Error updating wallet:', error);
     
     // Handle authentication errors specifically
     if (error instanceof Error && error.message === 'Authentication required') {

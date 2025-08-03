@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useProfileStore } from '@/customer';
 import { CustomerLayout } from '@/customer/components/CustomerLayout';
+import logger from '@/lib/logger';
 
 interface PaymentStatus {
   id: number;
@@ -77,7 +78,7 @@ function PaymentSuccessContent() {
         setError(data.error || 'Failed to check payment status');
       }
     } catch (error) {
-      console.error('Error checking payment status:', error);
+      logger.error('Error checking payment status:', error);
       setError('Failed to check payment status');
     } finally {
       setLoading(false);

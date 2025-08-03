@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PaymentStatusChecker } from '@/lib/cron/paymentStatusChecker';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log('Payment status check cron job triggered');
+    logger.info('Payment status check cron job triggered');
 
     // Run the payment status check
     const result = await PaymentStatusChecker.checkPendingPayments();
@@ -34,11 +35,11 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString()
     };
 
-    console.log('Payment status check completed:', response);
+    logger.info('Payment status check completed:', response);
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Error in payment status check cron job:', error);
+    logger.error('Error in payment status check cron job:', error);
     
     return NextResponse.json(
       {
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error getting payment stats:', error);
+    logger.error('Error getting payment stats:', error);
     
     return NextResponse.json(
       {

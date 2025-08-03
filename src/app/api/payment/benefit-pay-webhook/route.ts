@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       metadata?: Record<string, unknown>;
     };
     
-    console.log('Benefit Pay webhook received:', body);
+    logger.info('Benefit Pay webhook received:', body);
 
     // Extract relevant data from the webhook
     const {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!chargeId || !status || !amount || !currency) {
-      console.error('Missing required fields in Benefit Pay webhook');
+      logger.error('Missing required fields in Benefit Pay webhook');
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -73,14 +74,14 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log(`Unhandled Benefit Pay status: ${status}`);
+        logger.info(`Unhandled Benefit Pay status: ${status}`);
         break;
     }
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error('Error processing Benefit Pay webhook:', error);
+    logger.error('Error processing Benefit Pay webhook:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -118,13 +119,13 @@ async function handleSuccessfulPayment(data: {
         }
       });
 
-      console.log(`Benefit Pay payment successful for transaction ${transaction.id}`);
+      logger.info(`Benefit Pay payment successful for transaction ${transaction.id}`);
     } else {
-      console.warn(`No wallet transaction found for Benefit Pay charge ID: ${chargeId}`);
+      logger.warn(`No wallet transaction found for Benefit Pay charge ID: ${chargeId}`);
     }
 
   } catch (error) {
-    console.error('Error handling successful Benefit Pay payment:', error);
+    logger.error('Error handling successful Benefit Pay payment:', error);
   }
 }
 
@@ -161,13 +162,13 @@ async function handleFailedPayment(data: {
         }
       });
 
-      console.log(`Benefit Pay payment failed for transaction ${transaction.id}`);
+      logger.info(`Benefit Pay payment failed for transaction ${transaction.id}`);
     } else {
-      console.warn(`No wallet transaction found for Benefit Pay charge ID: ${chargeId}`);
+      logger.warn(`No wallet transaction found for Benefit Pay charge ID: ${chargeId}`);
     }
 
   } catch (error) {
-    console.error('Error handling failed Benefit Pay payment:', error);
+    logger.error('Error handling failed Benefit Pay payment:', error);
   }
 }
 
@@ -204,12 +205,12 @@ async function handlePendingPayment(data: {
         }
       });
 
-      console.log(`Benefit Pay payment pending for transaction ${transaction.id}`);
+      logger.info(`Benefit Pay payment pending for transaction ${transaction.id}`);
     } else {
-      console.warn(`No wallet transaction found for Benefit Pay charge ID: ${chargeId}`);
+      logger.warn(`No wallet transaction found for Benefit Pay charge ID: ${chargeId}`);
     }
 
   } catch (error) {
-    console.error('Error handling pending Benefit Pay payment:', error);
+    logger.error('Error handling pending Benefit Pay payment:', error);
   }
 } 

@@ -6,6 +6,7 @@ import { UserRole } from '@/types/global';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import AdminHeader from '@/components/admin/AdminHeader';
 import { useSession } from 'next-auth/react';
+import logger from '@/lib/logger';
 
 interface StaffMember {
   id: number;
@@ -410,7 +411,7 @@ export default function StaffManagementPage() {
           setError(data.error || 'Failed to fetch staff members');
         }
       } catch (error) {
-        console.error('Error fetching staff members:', error);
+        logger.error('Error fetching staff members:', error);
         setError('Network error');
       } finally {
         setStaffLoading(false);
@@ -494,7 +495,7 @@ export default function StaffManagementPage() {
           )
         );
         // Show success message (you can add a success state if needed)
-        console.log(data.message || 'Staff status updated successfully');
+        logger.info(data.message || 'Staff status updated successfully');
       } else {
         setError(data.error || 'Failed to update staff status');
       }
@@ -529,7 +530,7 @@ export default function StaffManagementPage() {
         // Remove the staff member from local state
         setStaffMembers(prev => prev.filter(s => s.id !== staff.id));
         // Show success message (you can add a success state if needed)
-        console.log(data.message || 'Staff member deleted successfully');
+        logger.info(data.message || 'Staff member deleted successfully');
       } else {
         setError(data.error || 'Failed to delete staff member');
       }

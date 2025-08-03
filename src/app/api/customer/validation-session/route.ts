@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET(req: Request) {
   try {
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
       message: 'No valid session found',
     });
   } catch (error) {
-    console.error('Error validating session:', error);
+    logger.error('Error validating session:', error);
     return NextResponse.json(
       {
         success: false,

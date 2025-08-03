@@ -8,6 +8,7 @@ import { usePhoneVerification } from '@/lib/phoneVerification';
 import PhoneVerification from '@/components/PhoneVerification';
 import SocialLoginButton from '@/components/ui/SocialLoginButton';
 import PhoneInput from '@/components/PhoneInput';
+import logger from '@/lib/logger';
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -71,7 +72,7 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
       const data = (await response.json()) as { exists: boolean };
       return data.exists;
     } catch {
-      console.error('Error checking email');
+      logger.error('Error checking email');
     }
   };
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -179,7 +180,7 @@ export async function GET(
 
     return NextResponse.json(trackingData);
   } catch (error) {
-    console.error('Error fetching order tracking:', error);
+    logger.error('Error fetching order tracking:', error);
     return NextResponse.json(
       { error: 'Failed to fetch order tracking' },
       { status: 500 }

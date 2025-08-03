@@ -1,4 +1,5 @@
 import type {
+import logger from '@/lib/logger';
   OrderWithDetails,
   OrderFilters,
   CreateOrderData,
@@ -48,7 +49,7 @@ class OrdersApi {
         data: data as OrdersListResponse,
       };
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      logger.error('Error fetching orders:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -80,7 +81,7 @@ class OrdersApi {
         data: data as OrderResponse,
       };
     } catch (error) {
-      console.error('Error fetching order:', error);
+      logger.error('Error fetching order:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -115,7 +116,7 @@ class OrdersApi {
         data: data as OrderResponse,
       };
     } catch (error) {
-      console.error('Error creating order:', error);
+      logger.error('Error creating order:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -151,7 +152,7 @@ class OrdersApi {
         data: data as { message: string },
       };
     } catch (error) {
-      console.error('Error canceling order:', error);
+      logger.error('Error canceling order:', error);
       return {
         success: false,
         error: 'Network error occurred',

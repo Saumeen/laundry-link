@@ -7,6 +7,7 @@ import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { UserRole } from '@/types/global';
+import logger from '@/lib/logger';
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
@@ -92,8 +93,7 @@ export const authOptions: NextAuthOptions = {
             });
 
             if (existingPhoneUser) {
-              console.error(
-                'Phone number already exists:',
+              logger.error('Phone number already exists:',
                 credentials.phoneNumber
               );
               return null;
@@ -183,7 +183,7 @@ export const authOptions: NextAuthOptions = {
 
           return user;
         } catch (error) {
-          console.error('Admin credentials provider error:', error);
+          logger.error('Admin credentials provider error:', error);
           return null;
         }
       },
@@ -220,7 +220,7 @@ export const authOptions: NextAuthOptions = {
 
           return true;
         } catch (error) {
-          console.error('Error creating customer during OAuth sign in:', error);
+          logger.error('Error creating customer during OAuth sign in:', error);
           return false;
         }
       }
@@ -265,7 +265,7 @@ export const authOptions: NextAuthOptions = {
             token.customerId = customer.id;
           }
         } catch (error) {
-          console.error('Error updating JWT token:', error);
+          logger.error('Error updating JWT token:', error);
         }
       }
 
@@ -300,7 +300,7 @@ const wrappedHandler = async (req: Request, context: any) => {
   try {
     return await handler(req, context);
   } catch (error) {
-    console.error('NextAuth handler error:', error);
+    logger.error('NextAuth handler error:', error);
     return new Response(
       JSON.stringify({ 
         error: 'Authentication error',

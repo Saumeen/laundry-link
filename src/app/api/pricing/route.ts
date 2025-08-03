@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -28,7 +29,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('Error fetching pricing data:', error);
+    logger.error('Error fetching pricing data:', error);
     return NextResponse.json(
       {
         success: false,

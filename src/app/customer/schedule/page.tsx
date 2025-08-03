@@ -15,6 +15,7 @@ import AddressSelection from '@/components/schedule/AddressSelection';
 import OrderSummary from '@/components/schedule/OrderSummary';
 import CustomerNavigation from '@/components/CustomerNavigation';
 import {
+import logger from '@/lib/logger';
   ScheduleFormData,
   CustomerData,
   Address,
@@ -136,7 +137,7 @@ function ScheduleContent() {
         setAddresses(result.addresses || []);
       }
     } catch (error) {
-      console.error('Error fetching addresses:', error);
+      logger.error('Error fetching addresses:', error);
     }
   }, [setAddresses]);
 

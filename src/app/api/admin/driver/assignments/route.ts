@@ -4,6 +4,7 @@ import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { DriverAssignmentStatus, OrderStatus } from '@prisma/client';
 import { OrderTrackingService } from '@/lib/orderTracking';
 import emailService from '@/lib/emailService';
+import logger from '@/lib/logger';
 
 interface DriverAssignmentRequest {
   orderId: number;
@@ -165,11 +166,10 @@ const sendDeliveryConfirmationEmail = async (
       invoiceData
     );
 
-    console.log(
-      `Delivery confirmation email sent for order #${orderWithInvoice.orderNumber}`
+    logger.info(`Delivery confirmation email sent for order #${orderWithInvoice.orderNumber}`
     );
   } catch (emailError) {
-    console.error('Error sending delivery confirmation email:', emailError);
+    logger.error('Error sending delivery confirmation email:', emailError);
     // Don't fail the request if email fails
   }
 };
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
       assignment,
     });
   } catch (error) {
-    console.error('Error creating driver assignment:', error);
+    logger.error('Error creating driver assignment:', error);
     return NextResponse.json(
       { error: 'Failed to create driver assignment' },
       { status: 500 }
@@ -399,8 +399,7 @@ export async function PUT(request: NextRequest) {
 
     // Log dropped off status for audit purposes
     if (status === 'DROPPED_OFF') {
-      console.log(
-        `Order #${updatedAssignment.order?.orderNumber} marked as dropped off by driver ${admin.firstName} ${admin.lastName} for ${updatedAssignment.assignmentType}`
+      logger.info(`Order #${updatedAssignment.order?.orderNumber} marked as dropped off by driver ${admin.firstName} ${admin.lastName} for ${updatedAssignment.assignmentType}`
       );
     }
 
@@ -438,7 +437,7 @@ export async function PUT(request: NextRequest) {
       assignment: updatedAssignment,
     });
   } catch (error) {
-    console.error('Error updating driver assignment:', error);
+    logger.error('Error updating driver assignment:', error);
     return NextResponse.json(
       { error: 'Failed to update driver assignment' },
       { status: 500 }
@@ -533,7 +532,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('Error fetching driver assignments:', errorMessage);
+    logger.error('Error fetching driver assignments:', errorMessage);
     return NextResponse.json(
       { error: 'Failed to fetch driver assignments' },
       { status: 500 }

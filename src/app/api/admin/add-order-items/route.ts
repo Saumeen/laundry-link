@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
       orderItems: createdItems,
     });
   } catch (error) {
-    console.error('Error adding order items:', error);
+    logger.error('Error adding order items:', error);
 
     if (
       error instanceof Error &&
@@ -144,7 +145,7 @@ export async function GET(req: Request) {
       orderItems,
     });
   } catch (error) {
-    console.error('Error fetching order items:', error);
+    logger.error('Error fetching order items:', error);
 
     if (
       error instanceof Error &&

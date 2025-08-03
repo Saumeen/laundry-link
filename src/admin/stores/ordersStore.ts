@@ -4,6 +4,7 @@ import type { OrderFilters, FormState } from '@/shared/types';
 import type { OrderWithDetails } from '@/admin/api/orders';
 import { OrdersApi } from '@/admin/api/orders';
 import type { OrderStatus, PaymentStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 interface OrdersState {
   // Data
@@ -91,10 +92,10 @@ export const useOrdersStore = create<OrdersState>()(
               filters: currentFilters,
             });
           } else {
-            console.error('Failed to fetch orders:', response.error);
+            logger.error('Failed to fetch orders:', response.error);
           }
         } catch (error) {
-          console.error('Error fetching orders:', error);
+          logger.error('Error fetching orders:', error);
         } finally {
           set({ loading: false });
         }
@@ -133,7 +134,7 @@ export const useOrdersStore = create<OrdersState>()(
             });
           }
         } catch (error) {
-          console.error('Error updating order status:', error);
+          logger.error('Error updating order status:', error);
           set({
             statusUpdateForm: {
               loading: false,
@@ -165,7 +166,7 @@ export const useOrdersStore = create<OrdersState>()(
             });
           }
         } catch (error) {
-          console.error('Error updating processing data:', error);
+          logger.error('Error updating processing data:', error);
           set({
             processingForm: {
               loading: false,
@@ -197,7 +198,7 @@ export const useOrdersStore = create<OrdersState>()(
             });
           }
         } catch (error) {
-          console.error('Error adding invoice item:', error);
+          logger.error('Error adding invoice item:', error);
           set({
             invoiceForm: {
               loading: false,
@@ -217,7 +218,7 @@ export const useOrdersStore = create<OrdersState>()(
             await get().fetchOrders();
           }
         } catch (error) {
-          console.error('Error deleting invoice item:', error);
+          logger.error('Error deleting invoice item:', error);
         }
       },
 
@@ -241,7 +242,7 @@ export const useOrdersStore = create<OrdersState>()(
             }));
           }
         } catch (error) {
-          console.error('Error updating payment status:', error);
+          logger.error('Error updating payment status:', error);
         }
       },
 

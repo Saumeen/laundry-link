@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -96,7 +97,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Error fetching service pricing:', error);
+    logger.error('Error fetching service pricing:', error);
 
     if (
       error instanceof Error &&
@@ -173,7 +174,7 @@ export async function POST(request: Request) {
       data: mapping,
     });
   } catch (error) {
-    console.error('Error creating service pricing mapping:', error);
+    logger.error('Error creating service pricing mapping:', error);
 
     if (
       error instanceof Error &&
@@ -222,7 +223,7 @@ export async function DELETE(request: Request) {
       message: 'Service pricing mapping deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting service pricing mapping:', error);
+    logger.error('Error deleting service pricing mapping:', error);
 
     if (
       error instanceof Error &&

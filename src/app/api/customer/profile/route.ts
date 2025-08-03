@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';
@@ -43,7 +44,7 @@ export async function GET() {
       customer,
     });
   } catch (error) {
-    console.error('Error fetching customer profile:', error);
+    logger.error('Error fetching customer profile:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();
@@ -113,7 +114,7 @@ export async function PUT(request: Request) {
       message: 'Profile updated successfully',
     });
   } catch (error) {
-    console.error('Error updating customer profile:', error);
+    logger.error('Error updating customer profile:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

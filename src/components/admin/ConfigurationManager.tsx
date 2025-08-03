@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/Toast';
 import ConfigurationList from './ConfigurationList';
 import ConfigurationForm from './ConfigurationForm';
 import ConfigurationCategories from './ConfigurationCategories';
+import logger from '@/lib/logger';
 
 export interface Configuration {
   id: number;
@@ -41,7 +42,7 @@ export default function ConfigurationManager() {
         showToast('Failed to fetch configurations', 'error');
       }
     } catch (error) {
-      console.error('Error fetching configurations:', error);
+      logger.error('Error fetching configurations:', error);
       showToast('Failed to fetch configurations', 'error');
     } finally {
       setLoading(false);
@@ -87,7 +88,7 @@ export default function ConfigurationManager() {
         showToast(errorData.error || 'Failed to update configuration', 'error');
       }
     } catch (error) {
-      console.error('Error updating configuration:', error);
+      logger.error('Error updating configuration:', error);
       showToast('Failed to update configuration', 'error');
     }
   };
@@ -115,7 +116,7 @@ export default function ConfigurationManager() {
         showToast(errorData.error || 'Failed to update configuration', 'error');
       }
     } catch (error) {
-      console.error('Error updating configuration:', error);
+      logger.error('Error updating configuration:', error);
       showToast('Failed to update configuration', 'error');
     }
   };

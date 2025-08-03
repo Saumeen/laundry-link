@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // PUT - Update service
 export async function PUT(
@@ -92,7 +93,7 @@ export async function PUT(
 
     return NextResponse.json(updatedService);
   } catch (error) {
-    console.error('Error updating service:', error);
+    logger.error('Error updating service:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -153,7 +154,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Service deleted successfully' });
   } catch (error) {
-    console.error('Error deleting service:', error);
+    logger.error('Error deleting service:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

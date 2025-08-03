@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import MainLayout from '@/components/layouts/main-layout';
+import logger from '@/lib/logger';
 
 // Define types for the API response
 interface PricingItem {
@@ -59,7 +60,7 @@ async function getPricingData(): Promise<PricingData> {
     };
     return result.data;
   } catch (error) {
-    console.error('Error fetching pricing data:', error);
+    logger.error('Error fetching pricing data:', error);
     // Return fallback data if API fails
     return {
       header: {
@@ -83,7 +84,7 @@ export default async function PricingPage() {
   try {
     pricingData = await getPricingData();
   } catch (error) {
-    console.error('Failed to load pricing data, using fallback:', error);
+    logger.error('Failed to load pricing data, using fallback:', error);
     // Use fallback data if API fails
     pricingData = {
       header: {

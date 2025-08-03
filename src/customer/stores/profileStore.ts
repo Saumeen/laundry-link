@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type {
+import logger from '@/lib/logger';
   CustomerProfile,
   UpdateProfileData,
   FormState,
@@ -42,10 +43,10 @@ export const useProfileStore = create<ProfileState>()(
               profile: response.data.customer,
             });
           } else {
-            console.error('Failed to fetch profile:', response.error);
+            logger.error('Failed to fetch profile:', response.error);
           }
         } catch (error) {
-          console.error('Error fetching profile:', error);
+          logger.error('Error fetching profile:', error);
         } finally {
           set({ loading: false });
         }
@@ -79,7 +80,7 @@ export const useProfileStore = create<ProfileState>()(
             }));
           }
         } catch (error) {
-          console.error('Error updating profile:', error);
+          logger.error('Error updating profile:', error);
           set(state => ({
             updateProfileForm: {
               ...state.updateProfileForm,

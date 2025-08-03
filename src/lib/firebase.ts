@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
+import logger from '@/lib/logger';
   getAuth,
   connectAuthEmulator,
   Auth,
@@ -38,9 +39,8 @@ const validateFirebaseConfig = () => {
   );
 
   if (missingFields.length > 0) {
-    console.error('Missing Firebase configuration fields:', missingFields);
-    console.error(
-      'Please check your .env.local file and ensure all Firebase environment variables are set.'
+    logger.error('Missing Firebase configuration fields:', missingFields);
+    logger.error('Please check your .env.local file and ensure all Firebase environment variables are set.'
     );
     throw new Error(
       `Missing Firebase configuration: ${missingFields.join(', ')}`
@@ -52,11 +52,11 @@ const validateFirebaseConfig = () => {
     firebaseConfig.authDomain &&
     !firebaseConfig.authDomain.includes('.firebaseapp.com')
   ) {
-    console.warn('Warning: authDomain should end with .firebaseapp.com');
+    logger.warn('Warning: authDomain should end with .firebaseapp.com');
   }
 
   if (firebaseConfig.projectId && firebaseConfig.projectId.length < 6) {
-    console.warn('Warning: projectId seems too short');
+    logger.warn('Warning: projectId seems too short');
   }
 };
 
@@ -80,12 +80,12 @@ try {
   // Enable persistence for better user experience
   setPersistence(auth, browserLocalPersistence);
 } catch (error) {
-  console.error('Firebase initialization error:', error);
-  console.error('Please check:');
-  console.error('1. Your .env.local file has all required Firebase variables');
-  console.error('2. Firebase project is properly configured');
-  console.error('3. Phone authentication is enabled in Firebase Console');
-  console.error('4. reCAPTCHA is configured for your domain');
+  logger.error('Firebase initialization error:', error);
+  logger.error('Please check:');
+  logger.error('1. Your .env.local file has all required Firebase variables');
+  logger.error('2. Firebase project is properly configured');
+  logger.error('3. Phone authentication is enabled in Firebase Console');
+  logger.error('4. reCAPTCHA is configured for your domain');
   throw error;
 }
 

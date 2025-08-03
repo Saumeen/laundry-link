@@ -4,6 +4,7 @@ import type { OrderFilters, FormState } from '@/shared/types/customer';
 import type { OrderWithDetails } from '@/shared/types/customer';
 import { OrdersApi } from '@/customer/api/orders';
 import type { OrderStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 interface OrdersState {
   // Data
@@ -75,10 +76,10 @@ export const useOrdersStore = create<OrdersState>()(
               filters: currentFilters,
             });
           } else {
-            console.error('Failed to fetch orders:', response.error);
+            logger.error('Failed to fetch orders:', response.error);
           }
         } catch (error) {
-          console.error('Error fetching orders:', error);
+          logger.error('Error fetching orders:', error);
         } finally {
           set({ loading: false });
         }
@@ -117,7 +118,7 @@ export const useOrdersStore = create<OrdersState>()(
             }));
           }
         } catch (error) {
-          console.error('Error creating order:', error);
+          logger.error('Error creating order:', error);
           set(state => ({
             createOrderForm: {
               ...state.createOrderForm,
@@ -167,7 +168,7 @@ export const useOrdersStore = create<OrdersState>()(
             }));
           }
         } catch (error) {
-          console.error('Error canceling order:', error);
+          logger.error('Error canceling order:', error);
           set(state => ({
             cancelOrderForm: {
               ...state.cancelOrderForm,

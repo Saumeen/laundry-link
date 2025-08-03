@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { getTapConfig } from '@/lib/config/tapConfig';
+import logger from '@/lib/logger';
 
 interface BenefitPayButtonProps {
   amount: number;
@@ -54,7 +55,7 @@ export default function BenefitPayButton({
   useEffect(() => {
     // Check if script is already loaded
     if (window.BenefitPayButton) {
-      console.log('Benefit Pay SDK already loaded');
+      logger.info('Benefit Pay SDK already loaded');
       initializeBenefitPay();
       return;
     }
@@ -62,7 +63,7 @@ export default function BenefitPayButton({
     // Load Benefit Pay SDK script with improved error handling
     const loadBenefitPaySDK = async () => {
       try {
-        console.log('Loading Benefit Pay SDK...');
+        logger.info('Loading Benefit Pay SDK...');
         
         const script = document.createElement('script');
         script.src = 'https://cdn.tap.company/benefit-pay-button/1.0.0/index.js';
@@ -70,7 +71,7 @@ export default function BenefitPayButton({
         script.crossOrigin = 'anonymous';
         
         script.onload = () => {
-          console.log('Benefit Pay SDK script loaded successfully');
+          logger.info('Benefit Pay SDK script loaded successfully');
           if (window.BenefitPayButton) {
             initializeBenefitPay();
           } else {
@@ -80,7 +81,7 @@ export default function BenefitPayButton({
         };
         
         script.onerror = () => {
-          console.error('Failed to load Benefit Pay SDK script');
+          logger.error('Failed to load Benefit Pay SDK script');
           setLoadingError('Failed to load payment system');
           onError('Failed to load Benefit Pay SDK');
           showToast('Unable to load payment system. Please try again later.', 'error');
@@ -89,7 +90,7 @@ export default function BenefitPayButton({
         document.head.appendChild(script);
 
       } catch (error) {
-        console.error('Error loading Benefit Pay SDK:', error);
+        logger.error('Error loading Benefit Pay SDK:', error);
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         setLoadingError(errorMessage);
         onError(`Failed to load Benefit Pay SDK: ${errorMessage}`);
@@ -104,7 +105,7 @@ export default function BenefitPayButton({
         try {
           unmountRef.current();
         } catch (error) {
-          console.warn('Error during Benefit Pay SDK cleanup:', error);
+          logger.warn('Error during Benefit Pay SDK cleanup:', error);
         }
       }
     };
@@ -123,7 +124,7 @@ export default function BenefitPayButton({
       const ref = transactionReference || `txn_${Date.now()}`;
       const postUrl = `${window.location.origin}/api/payment/benefit-pay-webhook`;
       
-      console.log('Generating hash string for Benefit Pay payment...');
+      logger.info('Generating hash string for Benefit Pay payment...');
       
       const response = await fetch('/api/payment/generate-hash', {
         method: 'POST',
@@ -150,10 +151,10 @@ export default function BenefitPayButton({
         throw new Error('No hash string received from server');
       }
       
-      console.log('Hash string generated successfully');
+      logger.info('Hash string generated successfully');
       return data.hashString;
     } catch (error) {
-      console.error('Error generating hash string:', error);
+      logger.error('Error generating hash string:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to generate security hash: ${errorMessage}`);
     }
@@ -161,12 +162,12 @@ export default function BenefitPayButton({
 
   const initializeBenefitPay = async () => {
     if (!window.BenefitPayButton || !buttonContainerRef.current) {
-      console.error('Benefit Pay SDK or container not available');
+      logger.error('Benefit Pay SDK or container not available');
       return;
     }
 
     try {
-      console.log('Initializing Benefit Pay button...');
+      logger.info('Initializing Benefit Pay button...');
       
       const config = getTapConfig();
       
@@ -232,28 +233,28 @@ export default function BenefitPayButton({
           url: `${window.location.origin}/api/payment/benefit-pay-webhook`
         },
         onReady: () => {
-          console.log('Benefit Pay button is ready');
+          logger.info('Benefit Pay button is ready');
           setIsButtonReady(true);
           setLoadingError(null);
         },
         onClick: () => {
-          console.log('Benefit Pay button clicked');
+          logger.info('Benefit Pay button clicked');
           setIsProcessing(true);
         },
         onCancel: () => {
-          console.log('Benefit Pay payment cancelled');
+          logger.info('Benefit Pay payment cancelled');
           setIsProcessing(false);
           showToast('Payment was cancelled', 'info');
         },
         onError: (error: Record<string, unknown>) => {
-          console.error('Benefit Pay error:', error);
+          logger.error('Benefit Pay error:', error);
           setIsProcessing(false);
           const errorMessage = (error?.message as string) || (error?.error as string) || 'Benefit Pay payment failed';
           onError(errorMessage);
           showToast(`Payment failed: ${errorMessage}`, 'error');
         },
         onSuccess: (data: Record<string, unknown>) => {
-          console.log('Benefit Pay payment successful:', data);
+          logger.info('Benefit Pay payment successful:', data);
           setIsProcessing(false);
           if (data?.id) {
             onTokenReceived(data.id as string, {
@@ -270,14 +271,14 @@ export default function BenefitPayButton({
         }
       };
 
-      console.log('Rendering Benefit Pay button with config:', benefitPayConfig);
+      logger.info('Rendering Benefit Pay button with config:', benefitPayConfig);
 
       // Render the Benefit Pay button
       const { unmount } = window.BenefitPayButton.render(buttonContainerRef.current, benefitPayConfig);
       unmountRef.current = unmount;
 
     } catch (error) {
-      console.error('Error initializing Benefit Pay SDK:', error);
+      logger.error('Error initializing Benefit Pay SDK:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setLoadingError(errorMessage);
       onError(`Failed to initialize Benefit Pay: ${errorMessage}`);

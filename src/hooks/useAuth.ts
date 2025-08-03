@@ -2,6 +2,7 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useEffect, useState, useRef } from 'react';
+import logger from '@/lib/logger';
 
 interface Customer {
   id: number;
@@ -115,7 +116,7 @@ export function useLogout() {
       await signOut({ redirect: false });
       window.location.href = '/registerlogin';
     } catch (error) {
-      console.error('Error during logout:', error);
+      logger.error('Error during logout:', error);
     }
   };
 

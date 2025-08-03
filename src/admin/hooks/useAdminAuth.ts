@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useDashboardStore } from '@/admin/stores/dashboardStore';
+import logger from '@/lib/logger';
 
 interface UseAdminAuthOptions {
   requiredRole?: string;
@@ -23,23 +24,23 @@ export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
 
       // Check if session exists
       if (status === 'loading') {
-        console.log('Auth: Session loading...');
+        logger.info('Auth: Session loading...');
         return;
       }
 
       if (status === 'unauthenticated') {
-        console.log('Auth: User unauthenticated, redirecting to login');
+        logger.info('Auth: User unauthenticated, redirecting to login');
         router.push(redirectTo);
         return;
       }
 
       // If we have a session, try to fetch current user data if not already loaded
       if (session && !currentUser) {
-        console.log('Auth: Session exists, fetching current user...');
+        logger.info('Auth: Session exists, fetching current user...');
         try {
           await fetchCurrentUser();
         } catch (error) {
-          console.error('Error fetching current user:', error);
+          logger.error('Error fetching current user:', error);
           // If fetching user fails, redirect to login
           router.push(redirectTo);
           return;
@@ -48,13 +49,13 @@ export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
 
       // If we have a session but no currentUser yet, wait for it to load
       if (session && !currentUser) {
-        console.log('Auth: Session exists but no currentUser yet, waiting...');
+        logger.info('Auth: Session exists but no currentUser yet, waiting...');
         return; // Keep loading state
       }
 
       // If we have a session and currentUser, check role requirements
       if (session && currentUser) {
-        console.log('Auth: Session and currentUser exist, checking role...', {
+        logger.info('Auth: Session and currentUser exist, checking role...', {
           userRole: currentUser.role.name,
           requiredRole,
           permissions: currentUser.role.permissions,
@@ -62,7 +63,7 @@ export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
 
         // If no required role is specified, any admin user is authorized
         if (!requiredRole) {
-          console.log('Auth: No required role, user authorized');
+          logger.info('Auth: No required role, user authorized');
           setIsAuthorized(true);
           setIsLoading(false);
           return;
@@ -74,13 +75,12 @@ export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
           currentUser.role.permissions.includes(requiredRole);
 
         if (hasRole) {
-          console.log('Auth: User has required role, authorized');
+          logger.info('Auth: User has required role, authorized');
           setIsAuthorized(true);
           setIsLoading(false);
           return;
         } else {
-          console.log(
-            'Auth: User does not have required role, redirecting to unauthorized'
+          logger.info('Auth: User does not have required role, redirecting to unauthorized'
           );
           router.push('/admin/unauthorized');
           return;

@@ -1,4 +1,5 @@
 import type {
+import logger from '@/lib/logger';
   Service,
   PricingCategory,
   PricingItem,
@@ -37,7 +38,7 @@ class ServicesApi {
         data: data as { services: Service[] },
       };
     } catch (error) {
-      console.error('Error fetching services:', error);
+      logger.error('Error fetching services:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -71,7 +72,7 @@ class ServicesApi {
         data: data as { pricing: PricingItem[] },
       };
     } catch (error) {
-      console.error('Error fetching pricing:', error);
+      logger.error('Error fetching pricing:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -107,7 +108,7 @@ class ServicesApi {
         data: data as { timeSlots: TimeSlot[] },
       };
     } catch (error) {
-      console.error('Error fetching time slots:', error);
+      logger.error('Error fetching time slots:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -144,7 +145,7 @@ class ServicesApi {
         data: data as { config: TimeSlotConfig },
       };
     } catch (error) {
-      console.error('Error fetching time slot config:', error);
+      logger.error('Error fetching time slot config:', error);
       return {
         success: false,
         error: 'Network error occurred',

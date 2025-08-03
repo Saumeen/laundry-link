@@ -1,4 +1,5 @@
 import type {
+import logger from '@/lib/logger';
   CustomerProfile,
   UpdateProfileData,
   ApiResponse,
@@ -33,7 +34,7 @@ class ProfileApi {
         data,
       };
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      logger.error('Error fetching profile:', error);
       return {
         success: false,
         error: 'Network error occurred',
@@ -68,7 +69,7 @@ class ProfileApi {
         data,
       };
     } catch (error) {
-      console.error('Error updating profile:', error);
+      logger.error('Error updating profile:', error);
       return {
         success: false,
         error: 'Network error occurred',

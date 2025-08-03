@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminRole } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // GET - Fetch all services
 export async function GET() {
@@ -14,7 +15,7 @@ export async function GET() {
 
     return NextResponse.json(services);
   } catch (error) {
-    console.error('Error fetching services:', error);
+    logger.error('Error fetching services:', error);
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(service, { status: 201 });
   } catch (error) {
-    console.error('Error creating service:', error);
+    logger.error('Error creating service:', error);
     if (error instanceof Error && error.message.includes('authentication')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

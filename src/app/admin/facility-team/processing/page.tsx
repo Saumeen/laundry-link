@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useFacilityTeamAuth } from '@/admin/hooks/useAdminAuth';
 
 import {
+import logger from '@/lib/logger';
   getStatusBadgeColor,
   getStatusDisplayName,
   formatDate,
@@ -183,13 +184,13 @@ export default function ProcessingPage() {
         // Refresh the orders list
         fetchOrders();
         // Show success message
-        console.log('Order marked as received successfully');
+        logger.info('Order marked as received successfully');
       } else {
         const errorData = (await response.json()) as { error?: string };
-        console.error('Failed to mark order as received:', errorData.error);
+        logger.error('Failed to mark order as received:', errorData.error);
       }
     } catch (error) {
-      console.error('Error marking order as received:', error);
+      logger.error('Error marking order as received:', error);
     }
   };
 

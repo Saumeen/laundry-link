@@ -3,6 +3,7 @@ import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 import googleMapsService, { GeocodingResult } from '../lib/googleMaps';
 import PhoneInput from './PhoneInput';
 import { useAuth } from '../hooks/useAuth';
+import logger from '@/lib/logger';
 
 // Define proper types for form data
 export interface FormData {
@@ -144,7 +145,7 @@ export default function EnhancedAddressForm({
           });
         }
       } catch (error) {
-        console.error('Error reverse geocoding:', error);
+        logger.error('Error reverse geocoding:', error);
       } finally {
         setMapLoading(false);
       }
@@ -224,7 +225,7 @@ export default function EnhancedAddressForm({
         });
       }
     } catch (error) {
-      console.error('Error getting current location:', error);
+      logger.error('Error getting current location:', error);
       if (error instanceof GeolocationPositionError) {
         switch (error.code) {
           case error.PERMISSION_DENIED:
@@ -266,7 +267,7 @@ export default function EnhancedAddressForm({
       }
 
       if (!window.google || !window.google.maps || !window.google.maps.places) {
-        console.error('Google Maps API not loaded properly');
+        logger.error('Google Maps API not loaded properly');
         // Show a user-friendly error message
         setErrors((prev: { [key: string]: string }) => ({
           ...prev,
@@ -324,7 +325,7 @@ export default function EnhancedAddressForm({
           }
         );
       } catch (error) {
-        console.error('Error with search autocomplete:', error);
+        logger.error('Error with search autocomplete:', error);
         setSearchSuggestions([]);
         setShowSearchSuggestions(false);
         setErrors((prev: { [key: string]: string }) => ({
@@ -398,7 +399,7 @@ export default function EnhancedAddressForm({
           });
         }
       } catch (error) {
-        console.error('Error geocoding address:', error);
+        logger.error('Error geocoding address:', error);
       } finally {
         setAddressLoading(false);
       }

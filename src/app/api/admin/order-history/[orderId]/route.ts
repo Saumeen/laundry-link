@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
+import logger from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -141,7 +142,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Error fetching order history:', error);
+    logger.error('Error fetching order history:', error);
     return NextResponse.json(
       { error: 'Failed to fetch order history' },
       { status: 500 }
@@ -201,7 +202,7 @@ export async function POST(
       historyEntry,
     });
   } catch (error) {
-    console.error('Error creating order history entry:', error);
+    logger.error('Error creating order history entry:', error);
     return NextResponse.json(
       { error: 'Failed to create history entry' },
       { status: 500 }

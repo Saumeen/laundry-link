@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import TapCardForm from '@/components/ui/TapCardForm';
 import BenefitPayButton from '@/components/ui/BenefitPayButton';
 import { CustomerLayout } from '@/customer/components/CustomerLayout';
+import logger from '@/lib/logger';
 
 // Step enum for the wizard flow
 enum WalletStep {
@@ -137,7 +138,7 @@ export default function WalletPage() {
       const response = await walletApi.getWalletInfo(profile.id);
       setWalletInfo(response);
     } catch (error) {
-      console.error('Error fetching wallet info:', error);
+      logger.error('Error fetching wallet info:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load wallet information';
       showToast(errorMessage, 'error');
     } finally {
@@ -156,7 +157,7 @@ export default function WalletPage() {
         setTransactions(prev => [...prev, ...response.transactions]);
       }
     } catch (error) {
-      console.error('Error fetching transaction history:', error);
+      logger.error('Error fetching transaction history:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load transaction history';
       showToast(errorMessage, 'error');
     } finally {
@@ -268,7 +269,7 @@ export default function WalletPage() {
         }
       }
     } catch (error) {
-      console.error('Error processing top-up:', error);
+      logger.error('Error processing top-up:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to process top-up request';
       showToast(errorMessage, 'error');
     } finally {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function GET(
   request: Request,
@@ -57,7 +58,7 @@ export async function GET(
       issueReports: processingItemDetail.issueReports,
     });
   } catch (error) {
-    console.error('Error fetching issue reports:', error || 'Unknown error');
+    logger.error('Error fetching issue reports:', error || 'Unknown error');
     return NextResponse.json(
       { error: 'Failed to fetch issue reports' },
       { status: 500 }

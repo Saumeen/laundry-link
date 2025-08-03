@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 interface CheckPhoneRequest {
   phoneNumber: string;
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
         : 'Phone number available',
     });
   } catch (error) {
-    console.error('Error checking phone number existence:', error);
+    logger.error('Error checking phone number existence:', error);
     return NextResponse.json(
       { error: 'Failed to check phone number' },
       { status: 500 }

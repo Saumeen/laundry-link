@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';
@@ -194,7 +195,7 @@ export async function GET(
 
     return NextResponse.json({ order: transformedOrder });
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    logger.error('Error fetching order details:', error);
 
     if (error instanceof Error && error.message === 'Authentication required') {
       return createAuthErrorResponse();

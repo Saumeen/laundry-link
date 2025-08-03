@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
+import logger from '@/lib/logger';
 
 interface CreateOrderRequest {
   addressId?: number;
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ orders: sortedOrders, total });
   } catch (error) {
-    console.error('Error fetching customer orders:', error);
+    logger.error('Error fetching customer orders:', error);
     return NextResponse.json(
       { error: 'Failed to fetch orders' },
       { status: 500 }
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error creating order:', error);
+    logger.error('Error creating order:', error);
     return NextResponse.json(
       { error: 'Failed to create order' },
       { status: 500 }

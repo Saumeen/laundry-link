@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { OrderTrackingService } from '@/lib/orderTracking';
 import { OrderStatus } from '@prisma/client';
 import { isValidOrderStatus } from '@/lib/orderStatus';
+import logger from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -46,8 +47,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(
-      'Order status updated:',
+    logger.info('Order status updated:',
       result.order?.orderNumber,
       '->',
       status
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       order: result.order,
     });
   } catch (error) {
-    console.error('Error updating order status:', error);
+    logger.error('Error updating order status:', error);
     return NextResponse.json(
       { error: 'Failed to update order status' },
       { status: 500 }

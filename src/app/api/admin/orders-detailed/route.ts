@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import {
+import logger from '@/lib/logger';
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
@@ -155,7 +156,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error fetching detailed orders:', error);
+    logger.error('Error fetching detailed orders:', error);
     if (
       error instanceof Error &&
       error.message === 'Admin authentication required'

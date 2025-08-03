@@ -3,6 +3,7 @@ import { requireAuthenticatedAdmin, canManageRole } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { UserRole } from '@/types/global';
+import logger from '@/lib/logger';
 
 // Define the request body type
 interface CreateStaffRequest {
@@ -118,7 +119,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error creating staff member:', error);
+    logger.error('Error creating staff member:', error);
     return NextResponse.json(
       { error: 'Failed to create staff member' },
       { status: 500 }
@@ -242,7 +243,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error fetching staff members:', error);
+    logger.error('Error fetching staff members:', error);
     return NextResponse.json(
       { error: 'Failed to fetch staff members' },
       { status: 500 }
@@ -306,7 +307,7 @@ export async function DELETE(req: Request) {
       message: 'Staff member deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting staff member:', error);
+    logger.error('Error deleting staff member:', error);
     return NextResponse.json(
       { error: 'Failed to delete staff member' },
       { status: 500 }
@@ -451,7 +452,7 @@ export async function PUT(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error updating staff member:', error);
+    logger.error('Error updating staff member:', error);
     return NextResponse.json(
       { error: 'Failed to update staff member' },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { calculateOrderItemTotal } from '@/lib/calculations';
+import logger from '@/lib/logger';
 
 interface OrderItemRequest {
   serviceId: string | number;
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
       orderItems: createdItems,
     });
   } catch (error) {
-    console.error('Error saving invoice:', error);
+    logger.error('Error saving invoice:', error);
     return NextResponse.json(
       { error: 'Failed to save invoice' },
       { status: 500 }
