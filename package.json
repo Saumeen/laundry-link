@@ -15,7 +15,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "npx prisma migrate dev",
-    "postinstall": "prisma generate",
     "build:worker": "opennextjs-cloudflare",
     "preview": "opennextjs-cloudflare && wrangler dev",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv env.d.ts",
@@ -47,6 +46,7 @@
     "react-phone-number-input": "^3.4.12",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "winston": "^3.17.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.6"
   },

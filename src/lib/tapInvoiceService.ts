@@ -16,6 +16,8 @@ export class TapInvoiceService {
    */
   static async createTapInvoiceIfNeeded(orderId: number): Promise<TapInvoiceResult> {
     try {
+      logger.info(`Creating Tap invoice for order ${orderId}`);
+      
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: {
@@ -24,6 +26,7 @@ export class TapInvoiceService {
       });
 
       if (!order) {
+        logger.error(`Order not found: ${orderId}`);
         throw new Error('Order not found');
       }
 
@@ -36,7 +39,10 @@ export class TapInvoiceService {
       const invoiceTotal = order.invoiceTotal || 0;
       const requiresPayment = walletBalance < invoiceTotal;
 
+      logger.info(`Order ${orderId} - Wallet balance: ${walletBalance}, Invoice total: ${invoiceTotal}, Requires payment: ${requiresPayment}`);
+
       if (!requiresPayment) {
+        logger.info(`Order ${orderId} - No payment required, sufficient wallet balance`);
         return {
           requiresPayment: false,
           walletBalance,
@@ -46,6 +52,7 @@ export class TapInvoiceService {
 
       // Calculate amount to charge
       const amountToCharge = invoiceTotal - walletBalance;
+      logger.info(`Order ${orderId} - Amount to charge: ${amountToCharge}`);
 
       // Create Tap invoice
       const tapInvoice = await this.createTapInvoice(order, amountToCharge);
@@ -82,6 +89,8 @@ export class TapInvoiceService {
         },
       });
 
+      logger.info(`Order ${orderId} - Tap invoice created successfully: ${tapInvoice.id}`);
+
       return {
         requiresPayment: true,
         tapInvoice,
@@ -90,7 +99,7 @@ export class TapInvoiceService {
         amountToCharge,
       };
     } catch (error) {
-      console.error('Error creating Tap invoice:', error);
+      logger.error(`Error creating Tap invoice for order ${orderId}:`, error);
       // Fallback to requiring payment
       return {
         requiresPayment: true,
@@ -104,6 +113,8 @@ export class TapInvoiceService {
    * Create Tap invoice via Tap API
    */
   private static async createTapInvoice(order: any, amount: number): Promise<any> {
+    logger.info(`Creating Tap invoice for order ${order.id} with amount ${amount}`);
+    
     // Prepare phone number - only include if it's a Bahrain number
     let phoneData = undefined;
     if (order.customer.phone && order.customer.phone.trim()) {
@@ -128,21 +139,23 @@ export class TapInvoiceService {
             country_code: '973',
             number: cleanPhone
           };
-          console.log('Phone data for Tap API (Bahrain):', phoneData);
+          logger.info(`Phone data for Tap API (Bahrain): ${JSON.stringify(phoneData)}`);
         }
       } else {
         // For non-Bahrain numbers, log but don't include in API call
-        console.log('Non-Bahrain phone number detected, omitting from Tap API:', cleanPhone);
+        logger.info(`Non-Bahrain phone number detected, omitting from Tap API: ${cleanPhone}`);
       }
     }
 
     // Validate customer data
     if (!order.customer.firstName || !order.customer.lastName || !order.customer.email) {
+      logger.error(`Customer data incomplete for order ${order.id}. Required: firstName, lastName, email`);
       throw new Error('Customer data is incomplete. First name, last name, and email are required.');
     }
 
     // Validate and format amount
     if (!amount || amount <= 0) {
+      logger.error(`Invalid amount for invoice creation: ${amount}`);
       throw new Error('Invalid amount for invoice creation');
     }
 
@@ -176,7 +189,7 @@ export class TapInvoiceService {
       },
     };
 
-    console.log('Sending invoice data to Tap API:', JSON.stringify(invoiceData, null, 2));
+    logger.info(`Sending invoice data to Tap API for order ${order.id}:`, JSON.stringify(invoiceData, null, 2));
 
     const response = await fetch('https://api.tap.company/v2/invoices/', {
       method: 'POST',
@@ -189,13 +202,13 @@ export class TapInvoiceService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Tap API error:', errorText);
-      console.error('Request data that failed:', JSON.stringify(invoiceData, null, 2));
+      logger.error(`Tap API error for order ${order.id}: ${errorText}`);
+      logger.error(`Request data that failed for order ${order.id}:`, JSON.stringify(invoiceData, null, 2));
       throw new Error(`Failed to create Tap invoice: ${response.status} ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Tap API response:', data);
+    logger.info(`Tap API response for order ${order.id}:`, data);
     return data;
   }
 } 

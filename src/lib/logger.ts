@@ -1,10 +1,10 @@
+import winston from 'winston';
+
 // Universal logger that works in both server and client environments
 let logger: any;
 
 if (typeof window === 'undefined') {
   // Server-side: Use Winston
-  const winston = require('winston');
-
   // Define log levels
   const levels = {
     error: 0,
@@ -27,7 +27,7 @@ if (typeof window === 'undefined') {
   winston.addColors(colors);
 
   // Define which level to log based on environment
-  const level = () => {
+  const level = (): string => {
     const env = process.env.NODE_ENV || 'development';
     const isDevelopment = env === 'development';
     return isDevelopment ? 'debug' : 'warn';
@@ -38,7 +38,7 @@ if (typeof window === 'undefined') {
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
     winston.format.colorize({ all: true }),
     winston.format.printf(
-      (info: any) => `${info.timestamp} ${info.level}: ${info.message}`
+      (info: winston.Logform.TransformableInfo) => `${info.timestamp} ${info.level}: ${info.message}`
     )
   );
 
@@ -67,21 +67,21 @@ if (typeof window === 'undefined') {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   logger = {
-    error: (...args: any[]) => {
+    error: (...args: unknown[]): void => {
       console.error(...args);
     },
-    warn: (...args: any[]) => {
+    warn: (...args: unknown[]): void => {
       console.warn(...args);
     },
-    info: (...args: any[]) => {
+    info: (...args: unknown[]): void => {
       console.info(...args);
     },
-    http: (...args: any[]) => {
+    http: (...args: unknown[]): void => {
       if (isDevelopment) {
         console.log('[HTTP]', ...args);
       }
     },
-    debug: (...args: any[]) => {
+    debug: (...args: unknown[]): void => {
       if (isDevelopment) {
         console.log('[DEBUG]', ...args);
       }
