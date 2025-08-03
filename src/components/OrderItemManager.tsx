@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import logger from '@/lib/logger';
 
 interface OrderItem {
@@ -91,12 +91,7 @@ export default function OrderItemManager({
     notes: '',
   });
 
-  useEffect(() => {
-    // Load existing items
-    loadOrderItems();
-  }, [orderId, loadOrderItems]);
-
-  const loadOrderItems = async () => {
+  const loadOrderItems = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/admin/add-order-items?orderId=${orderId}`
@@ -108,7 +103,12 @@ export default function OrderItemManager({
     } catch (error) {
       logger.error('Error loading order items:', error);
     }
-  };
+  }, [orderId]);
+
+  useEffect(() => {
+    // Load existing items
+    loadOrderItems();
+  }, [loadOrderItems]);
 
   const handleAddItem = async () => {
     if (
