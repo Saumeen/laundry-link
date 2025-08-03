@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { tapConfig } from '@/lib/config/tapConfig';
+import logger from './logger';
 
 export interface TapInvoiceResult {
   requiresPayment: boolean;
@@ -193,6 +194,8 @@ export class TapInvoiceService {
       throw new Error(`Failed to create Tap invoice: ${response.status} ${errorText}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    logger.info('Tap API response:', data);
+    return data;
   }
 } 
