@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLoadScript, GoogleMap, Marker } from '@react-google-maps/api';
 import { MapPin, ExternalLink } from 'lucide-react';
-import {
 import logger from '@/lib/logger';
+import {
   formatUTCForDisplay,
   getCurrentBahrainDate,
   convertUTCToBahrainDateTimeLocal,

@@ -1,5 +1,6 @@
-import type {
+
 import logger from '@/lib/logger';
+import type {
   CustomerAddress,
   PaginatedResponse,
   AddressFilters,
@@ -33,7 +34,7 @@ class AddressesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         return {
@@ -44,7 +45,7 @@ class AddressesApi {
 
       return {
         success: true,
-        data,
+        data: data as PaginatedResponse<CustomerAddress>,
       };
     } catch (error) {
       logger.error('Error fetching addresses:', error);
@@ -67,7 +68,7 @@ class AddressesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         return {
@@ -78,7 +79,7 @@ class AddressesApi {
 
       return {
         success: true,
-        data,
+        data: data as { address: CustomerAddress },
       };
     } catch (error) {
       logger.error('Error fetching address:', error);
@@ -102,7 +103,7 @@ class AddressesApi {
         body: JSON.stringify(addressData),
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         return {
@@ -113,7 +114,7 @@ class AddressesApi {
 
       return {
         success: true,
-        data,
+        data: data as { address: CustomerAddress },
       };
     } catch (error) {
       logger.error('Error creating address:', error);
@@ -137,7 +138,7 @@ class AddressesApi {
         body: JSON.stringify(addressData),
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         return {
@@ -148,7 +149,7 @@ class AddressesApi {
 
       return {
         success: true,
-        data,
+        data: data as { address: CustomerAddress },
       };
     } catch (error) {
       logger.error('Error updating address:', error);
@@ -171,7 +172,7 @@ class AddressesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         return {
@@ -182,7 +183,7 @@ class AddressesApi {
 
       return {
         success: true,
-        data,
+        data: data as { message: string },
       };
     } catch (error) {
       logger.error('Error deleting address:', error);
@@ -205,7 +206,7 @@ class AddressesApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         return {
@@ -216,7 +217,7 @@ class AddressesApi {
 
       return {
         success: true,
-        data,
+        data: data as { message: string },
       };
     } catch (error) {
       logger.error('Error setting default address:', error);

@@ -1,5 +1,5 @@
-import type {
 import logger from '@/lib/logger';
+import type {
   CustomerProfile,
   UpdateProfileData,
   ApiResponse,
@@ -20,7 +20,7 @@ class ProfileApi {
         credentials: 'include',
       });
 
-      const data = await response.json();
+      const data = await response.json() as { error?: string };
 
       if (!response.ok) {
         return {
@@ -31,7 +31,7 @@ class ProfileApi {
 
       return {
         success: true,
-        data,
+        data: data as { customer: CustomerProfile },
       };
     } catch (error) {
       logger.error('Error fetching profile:', error);
@@ -55,7 +55,7 @@ class ProfileApi {
         body: JSON.stringify(profileData),
       });
 
-      const data = await response.json();
+      const data = await response.json() as { error?: string };
 
       if (!response.ok) {
         return {
@@ -66,7 +66,7 @@ class ProfileApi {
 
       return {
         success: true,
-        data,
+        data: data as { customer: CustomerProfile },
       };
     } catch (error) {
       logger.error('Error updating profile:', error);

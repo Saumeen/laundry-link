@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import {
 import logger from '@/lib/logger';
+import {
   requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';

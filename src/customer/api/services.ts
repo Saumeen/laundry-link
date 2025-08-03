@@ -1,6 +1,7 @@
-import type {
+
 import logger from '@/lib/logger';
-  Service,
+import type { 
+Service,
   PricingCategory,
   PricingItem,
   TimeSlot,

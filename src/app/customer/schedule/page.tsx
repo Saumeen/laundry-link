@@ -14,8 +14,8 @@ import TimeSelection from '@/components/schedule/TimeSelection';
 import AddressSelection from '@/components/schedule/AddressSelection';
 import OrderSummary from '@/components/schedule/OrderSummary';
 import CustomerNavigation from '@/components/CustomerNavigation';
-import {
 import logger from '@/lib/logger';
+import {
   ScheduleFormData,
   CustomerData,
   Address,

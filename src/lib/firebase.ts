@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
 import logger from '@/lib/logger';
+import {
   getAuth,
   connectAuthEmulator,
   Auth,

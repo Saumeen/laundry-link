@@ -1,10 +1,11 @@
-import winston from 'winston';
-
 // Universal logger that works in both server and client environments
 let logger: any;
 
 if (typeof window === 'undefined') {
   // Server-side: Use Winston
+  // Dynamically import winston only on server side
+  const winston = require('winston') as typeof import('winston');
+  
   // Define log levels
   const levels = {
     error: 0,
@@ -38,7 +39,7 @@ if (typeof window === 'undefined') {
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
     winston.format.colorize({ all: true }),
     winston.format.printf(
-      (info: winston.Logform.TransformableInfo) => `${info.timestamp} ${info.level}: ${info.message}`
+      (info: any) => `${info.timestamp} ${info.level}: ${info.message}`
     )
   );
 

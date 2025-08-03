@@ -1,9 +1,9 @@
 // src/app/api/customer/addresses/[addressId]/default/route.ts
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import {
+
 import logger from '@/lib/logger';
-  requireAuthenticatedCustomer,
+import {  requireAuthenticatedCustomer,
   createAuthErrorResponse,
 } from '@/lib/auth';
 

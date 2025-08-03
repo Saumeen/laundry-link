@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type {
 import logger from '@/lib/logger';
+import type {
   CustomerProfile,
   UpdateProfileData,
   FormState,

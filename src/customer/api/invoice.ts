@@ -1,5 +1,5 @@
-import type { ApiResponse } from '@/shared/types/customer';
 import logger from '@/lib/logger';
+import type { ApiResponse } from '@/shared/types/customer';
 
 class InvoiceApi {
   private static baseUrl = '/api/customer/invoice';

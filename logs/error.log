@@ -14,3 +14,4 @@
 2025-08-03 16:27:17:2717 [31merror[39m: [31mError creating TAP invoice: Failed to create TAP invoice: 503 {"errors":[{"code":"2401","description":"The backend service is currently unavailable"}]}[39m
 2025-08-03 16:27:17:2717 [31merror[39m: [31mError creating invoice for order 2: Failed to create TAP invoice: 503 {"errors":[{"code":"2401","description":"The backend service is currently unavailable"}]}[39m
 2025-08-03 16:27:17:2717 [31merror[39m: [31mError creating Tap invoice for order 2: Failed to create TAP invoice: 503 {"errors":[{"code":"2401","description":"The backend service is currently unavailable"}]}[39m
+2025-08-03 22:59:21:5921 [31merror[39m: [31mError fetching pricing data: Dynamic server usage: Route /pricing couldn't be rendered statically because it used revalidate: 0 fetch http://localhost:3000/api/pricing /pricing. See more info here: https://nextjs.org/docs/messages/dynamic-server-error[39m
