@@ -43,18 +43,27 @@ if (typeof window === 'undefined') {
     )
   );
 
-  // Define transports
-  const transports = [
-    // Console transport
+  // Check if we're in a serverless environment (Vercel, Netlify, etc.)
+  const isServerless = process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  
+  // Define transports - only use console in serverless environments
+  const transports: any[] = [
+    // Console transport (always available)
     new winston.transports.Console(),
-    // File transport for errors
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error',
-    }),
-    // File transport for all logs
-    new winston.transports.File({ filename: 'logs/all.log' }),
   ];
+
+  // Only add file transports if not in serverless environment
+  if (!isServerless) {
+    transports.push(
+      // File transport for errors
+      new winston.transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+      }),
+      // File transport for all logs
+      new winston.transports.File({ filename: 'logs/all.log' })
+    );
+  }
 
   // Create the logger
   logger = winston.createLogger({
