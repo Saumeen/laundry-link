@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
       orderNumber: order.orderNumber,
     });
   } catch (error) {
-    console.error('Error processing payment request:', error);
+    logger.error('Error processing payment request:', error);
     return NextResponse.json(
       { error: 'Failed to process payment request' },
       { status: 500 }

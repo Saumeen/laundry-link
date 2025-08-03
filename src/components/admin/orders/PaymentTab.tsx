@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { formatUTCForDisplay } from '@/lib/utils/timezone';
 import { formatCurrency } from '@/lib/utils/formatCurrency';
 import { useToast } from '@/components/ui/Toast';
+import logger from '@/lib/logger';
 
 interface PaymentRecord {
   id: number;
@@ -20,6 +21,7 @@ interface PaymentRecord {
   processedAt?: string;
   createdAt: string;
   updatedAt: string;
+  metadata?: string;
   walletTransaction?: {
     id: number;
     transactionType: string;
@@ -55,6 +57,26 @@ interface PaymentTabProps {
   onRefresh: () => void;
 }
 
+interface TapInvoiceData {
+  id: string;
+  url: string;
+  status: string;
+  amount: number;
+  currency: string;
+  created: number;
+  due?: number;
+  expiry?: number;
+  track?: {
+    status: string;
+    link: string;
+  };
+  transactions?: Array<{
+    id: string;
+    status: string;
+    amount: number;
+  }>;
+}
+
 const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const { data: session } = useSession();
   const { showToast } = useToast();
@@ -64,6 +86,11 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [processingRefund, setProcessingRefund] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<TapInvoiceData | null>(null);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [resendingInvoice, setResendingInvoice] = useState(false);
+  const [cancellingInvoice, setCancellingInvoice] = useState(false);
 
   // Check if user is super admin
   const isSuperAdmin = session?.role === 'SUPER_ADMIN';
@@ -77,6 +104,29 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     .reduce((sum, payment) => sum + (payment.refundAmount || 0), 0);
 
   const availableForRefund = totalPaid - totalRefunded;
+
+  // Get the latest TAP invoice payment record
+  const latestTapInvoice = order.paymentRecords
+    .filter(payment => payment.paymentMethod === 'TAP_INVOICE')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+  const getTapInvoiceData = (paymentRecord: PaymentRecord): TapInvoiceData | null => {
+    if (!paymentRecord.metadata) return null;
+    try {
+      const metadata = JSON.parse(paymentRecord.metadata);
+      return {
+        id: metadata.tapInvoiceId || paymentRecord.tapReference || '',
+        url: metadata.tapInvoiceUrl || '',
+        status: paymentRecord.paymentStatus,
+        amount: paymentRecord.amount,
+        currency: paymentRecord.currency,
+        created: new Date(paymentRecord.createdAt).getTime(),
+      };
+    } catch (error) {
+      logger.error('Error parsing payment metadata:', error);
+      return null;
+    }
+  };
 
   const handleRefundClick = (paymentId: number, amount: number) => {
     setSelectedPaymentId(paymentId);
@@ -123,13 +173,163 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
         'success'
       );
     } catch (error) {
-      console.error('Error processing refund:', error);
+      logger.error('Error processing refund:', error);
       showToast(
         error instanceof Error ? error.message : 'Failed to process refund',
         'error'
       );
     } finally {
       setProcessingRefund(false);
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    setGeneratingInvoice(true);
+    try {
+      const response = await fetch('/api/admin/create-tap-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to generate invoice');
+      }
+
+      const result = await response.json() as { success: boolean; tapInvoice?: any; error?: string };
+      
+      if (result.success && result.tapInvoice) {
+        showToast('Invoice generated successfully!', 'success');
+        onRefresh();
+      } else {
+        showToast('No payment required - customer has sufficient wallet balance', 'info');
+      }
+    } catch (error) {
+      logger.error('Error generating invoice:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to generate invoice',
+        'error'
+      );
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
+  const handleResendInvoice = async () => {
+    if (!latestTapInvoice) return;
+    
+    setResendingInvoice(true);
+    try {
+      const response = await fetch('/api/admin/resend-tap-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          paymentRecordId: latestTapInvoice.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to resend invoice');
+      }
+
+      showToast('Invoice resent successfully!', 'success');
+    } catch (error) {
+      logger.error('Error resending invoice:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to resend invoice',
+        'error'
+      );
+    } finally {
+      setResendingInvoice(false);
+    }
+  };
+
+  const handleCancelInvoice = async () => {
+    if (!latestTapInvoice) return;
+    
+    setCancellingInvoice(true);
+    try {
+      const response = await fetch('/api/admin/cancel-tap-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          paymentRecordId: latestTapInvoice.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to cancel invoice');
+      }
+
+      showToast('Invoice cancelled successfully!', 'success');
+      onRefresh();
+    } catch (error) {
+      logger.error('Error cancelling invoice:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to cancel invoice',
+        'error'
+      );
+    } finally {
+      setCancellingInvoice(false);
+    }
+  };
+
+  const handleViewInvoice = async () => {
+    if (!latestTapInvoice) return;
+    
+    const invoiceData = getTapInvoiceData(latestTapInvoice);
+    if (invoiceData?.url) {
+      window.open(invoiceData.url, '_blank');
+    } else {
+      showToast('Invoice URL not available', 'error');
+    }
+  };
+
+  const handleViewInvoiceDetails = async () => {
+    if (!latestTapInvoice) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/get-tap-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          paymentRecordId: latestTapInvoice.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to fetch invoice details');
+      }
+
+      const result = await response.json() as { success: boolean; invoice: TapInvoiceData; error?: string };
+      setInvoiceData(result.invoice);
+      setShowInvoiceModal(true);
+    } catch (error) {
+      logger.error('Error fetching invoice details:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to fetch invoice details',
+        'error'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -145,6 +345,10 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
         return 'bg-blue-100 text-blue-800';
       case 'PARTIAL_REFUND':
         return 'bg-purple-100 text-purple-800';
+      case 'CANCELLED':
+        return 'bg-gray-100 text-gray-800';
+      case 'EXPIRED':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -158,8 +362,25 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
         return '💰';
       case 'cash':
         return '💵';
+      case 'tap_invoice':
+        return '📄';
       default:
         return '💳';
+    }
+  };
+
+  const getInvoiceStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'PAID':
+        return 'text-green-600';
+      case 'PENDING':
+        return 'text-yellow-600';
+      case 'CANCELLED':
+        return 'text-red-600';
+      case 'EXPIRED':
+        return 'text-orange-600';
+      default:
+        return 'text-gray-600';
     }
   };
 
@@ -209,6 +430,134 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Invoice Management Section */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Invoice Management
+          </h3>
+          <div className="flex space-x-2">
+            {!latestTapInvoice && (
+              <button
+                onClick={handleGenerateInvoice}
+                disabled={generatingInvoice}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generatingInvoice ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Generate Invoice
+                  </>
+                )}
+              </button>
+            )}
+            {latestTapInvoice && (
+              <>
+                <button
+                  onClick={handleViewInvoice}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  View Invoice
+                </button>
+                <button
+                  onClick={handleViewInvoiceDetails}
+                  disabled={loading}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Details
+                </button>
+                <button
+                  onClick={handleResendInvoice}
+                  disabled={resendingInvoice}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                >
+                  {resendingInvoice ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Resending...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Resend
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleCancelInvoice}
+                  disabled={cancellingInvoice}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                >
+                  {cancellingInvoice ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Cancelling...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Cancel
+                    </>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {latestTapInvoice && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <div className="text-sm text-gray-600">Invoice Status</div>
+                <div className={`font-semibold ${getInvoiceStatusColor(latestTapInvoice.paymentStatus)}`}>
+                  {latestTapInvoice.paymentStatus}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Invoice Amount</div>
+                <div className="font-semibold text-gray-900">
+                  {formatCurrency(latestTapInvoice.amount)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Created</div>
+                <div className="font-semibold text-gray-900">
+                  {formatUTCForDisplay(latestTapInvoice.createdAt)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Customer Wallet Info */}
@@ -380,6 +729,126 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                   >
                     {processingRefund ? 'Processing...' : 'Process Refund'}
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Details Modal */}
+      {showInvoiceModal && invoiceData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Invoice Details
+                </h3>
+                <button
+                  onClick={() => setShowInvoiceModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-sm text-gray-600">Invoice ID</div>
+                    <div className="font-semibold text-gray-900">{invoiceData.id}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Status</div>
+                    <div className={`font-semibold ${getInvoiceStatusColor(invoiceData.status)}`}>
+                      {invoiceData.status}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Amount</div>
+                    <div className="font-semibold text-gray-900">
+                      {formatCurrency(invoiceData.amount)} {invoiceData.currency}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Created</div>
+                    <div className="font-semibold text-gray-900">
+                      {formatUTCForDisplay(new Date(invoiceData.created).toISOString())}
+                    </div>
+                  </div>
+                  {invoiceData.due && (
+                    <div>
+                      <div className="text-sm text-gray-600">Due Date</div>
+                      <div className="font-semibold text-gray-900">
+                        {formatUTCForDisplay(new Date(invoiceData.due).toISOString())}
+                      </div>
+                    </div>
+                  )}
+                  {invoiceData.expiry && (
+                    <div>
+                      <div className="text-sm text-gray-600">Expires</div>
+                      <div className="font-semibold text-gray-900">
+                        {formatUTCForDisplay(new Date(invoiceData.expiry).toISOString())}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  {invoiceData.track && (
+                    <div>
+                      <div className="text-sm text-gray-600">Tracking Status</div>
+                      <div className="font-semibold text-gray-900">{invoiceData.track.status}</div>
+                      {invoiceData.track.link && (
+                        <a
+                          href={invoiceData.track.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          View Tracking Details →
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  
+                  {invoiceData.transactions && invoiceData.transactions.length > 0 && (
+                    <div>
+                      <div className="text-sm text-gray-600 mb-2">Transactions</div>
+                      <div className="space-y-2">
+                        {invoiceData.transactions.map((transaction, index) => (
+                          <div key={index} className="bg-gray-50 p-3 rounded">
+                            <div className="text-sm font-medium text-gray-900">
+                              {transaction.id}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Status: {transaction.status} | Amount: {formatCurrency(transaction.amount)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {invoiceData.url && (
+                    <div>
+                      <div className="text-sm text-gray-600 mb-2">Invoice URL</div>
+                      <a
+                        href={invoiceData.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Open Invoice
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

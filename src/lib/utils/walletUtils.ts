@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import logger from '@/lib/logger';
 
 export interface WalletTransactionData {
   walletId: number;
@@ -73,7 +74,7 @@ export async function createWalletForCustomer(customerId: number) {
 
     return wallet;
   } catch (error) {
-    console.error('Error creating wallet:', error);
+    logger.error('Error creating wallet:', error);
     throw new Error('Failed to create wallet');
   }
 }
@@ -89,7 +90,7 @@ export async function getWalletBalance(customerId: number) {
 
     return wallet?.balance || 0;
   } catch (error) {
-    console.error('Error getting wallet balance:', error);
+    logger.error('Error getting wallet balance:', error);
     throw new Error('Failed to get wallet balance');
   }
 }
@@ -161,7 +162,7 @@ export async function processWalletTransaction(transactionData: WalletTransactio
 
     return transaction;
   } catch (error) {
-    console.error('Error processing wallet transaction:', error);
+    logger.error('Error processing wallet transaction:', error);
     throw error;
   }
 }
@@ -193,7 +194,7 @@ export async function createPaymentRecord(paymentData: PaymentRecordData) {
 
     return paymentRecord;
   } catch (error) {
-    console.error('Error creating payment record:', error);
+    logger.error('Error creating payment record:', error);
     throw new Error('Failed to create payment record');
   }
 }
@@ -218,7 +219,7 @@ export async function updatePaymentStatus(
 
     return paymentRecord;
   } catch (error) {
-    console.error('Error updating payment status:', error);
+    logger.error('Error updating payment status:', error);
     throw new Error('Failed to update payment status');
   }
 }
@@ -267,7 +268,7 @@ export async function processWalletPayment(
 
     return { paymentRecord, transaction };
   } catch (error) {
-    console.error('Error processing wallet payment:', error);
+    logger.error('Error processing wallet payment:', error);
     throw error;
   }
 }
@@ -289,7 +290,7 @@ export async function getWalletTransactionHistory(customerId: number, limit = 50
 
     return wallet?.transactions || [];
   } catch (error) {
-    console.error('Error getting wallet transaction history:', error);
+    logger.error('Error getting wallet transaction history:', error);
     throw new Error('Failed to get transaction history');
   }
 }
@@ -315,7 +316,7 @@ export async function getPaymentHistory(customerId: number, limit = 50) {
 
     return payments;
   } catch (error) {
-    console.error('Error getting payment history:', error);
+    logger.error('Error getting payment history:', error);
     throw new Error('Failed to get payment history');
   }
 }
@@ -374,17 +375,17 @@ export async function processTapPaymentResponse(
 
     return paymentRecord;
   } catch (error) {
-    console.error('Error processing Tap payment response:', error);
+    logger.error('Error processing Tap payment response:', error);
     
     // Handle specific Prisma validation errors
     if (error instanceof Prisma.PrismaClientValidationError) {
-      console.error('Prisma validation error details:', error.message);
+      logger.error('Prisma validation error details:', error.message);
       throw new Error(`Database validation error: ${error.message}`);
     }
     
     // Handle other Prisma errors
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      console.error('Prisma known request error:', error.code, error.message);
+      logger.error('Prisma known request error:', error.code, error.message);
       throw new Error(`Database error: ${error.message}`);
     }
     
@@ -418,7 +419,7 @@ export function extractEssentialTapResponse(tapResponse: TapResponse | any) {
       live_mode: tapResponse.live_mode
     };
   } catch (error) {
-    console.error('Error extracting essential Tap response:', error);
+    logger.error('Error extracting essential Tap response:', error);
     // Return minimal data if extraction fails
     return {
       id: tapResponse.id,

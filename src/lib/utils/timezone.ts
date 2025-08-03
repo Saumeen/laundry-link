@@ -3,6 +3,7 @@
  */
 
 import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz';
+import logger from '@/lib/logger';
 
 export const BAHRAIN_TIMEZONE = 'Asia/Bahrain';
 export const BAHRAIN_UTC_OFFSET = '+03:00';
@@ -60,7 +61,7 @@ export function getCurrentBahrainDate(): string {
   try {
     return formatInTimeZone(new Date(), BAHRAIN_TIMEZONE, 'yyyy-MM-dd');
   } catch (error) {
-    console.error('Error getting current Bahrain date:', error);
+    logger.error('Error getting current Bahrain date:', error);
     // Fallback to local date if timezone conversion fails
     return new Date().toISOString().split('T')[0];
   }

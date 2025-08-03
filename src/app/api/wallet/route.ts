@@ -5,6 +5,7 @@ import {
   processWalletTransaction,
   createWalletForCustomer
 } from '@/lib/utils/walletUtils';
+import logger from '@/lib/logger';
 
 interface WalletTransactionRequest {
   customerId: number;
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error getting wallet info:', error);
+    logger.error('Error getting wallet info:', error);
     return NextResponse.json(
       { 
         error: 'Failed to get wallet information',
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error processing wallet transaction:', error);
+    logger.error('Error processing wallet transaction:', error);
     return NextResponse.json(
       { 
         error: 'Failed to process wallet transaction',

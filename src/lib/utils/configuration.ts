@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 export interface ConfigurationValue {
   key: string;
@@ -19,7 +20,7 @@ export class ConfigurationManager {
       });
       return config?.value || null;
     } catch (error) {
-      console.error(`Error fetching configuration for key ${key}:`, error);
+      logger.error(`Error fetching configuration for key ${key}:`, error);
       return null;
     }
   }
@@ -43,7 +44,7 @@ export class ConfigurationManager {
       });
       return configs;
     } catch (error) {
-      console.error(`Error fetching configurations for category ${category}:`, error);
+      logger.error(`Error fetching configurations for category ${category}:`, error);
       return [];
     }
   }
@@ -88,7 +89,7 @@ export class ConfigurationManager {
       });
       return true;
     } catch (error) {
-      console.error(`Error setting configuration for key ${key}:`, error);
+      logger.error(`Error setting configuration for key ${key}:`, error);
       return false;
     }
   }
@@ -103,7 +104,7 @@ export class ConfigurationManager {
       });
       return true;
     } catch (error) {
-      console.error(`Error deleting configuration for key ${key}:`, error);
+      logger.error(`Error deleting configuration for key ${key}:`, error);
       return false;
     }
   }

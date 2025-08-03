@@ -9,7 +9,8 @@ import {
 } from '@prisma/client';
 import { createOrderHistoryEntry, validateStatusChange } from './orderStatus';
 import emailService from './emailService';
-import { TapInvoiceService } from './tapInvoiceService';
+import { createTapInvoiceIfNeeded } from './tapInvoiceService';
+import logger from '@/lib/logger';
 
 export interface OrderUpdateData {
   orderId: number;
@@ -181,7 +182,7 @@ export class OrderTrackingService {
 
       return { success: true, order: result };
     } catch (error) {
-      console.error('Error updating order status:', error);
+      logger.error('Error updating order status:', error);
       return { success: false, message: 'Failed to update order status' };
     }
   }
@@ -227,7 +228,7 @@ export class OrderTrackingService {
 
       return { success: true, order: result.order };
     } catch (error) {
-      console.error('Error updating order status with email:', error);
+      logger.error('Error updating order status with email:', error);
       return { success: false, message: 'Failed to update order status' };
     }
   }
@@ -295,7 +296,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error handling driver action:', error);
+      logger.error('Error handling driver action:', error);
       return { success: false, message: 'Failed to handle driver action' };
     }
   }
@@ -406,7 +407,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error handling facility action:', error);
+      logger.error('Error handling facility action:', error);
       return { success: false, message: 'Failed to handle facility action' };
     }
   }
@@ -469,7 +470,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error handling operations action:', error);
+      logger.error('Error handling operations action:', error);
       return { success: false, message: 'Failed to handle operations action' };
     }
   }
@@ -497,7 +498,7 @@ export class OrderTrackingService {
         });
       }
     } catch (error) {
-      console.error('Error checking payment and updating status:', error);
+      logger.error('Error checking payment and updating status:', error);
     }
   }
 
@@ -571,7 +572,7 @@ export class OrderTrackingService {
 
       return orders;
     } catch (error) {
-      console.error('Error getting orders for team:', error);
+      logger.error('Error getting orders for team:', error);
       return [];
     }
   }
@@ -613,7 +614,7 @@ export class OrderTrackingService {
         status.toString()
       );
     } catch (error) {
-      console.error('Error sending status update email:', error);
+      logger.error('Error sending status update email:', error);
     }
   }
 
@@ -674,7 +675,7 @@ export class OrderTrackingService {
         invoiceData
       );
     } catch (error) {
-      console.error('Error sending invoice email:', error);
+      logger.error('Error sending invoice email:', error);
     }
   }
 
@@ -689,9 +690,9 @@ export class OrderTrackingService {
     amountToCharge?: number;
   }> {
     try {
-      return await TapInvoiceService.createTapInvoiceIfNeeded(orderId);
+      return await createTapInvoiceIfNeeded(orderId);
     } catch (error) {
-      console.error('Error creating Tap invoice:', error);
+      logger.error('Error creating Tap invoice:', error);
       // Fallback to requiring payment
       return {
         requiresPayment: true,
@@ -762,7 +763,7 @@ export class OrderTrackingService {
         invoiceData
       );
     } catch (error) {
-      console.error('Error sending invoice with payment email:', error);
+      logger.error('Error sending invoice with payment email:', error);
     }
   }
 
@@ -825,7 +826,7 @@ export class OrderTrackingService {
         invoiceData
       );
     } catch (error) {
-      console.error('Error sending processing completed email:', error);
+      logger.error('Error sending processing completed email:', error);
     }
   }
 
@@ -848,7 +849,7 @@ export class OrderTrackingService {
         },
       });
     } catch (error) {
-      console.error('Error removing order from driver list:', error);
+      logger.error('Error removing order from driver list:', error);
     }
   }
 
@@ -874,7 +875,7 @@ export class OrderTrackingService {
         },
       });
     } catch (error) {
-      console.error('Error creating driver assignment:', error);
+      logger.error('Error creating driver assignment:', error);
     }
   }
 
@@ -899,7 +900,7 @@ export class OrderTrackingService {
 
       return history;
     } catch (error) {
-      console.error('Error fetching order history:', error);
+      logger.error('Error fetching order history:', error);
       return [];
     }
   }
@@ -928,7 +929,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error adding order note:', error);
+      logger.error('Error adding order note:', error);
       return { success: false, message: 'Failed to add note' };
     }
   }
@@ -957,7 +958,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error tracking driver assignment:', error);
+      logger.error('Error tracking driver assignment:', error);
       return { success: false, message: 'Failed to track driver assignment' };
     }
   }
@@ -987,7 +988,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error tracking processing update:', error);
+      logger.error('Error tracking processing update:', error);
       return { success: false, message: 'Failed to track processing update' };
     }
   }
@@ -1017,7 +1018,7 @@ export class OrderTrackingService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error tracking issue report:', error);
+      logger.error('Error tracking issue report:', error);
       return { success: false, message: 'Failed to track issue report' };
     }
   }
@@ -1066,7 +1067,7 @@ export class OrderTrackingService {
 
       return timeline;
     } catch (error) {
-      console.error('Error fetching order timeline:', error);
+      logger.error('Error fetching order timeline:', error);
       return [];
     }
   }

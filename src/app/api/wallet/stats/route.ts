@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWalletBalance, getWalletTransactionHistory } from '@/lib/utils/walletUtils';
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error getting wallet stats:', error);
+    logger.error('Error getting wallet stats:', error);
     return NextResponse.json(
       { 
         error: 'Failed to get wallet statistics',

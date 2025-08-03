@@ -5,6 +5,7 @@ import { OrderStatus } from '@prisma/client';
 import { OrdersApi } from '@/customer/api/orders';
 import { InvoiceApi } from '@/customer/api/invoice';
 import { useOrdersStore } from '@/customer/stores/ordersStore';
+import logger from '@/lib/logger';
 import {
   StatusCard,
   OrderTimeline,
@@ -130,7 +131,7 @@ export default function OrderDetailsModal({
         setError(response.error || 'Failed to fetch order details');
       }
     } catch (err) {
-      console.error('Error fetching order details:', err);
+      logger.error('Error fetching order details:', err);
       setError('An error occurred while fetching order details');
     } finally {
       setLoading(false);
@@ -159,7 +160,7 @@ export default function OrderDetailsModal({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error downloading invoice:', err);
+      logger.error('Error downloading invoice:', err);
     } finally {
       setInvoiceLoading(false);
     }
@@ -188,11 +189,11 @@ export default function OrderDetailsModal({
         // Redirect to Tap payment page
         window.open(data.paymentUrl, '_blank');
       } else {
-        console.error('Payment error:', data.error);
+        logger.error('Payment error:', data.error);
         setError('Failed to initiate payment');
       }
     } catch (err) {
-      console.error('Error initiating payment:', err);
+      logger.error('Error initiating payment:', err);
       setError('An error occurred while initiating payment');
     } finally {
       setPaymentLoading(false);

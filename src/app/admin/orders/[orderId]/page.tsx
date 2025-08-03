@@ -10,6 +10,7 @@ import {
   formatUTCForDisplay,
   formatUTCForTimeDisplay,
 } from '@/lib/utils/timezone';
+import logger from '@/lib/logger';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -228,7 +229,7 @@ function OrderEditPageContent() {
         setError(errorData.error || 'Failed to fetch order');
       }
     } catch (error) {
-      console.error('Error fetching order:', error);
+      logger.error('Error fetching order:', error);
       setError('Failed to fetch order');
     } finally {
       setLoading(false);
@@ -313,7 +314,7 @@ function OrderEditPageContent() {
       // Refresh the order data
       await fetchOrder();
     } catch (error) {
-      console.error('Error deleting order item:', error);
+      logger.error('Error deleting order item:', error);
       throw error;
     }
   };

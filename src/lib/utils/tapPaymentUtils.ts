@@ -1,5 +1,6 @@
 import { processTapPaymentResponse, createWalletForCustomer, processWalletTransaction } from './walletUtils';
 import prisma from '@/lib/prisma';
+import logger from '@/lib/logger';
 
 // Tap API Configuration
 const TAP_API_BASE_URL = process.env.TAP_API_BASE_URL || 'https://api.tap.company/v2';
@@ -107,7 +108,7 @@ export async function createTapToken(tokenData: TapTokenRequest) {
 
     return await response.json();
   } catch (error) {
-    console.error('Error creating Tap token:', error);
+    logger.error('Error creating Tap token:', error);
     throw new Error('Failed to create Tap token');
   }
 }
@@ -133,7 +134,7 @@ export async function createTapEncryptedToken(tokenData: TapEncryptedTokenReques
 
     return await response.json();
   } catch (error) {
-    console.error('Error creating Tap encrypted token:', error);
+    logger.error('Error creating Tap encrypted token:', error);
     throw new Error('Failed to create Tap encrypted token');
   }
 }
@@ -159,7 +160,7 @@ export async function createTapCharge(chargeData: TapChargeRequest) {
 
     return await response.json();
   } catch (error) {
-    console.error('Error creating Tap charge:', error);
+    logger.error('Error creating Tap charge:', error);
     throw new Error('Failed to create Tap charge');
   }
 }
@@ -185,7 +186,7 @@ export async function createTapAuthorize(authorizeData: TapAuthorizeRequest) {
 
     return await response.json();
   } catch (error) {
-    console.error('Error creating Tap authorization:', error);
+    logger.error('Error creating Tap authorization:', error);
     throw new Error('Failed to create Tap authorization');
   }
 }
@@ -210,7 +211,7 @@ export async function getTapCharge(chargeId: string) {
 
     return await response.json();
   } catch (error) {
-    console.error('Error retrieving Tap charge:', error);
+    logger.error('Error retrieving Tap charge:', error);
     throw new Error('Failed to retrieve Tap charge');
   }
 }
@@ -235,7 +236,7 @@ export async function getTapAuthorize(authorizeId: string) {
 
     return await response.json();
   } catch (error) {
-    console.error('Error retrieving Tap authorization:', error);
+    logger.error('Error retrieving Tap authorization:', error);
     throw new Error('Failed to retrieve Tap authorization');
   }
 }
@@ -269,7 +270,7 @@ export async function listTapCharges(filters?: {
 
     return await response.json();
   } catch (error) {
-    console.error('Error listing Tap charges:', error);
+    logger.error('Error listing Tap charges:', error);
     throw new Error('Failed to list Tap charges');
   }
 }
@@ -404,7 +405,7 @@ export async function processTapPayment(
       pendingWalletTransaction
     };
   } catch (error) {
-    console.error('Error processing Tap payment:', error);
+    logger.error('Error processing Tap payment:', error);
     throw error;
   }
 }
@@ -522,7 +523,7 @@ export async function handleTapWebhook(webhookData: any) {
 
     return { success: true, status };
   } catch (error) {
-    console.error('Error handling Tap webhook:', error);
+    logger.error('Error handling Tap webhook:', error);
     throw error;
   }
 }
@@ -547,7 +548,7 @@ export function validateTapWebhookSignature(
       Buffer.from(expectedSignature, 'hex')
     );
   } catch (error) {
-    console.error('Error validating Tap webhook signature:', error);
+    logger.error('Error validating Tap webhook signature:', error);
     return false;
   }
 }
@@ -577,7 +578,7 @@ export async function createTapRefund(chargeId: string, amount: number, reason?:
 
     return await response.json();
   } catch (error) {
-    console.error('Error creating Tap refund:', error);
+    logger.error('Error creating Tap refund:', error);
     throw new Error('Failed to create Tap refund');
   }
 } 

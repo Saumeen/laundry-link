@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { processTapPayment } from '@/lib/utils/tapPaymentUtils';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
+import logger from '@/lib/logger';
 
 interface TopUpRequest {
   amount: number;
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
       const rawBody = await request.json();
       body = rawBody as TopUpRequest;
     } catch (parseError) {
-      console.error('Error parsing request body:', parseError);
+      logger.error('Error parsing request body:', parseError);
       return NextResponse.json(
         { error: 'Invalid request body format' },
         { status: 400 }
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error processing wallet top-up:', error);
+    logger.error('Error processing wallet top-up:', error);
     
     // Handle authentication errors specifically
     if (error instanceof Error && error.message === 'Authentication required') {
