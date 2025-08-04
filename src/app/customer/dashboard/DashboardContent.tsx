@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { useOrdersStore } from '@/customer/stores/ordersStore';
-import OrderDetailsModal from '@/components/OrderDetailsModal';
+import { useWalletStore } from '@/customer/stores/walletStore';
+import { useAuth } from '@/hooks/useAuth';
 import type { OrderWithDetails } from '@/shared/types/customer';
 
 const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -36,20 +38,20 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
 };
 
 const DashboardContent: React.FC = () => {
+  const router = useRouter();
   const {
     orders,
     loading,
     fetchOrders,
-    selectOrder,
-    showOrderDetails,
-    toggleOrderDetails,
   } = useOrdersStore();
+
+  const { balance, fetchWalletInfo } = useWalletStore();
+  const { customer } = useAuth();
 
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | 'all'>(
     'all'
   );
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   useEffect(() => {
     const filters: any = {};
@@ -62,16 +64,23 @@ const DashboardContent: React.FC = () => {
     fetchOrders(filters);
   }, [statusFilter, paymentFilter, fetchOrders]);
 
+  useEffect(() => {
+    if (customer?.id) {
+      fetchWalletInfo(customer.id);
+    }
+  }, [customer?.id, fetchWalletInfo]);
+
   const handleOrderClick = (order: OrderWithDetails) => {
-    selectOrder(order);
-    setSelectedOrderId(order.id);
-    toggleOrderDetails();
+    router.push(`/customer/orders/${order.id}`);
   };
 
-  const handleCloseOrderDetails = () => {
-    setSelectedOrderId(null);
-    selectOrder(null);
-    toggleOrderDetails();
+  const handlePayNow = (order: OrderWithDetails, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent order details from opening
+    if (canPayWithWallet(order)) {
+      router.push(`/customer/orders/${order.id}?tab=invoice`);
+    } else {
+      router.push(`/customer/orders/${order.id}?tab=invoice&topup=true`);
+    }
   };
 
   const getStatusOptions = () => {
@@ -98,6 +107,42 @@ const DashboardContent: React.FC = () => {
     return `${amount.toFixed(3)} BD`;
   };
 
+  const requiresPayment = (order: OrderWithDetails) => {
+    // Payment is required when invoice is generated and there's an amount to pay
+    return (
+      order.invoiceGenerated &&
+      order.paymentStatus === PaymentStatus.PENDING && 
+      (order.invoiceTotal || 0) > 0
+    );
+  };
+
+  const canPayWithWallet = (order: OrderWithDetails) => {
+    return balance >= (order.invoiceTotal || 0);
+  };
+
+  const getPaymentButtonText = (order: OrderWithDetails) => {
+    if (!order.invoiceGenerated) {
+      return 'Invoice Pending';
+    }
+    if (canPayWithWallet(order)) {
+      return 'Pay with Wallet';
+    }
+    return 'Top Up & Pay';
+  };
+
+  const getPaymentStatusMessage = (order: OrderWithDetails) => {
+    if (!order.invoiceGenerated) {
+      return 'Invoice not generated yet';
+    }
+    if (order.paymentStatus === PaymentStatus.PENDING && (order.invoiceTotal || 0) > 0) {
+      if (canPayWithWallet(order)) {
+        return 'You can pay this order using your wallet balance';
+      }
+      return 'Payment required for this order';
+    }
+    return '';
+  };
+
   if (loading) {
     return (
       <div className='flex items-center justify-center min-h-screen'>
@@ -113,6 +158,20 @@ const DashboardContent: React.FC = () => {
         <p className='mt-2 text-gray-600'>
           Track your laundry orders and their status
         </p>
+        
+        {/* Wallet Balance Display */}
+        <div className='mt-4 bg-blue-50 p-4 rounded-lg'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h3 className='text-lg font-semibold text-blue-900'>Wallet Balance</h3>
+              <p className='text-blue-700'>Available for payments</p>
+            </div>
+            <div className='text-right'>
+              <div className='text-2xl font-bold text-blue-900'>{formatCurrency(balance)}</div>
+              <p className='text-sm text-blue-600'>Current Balance</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
@@ -241,6 +300,25 @@ const DashboardContent: React.FC = () => {
                     <div className='text-sm text-gray-500'>
                       {order.items?.length || 0} services
                     </div>
+                    {requiresPayment(order) && (
+                      <div className='mt-2 space-y-1'>
+                        {canPayWithWallet(order) ? (
+                          <button
+                            onClick={e => handlePayNow(order, e)}
+                            className='px-4 py-1 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors'
+                          >
+                            {getPaymentButtonText(order)}
+                          </button>
+                        ) : (
+                          <div className='text-xs text-red-600'>
+                            Insufficient balance
+                          </div>
+                        )}
+                        <p className='text-xs text-gray-500'>
+                          {getPaymentStatusMessage(order)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </li>
@@ -248,13 +326,6 @@ const DashboardContent: React.FC = () => {
           )}
         </ul>
       </div>
-
-      {/* Order Details Modal */}
-      <OrderDetailsModal
-        isOpen={showOrderDetails}
-        onClose={handleCloseOrderDetails}
-        orderId={selectedOrderId}
-      />
     </div>
   );
 };

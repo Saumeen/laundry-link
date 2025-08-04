@@ -630,7 +630,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/tap-webhook`,
       },
       reference: {
-        invoice: order.orderNumber.trim(),
+        invoice: `inv_${order.orderNumber.trim()}`,
         order: order.orderNumber.trim(),
       },
       description: `Payment for order ${order.orderNumber.trim()} - Laundry Link Services`,

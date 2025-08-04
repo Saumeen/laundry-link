@@ -1,6 +1,5 @@
 'use client';
 
-import OrderDetailsModal from '@/components/OrderDetailsModal';
 import WalletModal from '@/components/WalletModal';
 import { useOrdersStore, useProfileStore } from '@/customer';
 import type { OrderWithDetails } from '@/shared/types/customer';
@@ -14,12 +13,8 @@ export function CustomerDashboard() {
     orders,
     loading,
     fetchOrders,
-    selectOrder,
-    showOrderDetails,
-    toggleOrderDetails,
   } = useOrdersStore();
   const { profile, fetchProfile } = useProfileStore();
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const router = useRouter();
   const logout = useLogout();
@@ -30,15 +25,7 @@ export function CustomerDashboard() {
   }, [fetchOrders, fetchProfile]);
 
   const handleOrderClick = (order: OrderWithDetails) => {
-    selectOrder(order);
-    setSelectedOrderId(order.id);
-    toggleOrderDetails();
-  };
-
-  const handleCloseOrderDetails = () => {
-    setSelectedOrderId(null);
-    selectOrder(null);
-    toggleOrderDetails();
+    router.push(`/customer/orders/${order.id}`);
   };
 
   const handleLogout = () => {
@@ -277,13 +264,6 @@ export function CustomerDashboard() {
           )}
         </div>
       </div>
-
-      {/* Order Details Modal */}
-      <OrderDetailsModal
-        isOpen={showOrderDetails}
-        onClose={handleCloseOrderDetails}
-        orderId={selectedOrderId}
-      />
 
       {/* Wallet Modal */}
       <WalletModal

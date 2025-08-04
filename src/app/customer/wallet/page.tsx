@@ -39,6 +39,9 @@ export default function WalletPage() {
   const { showToast } = useToast();
   const router = useRouter();
   
+  // Get return URL from query parameters
+  const [returnUrl, setReturnUrl] = useState<string | null>(null);
+  
   // Main state
   const [walletInfo, setWalletInfo] = useState<{
     balance: number;
@@ -82,6 +85,15 @@ export default function WalletPage() {
       fetchProfile();
     }
   }, [profile, profileLoading, fetchProfile]);
+
+  useEffect(() => {
+    // Read return URL from query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnUrlParam = urlParams.get('returnUrl');
+    if (returnUrlParam) {
+      setReturnUrl(decodeURIComponent(returnUrlParam));
+    }
+  }, []);
 
   useEffect(() => {
     if (profile?.id) {
@@ -308,7 +320,11 @@ export default function WalletPage() {
       localStorage.setItem(`cardVerification_${profile.id}`, JSON.stringify(verificationState));
     }
     showToast('Card verified successfully!', 'success');
-    goToPayment();
+    
+    // Use setTimeout to ensure state is updated before proceeding
+    setTimeout(() => {
+      goToPayment();
+    }, 100);
   };
 
   const handleBenefitPayTokenReceived = (token: string) => {
@@ -323,7 +339,11 @@ export default function WalletPage() {
       localStorage.setItem(`benefitPayVerification_${profile.id}`, JSON.stringify(verificationState));
     }
     showToast('Benefit Pay verified successfully!', 'success');
-    goToPayment();
+    
+    // Use setTimeout to ensure state is updated before proceeding
+    setTimeout(() => {
+      goToPayment();
+    }, 100);
   };
 
   const handlePaymentError = (error: string) => {
@@ -1073,6 +1093,14 @@ export default function WalletPage() {
           >
             Top Up Again
           </button>
+          {returnUrl && (
+            <button
+              onClick={() => router.push(returnUrl)}
+              className="w-full px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
+            >
+              Return to Order
+            </button>
+          )}
           <button
             onClick={() => router.push('/customer/dashboard')}
             className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
