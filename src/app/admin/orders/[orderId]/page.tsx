@@ -112,6 +112,17 @@ interface OrderWithRelations {
       description: string;
     };
   }>;
+  paymentSummary?: {
+    totalPaid: number;
+    totalRefunded: number;
+    totalPending: number;
+    totalFailed: number;
+    availableForRefund: number;
+    netAmountPaid: number;
+    outstandingAmount: number;
+    paymentRecordsCount: number;
+    invoiceTotal: number;
+  };
 }
 
 // Import the new modular components

@@ -1,0 +1,17 @@
+2025-08-04 20:34:28:3428 [32minfo[39m: [32mCreating Tap invoice for order 2[39m
+2025-08-04 20:34:28:3428 [32minfo[39m: [32mOrder 2 - Service mappings: 1, Has items: true[39m
+2025-08-04 20:34:28:3428 [32minfo[39m: [32mOrder 2 - Wallet balance: 89.998, Invoice total: 75, Requires payment: false[39m
+2025-08-04 20:34:28:3428 [32minfo[39m: [32mOrder 2 - No payment required, sufficient wallet balance[39m
+2025-08-04 21:02:46:246 [32minfo[39m: [32mOperations action completed: assign_pickup_driver for order 3 by staff 1[39m
+2025-08-04 21:03:09:39 [32minfo[39m: [32mStatus update email sent to customer: psaumeen@gmail.com for status: PICKUP_IN_PROGRESS[39m
+2025-08-04 21:03:16:316 [32minfo[39m: [32mPhoto saved for assignment 7 by driver 4[39m
+2025-08-04 21:03:17:317 [32minfo[39m: [32mStatus update email sent to customer: psaumeen@gmail.com for status: PICKUP_COMPLETED[39m
+2025-08-04 21:03:21:321 [32minfo[39m: [32mPhoto saved for assignment 7 by driver 4[39m
+2025-08-04 21:03:22:322 [32minfo[39m: [32mOrder #LL64400709 marked as dropped off by driver Driver Team for pickup[39m
+2025-08-04 21:04:23:423 [32minfo[39m: [32mCreating Tap invoice for order 3[39m
+2025-08-04 21:04:23:423 [32minfo[39m: [32mOrder 3 - Service mappings: 1, Has items: true[39m
+2025-08-04 21:04:23:423 [32minfo[39m: [32mOrder 3 - Wallet balance: 89.998, Invoice total: 4.050000000000001, Requires payment: false[39m
+2025-08-04 21:04:23:423 [32minfo[39m: [32mOrder 3 - No payment required, sufficient wallet balance[39m
+2025-08-04 21:04:24:424 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-04 21:04:24:424 [32minfo[39m: [32mFacility action completed: generate_invoice for order 3 by staff 3[39m
+2025-08-04 21:05:57:557 [32minfo[39m: [32mWallet payment processed for order LL64400709: 4.050000000000001 BHD via WALLET[39m

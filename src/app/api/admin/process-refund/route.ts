@@ -100,18 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Process the refund in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Update payment record
-      const updatedPaymentRecord = await tx.paymentRecord.update({
-        where: { id: paymentId },
-        data: {
-          refundAmount: alreadyRefunded + refundAmount,
-          refundReason: refundReason,
-          paymentStatus: refundAmount === maxRefundable ? 'REFUNDED' : 'PARTIAL_REFUND',
-          updatedAt: new Date()
-        }
-      });
-
-      // Create wallet transaction for refund
+      // Create wallet transaction for refund first
       const walletTransaction = await tx.walletTransaction.create({
         data: {
           walletId: paymentRecord.customer.wallet!.id,
@@ -122,13 +111,47 @@ export async function POST(request: NextRequest) {
           description: `Refund for Order #${paymentRecord.order?.orderNumber || orderId}: ${refundReason}`,
           reference: `REFUND_${paymentId}`,
           metadata: JSON.stringify({
-            paymentRecordId: paymentId,
+            originalPaymentRecordId: paymentId,
             orderId: orderId,
             refundReason: refundReason,
             processedBy: admin.id
           }),
           status: 'COMPLETED',
           processedAt: new Date()
+        }
+      });
+
+      // Create a NEW payment record for the refund (instead of updating the original)
+      const refundPaymentRecord = await tx.paymentRecord.create({
+        data: {
+          customerId: customerId,
+          orderId: orderId,
+          amount: refundAmount,
+          paymentMethod: 'WALLET', // Refund goes back to wallet
+          paymentStatus: 'PAID', // Refund is immediately processed
+          description: `Refund for Order #${paymentRecord.order?.orderNumber || orderId}: ${refundReason}`,
+          walletTransactionId: walletTransaction.id,
+          refundReason: refundReason,
+          processedAt: new Date(),
+          metadata: JSON.stringify({
+            originalPaymentRecordId: paymentId,
+            originalPaymentAmount: paymentRecord.amount,
+            originalPaymentMethod: paymentRecord.paymentMethod,
+            refundReason: refundReason,
+            processedBy: admin.id,
+            isRefund: true
+          })
+        }
+      });
+
+      // Update the ORIGINAL payment record to track refunds (but don't change its core data)
+      const updatedOriginalPaymentRecord = await tx.paymentRecord.update({
+        where: { id: paymentId },
+        data: {
+          refundAmount: alreadyRefunded + refundAmount,
+          refundReason: refundReason,
+          // Keep the original payment status as PAID, but add refund tracking
+          updatedAt: new Date()
         }
       });
 
@@ -149,7 +172,8 @@ export async function POST(request: NextRequest) {
           action: 'REFUND_PROCESSED',
           description: `Refund of ${refundAmount} BD processed. Reason: ${refundReason}`,
           metadata: JSON.stringify({
-            paymentRecordId: paymentId,
+            originalPaymentRecordId: paymentId,
+            refundPaymentRecordId: refundPaymentRecord.id,
             refundAmount: refundAmount,
             refundReason: refundReason,
             processedBy: admin.id,
@@ -160,7 +184,8 @@ export async function POST(request: NextRequest) {
       });
 
       return {
-        paymentRecord: updatedPaymentRecord,
+        originalPaymentRecord: updatedOriginalPaymentRecord,
+        refundPaymentRecord,
         walletTransaction,
         newWalletBalance: paymentRecord.customer.wallet!.balance + refundAmount
       };
@@ -172,7 +197,8 @@ export async function POST(request: NextRequest) {
       data: {
         refundAmount: refundAmount,
         newWalletBalance: result.newWalletBalance,
-        paymentStatus: result.paymentRecord.paymentStatus
+        refundPaymentRecordId: result.refundPaymentRecord.id,
+        originalPaymentRecordId: result.originalPaymentRecord.id
       }
     });
 

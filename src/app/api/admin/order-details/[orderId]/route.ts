@@ -93,6 +93,9 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Calculate payment summary on the backend
+    const paymentSummary = calculatePaymentSummary(order.paymentRecords, order.invoiceTotal || 0);
+
     // Map the time fields to match frontend expectations with Bahrain timezone
     const mappedOrder = {
       ...order,
@@ -106,6 +109,7 @@ export async function GET(
         order.deliveryStartTime,
         order.deliveryEndTime
       ),
+      paymentSummary, // Add the calculated payment summary
     };
 
     return NextResponse.json({ order: mappedOrder });
@@ -124,4 +128,54 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+/**
+ * Calculate payment summary from payment records
+ */
+function calculatePaymentSummary(paymentRecords: any[], invoiceTotal: number) {
+  // Separate original payments from refund payments
+  const originalPayments = paymentRecords.filter(payment => 
+    !payment.metadata || !JSON.parse(payment.metadata || '{}').isRefund
+  );
+  
+  const refundPayments = paymentRecords.filter(payment => 
+    payment.metadata && JSON.parse(payment.metadata || '{}').isRefund
+  );
+
+  // Calculate total paid from original payments
+  const totalPaid = originalPayments
+    .filter(payment => payment.paymentStatus === 'PAID')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  // Calculate total refunded from refund payment records
+  const totalRefunded = refundPayments
+    .filter(payment => payment.paymentStatus === 'PAID')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  // Calculate total pending from original payments
+  const totalPending = originalPayments
+    .filter(payment => payment.paymentStatus === 'PENDING')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  // Calculate total failed from original payments
+  const totalFailed = originalPayments
+    .filter(payment => payment.paymentStatus === 'FAILED')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  const availableForRefund = totalPaid - totalRefunded;
+  const netAmountPaid = totalPaid - totalRefunded;
+  const outstandingAmount = invoiceTotal - netAmountPaid;
+
+  return {
+    totalPaid,
+    totalRefunded,
+    totalPending,
+    totalFailed,
+    availableForRefund,
+    netAmountPaid,
+    outstandingAmount,
+    paymentRecordsCount: paymentRecords.length,
+    invoiceTotal
+  };
 }

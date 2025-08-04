@@ -66,7 +66,8 @@ async function checkAndUpdatePendingTapPayments(customerId: number) {
         }
       },
       include: {
-        wallet: true
+        wallet: true,
+        paymentRecords: true // Include linked payment records
       }
     });
 
@@ -103,44 +104,100 @@ async function checkAndUpdatePendingTapPayments(customerId: number) {
               // Update wallet balance
               const newBalance = transaction.wallet.balance + transaction.amount;
               
-              await prisma.walletTransaction.update({
-                where: { id: transaction.id },
-                data: {
-                  status: 'COMPLETED',
-                  balanceAfter: newBalance,
-                  processedAt: new Date(),
-                  metadata: JSON.stringify({
-                    ...metadata,
-                    tapChargeStatus: chargeData.status,
-                    lastStatusCheck: new Date().toISOString(),
-                    updatedFromTap: true
-                  })
-                }
-              });
+              await prisma.$transaction(async (tx) => {
+                // Update wallet transaction
+                await tx.walletTransaction.update({
+                  where: { id: transaction.id },
+                  data: {
+                    status: 'COMPLETED',
+                    balanceAfter: newBalance,
+                    processedAt: new Date(),
+                    metadata: JSON.stringify({
+                      ...metadata,
+                      tapChargeStatus: chargeData.status,
+                      lastStatusCheck: new Date().toISOString(),
+                      updatedFromTap: true
+                    })
+                  }
+                });
 
-              // Update wallet balance
-              await prisma.wallet.update({
-                where: { id: transaction.wallet.id },
-                data: {
-                  balance: newBalance,
-                  lastTransactionAt: new Date()
+                // Update wallet balance
+                await tx.wallet.update({
+                  where: { id: transaction.wallet.id },
+                  data: {
+                    balance: newBalance,
+                    lastTransactionAt: new Date()
+                  }
+                });
+
+                // Update linked payment records
+                for (const paymentRecord of transaction.paymentRecords) {
+                  await tx.paymentRecord.update({
+                    where: { id: paymentRecord.id },
+                    data: {
+                      paymentStatus: 'PAID',
+                      processedAt: new Date(),
+                      tapTransactionId: tapChargeId,
+                      tapResponse: JSON.stringify(chargeData),
+                      updatedAt: new Date()
+                    }
+                  });
+
+                  // Update order payment status if this is an order payment
+                  if (paymentRecord.orderId) {
+                    await tx.order.update({
+                      where: { id: paymentRecord.orderId },
+                      data: {
+                        paymentStatus: 'PAID',
+                        updatedAt: new Date()
+                      }
+                    });
+                  }
                 }
               });
 
               logger.info(`Updated pending TAP payment ${transaction.id} to COMPLETED. Charge ID: ${tapChargeId}`);
             } else if (newStatus === 'FAILED') {
-              await prisma.walletTransaction.update({
-                where: { id: transaction.id },
-                data: {
-                  status: 'FAILED',
-                  processedAt: new Date(),
-                  metadata: JSON.stringify({
-                    ...metadata,
-                    tapChargeStatus: chargeData.status,
-                    failureReason: chargeData.failure_reason || 'Payment failed',
-                    lastStatusCheck: new Date().toISOString(),
-                    updatedFromTap: true
-                  })
+              await prisma.$transaction(async (tx) => {
+                // Update wallet transaction
+                await tx.walletTransaction.update({
+                  where: { id: transaction.id },
+                  data: {
+                    status: 'FAILED',
+                    processedAt: new Date(),
+                    metadata: JSON.stringify({
+                      ...metadata,
+                      tapChargeStatus: chargeData.status,
+                      failureReason: chargeData.failure_reason || 'Payment failed',
+                      lastStatusCheck: new Date().toISOString(),
+                      updatedFromTap: true
+                    })
+                  }
+                });
+
+                // Update linked payment records
+                for (const paymentRecord of transaction.paymentRecords) {
+                  await tx.paymentRecord.update({
+                    where: { id: paymentRecord.id },
+                    data: {
+                      paymentStatus: 'FAILED',
+                      failureReason: chargeData.failure_reason || 'Payment failed',
+                      processedAt: new Date(),
+                      tapResponse: JSON.stringify(chargeData),
+                      updatedAt: new Date()
+                    }
+                  });
+
+                  // Update order payment status if this is an order payment
+                  if (paymentRecord.orderId) {
+                    await tx.order.update({
+                      where: { id: paymentRecord.orderId },
+                      data: {
+                        paymentStatus: 'FAILED',
+                        updatedAt: new Date()
+                      }
+                    });
+                  }
                 }
               });
 

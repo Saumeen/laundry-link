@@ -33,12 +33,25 @@ interface PaymentRecord {
   };
 }
 
+interface PaymentSummary {
+  totalPaid: number;
+  totalRefunded: number;
+  totalPending: number;
+  totalFailed: number;
+  availableForRefund: number;
+  netAmountPaid: number;
+  outstandingAmount: number;
+  paymentRecordsCount: number;
+  invoiceTotal: number;
+}
+
 interface OrderWithPayment {
   id: number;
   orderNumber: string;
   invoiceTotal?: number;
   paymentStatus: string;
   paymentRecords: PaymentRecord[];
+  paymentSummary: PaymentSummary;
   customer: {
     id: number;
     firstName: string;
@@ -95,15 +108,18 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   // Check if user is super admin
   const isSuperAdmin = session?.role === 'SUPER_ADMIN';
 
-  const totalPaid = (order.paymentRecords || [])
-    .filter(payment => payment.paymentStatus === 'PAID')
-    .reduce((sum, payment) => sum + payment.amount, 0);
-
-  const totalRefunded = (order.paymentRecords || [])
-    .filter(payment => ['REFUNDED', 'PARTIAL_REFUND'].includes(payment.paymentStatus))
-    .reduce((sum, payment) => sum + (payment.refundAmount || 0), 0);
-
-  const availableForRefund = totalPaid - totalRefunded;
+  // Use backend-calculated payment summary
+  const {
+    totalPaid,
+    totalRefunded,
+    totalPending,
+    totalFailed,
+    availableForRefund,
+    netAmountPaid,
+    outstandingAmount,
+    paymentRecordsCount,
+    invoiceTotal
+  } = order.paymentSummary;
 
   // Get the latest TAP invoice payment record
   const latestTapInvoice = order.paymentRecords
@@ -354,7 +370,12 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     }
   };
 
-  const getPaymentMethodIcon = (method: string) => {
+  const getPaymentMethodIcon = (method: string, metadata?: string) => {
+    // Check if this is a refund transaction
+    if (metadata && metadata.includes('"isRefund":true')) {
+      return '↩️'; // Return arrow for refunds
+    }
+    
     switch (method.toLowerCase()) {
       case 'card':
         return '💳';
@@ -364,6 +385,16 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
         return '💵';
       case 'tap_invoice':
         return '📄';
+      case 'tap_pay':
+        return '💳';
+      case 'apple_pay':
+        return '🍎';
+      case 'google_pay':
+        return '📱';
+      case 'samsung_pay':
+        return '📱';
+      case 'bank_transfer':
+        return '🏦';
       default:
         return '💳';
     }
@@ -399,34 +430,70 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
 
   return (
     <div className="space-y-6">
-      {/* Payment Summary */}
+      {/* Enhanced Payment Summary */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Payment Summary
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="text-center">
             <div className="text-sm text-gray-600">Order Total</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(order.invoiceTotal || 0)}
+            <div className="text-xl font-bold text-gray-900">
+              {formatCurrency(invoiceTotal)}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-gray-600">Total Paid</div>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-xl font-bold text-green-600">
               {formatCurrency(totalPaid)}
             </div>
           </div>
           <div className="text-center">
             <div className="text-sm text-gray-600">Total Refunded</div>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-xl font-bold text-blue-600">
               {formatCurrency(totalRefunded)}
             </div>
           </div>
           <div className="text-center">
+            <div className="text-sm text-gray-600">Net Amount</div>
+            <div className="text-xl font-bold text-purple-600">
+              {formatCurrency(netAmountPaid)}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray-600">Outstanding</div>
+            <div className={`text-xl font-bold ${outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(Math.abs(outstandingAmount))}
+            </div>
+          </div>
+          <div className="text-center">
             <div className="text-sm text-gray-600">Available for Refund</div>
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-xl font-bold text-orange-600">
               {formatCurrency(availableForRefund)}
+            </div>
+          </div>
+        </div>
+        
+        {/* Payment Status Breakdown */}
+        <div className="mt-4 pt-4 border-t border-blue-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-sm text-gray-600">Pending Payments</div>
+              <div className="text-lg font-semibold text-yellow-600">
+                {formatCurrency(totalPending)}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-sm text-gray-600">Failed Payments</div>
+              <div className="text-lg font-semibold text-red-600">
+                {formatCurrency(totalFailed)}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-sm text-gray-600">Payment Records</div>
+              <div className="text-lg font-semibold text-gray-900">
+                {paymentRecordsCount}
+              </div>
             </div>
           </div>
         </div>
@@ -439,7 +506,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
             Invoice Management
           </h3>
           <div className="flex space-x-2">
-            {!latestTapInvoice && (
+            {/* {!latestTapInvoice && (
               <button
                 onClick={handleGenerateInvoice}
                 disabled={generatingInvoice}
@@ -462,7 +529,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                   </>
                 )}
               </button>
-            )}
+            )} */}
             {latestTapInvoice && (
               <>
                 <button
@@ -585,7 +652,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
       <div className="bg-white border border-gray-200 rounded-lg">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Payment Records ({order.paymentRecords.length})
+            Payment Records ({paymentRecordsCount})
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -622,7 +689,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <span className="text-2xl mr-3">
-                          {getPaymentMethodIcon(payment.paymentMethod)}
+                          {getPaymentMethodIcon(payment.paymentMethod, payment.metadata)}
                         </span>
                         <div>
                           <div className="text-sm font-medium text-gray-900">
@@ -636,6 +703,11 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                               TAP ID: {payment.tapTransactionId}
                             </div>
                           )}
+                          {payment.walletTransaction && (
+                            <div className="text-xs text-gray-400">
+                              Wallet TX: {payment.walletTransaction.id}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -643,7 +715,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                       <div className="text-sm font-medium text-gray-900">
                         {formatCurrency(payment.amount)}
                       </div>
-                      {payment.refundAmount && (
+                      {payment.refundAmount && payment.refundAmount > 0 && (
                         <div className="text-sm text-blue-600">
                           Refunded: {formatCurrency(payment.refundAmount)}
                         </div>
@@ -653,12 +725,18 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(payment.paymentStatus)}`}>
                         {payment.paymentStatus}
                       </span>
+                      {payment.refundReason && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Reason: {payment.refundReason}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {formatUTCForDisplay(payment.createdAt)}
                     </td>
                     <td className="px-6 py-4">
-                      {payment.paymentStatus === 'PAID' && availableForRefund > 0 && (
+                      {payment.paymentStatus === 'PAID' && availableForRefund > 0 && 
+                       !payment.metadata?.includes('"isRefund":true') && (
                         <button
                           onClick={() => handleRefundClick(payment.id, payment.amount)}
                           className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -666,7 +744,13 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                           Refund
                         </button>
                       )}
-                      {['REFUNDED', 'PARTIAL_REFUND'].includes(payment.paymentStatus) && (
+                      {payment.metadata?.includes('"isRefund":true') && (
+                        <div className="text-xs text-green-600 font-medium">
+                          Refund Transaction
+                        </div>
+                      )}
+                      {['REFUNDED', 'PARTIAL_REFUND'].includes(payment.paymentStatus) && 
+                       !payment.metadata?.includes('"isRefund":true') && (
                         <div className="text-xs text-gray-500">
                           Refunded on {formatUTCForDisplay(payment.updatedAt)}
                         </div>

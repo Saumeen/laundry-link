@@ -445,7 +445,10 @@ export async function handleTapWebhook(webhookData: any) {
     // If this is a wallet top-up, handle the wallet transaction
     if (metadata?.isWalletTopUp && walletTransactionId) {
       const walletTransaction = await prisma.walletTransaction.findUnique({
-        where: { id: walletTransactionId }
+        where: { id: walletTransactionId },
+        include: {
+          paymentRecords: true // Include linked payment records
+        }
       });
 
       if (walletTransaction) {
@@ -458,46 +461,102 @@ export async function handleTapWebhook(webhookData: any) {
           if (wallet) {
             const newBalance = wallet.balance + walletTransaction.amount;
             
-            await prisma.walletTransaction.update({
-              where: { id: walletTransactionId },
-              data: {
-                status: 'COMPLETED',
-                balanceAfter: newBalance,
-                processedAt: new Date(),
-                metadata: JSON.stringify({
-                  paymentRecordId,
+            await prisma.$transaction(async (tx) => {
+              // Update wallet transaction
+              await tx.walletTransaction.update({
+                where: { id: walletTransactionId },
+                data: {
                   status: 'COMPLETED',
-                  tapTransactionId: webhookData.id,
-                  tapChargeId: webhookData.charge?.id || null,
-                  processedAt: new Date().toISOString()
-                })
-              }
-            });
+                  balanceAfter: newBalance,
+                  processedAt: new Date(),
+                  metadata: JSON.stringify({
+                    paymentRecordId,
+                    status: 'COMPLETED',
+                    tapTransactionId: webhookData.id,
+                    tapChargeId: webhookData.charge?.id || null,
+                    processedAt: new Date().toISOString()
+                  })
+                }
+              });
 
-            // Update wallet balance
-            await prisma.wallet.update({
-              where: { id: wallet.id },
-              data: {
-                balance: newBalance,
-                lastTransactionAt: new Date()
+              // Update wallet balance
+              await tx.wallet.update({
+                where: { id: wallet.id },
+                data: {
+                  balance: newBalance,
+                  lastTransactionAt: new Date()
+                }
+              });
+
+              // Update linked payment records
+              for (const paymentRecord of walletTransaction.paymentRecords) {
+                await tx.paymentRecord.update({
+                  where: { id: paymentRecord.id },
+                  data: {
+                    paymentStatus: 'PAID',
+                    processedAt: new Date(),
+                    tapTransactionId: webhookData.id,
+                    tapResponse: JSON.stringify(webhookData),
+                    updatedAt: new Date()
+                  }
+                });
+
+                // Update order payment status if this is an order payment
+                if (paymentRecord.orderId) {
+                  await tx.order.update({
+                    where: { id: paymentRecord.orderId },
+                    data: {
+                      paymentStatus: 'PAID',
+                      updatedAt: new Date()
+                    }
+                  });
+                }
               }
             });
           }
         } else if (status === 'FAILED') {
           // Update the pending wallet transaction to failed
-          await prisma.walletTransaction.update({
-            where: { id: walletTransactionId },
-            data: {
-              status: 'FAILED',
-              processedAt: new Date(),
-              metadata: JSON.stringify({
-                paymentRecordId,
+          await prisma.$transaction(async (tx) => {
+            // Update wallet transaction
+            await tx.walletTransaction.update({
+              where: { id: walletTransactionId },
+              data: {
                 status: 'FAILED',
-                tapTransactionId: webhookData.id,
-                tapChargeId: webhookData.charge?.id || null,
-                failureReason: webhookData.failure_reason || 'Payment failed',
-                processedAt: new Date().toISOString()
-              })
+                processedAt: new Date(),
+                metadata: JSON.stringify({
+                  paymentRecordId,
+                  status: 'FAILED',
+                  tapTransactionId: webhookData.id,
+                  tapChargeId: webhookData.charge?.id || null,
+                  failureReason: webhookData.failure_reason || 'Payment failed',
+                  processedAt: new Date().toISOString()
+                })
+              }
+            });
+
+            // Update linked payment records
+            for (const paymentRecord of walletTransaction.paymentRecords) {
+              await tx.paymentRecord.update({
+                where: { id: paymentRecord.id },
+                data: {
+                  paymentStatus: 'FAILED',
+                  failureReason: webhookData.failure_reason || 'Payment failed',
+                  processedAt: new Date(),
+                  tapResponse: JSON.stringify(webhookData),
+                  updatedAt: new Date()
+                }
+              });
+
+              // Update order payment status if this is an order payment
+              if (paymentRecord.orderId) {
+                await tx.order.update({
+                  where: { id: paymentRecord.orderId },
+                  data: {
+                    paymentStatus: 'FAILED',
+                    updatedAt: new Date()
+                  }
+                });
+              }
             }
           });
         }
