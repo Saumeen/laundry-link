@@ -552,7 +552,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         name: item.itemName.substring(0, 100), // Limit name length
         description: `Laundry service for ${item.itemName}`.substring(0, 200), // Limit description length
         currency: 'BHD',
-        amount: Math.round(item.pricePerItem * 1000) / 1000, // Ensure proper decimal format
+        amount: Math.round(item.pricePerItem * 100) / 100, // Ensure proper decimal format (2 decimal places)
         quantity: item.quantity,
       })) || []
     ) || [];
@@ -612,7 +612,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
     }
 
     const invoiceData: TapInvoiceRequest = {
-      amount: Math.round(amount * 1000) / 1000, // Ensure proper decimal format (3 decimal places)
+      amount: Math.round(amount * 100) / 100, // Ensure proper decimal format (2 decimal places)
       currency: 'BHD',
       customer: {
         first_name: order.customer.firstName.trim().substring(0, 50), // Limit first name length
@@ -621,7 +621,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         phone: phoneData,
       },
       order: {
-        amount: Math.round(itemsTotal * 1000) / 1000, // Total from items
+        amount: Math.round(itemsTotal * 100) / 100, // Total from items
         currency: 'BHD',
         items: orderItems,
       },

@@ -420,7 +420,7 @@ export async function processTapPayment(
 
     // Create Tap charge
     const chargeData: TapChargeRequest = {
-      amount: amount * 1000, // Convert to fils (Tap uses smallest currency unit)
+      amount: amount, // Amount in BHD
       currency: 'BHD',
       customer: {
         first_name: customerData.firstName,
@@ -553,7 +553,7 @@ export async function processCardPayment(
 
     // Create Tap charge
     const chargeData: TapChargeRequest = {
-      amount: amount * 1000, // Convert to fils (Tap uses smallest currency unit)
+      amount: amount, // Amount in BHD
       currency: 'BHD',
       customer: {
         first_name: customerData.firstName,
@@ -671,7 +671,7 @@ export async function handleTapWebhook(webhookData: any) {
     if (metadata?.isOrderPayment) {
       logger.info('Order payment detected in webhook - not adding money to wallet:', {
         paymentRecordId,
-        amount: webhookData.amount / 1000,
+        amount: webhookData.amount,
         orderId: metadata.orderId
       });
       return { success: true, status };
@@ -805,7 +805,7 @@ export async function handleTapWebhook(webhookData: any) {
       await processWalletTransaction({
         walletId: wallet.id,
         transactionType: 'DEPOSIT',
-        amount: webhookData.amount / 1000, // Convert from fils to BHD
+        amount: webhookData.amount, // Amount in BHD
         description: `Wallet top-up via TAP payment`,
         reference: `Payment: ${paymentRecordId}`,
         metadata: JSON.stringify({
@@ -861,7 +861,7 @@ export async function createTapRefund(chargeId: string, amount: number, reason?:
       },
       body: JSON.stringify({
         charge_id: chargeId,
-        amount: amount * 1000, // Convert to fils
+        amount: amount, // Amount in BHD
         reason: reason || 'Customer request'
       })
     });

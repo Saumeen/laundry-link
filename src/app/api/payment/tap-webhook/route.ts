@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       // Webhook should update payment record status, order status, and confirm wallet transactions
       logger.info('Payment captured in webhook - updating payment record status:', {
         paymentRecordId: paymentRecord.id,
-        amount: amount / 1000,
+        amount: amount,
         isOrderPayment,
         orderId: paymentRecord.orderId || 'N/A'
       });
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
          if (walletTransaction && walletTransaction.status === 'PENDING') {
            if (!isOrderPayment) {
              // This is a wallet top-up - add money to wallet
-             const topUpAmount = amount / 1000;
+             const topUpAmount = amount;
              let newBalance = walletTransaction.wallet.balance + topUpAmount;
              let rewardAmount = 0;
              let rewardTransaction = null;
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
               : `Payment completed via Tap ${id}`,
             metadata: JSON.stringify({
               tapInvoiceId: id,
-              amount: amount / 1000, // Convert from fils to BHD
+              amount: amount, // Amount in BHD
               currency: currency,
               isSplitPayment,
               ...(isSplitPayment && {
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
             description: `Payment failed via Tap ${id}`,
             metadata: JSON.stringify({
               tapInvoiceId: id,
-              amount: amount / 1000, // Convert from fils to BHD
+              amount: amount, // Amount in BHD
               currency: currency,
               failureReason: (body as any).failure_reason || 'Unknown',
             }),
