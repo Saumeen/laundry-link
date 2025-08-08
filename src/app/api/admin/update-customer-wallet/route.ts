@@ -5,10 +5,12 @@ import {
   requireAuthenticatedAdmin,
   createAdminAuthErrorResponse,
 } from '@/lib/adminAuth';
+import { createWalletForCustomer } from '@/lib/utils/walletUtils';
 
 interface UpdateWalletRequest {
   customerId: number;
-  newBalance: number;
+  newBalance?: number; // Direct balance setting
+  balanceAdjustment?: number; // Amount to add/subtract from current balance
   reason: string;
   adminNotes?: string;
 }
@@ -17,31 +19,31 @@ export async function POST(req: Request) {
   try {
     const admin = await requireAuthenticatedAdmin();
     const body = (await req.json()) as UpdateWalletRequest;
-    const { customerId, newBalance, reason, adminNotes } = body;
+    const { customerId, newBalance, balanceAdjustment, reason, adminNotes } = body;
 
     // Validate input
-    if (!customerId || newBalance === undefined || !reason) {
+    if (!customerId) {
       return NextResponse.json(
-        { error: 'Customer ID, new balance, and reason are required' },
+        { error: 'Customer ID is required' },
         { status: 400 }
       );
     }
 
-    if (newBalance < 0) {
-      return NextResponse.json(
-        { error: 'Wallet balance cannot be negative' },
-        { status: 400 }
-      );
-    }
-
-    if (reason.trim().length < 3) {
+    if (!reason || reason.trim().length < 3) {
       return NextResponse.json(
         { error: 'Reason must be at least 3 characters long' },
         { status: 400 }
       );
     }
 
-    // Get customer with wallet
+    if (newBalance === undefined && balanceAdjustment === undefined) {
+      return NextResponse.json(
+        { error: 'Either new balance or balance adjustment is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get customer
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       include: {
@@ -56,23 +58,41 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!customer.wallet) {
-      return NextResponse.json(
-        { error: 'Customer does not have a wallet' },
-        { status: 400 }
-      );
+    // Create wallet if it doesn't exist
+    const wallet = customer.wallet || await createWalletForCustomer(customerId);
+    
+    const oldBalance = wallet.balance;
+    let finalBalance: number;
+
+    if (newBalance !== undefined) {
+      // Direct balance setting
+      if (newBalance < 0) {
+        return NextResponse.json(
+          { error: 'Wallet balance cannot be negative' },
+          { status: 400 }
+        );
+      }
+      finalBalance = newBalance;
+    } else {
+      // Balance adjustment
+      finalBalance = oldBalance + balanceAdjustment!;
+      if (finalBalance < 0) {
+        return NextResponse.json(
+          { error: 'Resulting wallet balance cannot be negative' },
+          { status: 400 }
+        );
+      }
     }
 
-    const oldBalance = customer.wallet.balance;
-    const balanceDifference = newBalance - oldBalance;
+    const balanceDifference = finalBalance - oldBalance;
 
     // Use transaction to ensure data consistency
     const result = await prisma.$transaction(async (tx) => {
       // Update wallet balance
       const updatedWallet = await tx.wallet.update({
-        where: { id: customer?.wallet?.id },
+        where: { id: wallet.id },
         data: {
-          balance: newBalance,
+          balance: finalBalance,
           lastTransactionAt: new Date(),
         },
       });
@@ -80,11 +100,11 @@ export async function POST(req: Request) {
       // Create wallet transaction record for audit trail
       const walletTransaction = await tx.walletTransaction.create({
         data: {
-          walletId: customer.wallet!.id,
+          walletId: wallet.id,
           transactionType: 'ADJUSTMENT',
           amount: Math.abs(balanceDifference),
           balanceBefore: oldBalance,
-          balanceAfter: newBalance,
+          balanceAfter: finalBalance,
           description: `Admin adjustment: ${reason}`,
           metadata: JSON.stringify({
             adminId: admin.id,
@@ -103,7 +123,7 @@ export async function POST(req: Request) {
       adminId: admin.id,
       customerId: customerId,
       oldBalance: oldBalance,
-      newBalance: newBalance,
+      newBalance: finalBalance,
       difference: balanceDifference,
       reason: reason,
     });
@@ -114,9 +134,10 @@ export async function POST(req: Request) {
       data: {
         customerId: customerId,
         oldBalance: oldBalance,
-        newBalance: newBalance,
+        newBalance: finalBalance,
         difference: balanceDifference,
         transactionId: result.walletTransaction.id,
+        walletCreated: !customer.wallet, // Indicate if wallet was created
       },
     });
   } catch (error: unknown) {
