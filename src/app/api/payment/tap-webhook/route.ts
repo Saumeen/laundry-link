@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { tapConfig } from '@/lib/config/tapConfig';
+import { ConfigurationManager } from '@/lib/utils/configuration';
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
@@ -143,7 +144,25 @@ export async function POST(request: NextRequest) {
          if (walletTransaction && walletTransaction.status === 'PENDING') {
            if (!isOrderPayment) {
              // This is a wallet top-up - add money to wallet
-             const newBalance = walletTransaction.wallet.balance + (amount / 1000);
+             const topUpAmount = amount / 1000;
+             let newBalance = walletTransaction.wallet.balance + topUpAmount;
+             let rewardAmount = 0;
+             let rewardTransaction = null;
+
+                           // Check if wallet top-up reward is enabled and get reward amount
+              const rewardConfig = await ConfigurationManager.getWalletTopUpRewardConfig();
+             
+             if (rewardConfig.enabled && rewardConfig.amount > 0) {
+               rewardAmount = rewardConfig.amount;
+               newBalance += rewardAmount;
+               
+               logger.info('Wallet top-up reward applied:', {
+                 paymentRecordId: paymentRecord.id,
+                 topUpAmount,
+                 rewardAmount,
+                 totalAdded: topUpAmount + rewardAmount
+               });
+             }
              
              await prisma.$transaction(async (tx) => {
                // Update wallet balance
@@ -166,20 +185,46 @@ export async function POST(request: NextRequest) {
                      ...JSON.parse(walletTransaction.metadata || '{}'),
                      confirmedAt: new Date().toISOString(),
                      tapWebhookId: id,
-                     isOrderPayment: false
+                     isOrderPayment: false,
+                     rewardAmount: rewardAmount
                    })
                  }
                });
+
+               // Create reward transaction if reward was given
+               if (rewardAmount > 0) {
+                 rewardTransaction = await tx.walletTransaction.create({
+                   data: {
+                     walletId: walletTransaction.wallet.id,
+                     transactionType: 'DEPOSIT',
+                     amount: rewardAmount,
+                     balanceBefore: newBalance - rewardAmount,
+                     balanceAfter: newBalance,
+                     description: `Top-up reward bonus`,
+                     reference: `Reward for payment #${paymentRecord.id}`,
+                     metadata: JSON.stringify({
+                       originalPaymentId: paymentRecord.id,
+                       originalTransactionId: walletTransaction.id,
+                       rewardType: 'wallet_topup_bonus'
+                     }),
+                     status: 'COMPLETED',
+                     processedAt: new Date()
+                   }
+                 });
+               }
              });
 
-             logger.info('Wallet top-up confirmed in webhook:', {
-               paymentRecordId: paymentRecord.id,
-               walletTransactionId: walletTransaction.id,
-               oldBalance: walletTransaction.wallet.balance,
-               newBalance,
-               amount: amount / 1000,
-               transactionType: 'TOP_UP'
-             });
+                           logger.info('Wallet top-up confirmed in webhook:', {
+                paymentRecordId: paymentRecord.id,
+                walletTransactionId: walletTransaction.id,
+                oldBalance: walletTransaction.wallet.balance,
+                newBalance,
+                topUpAmount: topUpAmount,
+                rewardAmount: rewardAmount,
+                totalAdded: topUpAmount + rewardAmount,
+                transactionType: 'TOP_UP',
+                rewardTransactionId: rewardAmount > 0 ? 'CREATED' : 'NONE'
+              });
            } else {
              // This is a card-only payment - just confirm the transaction (no balance change)
              await prisma.walletTransaction.update({

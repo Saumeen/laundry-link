@@ -67,6 +67,22 @@ export class ConfigurationManager {
   }
 
   /**
+   * Get wallet top-up reward configuration
+   */
+  static async getWalletTopUpRewardConfig(): Promise<{
+    enabled: boolean;
+    amount: number;
+  }> {
+    const enabled = await this.getConfig('wallet_topup_reward_enabled');
+    const amount = await this.getConfig('wallet_topup_reward_amount');
+    
+    return {
+      enabled: enabled === 'true',
+      amount: amount ? parseFloat(amount) : 0
+    };
+  }
+
+  /**
    * Set or update a configuration value
    */
   static async setConfig(key: string, value: string, category: string = 'general', description?: string): Promise<boolean> {

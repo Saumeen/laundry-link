@@ -1477,3 +1477,13 @@
 2025-08-08 21:08:48:848 [32minfo[39m: [32mOrder payment status updated in webhook:[39m
 2025-08-08 21:08:48:848 [32minfo[39m: [32mTap webhook processed successfully:[39m
 2025-08-08 21:15:01:151 [32minfo[39m: [32mAdmin wallet adjustment:[39m
+2025-08-08 21:45:00:450 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-08 21:45:00:450 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-08 21:45:10:4510 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-08 21:45:10:4510 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-08 21:45:27:4527 [32minfo[39m: [32mProcessing Tap webhook:[39m
+2025-08-08 21:45:27:4527 [32minfo[39m: [32mPayment metadata parsed:[39m
+2025-08-08 21:45:27:4527 [32minfo[39m: [32mPayment captured in webhook - updating payment record status:[39m
+2025-08-08 21:45:27:4527 [32minfo[39m: [32mWallet top-up reward applied:[39m
+2025-08-08 21:45:27:4527 [32minfo[39m: [32mWallet top-up confirmed in webhook:[39m
+2025-08-08 21:45:27:4527 [32minfo[39m: [32mTap webhook processed successfully:[39m
