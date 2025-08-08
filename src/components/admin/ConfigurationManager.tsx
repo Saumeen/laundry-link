@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/Toast';
 import ConfigurationList from './ConfigurationList';
 import ConfigurationForm from './ConfigurationForm';
 import ConfigurationCategories from './ConfigurationCategories';
+import WalletConfiguration from './WalletConfiguration';
 import logger from '@/lib/logger';
 
 export interface Configuration {
@@ -30,6 +31,7 @@ export default function ConfigurationManager() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingConfig, setEditingConfig] = useState<Configuration | null>(null);
+  const [activeTab, setActiveTab] = useState<'general' | 'wallet'>('general');
 
   const fetchConfigurations = async () => {
     try {
@@ -138,37 +140,72 @@ export default function ConfigurationManager() {
             Application Configurations
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Manage system-wide configuration settings (Edit only - configurations are dependencies)
+            Manage system-wide configuration settings
           </p>
         </div>
       </div>
 
-      {/* Category Filter */}
-      <ConfigurationCategories
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'general'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            General Configurations
+          </button>
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'wallet'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Wallet Configuration
+          </button>
+        </nav>
+      </div>
 
-      {/* Configuration Form Modal */}
-      {showForm && (
-        <ConfigurationForm
-          configuration={editingConfig}
-          onSubmit={handleFormSubmit}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingConfig(null);
-          }}
-        />
+      {/* Tab Content */}
+      {activeTab === 'general' && (
+        <>
+          {/* Category Filter */}
+          <ConfigurationCategories
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+          />
+
+          {/* Configuration Form Modal */}
+          {showForm && (
+            <ConfigurationForm
+              configuration={editingConfig}
+              onSubmit={handleFormSubmit}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingConfig(null);
+              }}
+            />
+          )}
+
+          {/* Configuration List */}
+          <ConfigurationList
+            configurations={filteredConfigurations}
+            loading={loading}
+            onEdit={handleEditConfig}
+            onToggleActive={handleToggleActive}
+          />
+        </>
       )}
 
-      {/* Configuration List */}
-      <ConfigurationList
-        configurations={filteredConfigurations}
-        loading={loading}
-        onEdit={handleEditConfig}
-        onToggleActive={handleToggleActive}
-      />
+      {activeTab === 'wallet' && (
+        <WalletConfiguration />
+      )}
     </div>
   );
 } 

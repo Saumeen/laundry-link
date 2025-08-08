@@ -18,18 +18,6 @@ interface ManualPaymentModalProps {
 
 const PAYMENT_METHODS = [
   {
-    id: PaymentMethod.BANK_TRANSFER,
-    name: 'Bank Transfer',
-    description: 'Transfer to our bank account',
-    icon: '🏦',
-    instructions: [
-      'Bank: National Bank of Bahrain',
-      'Account: 1234567890',
-      'IBAN: BH02NBOB1234567890',
-      'Reference: Your order number',
-    ],
-  },
-  {
     id: PaymentMethod.CARD,
     name: 'Card Payment',
     description: 'Pay via card on delivery or at facility',

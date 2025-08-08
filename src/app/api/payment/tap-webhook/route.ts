@@ -149,8 +149,29 @@ export async function POST(request: NextRequest) {
              let rewardAmount = 0;
              let rewardTransaction = null;
 
-                           // Check if wallet top-up reward is enabled and get reward amount
-              const rewardConfig = await ConfigurationManager.getWalletTopUpRewardConfig();
+             // Check if wallet top-up reward is enabled and get reward amount
+             const rewardConfig = await ConfigurationManager.getWalletTopUpRewardConfig();
+             
+             // Check for quick slot reward
+             const quickSlotsConfig = await ConfigurationManager.getWalletQuickSlotsConfig();
+             let quickSlotReward = 0;
+             
+             if (quickSlotsConfig.enabled && quickSlotsConfig.slots) {
+               const matchingSlot = quickSlotsConfig.slots.find(slot => 
+                 slot.enabled && slot.amount === topUpAmount
+               );
+               if (matchingSlot && matchingSlot.reward > 0) {
+                 quickSlotReward = matchingSlot.reward;
+                 newBalance += quickSlotReward;
+                 
+                 logger.info('Quick slot reward applied:', {
+                   paymentRecordId: paymentRecord.id,
+                   topUpAmount,
+                   quickSlotReward,
+                   slotAmount: matchingSlot.amount
+                 });
+               }
+             }
              
              if (rewardConfig.enabled && rewardConfig.amount > 0) {
                rewardAmount = rewardConfig.amount;
@@ -192,20 +213,23 @@ export async function POST(request: NextRequest) {
                });
 
                // Create reward transaction if reward was given
-               if (rewardAmount > 0) {
+               const totalReward = rewardAmount + quickSlotReward;
+               if (totalReward > 0) {
                  rewardTransaction = await tx.walletTransaction.create({
                    data: {
                      walletId: walletTransaction.wallet.id,
                      transactionType: 'DEPOSIT',
-                     amount: rewardAmount,
-                     balanceBefore: newBalance - rewardAmount,
+                     amount: totalReward,
+                     balanceBefore: newBalance - totalReward,
                      balanceAfter: newBalance,
                      description: `Top-up reward bonus`,
                      reference: `Reward for payment #${paymentRecord.id}`,
                      metadata: JSON.stringify({
                        originalPaymentId: paymentRecord.id,
                        originalTransactionId: walletTransaction.id,
-                       rewardType: 'wallet_topup_bonus'
+                       rewardType: 'wallet_topup_bonus',
+                       globalReward: rewardAmount,
+                       quickSlotReward: quickSlotReward
                      }),
                      status: 'COMPLETED',
                      processedAt: new Date()
@@ -220,10 +244,12 @@ export async function POST(request: NextRequest) {
                 oldBalance: walletTransaction.wallet.balance,
                 newBalance,
                 topUpAmount: topUpAmount,
-                rewardAmount: rewardAmount,
-                totalAdded: topUpAmount + rewardAmount,
+                globalRewardAmount: rewardAmount,
+                quickSlotRewardAmount: quickSlotReward,
+                totalRewardAmount: rewardAmount + quickSlotReward,
+                totalAdded: topUpAmount + rewardAmount + quickSlotReward,
                 transactionType: 'TOP_UP',
-                rewardTransactionId: rewardAmount > 0 ? 'CREATED' : 'NONE'
+                rewardTransactionId: (rewardAmount + quickSlotReward) > 0 ? 'CREATED' : 'NONE'
               });
            } else {
              // This is a card-only payment - just confirm the transaction (no balance change)

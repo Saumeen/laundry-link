@@ -51,6 +51,13 @@ export default function WalletPage() {
   const [loading, setLoading] = useState(true);
   const [refreshingWallet, setRefreshingWallet] = useState(false);
   
+  // Reward state
+  const [rewardConfig, setRewardConfig] = useState<{
+    enabled: boolean;
+    amount?: number;
+    currency: string;
+  } | null>(null);
+  
   // Wizard flow state
   const [currentStep, setCurrentStep] = useState<WalletStep>(WalletStep.OVERVIEW);
   const [topUpAmount, setTopUpAmount] = useState('');
@@ -100,6 +107,8 @@ export default function WalletPage() {
       fetchWalletInfo();
       fetchTransactionHistory();
       loadSavedVerificationStates();
+      fetchRewardConfig();
+      fetchQuickSlots();
     }
   }, [profile?.id]);
 
@@ -146,12 +155,16 @@ export default function WalletPage() {
   const fetchWalletInfo = async () => {
     try {
       if (!profile?.id) return;
+      console.log('Fetching wallet info for profile:', profile.id);
       setRefreshingWallet(true);
       const response = await walletApi.getWalletInfo(profile.id);
+      console.log('Wallet info response:', response);
       setWalletInfo(response);
     } catch (error) {
+      console.error('Error fetching wallet info:', error);
       logger.error('Error fetching wallet info:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load wallet information';
+      console.error('Showing wallet info error toast:', errorMessage);
       showToast(errorMessage, 'error');
     } finally {
       setRefreshingWallet(false);
@@ -161,7 +174,9 @@ export default function WalletPage() {
   const fetchTransactionHistory = async (page = 1) => {
     try {
       if (!profile?.id) return;
+      console.log('Fetching transaction history for profile:', profile.id, 'page:', page);
       const response = await walletApi.getTransactionHistory(profile.id, page, 10);
+      console.log('Transaction history response:', response);
       
       if (page === 1) {
         setTransactions(response.transactions);
@@ -169,11 +184,99 @@ export default function WalletPage() {
         setTransactions(prev => [...prev, ...response.transactions]);
       }
     } catch (error) {
+      console.error('Error fetching transaction history:', error);
       logger.error('Error fetching transaction history:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to load transaction history';
+      console.error('Showing transaction history error toast:', errorMessage);
       showToast(errorMessage, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRewardConfig = async () => {
+    try {
+      console.log('Fetching reward configuration...');
+      const response = await fetch('/api/wallet/rewards');
+      console.log('Reward config response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Reward config API error:', response.status, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json() as {
+        success: boolean;
+        data?: {
+          enabled: boolean;
+          amount?: number;
+          currency: string;
+        };
+        error?: string;
+      };
+      
+      console.log('Reward config data:', data);
+      
+      if (data.success && data.data) {
+        setRewardConfig(data.data);
+      } else if (data.error) {
+        console.error('Reward config API returned error:', data.error);
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching reward configuration:', error);
+      logger.error('Error fetching reward configuration:', error);
+      // Don't show error toast for reward config as it's not critical
+    }
+  };
+
+  // Quick slots state
+  const [quickSlots, setQuickSlots] = useState<Array<{
+    id: number;
+    amount: number;
+    reward: number;
+    enabled: boolean;
+  }>>([]);
+
+  const fetchQuickSlots = async () => {
+    try {
+      console.log('Fetching quick slots configuration...');
+      const response = await fetch('/api/wallet/quick-slots');
+      console.log('Quick slots response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Quick slots API error:', response.status, errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json() as {
+        success: boolean;
+        data?: {
+          enabled: boolean;
+          slots: Array<{
+            id: number;
+            amount: number;
+            reward: number;
+            enabled: boolean;
+          }>;
+        };
+        error?: string;
+      };
+      
+      console.log('Quick slots data:', data);
+      
+      if (data.success && data.data?.enabled && data.data.slots) {
+        setQuickSlots(data.data.slots.filter(slot => slot.enabled));
+      } else if (data.error) {
+        console.error('Quick slots API returned error:', data.error);
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching quick slots:', error);
+      logger.error('Error fetching quick slots:', error);
+      // Don't show error toast for quick slots as it's not critical
     }
   };
 
@@ -196,7 +299,7 @@ export default function WalletPage() {
 
   const goToPayment = () => {
     if (selectedPaymentMethod === 'TAP_PAY' && !cardVerification.isVerified) {
-      showToast('Please verify your card first', 'error');
+      // showToast('Please verify your card first', 'error');
       return;
     }
     if (selectedPaymentMethod === 'BENEFIT_PAY' && !benefitPayVerification.isVerified) {
@@ -732,27 +835,35 @@ export default function WalletPage() {
           </div>
 
           {/* Quick Amount Buttons */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Quick Select
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {[5, 10, 20, 50, 100, 200].map((amount) => (
-                <button
-                  key={amount}
-                  onClick={() => setTopUpAmount(amount.toString())}
-                  className={`py-3 px-4 rounded-lg border-2 transition-all duration-200 ${
-                    topUpAmount === amount.toString()
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                  }`}
-                >
-                  {formatCurrency(amount, 'BHD')}
-                </button>
-              ))}
+          {quickSlots.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Quick Select
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {quickSlots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    onClick={() => setTopUpAmount(slot.amount.toString())}
+                    className={`py-3 px-4 rounded-lg border-2 transition-all duration-200 ${
+                      topUpAmount === slot.amount.toString()
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="font-medium">{formatCurrency(slot.amount, 'BHD')}</div>
+                      {slot.reward > 0 && (
+                        <div className="text-xs text-green-600">+ FREE {formatCurrency(slot.reward, 'BHD')}</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
+      
           <div className="flex space-x-3 pt-4">
             <button
               onClick={onBack}
@@ -787,7 +898,6 @@ export default function WalletPage() {
         <div className="space-y-4 mb-8">
           {[
             { value: 'TAP_PAY', label: 'Credit/Debit Card', icon: '💳', description: 'Visa, Mastercard, American Express' },
-            { value: 'BANK_TRANSFER', label: 'Bank Transfer', icon: '🏦', description: 'Direct bank transfer (manual processing)' }
           ].map((method) => (
             <button
               key={method.value}
@@ -1021,9 +1131,24 @@ export default function WalletPage() {
             <h3 className="font-semibold text-gray-900 mb-4">Payment Summary</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Amount:</span>
+                <span className="text-gray-600">Top-up Amount:</span>
                 <span className="font-semibold">{formatCurrency(parseFloat(topUpAmount), 'BHD')}</span>
               </div>
+              {rewardConfig?.enabled && rewardConfig.amount && rewardConfig.amount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Global Bonus:</span>
+                  <span className="font-semibold text-green-600">+{formatCurrency(rewardConfig.amount, rewardConfig.currency)}</span>
+                </div>
+              )}
+              {(() => {
+                const selectedSlot = quickSlots.find(slot => slot.amount === parseFloat(topUpAmount));
+                return selectedSlot && selectedSlot.reward && selectedSlot.reward > 0 ? (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Quick Slot Bonus:</span>
+                    <span className="font-semibold text-green-600">+{formatCurrency(selectedSlot.reward, 'BHD')}</span>
+                  </div>
+                ) : null;
+              })()}
               <div className="flex justify-between">
                 <span className="text-gray-600">Payment Method:</span>
                 <span className="font-semibold">
@@ -1036,6 +1161,21 @@ export default function WalletPage() {
                   <span className="font-semibold">•••• {cardVerification.cardDetails.lastFour}</span>
                 </div>
               )}
+              {(rewardConfig?.enabled && rewardConfig.amount && rewardConfig.amount > 0) || (quickSlots.find(slot => slot.amount === parseFloat(topUpAmount))?.reward && quickSlots.find(slot => slot.amount === parseFloat(topUpAmount))?.reward! > 0) ? (
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="flex justify-between">
+                    <span className="text-gray-900 font-medium">Total Added to Wallet:</span>
+                    <span className="font-bold text-green-600">
+                      {formatCurrency(
+                        parseFloat(topUpAmount) + 
+                        (rewardConfig?.enabled && rewardConfig.amount ? rewardConfig.amount : 0) + 
+                        (quickSlots.find(slot => slot.amount === parseFloat(topUpAmount))?.reward || 0), 
+                        'BHD'
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -1078,12 +1218,58 @@ export default function WalletPage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
         <p className="text-gray-600 mb-6">
           Your wallet has been topped up with {formatCurrency(parseFloat(topUpAmount), 'BHD')}
+          {(() => {
+            const selectedSlot = quickSlots.find(slot => slot.amount === parseFloat(topUpAmount));
+            const hasRewards = (rewardConfig?.enabled && rewardConfig.amount && rewardConfig.amount > 0) || (selectedSlot && selectedSlot.reward && selectedSlot.reward > 0);
+            return hasRewards ? (
+              <span className="block mt-1">
+                + {formatCurrency(
+                  (rewardConfig?.enabled && rewardConfig.amount ? rewardConfig.amount : 0) + 
+                  (selectedSlot?.reward || 0), 
+                  'BHD'
+                )} bonus reward!
+              </span>
+            ) : null;
+          })()}
         </p>
         
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
           <p className="text-sm text-green-800">
             Your new balance will be updated shortly. You can refresh the page to see the latest balance.
           </p>
+          {(() => {
+            const selectedSlot = quickSlots.find(slot => slot.amount === parseFloat(topUpAmount));
+            const hasRewards = (rewardConfig?.enabled && rewardConfig.amount && rewardConfig.amount > 0) || (selectedSlot && selectedSlot.reward && selectedSlot.reward > 0);
+            return hasRewards ? (
+              <div className="mt-3 pt-3 border-t border-green-200">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-green-700">Top-up amount:</span>
+                  <span className="font-medium text-green-800">{formatCurrency(parseFloat(topUpAmount), 'BHD')}</span>
+                </div>
+                {rewardConfig?.enabled && rewardConfig.amount && rewardConfig.amount > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-700">Global bonus:</span>
+                    <span className="font-medium text-green-800">+{formatCurrency(rewardConfig.amount, rewardConfig.currency)}</span>
+                  </div>
+                )}
+                {selectedSlot && selectedSlot.reward && selectedSlot.reward > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-700">Quick slot bonus:</span>
+                    <span className="font-medium text-green-800">+{formatCurrency(selectedSlot.reward, 'BHD')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-sm font-medium pt-1 border-t border-green-200">
+                  <span className="text-green-800">Total added:</span>
+                  <span className="text-green-800">{formatCurrency(
+                    parseFloat(topUpAmount) + 
+                    (rewardConfig?.enabled && rewardConfig.amount ? rewardConfig.amount : 0) + 
+                    (selectedSlot?.reward || 0), 
+                    'BHD'
+                  )}</span>
+                </div>
+              </div>
+            ) : null;
+          })()}
         </div>
 
         <div className="space-y-3">

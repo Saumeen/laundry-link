@@ -108,3 +108,9 @@
 2025-08-08 21:06:57:657 [31merror[39m: [31mError creating invoice for order 10: Failed to create TAP invoice: 503 {"errors":[{"code":"2401","description":"The backend service is currently unavailable"}]}[39m
 2025-08-08 21:06:57:657 [31merror[39m: [31mError creating Tap invoice for order 10: Failed to create TAP invoice: 503 {"errors":[{"code":"2401","description":"The backend service is currently unavailable"}]}[39m
 2025-08-08 21:06:57:657 [31merror[39m: [31mError creating Tap invoice: Failed to create TAP invoice: 503 {"errors":[{"code":"2401","description":"The backend service is currently unavailable"}]}[39m
+2025-08-08 23:07:49:749 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:07:49:749 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:08:19:819 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:08:19:819 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m

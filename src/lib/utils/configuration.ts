@@ -83,6 +83,78 @@ export class ConfigurationManager {
   }
 
   /**
+   * Get wallet quick slots configuration
+   */
+  static async getWalletQuickSlotsConfig(): Promise<{
+    enabled: boolean;
+    slots: Array<{
+      id: number;
+      amount: number;
+      reward: number;
+      enabled: boolean;
+    }>;
+  }> {
+    const enabled = await this.getConfig('wallet_quick_slots_enabled');
+    const slots = [];
+    
+    // Get all 10 quick slots
+    for (let i = 1; i <= 10; i++) {
+      const amount = await this.getConfig(`wallet_quick_slot_${i}_amount`);
+      const reward = await this.getConfig(`wallet_quick_slot_${i}_reward`);
+      const slotEnabled = await this.getConfig(`wallet_quick_slot_${i}_enabled`);
+      
+      slots.push({
+        id: i,
+        amount: amount ? parseFloat(amount) : 0,
+        reward: reward ? parseFloat(reward) : 0,
+        enabled: slotEnabled === 'true'
+      });
+    }
+    
+    return {
+      enabled: enabled === 'true',
+      slots
+    };
+  }
+
+  /**
+   * Update wallet quick slot configuration
+   */
+  static async updateWalletQuickSlot(
+    slotId: number, 
+    amount: number, 
+    reward: number,
+    enabled: boolean
+  ): Promise<boolean> {
+    try {
+      await Promise.all([
+        this.setConfig(
+          `wallet_quick_slot_${slotId}_amount`, 
+          amount.toString(), 
+          'wallet_quick_slots',
+          `Quick slot ${slotId} amount (in BHD)`
+        ),
+        this.setConfig(
+          `wallet_quick_slot_${slotId}_reward`, 
+          reward.toString(), 
+          'wallet_quick_slots',
+          `Reward for quick slot ${slotId} (in BHD)`
+        ),
+        this.setConfig(
+          `wallet_quick_slot_${slotId}_enabled`, 
+          enabled.toString(), 
+          'wallet_quick_slots',
+          `Enable/disable quick slot ${slotId}`
+        )
+      ]);
+      return true;
+    } catch (error) {
+      logger.error(`Error updating wallet quick slot ${slotId}:`, error);
+      return false;
+    }
+  }
+
+  /**
    * Set or update a configuration value
    */
   static async setConfig(key: string, value: string, category: string = 'general', description?: string): Promise<boolean> {

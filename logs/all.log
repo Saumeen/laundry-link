@@ -1487,3 +1487,9 @@
 2025-08-08 21:45:27:4527 [32minfo[39m: [32mWallet top-up reward applied:[39m
 2025-08-08 21:45:27:4527 [32minfo[39m: [32mWallet top-up confirmed in webhook:[39m
 2025-08-08 21:45:27:4527 [32minfo[39m: [32mTap webhook processed successfully:[39m
+2025-08-08 23:07:49:749 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:07:49:749 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:08:19:819 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:08:19:819 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
