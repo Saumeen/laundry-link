@@ -568,6 +568,7 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
+  IN_PROGRESS
   PAID
   FAILED
   REFUNDED

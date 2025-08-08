@@ -62,6 +62,11 @@ export async function POST(req: Request) {
       );
     }
 
+    // If processing is completed, check payment status and update order accordingly
+    if (processingStatus === ProcessingStatus.COMPLETED) {
+      await OrderTrackingService.checkPaymentAndUpdateStatus(parseInt(orderId.toString()));
+    }
+
     return NextResponse.json({
       message: 'Processing details updated successfully',
       processing: orderProcessing,

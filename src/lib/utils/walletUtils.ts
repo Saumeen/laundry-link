@@ -135,32 +135,37 @@ export async function processWalletTransaction(transactionData: WalletTransactio
         throw new Error('Invalid transaction type');
     }
 
-    // Create transaction record
-    const transaction = await prisma.walletTransaction.create({
-      data: {
-        walletId: transactionData.walletId,
-        transactionType: transactionData.transactionType,
-        amount: transactionData.amount,
-        balanceBefore,
-        balanceAfter,
-        description: transactionData.description,
-        reference: transactionData.reference,
-        metadata: transactionData.metadata,
-        status: 'COMPLETED',
-        processedAt: new Date()
-      }
+    // Use database transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Create transaction record
+      const transaction = await tx.walletTransaction.create({
+        data: {
+          walletId: transactionData.walletId,
+          transactionType: transactionData.transactionType,
+          amount: transactionData.amount,
+          balanceBefore,
+          balanceAfter,
+          description: transactionData.description,
+          reference: transactionData.reference,
+          metadata: transactionData.metadata,
+          status: 'COMPLETED',
+          processedAt: new Date()
+        }
+      });
+
+      // Update wallet balance
+      await tx.wallet.update({
+        where: { id: transactionData.walletId },
+        data: {
+          balance: balanceAfter,
+          lastTransactionAt: new Date()
+        }
+      });
+
+      return transaction;
     });
 
-    // Update wallet balance
-    await prisma.wallet.update({
-      where: { id: transactionData.walletId },
-      data: {
-        balance: balanceAfter,
-        lastTransactionAt: new Date()
-      }
-    });
-
-    return transaction;
+    return result;
   } catch (error) {
     logger.error('Error processing wallet transaction:', error);
     throw error;
@@ -237,36 +242,69 @@ export async function processWalletPayment(
     // Get or create wallet
     const wallet = await createWalletForCustomer(customerId);
 
-    // Create payment record
-    const paymentRecord = await createPaymentRecord({
-      customerId,
-      orderId,
-      amount,
-      paymentMethod: 'WALLET',
-      description
+    // Verify wallet has sufficient balance
+    if (wallet.balance < amount) {
+      throw new Error('Insufficient wallet balance');
+    }
+
+    // Use database transaction to ensure atomicity of the entire payment process
+    const result = await prisma.$transaction(async (tx) => {
+      // Create payment record
+      const paymentRecord = await tx.paymentRecord.create({
+        data: {
+          customerId,
+          orderId,
+          amount,
+          currency: 'BHD',
+          paymentMethod: 'WALLET',
+          description,
+          paymentStatus: 'IN_PROGRESS'
+        }
+      });
+
+      // Calculate balance changes
+      const balanceBefore = wallet.balance;
+      const balanceAfter = balanceBefore - amount;
+
+      // Create wallet transaction record
+      const transaction = await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          transactionType: 'PAYMENT',
+          amount,
+          balanceBefore,
+          balanceAfter,
+          description,
+          reference: `Order: ${orderId}`,
+          metadata: JSON.stringify({ paymentRecordId: paymentRecord.id }),
+          status: 'COMPLETED',
+          processedAt: new Date()
+        }
+      });
+
+      // Update wallet balance
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: {
+          balance: balanceAfter,
+          lastTransactionAt: new Date()
+        }
+      });
+
+      // Update payment record with transaction link and mark as paid
+      const updatedPaymentRecord = await tx.paymentRecord.update({
+        where: { id: paymentRecord.id },
+        data: {
+          walletTransactionId: transaction.id,
+          paymentStatus: 'PAID',
+          processedAt: new Date()
+        }
+      });
+
+      return { paymentRecord: updatedPaymentRecord, transaction };
     });
 
-    // Process wallet transaction
-    const transaction = await processWalletTransaction({
-      walletId: wallet.id,
-      transactionType: 'PAYMENT',
-      amount,
-      description,
-      reference: `Order: ${orderId}`,
-      metadata: JSON.stringify({ paymentRecordId: paymentRecord.id })
-    });
-
-    // Link payment record to wallet transaction
-    await prisma.paymentRecord.update({
-      where: { id: paymentRecord.id },
-      data: {
-        walletTransactionId: transaction.id,
-        paymentStatus: 'PAID',
-        processedAt: new Date()
-      }
-    });
-
-    return { paymentRecord, transaction };
+    return result;
   } catch (error) {
     logger.error('Error processing wallet payment:', error);
     throw error;
@@ -292,6 +330,68 @@ export async function getWalletTransactionHistory(customerId: number, limit = 50
   } catch (error) {
     logger.error('Error getting wallet transaction history:', error);
     throw new Error('Failed to get transaction history');
+  }
+}
+
+/**
+ * Verify wallet transaction integrity
+ */
+export async function verifyWalletTransactionIntegrity(customerId: number) {
+  try {
+    const wallet = await prisma.wallet.findUnique({
+      where: { customerId },
+      include: {
+        transactions: {
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    if (!wallet || wallet.transactions.length === 0) {
+      return { valid: true, message: 'No transactions to verify' };
+    }
+
+    let calculatedBalance = 0;
+    const errors: string[] = [];
+
+    for (const transaction of wallet.transactions) {
+      const expectedBalanceBefore = calculatedBalance;
+      
+      if (Math.abs(transaction.balanceBefore - expectedBalanceBefore) > 0.001) {
+        errors.push(`Transaction ${transaction.id}: Expected balance before ${expectedBalanceBefore}, got ${transaction.balanceBefore}`);
+      }
+
+      switch (transaction.transactionType) {
+        case 'DEPOSIT':
+        case 'REFUND':
+          calculatedBalance += transaction.amount;
+          break;
+        case 'WITHDRAWAL':
+        case 'PAYMENT':
+          calculatedBalance -= transaction.amount;
+          break;
+        case 'ADJUSTMENT':
+          calculatedBalance = transaction.amount;
+          break;
+      }
+
+      if (Math.abs(transaction.balanceAfter - calculatedBalance) > 0.001) {
+        errors.push(`Transaction ${transaction.id}: Expected balance after ${calculatedBalance}, got ${transaction.balanceAfter}`);
+      }
+    }
+
+    if (Math.abs(wallet.balance - calculatedBalance) > 0.001) {
+      errors.push(`Wallet balance mismatch: Expected ${calculatedBalance}, got ${wallet.balance}`);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      message: errors.length === 0 ? 'Wallet integrity verified' : `Found ${errors.length} integrity issues`
+    };
+  } catch (error) {
+    logger.error('Error verifying wallet transaction integrity:', error);
+    throw new Error('Failed to verify wallet integrity');
   }
 }
 
@@ -327,13 +427,19 @@ export async function getPaymentHistory(customerId: number, limit = 50) {
 export async function processTapPaymentResponse(
   paymentId: number,
   tapResponse: TapResponse | any,
-  status: 'PENDING' | 'PAID' | 'FAILED'
+  status: 'PENDING' | 'PAID' | 'FAILED',
+  metadata?: Record<string, any>
 ) {
   try {
     const updateData: Prisma.PaymentRecordUpdateInput = {
       paymentStatus: status,
       processedAt: status === 'PAID' ? new Date() : undefined
     };
+
+    // Store the metadata if provided
+    if (metadata) {
+      updateData.metadata = JSON.stringify(metadata);
+    }
 
     // Extract Tap-specific fields
     if (tapResponse.id) {

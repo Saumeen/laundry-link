@@ -41,7 +41,7 @@ export const tapConfig = {
     sdkUrl: 'https://cdn.tap.company/benefit-pay-button/1.0.0/index.js',
     
     // Webhook URL for Benefit Pay
-    webhookUrl: process.env.NEXT_PUBLIC_BENEFIT_PAY_WEBHOOK_URL || '/api/payment/benefit-pay-webhook',
+    webhookUrl: process.env.WEBHOOK_URL || '/api/payment/benefit-pay-webhook',
     
     // Timeout for script loading (in milliseconds)
     loadTimeout: 30000,

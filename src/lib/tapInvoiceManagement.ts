@@ -62,6 +62,7 @@ export interface TapInvoiceRequest {
     channels: string[];
   };
   due?: number;
+  expiry?: number;
 }
 
 const API_BASE_URL = 'https://api.tap.company/v2';
@@ -591,12 +592,13 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
       logger.warn(`Amount mismatch: requested amount ${amount} vs items total ${itemsTotal}, difference: ${amountDifference}`);
     }
 
-    // Calculate due date - 6 hours from now (avoiding midnight and specific time constraints)
+    // Calculate due date and expiry - 24 hours from now
     const currentTimestamp = Math.floor(Date.now() / 1000);
-    const dueTimestamp = currentTimestamp + (6 * 60 * 60); // 6 hours from now
+    const dueTimestamp = currentTimestamp + (24 * 60 * 60); // 24 hours from now
+    const expiryTimestamp = currentTimestamp + (24 * 60 * 60); // 24 hours from now (same as due for simplicity)
     
-    logger.info(`Due date calculation: current=${currentTimestamp}, due=${dueTimestamp}, difference=${dueTimestamp - currentTimestamp} seconds`);
-    logger.info(`Due date in human readable: current=${new Date(currentTimestamp * 1000).toISOString()}, due=${new Date(dueTimestamp * 1000).toISOString()}`);
+    logger.info(`Due/Expiry date calculation: current=${currentTimestamp}, due=${dueTimestamp}, expiry=${expiryTimestamp}, difference=${dueTimestamp - currentTimestamp} seconds`);
+    logger.info(`Due/Expiry date in human readable: current=${new Date(currentTimestamp * 1000).toISOString()}, due=${new Date(dueTimestamp * 1000).toISOString()}, expiry=${new Date(expiryTimestamp * 1000).toISOString()}`);
 
     // Validate due date is in the future
     if (dueTimestamp <= currentTimestamp) {
@@ -627,7 +629,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/orders?orderId=${order.id}`,
       },
       post: {
-        url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/tap-webhook`,
+        url: `${process.env.WEBHOOK_URL}/api/payment/tap-webhook`,
       },
       reference: {
         invoice: `inv_${order.orderNumber.trim()}`,
@@ -643,8 +645,8 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         dispatch: true,
         channels: ['SMS', 'EMAIL'],
       },
-      // Temporarily comment out due date to test if it's causing the issue
-      // due: dueTimestamp,
+      due: dueTimestamp * 1000, // Convert to milliseconds for TAP API
+      expiry: expiryTimestamp * 1000 // Convert to milliseconds for TAP API
     };
 
     // Log the invoice data being sent to TAP API

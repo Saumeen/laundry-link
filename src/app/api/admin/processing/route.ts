@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import { ProcessingStatus, ItemStatus } from '@prisma/client';
 import logger from '@/lib/logger';
+import { OrderTrackingService } from '@/lib/orderTracking';
 
 interface ProcessingRequest {
   orderId: number;
@@ -267,6 +268,11 @@ export async function PUT(request: NextRequest) {
             processingStatus === ProcessingStatus.COMPLETED ? new Date() : null,
         },
       });
+
+      // If processing is completed, check payment status and update order accordingly
+      if (processingStatus === ProcessingStatus.COMPLETED) {
+        await OrderTrackingService.checkPaymentAndUpdateStatus(parseInt(orderId));
+      }
 
       return NextResponse.json({
         message: 'Processing updated successfully',

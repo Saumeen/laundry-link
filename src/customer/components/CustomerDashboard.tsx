@@ -218,7 +218,10 @@ export function CustomerDashboard() {
                 </Link>
               </div>
             ) : (
-              orders.slice(0, 5).map(order => (
+              orders
+                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                .slice(0, 5)
+                .map(order => (
                 <button
                   key={order.id}
                   className='w-full text-left px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors'

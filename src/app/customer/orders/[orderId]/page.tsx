@@ -6,9 +6,7 @@ import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useWalletStore } from '@/customer/stores/walletStore';
 import { OrdersApi } from '@/customer/api/orders';
-import ManualPaymentModal from '@/components/ManualPaymentModal';
 import CustomInvoice from '@/components/CustomInvoice';
-import TopUpAndPayModal from '@/components/TopUpAndPayModal';
 import logger from '@/lib/logger';
 import {
   StatusCard,
@@ -102,7 +100,7 @@ export default function OrderDetailsPage() {
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
 
   const orderId = params.orderId as string;
 
@@ -128,10 +126,7 @@ export default function OrderDetailsPage() {
       setActiveTab(tabParam);
     }
     
-    // Auto-open top-up modal if requested
-    if (topupParam === 'true' && orderDetails) {
-      setShowPaymentModal(true);
-    }
+    // Note: Payment modal is now handled by CustomInvoice component
   }, [orderDetails]);
 
   const fetchOrderDetails = async () => {
@@ -155,18 +150,7 @@ export default function OrderDetailsPage() {
     }
   };
 
-  const handlePaymentComplete = () => {
-    // Refresh order details to show updated payment status
-    fetchOrderDetails();
-    if (customer?.id) {
-      fetchWalletInfo(customer.id);
-    }
-    setShowPaymentModal(false);
-  };
 
-  const handleClosePaymentModal = () => {
-    setShowPaymentModal(false);
-  };
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -181,21 +165,19 @@ export default function OrderDetailsPage() {
     orderDetails.paymentStatus === 'PENDING' && 
     (orderDetails.invoiceTotal || 0) > 0;
 
+  const isPaymentInProgress = orderDetails && 
+    orderDetails.paymentStatus === 'IN_PROGRESS';
+
   const canPayWithWallet = orderDetails && balance >= (orderDetails.invoiceTotal || 0);
 
-  const getPaymentButtonText = (order: OrderDetails) => {
-    if (!order.invoiceGenerated) {
-      return 'Invoice Pending';
-    }
-    if (canPayWithWallet) {
-      return 'Pay with Wallet';
-    }
-    return 'Top Up & Pay';
-  };
+
 
   const getPaymentStatusMessage = (order: OrderDetails) => {
     if (!order.invoiceGenerated) {
       return 'Invoice not generated yet';
+    }
+    if (order.paymentStatus === 'IN_PROGRESS') {
+      return 'Payment is currently in progress. Please wait for it to complete.';
     }
     if (order.paymentStatus === 'PENDING' && (order.invoiceTotal || 0) > 0) {
       if (canPayWithWallet) {
@@ -276,24 +258,29 @@ export default function OrderDetailsPage() {
             
             {/* Payment Action */}
             {requiresPayment && (
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
+              <div className="text-right">
+                <div>
                   <p className="text-sm text-gray-600">Amount Due</p>
                   <p className="text-lg font-semibold text-gray-900">
                     {(orderDetails.invoiceTotal || 0).toFixed(3)} BD
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowPaymentModal(true)}
-                  disabled={!canPayWithWallet}
-                  className={`px-6 py-2 rounded-md font-medium transition-colors ${
-                    canPayWithWallet
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {getPaymentButtonText(orderDetails)}
-                </button>
+                <p className="text-sm text-blue-600 mt-2">
+                  Go to Invoice tab to make payment
+                </p>
+              </div>
+            )}
+            {isPaymentInProgress && (
+              <div className="text-right">
+                <div>
+                  <p className="text-sm text-gray-600">Payment Status</p>
+                  <p className="text-lg font-semibold text-blue-600">
+                    Payment In Progress
+                  </p>
+                </div>
+                <p className="text-sm text-blue-600 mt-2">
+                  Please wait for payment to complete
+                </p>
               </div>
             )}
           </div>
@@ -368,14 +355,6 @@ export default function OrderDetailsPage() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900">Invoice & Payment</h3>
-                      {requiresPayment && canPayWithWallet && (
-                        <button
-                          onClick={() => setShowPaymentModal(true)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
-                        >
-                          {getPaymentButtonText(orderDetails)}
-                        </button>
-                      )}
                     </div>
                     
                     <CustomInvoice
@@ -384,7 +363,6 @@ export default function OrderDetailsPage() {
                         paymentStatus: orderDetails.paymentStatus || 'PENDING',
                         invoiceTotal: orderDetails.invoiceTotal || 0,
                       }}
-                      onPayNow={() => setShowPaymentModal(true)}
                     />
                   </div>
                 )}
@@ -402,19 +380,7 @@ export default function OrderDetailsPage() {
         </div>
       </div>
 
-      {/* Manual Payment Modal */}
-      {orderDetails && (
-        <TopUpAndPayModal
-          isOpen={showPaymentModal}
-          onClose={handleClosePaymentModal}
-          orderNumber={orderDetails.orderNumber}
-          orderId={orderDetails.id}
-          amount={orderDetails.invoiceTotal || 0}
-          onPaymentComplete={handlePaymentComplete}
-          returnUrl={`/customer/orders/${orderId}?tab=invoice`}
-          orderPaymentStatus={orderDetails.paymentStatus as 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'}
-        />
-      )}
+
     </div>
   );
 } 

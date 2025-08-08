@@ -359,6 +359,9 @@ export class OrderTrackingService {
           return result;
         }
 
+        // Check if payment is done and automatically update to ready for delivery
+        await this.checkPaymentAndUpdateStatus(orderId);
+
         // Add to order history for tracking
         await this.addOrderNote(
           orderId,

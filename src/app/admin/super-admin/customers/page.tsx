@@ -8,6 +8,7 @@ import {
   EditCustomerModal,
   CustomerDetailsModal,
   ResetPasswordModal,
+  UpdateWalletModal,
 } from '@/components/admin/CustomerModals';
 import AdminHeader from '@/components/admin/AdminHeader';
 
@@ -43,6 +44,8 @@ interface CustomerStats {
   activeCustomers: number;
   inactiveCustomers: number;
   totalOrders: number;
+  totalWalletBalance: number;
+  averageWalletBalance: number;
 }
 
 // Memoized Customer Card Component
@@ -53,12 +56,14 @@ const CustomerCard = memo(
     onViewDetails,
     onResetPassword,
     onToggleStatus,
+    onUpdateWallet,
   }: {
     customer: Customer;
     onEdit: (customer: Customer) => void;
     onViewDetails: (customer: Customer) => void;
     onResetPassword: (customer: Customer) => void;
     onToggleStatus: (customer: Customer) => void;
+    onUpdateWallet: (customer: Customer) => void;
   }) => (
     <div
       className={`bg-white border rounded-lg p-6 hover:shadow-md transition-shadow ${
@@ -88,9 +93,24 @@ const CustomerCard = memo(
         </div>
         <div className='text-right'>
           <p className='text-sm text-gray-500'>Wallet Balance</p>
-          <p className='text-lg font-semibold text-green-600'>
-            {customer.wallet?.balance ? `${customer.wallet.currency} ${customer.wallet.balance.toFixed(2)}` : 'No wallet'}
-          </p>
+          <div className='flex items-center justify-end space-x-2'>
+            <p className={`text-lg font-semibold ${
+              customer.wallet?.balance 
+                ? customer.wallet.balance < 10 
+                  ? 'text-red-600' 
+                  : customer.wallet.balance < 50 
+                    ? 'text-yellow-600' 
+                    : 'text-green-600'
+                : 'text-gray-600'
+            }`}>
+              {customer.wallet?.balance ? `${customer.wallet.currency} ${customer.wallet.balance.toFixed(2)}` : 'No wallet'}
+            </p>
+            {customer.wallet?.balance && customer.wallet.balance < 10 && (
+              <span className='text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full'>
+                Low
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -117,7 +137,7 @@ const CustomerCard = memo(
         </div>
       </div>
 
-      <div className='flex space-x-2'>
+      <div className='flex flex-wrap gap-2'>
         <button
           onClick={() => onViewDetails(customer)}
           className='flex-1 bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 text-sm'
@@ -129,6 +149,12 @@ const CustomerCard = memo(
           className='flex-1 bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 text-sm'
         >
           Edit
+        </button>
+        <button
+          onClick={() => onUpdateWallet(customer)}
+          className='flex-1 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm'
+        >
+          Update Wallet
         </button>
         <button
           onClick={() => onResetPassword(customer)}
@@ -249,6 +275,7 @@ export default function CustomerManagement() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const [message, setMessage] = useState('');
 
   // Determine the correct back URL based on user role
@@ -328,6 +355,8 @@ export default function CustomerManagement() {
           activeCustomers: 0, // Will be calculated from customers list
           inactiveCustomers: 0, // Will be calculated from customers list
           totalOrders: data.totalOrders,
+          totalWalletBalance: 0, // Will be calculated from customers list
+          averageWalletBalance: 0, // Will be calculated from customers list
         });
       }
     } catch (error) {
@@ -353,6 +382,11 @@ export default function CustomerManagement() {
   const handleOpenResetPassword = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
     setShowPasswordModal(true);
+  }, []);
+
+  const handleOpenWalletUpdate = useCallback((customer: Customer) => {
+    setSelectedCustomer(customer);
+    setShowWalletModal(true);
   }, []);
 
   const handleToggleStatus = useCallback(async (customer: Customer) => {
@@ -490,6 +524,28 @@ export default function CustomerManagement() {
     []
   );
 
+  const handleUpdateWallet = useCallback(
+    async (customerId: number, newBalance: number, reason: string, adminNotes?: string) => {
+      const response = await fetch('/api/admin/update-customer-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId, newBalance, reason, adminNotes }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to update wallet');
+      }
+
+      const data = (await response.json()) as { message: string };
+      setMessage(data.message);
+      
+      // Refresh the customer data to show updated wallet balance
+      await fetchCustomers(currentPage, false);
+    },
+    [fetchCustomers, currentPage]
+  );
+
   useEffect(() => {
     if (status === 'loading') {
       return;
@@ -575,6 +631,11 @@ export default function CustomerManagement() {
     if (customers.length > 0 && stats) {
       const activeCustomers = customers.filter(c => c.isActive).length;
       const inactiveCustomers = customers.filter(c => !c.isActive).length;
+      
+      // Calculate wallet statistics
+      const customersWithWallets = customers.filter(c => c.wallet?.balance !== undefined);
+      const totalWalletBalance = customersWithWallets.reduce((sum, c) => sum + (c.wallet?.balance || 0), 0);
+      const averageWalletBalance = customersWithWallets.length > 0 ? totalWalletBalance / customersWithWallets.length : 0;
 
       setStats(prev =>
         prev
@@ -582,6 +643,8 @@ export default function CustomerManagement() {
               ...prev,
               activeCustomers,
               inactiveCustomers,
+              totalWalletBalance,
+              averageWalletBalance,
             }
           : null
       );
@@ -634,7 +697,7 @@ export default function CustomerManagement() {
       <main className='max-w-7xl mx-auto py-6 sm:px-6 lg:px-8'>
         <div className='px-4 py-6 sm:px-0'>
           {/* Stats Cards */}
-          <div className='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
+          <div className='grid grid-cols-1 md:grid-cols-5 gap-6 mb-8'>
             <StatsCard
               title='Total Customers'
               value={(stats?.totalCustomers || 0).toLocaleString()}
@@ -718,6 +781,27 @@ export default function CustomerManagement() {
               }
               bgColor='bg-yellow-500'
             />
+
+            <StatsCard
+              title='Total Wallet Balance'
+              value={`BHD ${(stats?.totalWalletBalance || 0).toFixed(2)}`}
+              icon={
+                <svg
+                  className='w-5 h-5 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1'
+                  />
+                </svg>
+              }
+              bgColor='bg-purple-500'
+            />
           </div>
 
           {/* Search and Filters */}
@@ -793,6 +877,7 @@ export default function CustomerManagement() {
                     onViewDetails={handleViewDetails}
                     onResetPassword={handleOpenResetPassword}
                     onToggleStatus={handleToggleStatus}
+                    onUpdateWallet={handleOpenWalletUpdate}
                   />
                 ))}
           </div>
@@ -855,6 +940,7 @@ export default function CustomerManagement() {
         }}
         onEditAddress={handleEditAddress}
         onDeleteAddress={handleDeleteAddress}
+        onUpdateWallet={handleOpenWalletUpdate}
       />
 
       <ResetPasswordModal
@@ -865,6 +951,16 @@ export default function CustomerManagement() {
           setSelectedCustomer(null);
         }}
         onResetPassword={handleResetPassword}
+      />
+
+      <UpdateWalletModal
+        customer={selectedCustomer}
+        isOpen={showWalletModal}
+        onClose={() => {
+          setShowWalletModal(false);
+          setSelectedCustomer(null);
+        }}
+        onUpdateWallet={handleUpdateWallet}
       />
     </div>
   );

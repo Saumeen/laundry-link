@@ -278,6 +278,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // If processing is completed, check payment status and update order accordingly
+    if (processingStatus === ProcessingStatus.COMPLETED) {
+      await OrderTrackingService.checkPaymentAndUpdateStatus(orderId);
+    }
+
     return NextResponse.json({
       message: 'Processing updated successfully',
       processing,

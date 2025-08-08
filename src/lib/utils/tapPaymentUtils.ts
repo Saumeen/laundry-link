@@ -1,10 +1,16 @@
 import { processTapPaymentResponse, createWalletForCustomer, processWalletTransaction } from './walletUtils';
 import prisma from '@/lib/prisma';
+import { PaymentStatus } from '@prisma/client';
 import logger from '@/lib/logger';
 
 // Tap API Configuration
 const TAP_API_BASE_URL = process.env.TAP_API_BASE_URL || 'https://api.tap.company/v2';
 const TAP_SECRET_KEY = process.env.TAP_SECRET_KEY;
+
+if (!TAP_SECRET_KEY) {
+  logger.error('TAP_SECRET_KEY environment variable is not configured');
+  throw new Error('TAP payment gateway is not properly configured');
+}
 
 export interface TapChargeRequest {
   amount: number;
@@ -26,6 +32,8 @@ export interface TapChargeRequest {
   };
   reference?: {
     transaction: string; // Your order number
+    isWalletTopUp: boolean;
+    isOrderPayment: boolean;
   };
   description?: string;
   metadata?: Record<string, any>;
@@ -92,6 +100,7 @@ export interface TapEncryptedTokenRequest {
  */
 export async function createTapToken(tokenData: TapTokenRequest) {
   try {
+    logger.info(`Creating Tap token: ${JSON.stringify(tokenData)}`);
     const response = await fetch(`${TAP_API_BASE_URL}/tokens`, {
       method: 'POST',
       headers: {
@@ -103,12 +112,34 @@ export async function createTapToken(tokenData: TapTokenRequest) {
 
     if (!response.ok) {
       const errorData = await response.json() as any;
-      throw new Error(`Tap token creation failed: ${errorData.message || response.statusText}`);
+      const errorMessage = errorData.message || response.statusText;
+      
+      // Log the full error for debugging
+      logger.error('Tap token creation failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
+      
+      // Provide specific error message based on response status
+      if (response.status === 401) {
+        throw new Error(`Tap token creation failed: Unauthorized`);
+      } else if (response.status === 400) {
+        throw new Error(`Tap token creation failed: ${errorMessage}`);
+      } else {
+        throw new Error(`Tap token creation failed: ${errorMessage}`);
+      }
     }
 
     return await response.json();
   } catch (error) {
     logger.error('Error creating Tap token:', error);
+    
+    // Re-throw the original error if it's already informative
+    if (error instanceof Error && error.message.includes('Tap token creation failed')) {
+      throw error;
+    }
+    
     throw new Error('Failed to create Tap token');
   }
 }
@@ -144,6 +175,15 @@ export async function createTapEncryptedToken(tokenData: TapEncryptedTokenReques
  */
 export async function createTapCharge(chargeData: TapChargeRequest) {
   try {
+    logger.info('Creating Tap charge with data:', {
+      amount: chargeData.amount,
+      currency: chargeData.currency,
+      customer: chargeData.customer,
+      reference: chargeData.reference,
+      description: chargeData.description,
+      // Don't log sensitive data like source.id (token)
+    });
+
     const response = await fetch(`${TAP_API_BASE_URL}/charges`, {
       method: 'POST',
       headers: {
@@ -155,12 +195,54 @@ export async function createTapCharge(chargeData: TapChargeRequest) {
 
     if (!response.ok) {
       const errorData = await response.json() as any;
-      throw new Error(`Tap charge creation failed: ${errorData.message || response.statusText}`);
+      logger.error('Tap charge creation failed with error data:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData: JSON.stringify(errorData) // Properly stringify the error object
+      });
+      
+      // Provide more detailed error messages
+      let errorMessage = `Tap charge creation failed: ${response.statusText}`;
+      if (errorData) {
+        if (errorData.message) {
+          errorMessage = `Tap charge creation failed: ${errorData.message}`;
+        } else if (errorData.error) {
+          errorMessage = `Tap charge creation failed: ${errorData.error}`;
+        } else if (errorData.errors && Array.isArray(errorData.errors)) {
+          errorMessage = `Tap charge creation failed: ${errorData.errors.join(', ')}`;
+        } else if (typeof errorData === 'string') {
+          errorMessage = `Tap charge creation failed: ${errorData}`;
+        } else {
+          // Handle case where errorData is an object but doesn't have expected properties
+          errorMessage = `Tap charge creation failed: ${JSON.stringify(errorData)}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const responseData = await response.json() as { 
+      id: string; 
+      status: string; 
+      reference?: { transaction: string }; 
+      [key: string]: unknown 
+    };
+    
+    logger.info('Tap charge created successfully:', {
+      id: responseData.id,
+      status: responseData.status,
+      reference: responseData.reference
+    });
+    
+    return responseData;
   } catch (error) {
     logger.error('Error creating Tap charge:', error);
+    
+    // Re-throw the original error if it's already a structured error
+    if (error instanceof Error && error.message.includes('Tap charge creation failed')) {
+      throw error;
+    }
+    
     throw new Error('Failed to create Tap charge');
   }
 }
@@ -302,7 +384,7 @@ export async function processTapPayment(
         currency: 'BHD',
         paymentMethod: 'TAP_PAY',
         description: description || `Payment for order ${orderId}`,
-        paymentStatus: 'PENDING'
+        paymentStatus: PaymentStatus.IN_PROGRESS
       }
     });
 
@@ -353,10 +435,12 @@ export async function processTapPayment(
         url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?payment_id=${paymentRecord.id}`
       },
       post: {
-        url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/tap-webhook`
+        url: `${process.env.WEBHOOK_URL}/api/payment/tap-webhook`
       },
       reference: {
-        transaction: isWalletTopUp ? `WALLET_TOPUP_${paymentRecord.id}` : `ORDER_${orderId}`
+        transaction: isWalletTopUp ? `WALLET_TOPUP_${paymentRecord.id}` : `ORDER_${orderId}`,
+        isWalletTopUp: isWalletTopUp,
+        isOrderPayment: !isWalletTopUp
       },
       description: description || (isWalletTopUp ? 'Wallet top-up' : `Payment for order ${orderId}`),
       statement_descriptor: 'LAUNDRY LINK',
@@ -373,13 +457,39 @@ export async function processTapPayment(
       }
     };
 
+    logger.info('Creating Tap charge for payment record:', {
+      paymentRecordId: paymentRecord.id,
+      orderId,
+      amount,
+      isWalletTopUp
+    });
+
     const tapResponse = await createTapCharge(chargeData) as any;
+
+    if (!tapResponse) {
+      throw new Error('Failed to create Tap charge - no response received');
+    }
+
+    logger.info('Tap charge created successfully:', {
+      paymentRecordId: paymentRecord.id,
+      tapTransactionId: tapResponse?.id,
+      tapStatus: tapResponse?.status,
+      orderId
+    });
 
     // Update payment record with Tap response
     await processTapPaymentResponse(
       paymentRecord.id,
       tapResponse,
-      tapResponse.status === 'CAPTURED' ? 'PAID' : 'PENDING'
+      tapResponse.status === 'CAPTURED' ? 'PAID' : 'PENDING',
+      {
+        paymentRecordId: paymentRecord.id,
+        orderId,
+        customerId,
+        isWalletTopUp,
+        isOrderPayment: !isWalletTopUp,
+        walletTransactionId: pendingWalletTransaction?.id
+      }
     );
 
     // If this is a wallet top-up and we have a pending transaction, update it with TAP ID
@@ -406,6 +516,121 @@ export async function processTapPayment(
     };
   } catch (error) {
     logger.error('Error processing Tap payment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process card payment for orders (not wallet top-ups)
+ * This function is specifically for order payments and doesn't create wallet transactions
+ */
+export async function processCardPayment(
+  customerId: number,
+  orderId: number,
+  amount: number,
+  customerData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  },
+  tokenId: string,
+  description?: string
+) {
+  try {
+    // Create payment record
+    const paymentRecord = await prisma.paymentRecord.create({
+      data: {
+        customerId,
+        orderId: orderId !== 0 ? orderId : null,
+        amount,
+        currency: 'BHD',
+        paymentMethod: 'TAP_PAY',
+        description: description || `Payment for order ${orderId}`,
+        paymentStatus: PaymentStatus.IN_PROGRESS
+      }
+    });
+
+    // Create Tap charge
+    const chargeData: TapChargeRequest = {
+      amount: amount * 1000, // Convert to fils (Tap uses smallest currency unit)
+      currency: 'BHD',
+      customer: {
+        first_name: customerData.firstName,
+        last_name: customerData.lastName,
+        email: customerData.email,
+        phone: customerData.phone
+      },
+      source: {
+        id: tokenId
+      },
+      redirect: {
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?payment_id=${paymentRecord.id}`
+      },
+      post: {
+        url: `${process.env.WEBHOOK_URL}/api/payment/tap-webhook`
+      },
+      reference: {
+        transaction: `ORDER_${orderId}`,
+        isWalletTopUp: false,
+        isOrderPayment: true
+      },
+      description: description || `Payment for order ${orderId}`,
+      statement_descriptor: 'LAUNDRY LINK',
+      receipt: {
+        email: true,
+        sms: false
+      },
+      metadata: {
+        paymentRecordId: paymentRecord.id,
+        orderId,
+        customerId,
+        isWalletTopUp: false,
+        isOrderPayment: true
+      }
+    };
+
+    logger.info('Creating Tap charge for card payment:', {
+      paymentRecordId: paymentRecord.id,
+      orderId,
+      amount
+    });
+
+    const tapResponse = await createTapCharge(chargeData) as any;
+
+    if (!tapResponse) {
+      throw new Error('Failed to create Tap charge - no response received');
+    }
+
+    logger.info('Tap charge created successfully for card payment:', {
+      paymentRecordId: paymentRecord.id,
+      tapTransactionId: tapResponse?.id,
+      tapStatus: tapResponse?.status,
+      orderId
+    });
+
+    // Update payment record with Tap response
+    await processTapPaymentResponse(
+      paymentRecord.id,
+      tapResponse,
+      tapResponse.status === 'CAPTURED' ? 'PAID' : 'PENDING',
+      {
+        paymentRecordId: paymentRecord.id,
+        orderId,
+        customerId,
+        isWalletTopUp: false,
+        isOrderPayment: true
+      }
+    );
+
+    return {
+      paymentRecord,
+      tapResponse,
+      redirectUrl: tapResponse.transaction?.url || tapResponse.redirect?.url,
+      pendingWalletTransaction: null // No wallet transaction for card payments
+    };
+  } catch (error) {
+    logger.error('Error processing card payment:', error);
     throw error;
   }
 }
@@ -440,10 +665,21 @@ export async function handleTapWebhook(webhookData: any) {
         status = 'PENDING';
     }
 
-    await processTapPaymentResponse(paymentRecordId, webhookData, status);
+    await processTapPaymentResponse(paymentRecordId, webhookData, status, metadata);
+
+    // Check if this is an order payment - if so, don't add money to wallet
+    if (metadata?.isOrderPayment) {
+      logger.info('Order payment detected in webhook - not adding money to wallet:', {
+        paymentRecordId,
+        amount: webhookData.amount / 1000,
+        orderId: metadata.orderId
+      });
+      return { success: true, status };
+    }
 
     // If this is a wallet top-up, handle the wallet transaction
-    if (metadata?.isWalletTopUp && walletTransactionId) {
+    // Only process wallet transactions for wallet top-ups, not for order payments
+    if (metadata?.isWalletTopUp && !metadata?.isOrderPayment && walletTransactionId) {
       const walletTransaction = await prisma.walletTransaction.findUnique({
         where: { id: walletTransactionId },
         include: {

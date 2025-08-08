@@ -5,7 +5,7 @@ import { OrderStatus } from '@prisma/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useWalletStore } from '@/customer/stores/walletStore';
 import { formatCurrency } from '@/lib/utils/formatCurrency';
-import TopUpAndPayModal from './TopUpAndPayModal';
+import DirectPaymentModal from './DirectPaymentModal';
 
 interface CustomInvoiceProps {
   order: {
@@ -28,15 +28,20 @@ interface CustomInvoiceProps {
 export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
   const { customer } = useAuth();
   const { balance } = useWalletStore();
-  const [showTopUpAndPayModal, setShowTopUpAndPayModal] = useState(false);
+  const [showDirectPaymentModal, setShowDirectPaymentModal] = useState(false);
+  const [refreshingPayment, setRefreshingPayment] = useState(false);
 
   const canPayWithWallet = balance >= order.invoiceTotal;
   const isAlreadyPaid = order.paymentStatus === 'PAID';
-  const paymentRequired = order.invoiceGenerated && order.invoiceTotal > 0 && !isAlreadyPaid;
+  const isPaymentInProgress = order.paymentStatus === 'IN_PROGRESS';
+  const paymentRequired = order.invoiceGenerated && order.invoiceTotal > 0 && !isAlreadyPaid && !isPaymentInProgress;
 
   const getPaymentInstructions = () => {
     if (isAlreadyPaid) {
       return 'Payment has already been completed for this order.';
+    }
+    if (isPaymentInProgress) {
+      return 'A payment is currently in progress for this order. Please wait for the payment to complete.';
     }
     if (!order.invoiceGenerated) {
       return 'Invoice has not been generated yet. Payment will be available once the invoice is ready.';
@@ -45,14 +50,17 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
       return 'No payment required for this order.';
     }
     if (canPayWithWallet) {
-      return 'Pay using your wallet balance. Payment will be deducted from your wallet.';
+      return 'You can pay using your wallet balance or use a credit/debit card.';
     }
-    return 'Your wallet balance is insufficient. Click "Top Up & Pay" to add funds to your wallet and complete the payment.';
+    return 'Your wallet balance is insufficient. You can top up your wallet or pay directly with a credit/debit card.';
   };
 
   const getPaymentButtonText = () => {
     if (isAlreadyPaid) {
       return 'Payment Completed';
+    }
+    if (isPaymentInProgress) {
+      return 'Payment In Progress';
     }
     if (!order.invoiceGenerated) {
       return 'Invoice Pending';
@@ -60,21 +68,30 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
     if (!paymentRequired) {
       return 'No Payment Required';
     }
-    if (canPayWithWallet) {
-      return `Pay ${formatCurrency(order.invoiceTotal)} from Wallet`;
-    }
-    return 'Top Up & Pay';
+    return `Pay ${formatCurrency(order.invoiceTotal)}`;
   };
 
   const handlePayNow = () => {
     if (paymentRequired) {
-      setShowTopUpAndPayModal(true);
+      setShowDirectPaymentModal(true);
     }
   };
 
   const handlePaymentComplete = () => {
     // Refresh wallet balance and close modal
     window.location.reload();
+  };
+
+  const handleRefreshPaymentStatus = async () => {
+    setRefreshingPayment(true);
+    try {
+      // Simply refresh the page to get updated order data
+      window.location.reload();
+    } catch (error) {
+      console.error('Error refreshing payment status:', error);
+    } finally {
+      setRefreshingPayment(false);
+    }
   };
 
   return (
@@ -131,7 +148,7 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
           </div>
           {!canPayWithWallet && (
             <p className="text-sm text-blue-700 mt-2">
-              Insufficient balance. Top up your wallet to proceed with payment.
+              Insufficient balance. You can pay with your card or top up your wallet.
             </p>
           )}
         </div>
@@ -203,22 +220,41 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
       </div>
 
       {/* Payment Instructions */}
-      {(paymentRequired || isAlreadyPaid) && (
+      {(paymentRequired || isAlreadyPaid || isPaymentInProgress) && (
         <div className={`mb-6 p-4 border rounded-lg ${
           isAlreadyPaid 
             ? 'bg-green-50 border-green-200' 
+            : isPaymentInProgress
+            ? 'bg-blue-50 border-blue-200'
             : 'bg-yellow-50 border-yellow-200'
         }`}>
-          <h3 className={`font-semibold mb-2 ${
-            isAlreadyPaid ? 'text-green-900' : 'text-yellow-900'
-          }`}>
-            {isAlreadyPaid ? 'Payment Status' : 'Payment Instructions'}
-          </h3>
-          <p className={`text-sm ${
-            isAlreadyPaid ? 'text-green-700' : 'text-yellow-700'
-          }`}>
-            {getPaymentInstructions()}
-          </p>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className={`font-semibold mb-2 ${
+                isAlreadyPaid ? 'text-green-900' : isPaymentInProgress ? 'text-blue-900' : 'text-yellow-900'
+              }`}>
+                {isAlreadyPaid ? 'Payment Status' : isPaymentInProgress ? 'Payment Status' : 'Payment Instructions'}
+              </h3>
+              <p className={`text-sm ${
+                isAlreadyPaid ? 'text-green-700' : isPaymentInProgress ? 'text-blue-700' : 'text-yellow-700'
+              }`}>
+                {getPaymentInstructions()}
+              </p>
+            </div>
+            {isPaymentInProgress && (
+              <button
+                onClick={handleRefreshPaymentStatus}
+                disabled={refreshingPayment}
+                className={`ml-4 px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                  refreshingPayment
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {refreshingPayment ? 'Refreshing...' : 'Refresh Status'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -228,10 +264,8 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
           onClick={handlePayNow}
           disabled={!paymentRequired}
           className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors ${
-            !paymentRequired || isAlreadyPaid
+            !paymentRequired || isAlreadyPaid || isPaymentInProgress
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : canPayWithWallet
-              ? 'bg-green-600 text-white hover:bg-green-700'
               : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
         >
@@ -239,10 +273,10 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
         </button>
       </div>
 
-      {/* Top Up and Pay Modal */}
-      <TopUpAndPayModal
-        isOpen={showTopUpAndPayModal}
-        onClose={() => setShowTopUpAndPayModal(false)}
+      {/* Direct Payment Modal */}
+      <DirectPaymentModal
+        isOpen={showDirectPaymentModal}
+        onClose={() => setShowDirectPaymentModal(false)}
         orderNumber={order.orderNumber}
         orderId={order.id}
         amount={order.invoiceTotal}

@@ -5,7 +5,7 @@ import {
   createPaymentRecord, 
   updatePaymentStatus 
 } from '@/lib/utils/walletUtils';
-import { processTapPayment } from '@/lib/utils/tapPaymentUtils';
+import { processTapPayment, processCardPayment } from '@/lib/utils/tapPaymentUtils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,15 +65,27 @@ export async function POST(request: NextRequest) {
         const isWalletTopUp = paymentType === 'WALLET_TOP_UP';
 
         // Process payment using Tap
-        result = await processTapPayment(
-          customerId,
-          orderId ?? 0, // Use 0 for wallet top-ups
-          amount,
-          customerData,
-          tokenId,
-          description,
-          isWalletTopUp
-        );
+        if (isWalletTopUp) {
+          result = await processTapPayment(
+            customerId,
+            0, // Use 0 for wallet top-ups
+            amount,
+            customerData,
+            tokenId,
+            description,
+            true // isWalletTopUp = true
+          );
+        } else {
+          // This is an order payment
+          result = await processCardPayment(
+            customerId,
+            orderId ?? 0,
+            amount,
+            customerData,
+            tokenId,
+            description
+          );
+        }
         break;
 
       case 'CASH':

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import logger from '@/lib/logger';
+import { createTapRefund } from '@/lib/utils/tapPaymentUtils';
 
 interface ProcessRefundRequest {
   paymentId: number;
@@ -10,6 +11,20 @@ interface ProcessRefundRequest {
   refundAmount: number;
   refundReason: string;
 }
+
+interface TapRefundResult {
+  originalPaymentRecordId: number;
+  refundPaymentRecordId: null;
+  tapRefundId: string;
+}
+
+interface WalletRefundResult {
+  originalPaymentRecordId: number;
+  refundPaymentRecordId: number;
+  newWalletBalance: number;
+}
+
+type RefundResult = TapRefundResult | WalletRefundResult;
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,116 +105,78 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure customer has a wallet
-    if (!paymentRecord.customer.wallet) {
+    // Check if payment is refundable based on metadata
+    let metadata = {};
+    try {
+      if (paymentRecord.metadata) {
+        metadata = JSON.parse(paymentRecord.metadata);
+      }
+    } catch (error) {
+      logger.warn('Failed to parse payment metadata:', error);
+    }
+
+    if (metadata && typeof metadata === 'object' && 'refundable' in metadata && !metadata.refundable) {
       return NextResponse.json(
-        { error: 'Customer wallet not found' },
+        { error: 'This payment is not eligible for refund' },
         { status: 400 }
       );
     }
 
-    // Process the refund in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create wallet transaction for refund first
-      const walletTransaction = await tx.walletTransaction.create({
-        data: {
-          walletId: paymentRecord.customer.wallet!.id,
-          transactionType: 'REFUND',
-          amount: refundAmount,
-          balanceBefore: paymentRecord.customer.wallet!.balance,
-          balanceAfter: paymentRecord.customer.wallet!.balance + refundAmount,
-          description: `Refund for Order #${paymentRecord.order?.orderNumber || orderId}: ${refundReason}`,
-          reference: `REFUND_${paymentId}`,
-          metadata: JSON.stringify({
-            originalPaymentRecordId: paymentId,
-            orderId: orderId,
-            refundReason: refundReason,
-            processedBy: admin.id
-          }),
-          status: 'COMPLETED',
-          processedAt: new Date()
-        }
-      });
+    // Process the refund based on payment method
+    let refundResult: RefundResult;
+    
+    if (paymentRecord.paymentMethod === 'TAP_PAY' && paymentRecord.tapChargeId) {
+      // Process Tap refund
+      try {
+        const tapRefundResponse = await createTapRefund(
+          paymentRecord.tapChargeId,
+          refundAmount,
+          refundReason
+        );
 
-      // Create a NEW payment record for the refund (instead of updating the original)
-      const refundPaymentRecord = await tx.paymentRecord.create({
-        data: {
-          customerId: customerId,
-          orderId: orderId,
-          amount: refundAmount,
-          paymentMethod: 'WALLET', // Refund goes back to wallet
-          paymentStatus: 'PAID', // Refund is immediately processed
-          description: `Refund for Order #${paymentRecord.order?.orderNumber || orderId}: ${refundReason}`,
-          walletTransactionId: walletTransaction.id,
-          refundReason: refundReason,
-          processedAt: new Date(),
-          metadata: JSON.stringify({
-            originalPaymentRecordId: paymentId,
-            originalPaymentAmount: paymentRecord.amount,
-            originalPaymentMethod: paymentRecord.paymentMethod,
-            refundReason: refundReason,
-            processedBy: admin.id,
-            isRefund: true
-          })
-        }
-      });
+        refundResult = await processTapRefund(
+          paymentRecord,
+          refundAmount,
+          refundReason,
+          admin.id,
+          tapRefundResponse
+        );
+      } catch (tapError) {
+        logger.error('Error processing Tap refund:', tapError);
+        return NextResponse.json(
+          { error: `Tap refund failed: ${tapError instanceof Error ? tapError.message : 'Unknown error'}` },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Process wallet refund (existing logic)
+      refundResult = await processWalletRefund(
+        paymentRecord,
+        refundAmount,
+        refundReason,
+        admin.id
+      );
+    }
 
-      // Update the ORIGINAL payment record to track refunds (but don't change its core data)
-      const updatedOriginalPaymentRecord = await tx.paymentRecord.update({
-        where: { id: paymentId },
-        data: {
-          refundAmount: alreadyRefunded + refundAmount,
-          refundReason: refundReason,
-          // Keep the original payment status as PAID, but add refund tracking
-          updatedAt: new Date()
-        }
-      });
+    // Build response based on refund type
+    const responseData: any = {
+      refundAmount: refundAmount,
+      refundType: paymentRecord.paymentMethod === 'TAP_PAY' ? 'TAP_REFUND' : 'WALLET_REFUND',
+      refundPaymentRecordId: refundResult.refundPaymentRecordId,
+      originalPaymentRecordId: refundResult.originalPaymentRecordId,
+    };
 
-      // Update wallet balance
-      await tx.wallet.update({
-        where: { id: paymentRecord.customer.wallet!.id },
-        data: {
-          balance: paymentRecord.customer.wallet!.balance + refundAmount,
-          lastTransactionAt: new Date(),
-          updatedAt: new Date()
-        }
-      });
-
-      // Create order history entry
-      await tx.orderHistory.create({
-        data: {
-          orderId: orderId,
-          action: 'REFUND_PROCESSED',
-          description: `Refund of ${refundAmount} BD processed. Reason: ${refundReason}`,
-          metadata: JSON.stringify({
-            originalPaymentRecordId: paymentId,
-            refundPaymentRecordId: refundPaymentRecord.id,
-            refundAmount: refundAmount,
-            refundReason: refundReason,
-            processedBy: admin.id,
-            walletTransactionId: walletTransaction.id
-          }),
-          staffId: admin.id
-        }
-      });
-
-      return {
-        originalPaymentRecord: updatedOriginalPaymentRecord,
-        refundPaymentRecord,
-        walletTransaction,
-        newWalletBalance: paymentRecord.customer.wallet!.balance + refundAmount
-      };
-    });
+    // Add type-specific fields
+    if (paymentRecord.paymentMethod === 'TAP_PAY') {
+      responseData.tapRefundId = (refundResult as TapRefundResult).tapRefundId;
+    } else {
+      responseData.newWalletBalance = (refundResult as WalletRefundResult).newWalletBalance;
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Refund processed successfully',
-      data: {
-        refundAmount: refundAmount,
-        newWalletBalance: result.newWalletBalance,
-        refundPaymentRecordId: result.refundPaymentRecord.id,
-        originalPaymentRecordId: result.originalPaymentRecord.id
-      }
+      data: responseData
     });
 
   } catch (error) {
@@ -220,4 +197,177 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Helper function to process Tap refunds
+async function processTapRefund(
+  paymentRecord: any,
+  refundAmount: number,
+  refundReason: string,
+  adminId: number,
+  tapRefundResponse: any
+): Promise<TapRefundResult> {
+  return await prisma.$transaction(async (tx) => {
+    // Update the original payment record with refund information
+    const updatedOriginalPaymentRecord = await tx.paymentRecord.update({
+      where: { id: paymentRecord.id },
+      data: {
+        refundAmount: (paymentRecord.refundAmount || 0) + refundAmount,
+        refundReason: refundReason,
+        metadata: JSON.stringify({
+          ...(paymentRecord.metadata ? JSON.parse(paymentRecord.metadata) : {}),
+          refund: {
+            amount: refundAmount,
+            reason: refundReason,
+            tapRefundId: tapRefundResponse.id,
+            processedAt: new Date().toISOString(),
+            processedBy: adminId,
+            isFullRefund: refundAmount === paymentRecord.amount,
+          },
+          lastUpdated: new Date().toISOString(),
+        }),
+        updatedAt: new Date()
+      }
+    });
+
+    // Create order history entry
+    await tx.orderHistory.create({
+      data: {
+        orderId: paymentRecord.orderId,
+        action: refundAmount === paymentRecord.amount ? 'PAYMENT_REFUNDED' : 'PARTIAL_REFUND',
+        description: `Refund of ${refundAmount} BD processed via Tap. Reason: ${refundReason}`,
+        metadata: JSON.stringify({
+          originalPaymentRecordId: paymentRecord.id,
+          refundAmount: refundAmount,
+          refundReason: refundReason,
+          tapRefundId: tapRefundResponse.id,
+          processedBy: adminId,
+          isFullRefund: refundAmount === paymentRecord.amount,
+        }),
+        staffId: adminId
+      }
+    });
+
+    // Update order payment status if full refund
+    if (refundAmount === paymentRecord.amount && paymentRecord.orderId) {
+      await tx.order.update({
+        where: { id: paymentRecord.orderId },
+        data: {
+          paymentStatus: 'REFUNDED',
+          notes: paymentRecord.order?.notes 
+            ? `${paymentRecord.order.notes}\nFull refund processed: ${refundAmount} BHD - ${refundReason}`
+            : `Full refund processed: ${refundAmount} BHD - ${refundReason}`,
+        },
+      });
+    }
+
+    return {
+      originalPaymentRecordId: updatedOriginalPaymentRecord.id,
+      refundPaymentRecordId: null, // No separate refund record for Tap refunds
+      tapRefundId: tapRefundResponse.id
+    };
+  });
+}
+
+// Helper function to process wallet refunds (existing logic)
+async function processWalletRefund(
+  paymentRecord: any,
+  refundAmount: number,
+  refundReason: string,
+  adminId: number
+): Promise<WalletRefundResult> {
+  // Ensure customer has a wallet
+  if (!paymentRecord.customer.wallet) {
+    throw new Error('Customer wallet not found');
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    // Create wallet transaction for refund first
+    const walletTransaction = await tx.walletTransaction.create({
+      data: {
+        walletId: paymentRecord.customer.wallet!.id,
+        transactionType: 'REFUND',
+        amount: refundAmount,
+        balanceBefore: paymentRecord.customer.wallet!.balance,
+        balanceAfter: paymentRecord.customer.wallet!.balance + refundAmount,
+        description: `Refund for Order #${paymentRecord.order?.orderNumber || paymentRecord.orderId}: ${refundReason}`,
+        reference: `REFUND_${paymentRecord.id}`,
+        metadata: JSON.stringify({
+          originalPaymentRecordId: paymentRecord.id,
+          orderId: paymentRecord.orderId,
+          refundReason: refundReason,
+          processedBy: adminId
+        }),
+        status: 'COMPLETED',
+        processedAt: new Date()
+      }
+    });
+
+    // Create a NEW payment record for the refund
+    const refundPaymentRecord = await tx.paymentRecord.create({
+      data: {
+        customerId: paymentRecord.customerId,
+        orderId: paymentRecord.orderId,
+        amount: refundAmount,
+        paymentMethod: 'WALLET', // Refund goes back to wallet
+        paymentStatus: 'PAID', // Refund is immediately processed
+        description: `Refund for Order #${paymentRecord.order?.orderNumber || paymentRecord.orderId}: ${refundReason}`,
+        walletTransactionId: walletTransaction.id,
+        refundReason: refundReason,
+        processedAt: new Date(),
+        metadata: JSON.stringify({
+          originalPaymentRecordId: paymentRecord.id,
+          originalPaymentAmount: paymentRecord.amount,
+          originalPaymentMethod: paymentRecord.paymentMethod,
+          refundReason: refundReason,
+          processedBy: adminId,
+          isRefund: true
+        })
+      }
+    });
+
+    // Update the ORIGINAL payment record to track refunds
+    const updatedOriginalPaymentRecord = await tx.paymentRecord.update({
+      where: { id: paymentRecord.id },
+      data: {
+        refundAmount: (paymentRecord.refundAmount || 0) + refundAmount,
+        refundReason: refundReason,
+        updatedAt: new Date()
+      }
+    });
+
+    // Update wallet balance
+    await tx.wallet.update({
+      where: { id: paymentRecord.customer.wallet!.id },
+      data: {
+        balance: paymentRecord.customer.wallet!.balance + refundAmount,
+        lastTransactionAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    // Create order history entry
+    await tx.orderHistory.create({
+      data: {
+        orderId: paymentRecord.orderId,
+        action: 'REFUND_PROCESSED',
+        description: `Refund of ${refundAmount} BD processed. Reason: ${refundReason}`,
+        metadata: JSON.stringify({
+          originalPaymentRecordId: paymentRecord.id,
+          refundPaymentRecordId: refundPaymentRecord.id,
+          refundAmount: refundAmount,
+          refundReason: refundReason,
+          processedBy: adminId,
+          walletTransactionId: walletTransaction.id
+        }),
+        staffId: adminId
+      }
+    });
+
+    return {
+      originalPaymentRecordId: updatedOriginalPaymentRecord.id,
+      refundPaymentRecordId: refundPaymentRecord.id,
+      newWalletBalance: paymentRecord.customer.wallet!.balance + refundAmount
+    };
+  });
 } 
