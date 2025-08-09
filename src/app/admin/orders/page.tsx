@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/admin/hooks/useAdminAuth';
 import { useOrdersStore } from '@/admin/stores/ordersStore';
@@ -23,7 +23,7 @@ import type { OrderStatus, PaymentStatus } from '@/shared/types';
 export default function AdminOrdersPage() {
   const router = useRouter();
   const { user, isLoading, isAuthorized, logout } = useAdminAuth();
-  const { orders, loading, filters, fetchOrders, setFilters, resetFilters, setSorting } =
+  const { orders, loading, filters, pagination, fetchOrders, setFilters, resetFilters, setSorting } =
     useOrdersStore();
 
   useEffect(() => {
@@ -55,81 +55,10 @@ export default function AdminOrdersPage() {
     router.push(getDashboardUrl());
   };
 
-  // Memoized filtered orders to improve performance
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-      // Status filter
-      if (filters.status && filters.status !== 'ALL') {
-        if (order.status !== filters.status) return false;
-      }
-
-      // Payment status filter
-      if (filters.paymentStatus && filters.paymentStatus !== 'ALL') {
-        if (order.paymentStatus !== filters.paymentStatus) return false;
-      }
-
-      // Service type filter
-      if (filters.serviceType && filters.serviceType !== 'ALL') {
-        const isExpress = order.isExpressService || false;
-        if (filters.serviceType === 'EXPRESS' && !isExpress) return false;
-        if (filters.serviceType === 'REGULAR' && isExpress) return false;
-      }
-
-      // Delivery time filter
-      if (filters.deliveryDateRange?.from || filters.deliveryDateRange?.to) {
-        const deliveryTime = new Date(order.deliveryStartTime);
-        if (filters.deliveryDateRange.from) {
-          // Convert Bahrain date to UTC for comparison
-          const fromTimeUTC = convertBahrainToUTC(filters.deliveryDateRange.from, '00:00');
-          const fromTime = new Date(fromTimeUTC);
-          if (deliveryTime < fromTime) return false;
-        }
-        if (filters.deliveryDateRange.to) {
-          // Convert Bahrain date to UTC for comparison
-          const toTimeUTC = convertBahrainToUTC(filters.deliveryDateRange.to, '23:59');
-          const toTime = new Date(toTimeUTC);
-          if (deliveryTime > toTime) return false;
-        }
-      }
-
-      // Pickup time filter
-      if (filters.pickupDateRange?.from || filters.pickupDateRange?.to) {
-        const pickupTime = new Date(order.pickupStartTime);
-        if (filters.pickupDateRange.from) {
-          // Convert Bahrain date to UTC for comparison
-          const fromTimeUTC = convertBahrainToUTC(filters.pickupDateRange.from, '00:00');
-          const fromTime = new Date(fromTimeUTC);
-          if (pickupTime < fromTime) return false;
-        }
-        if (filters.pickupDateRange.to) {
-          // Convert Bahrain date to UTC for comparison
-          const toTimeUTC = convertBahrainToUTC(filters.pickupDateRange.to, '23:59');
-          const toTime = new Date(toTimeUTC);
-          if (pickupTime > toTime) return false;
-        }
-      }
-
-      // Search filter
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        const matchesSearch =
-          order.orderNumber.toLowerCase().includes(searchTerm) ||
-          order.customer?.firstName?.toLowerCase().includes(searchTerm) ||
-          order.customer?.lastName?.toLowerCase().includes(searchTerm) ||
-          order.customer?.email?.toLowerCase().includes(searchTerm) ||
-          order.customer?.phone?.includes(searchTerm);
-
-        if (!matchesSearch) return false;
-      }
-
-      return true;
-    });
-  }, [orders, filters]);
-
   // Memoized stats calculations
   const stats = useMemo(
     () => ({
-      total: orders.length,
+      total: pagination?.total || orders.length,
       pending: orders.filter(order =>
         ['ORDER_PLACED', 'CONFIRMED', 'PICKUP_ASSIGNED'].includes(order.status)
       ).length,
@@ -151,7 +80,7 @@ export default function AdminOrdersPage() {
         ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(order.status)
       ).length,
     }),
-    [orders]
+    [orders, pagination]
   );
 
   // Navigation handlers
@@ -160,17 +89,17 @@ export default function AdminOrdersPage() {
   };
 
   const handleStatusFilterChange = (status: OrderStatus | 'ALL') => {
-    setFilters({ status });
+    setFilters({ status, page: 1 });
   };
 
   const handlePaymentStatusFilterChange = (
     paymentStatus: PaymentStatus | 'ALL'
   ) => {
-    setFilters({ paymentStatus });
+    setFilters({ paymentStatus, page: 1 });
   };
 
   const handleServiceTypeFilterChange = (serviceType: 'EXPRESS' | 'REGULAR' | 'ALL') => {
-    setFilters({ serviceType });
+    setFilters({ serviceType, page: 1 });
   };
 
   const handleDeliveryDateRangeChange = (field: 'from' | 'to', value: string) => {
@@ -178,7 +107,8 @@ export default function AdminOrdersPage() {
       deliveryDateRange: { 
         ...filters.deliveryDateRange, 
         [field]: value 
-      } 
+      },
+      page: 1
     });
   };
 
@@ -187,12 +117,13 @@ export default function AdminOrdersPage() {
       pickupDateRange: { 
         ...filters.pickupDateRange, 
         [field]: value 
-      } 
+      },
+      page: 1
     });
   };
 
   const handleSearchChange = (search: string) => {
-    setFilters({ search });
+    setFilters({ search, page: 1 });
   };
 
   const handleClearFilters = () => {
@@ -210,9 +141,28 @@ export default function AdminOrdersPage() {
       ...filters,
       sortField: field,
       sortOrder: newOrder,
+      page: 1, // Reset to first page when sorting
     };
     
     // Call fetchOrders with the updated filters
+    fetchOrders(updatedFilters);
+  };
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    const updatedFilters = {
+      ...filters,
+      page,
+    };
+    fetchOrders(updatedFilters);
+  };
+
+  const handleLimitChange = (limit: number) => {
+    const updatedFilters = {
+      ...filters,
+      limit,
+      page: 1, // Reset to first page when changing limit
+    };
     fetchOrders(updatedFilters);
   };
 
@@ -647,9 +597,36 @@ export default function AdminOrdersPage() {
         {/* Orders Table */}
         <div className='bg-white shadow rounded-lg'>
           <div className='px-6 py-4 border-b border-gray-200'>
-            <h3 className='text-lg font-medium text-gray-900'>
-              Orders ({filteredOrders.length})
-            </h3>
+            <div className='flex justify-between items-center'>
+              <h3 className='text-lg font-medium text-gray-900'>
+                Orders ({pagination?.total || orders.length})
+              </h3>
+              {pagination && (
+                <div className='flex items-center space-x-4'>
+                  <div className='flex items-center space-x-2'>
+                    <label htmlFor='limit-select' className='text-sm text-gray-700'>
+                      Show:
+                    </label>
+                    <select
+                      id='limit-select'
+                      value={filters.limit || 10}
+                      onChange={(e) => handleLimitChange(Number(e.target.value))}
+                      className='px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+                    >  
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                  {pagination.totalPages > 1 && (
+                    <div className='text-sm text-gray-500'>
+                      Page {pagination.page} of {pagination.totalPages}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className='overflow-x-auto'>
             <table
@@ -886,7 +863,7 @@ export default function AdminOrdersPage() {
                       ></div>
                     </td>
                   </tr>
-                ) : filteredOrders.length === 0 ? (
+                ) : orders.length === 0 ? (
                   <tr>
                     <td
                       colSpan={12}
@@ -896,7 +873,7 @@ export default function AdminOrdersPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map(order => (
+                  orders.map(order => (
                     <tr key={order.id} className='hover:bg-gray-50'>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                         {order.orderNumber}
@@ -985,6 +962,39 @@ export default function AdminOrdersPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className='px-6 py-4 border-t border-gray-200'>
+              <div className='flex items-center justify-between'>
+                <div className='text-sm text-gray-700'>
+                  Showing{' '}
+                  {(pagination.page - 1) * pagination.limit + 1} to{' '}
+                  {Math.min(
+                    pagination.page * pagination.limit,
+                    pagination.total
+                  )}{' '}
+                  of {pagination.total} results
+                </div>
+                <div className='flex space-x-2'>
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                    className='px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === pagination.totalPages}
+                    className='px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -41,8 +41,8 @@ export async function GET(req: Request) {
     const sortField = searchParams.get('sortField') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const page = parseInt(searchParams.get('page') || '1', 10);
-    const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
-    const skip = (page - 1) * pageSize;
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const skip = (page - 1) * limit;
     const serviceType = searchParams.get('serviceType') || 'ALL';
     const status = searchParams.get('status') || 'ALL';
     const paymentStatus = searchParams.get('paymentStatus') || 'ALL';
@@ -167,7 +167,7 @@ export async function GET(req: Request) {
       },
       orderBy,
       skip,
-      take: pageSize,
+      take: limit,
     });
 
     // Transform orders to include service information
@@ -218,9 +218,9 @@ export async function GET(req: Request) {
       data: transformedOrders,
       pagination: {
         page,
-        limit: pageSize,
+        limit,
         total,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
