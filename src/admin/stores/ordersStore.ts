@@ -19,7 +19,10 @@ interface OrdersState {
 
   // UI State
   loading: boolean;
-  filters: OrderFilters;
+  filters: OrderFilters & {
+    sortField?: string;
+    sortOrder?: 'asc' | 'desc';
+  };
   showOrderDetails: boolean;
 
   // Form States
@@ -53,9 +56,10 @@ interface OrdersState {
     orderId: number,
     paymentStatus: PaymentStatus
   ) => Promise<void>;
-  setFilters: (filters: Partial<OrderFilters>) => void;
+  setFilters: (filters: Partial<OrderFilters & { sortField?: string; sortOrder?: 'asc' | 'desc' }>) => void;
   resetFilters: () => void;
   toggleOrderDetails: () => void;
+  setSorting: (field: string, order: 'asc' | 'desc') => void;
 }
 
 const initialState = {
@@ -67,6 +71,8 @@ const initialState = {
     page: 1,
     limit: 10,
     serviceType: 'ALL' as 'EXPRESS' | 'REGULAR' | 'ALL',
+    sortField: 'createdAt',
+    sortOrder: 'desc' as 'asc' | 'desc',
   },
   showOrderDetails: false,
   statusUpdateForm: { loading: false, error: null, success: false },
@@ -253,11 +259,31 @@ export const useOrdersStore = create<OrdersState>()(
       },
 
       resetFilters: () => {
-        set({ filters: { page: 1, limit: 10, serviceType: 'ALL' } });
+        set({ 
+          filters: { 
+            page: 1, 
+            limit: 10, 
+            serviceType: 'ALL',
+            deliveryDateRange: { from: '', to: '' },
+            pickupDateRange: { from: '', to: '' },
+            sortField: 'createdAt',
+            sortOrder: 'desc'
+          } 
+        });
       },
 
       toggleOrderDetails: () => {
         set(state => ({ showOrderDetails: !state.showOrderDetails }));
+      },
+
+      setSorting: (field, order) => {
+        set(state => ({
+          filters: {
+            ...state.filters,
+            sortField: field,
+            sortOrder: order,
+          },
+        }));
       },
     }),
     {

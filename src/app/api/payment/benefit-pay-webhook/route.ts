@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
+import emailService from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,22 +103,65 @@ async function handleSuccessfulPayment(data: {
       where: {
         reference: chargeId,
         transactionType: 'DEPOSIT'
+      },
+      include: {
+        wallet: {
+          include: {
+            customer: true
+          }
+        }
       }
     });
 
     if (transaction) {
-      // Update the transaction status
-      await prisma.walletTransaction.update({
-        where: { id: transaction.id },
-        data: {
-          metadata: JSON.stringify({
-            ...JSON.parse(transaction.metadata || '{}'),
-            status: 'SUCCESS',
-            chargeId,
-            updatedAt: new Date().toISOString()
-          })
-        }
+      // Update the transaction status and wallet balance
+      await prisma.$transaction(async (tx) => {
+        // Update the transaction status
+        await tx.walletTransaction.update({
+          where: { id: transaction.id },
+          data: {
+            status: 'COMPLETED',
+            processedAt: new Date(),
+            balanceAfter: transaction.wallet.balance + amount,
+            metadata: JSON.stringify({
+              ...JSON.parse(transaction.metadata || '{}'),
+              status: 'SUCCESS',
+              chargeId,
+              updatedAt: new Date().toISOString()
+            })
+          }
+        });
+
+        // Update the wallet balance
+        await tx.wallet.update({
+          where: { id: transaction.wallet.id },
+          data: {
+            balance: transaction.wallet.balance + amount,
+            lastTransactionAt: new Date()
+          }
+        });
       });
+
+      // Send wallet top-up completion email notification
+      if (transaction.wallet.customer) {
+        const customer = transaction.wallet.customer;
+        
+        // Fetch the updated wallet balance to ensure we have the correct balance
+        const updatedWallet = await prisma.wallet.findUnique({
+          where: { id: transaction.wallet.id }
+        });
+        
+        const finalBalance = updatedWallet ? updatedWallet.balance : transaction.wallet.balance + amount;
+        
+        await emailService.sendWalletTopUpCompletionNotification(
+          customer.email,
+          `${customer.firstName} ${customer.lastName}`,
+          amount,
+          finalBalance,
+          'BENEFIT_PAY',
+          chargeId
+        );
+      }
 
       logger.info(`Benefit Pay payment successful for transaction ${transaction.id}`);
     } else {

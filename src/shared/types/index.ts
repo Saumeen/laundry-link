@@ -69,6 +69,16 @@ export interface OrderFilters extends BaseFilters {
   dateFrom?: string;
   dateTo?: string;
   serviceType?: 'EXPRESS' | 'REGULAR' | 'ALL';
+  deliveryDateRange?: {
+    from?: string;
+    to?: string;
+  };
+  pickupDateRange?: {
+    from?: string;
+    to?: string;
+  };
+  sortField?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface CustomerFilters extends BaseFilters {

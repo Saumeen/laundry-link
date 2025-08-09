@@ -17,6 +17,10 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const dateRange = searchParams.get('dateRange') || 'all';
+    const deliveryDate = searchParams.get('deliveryDate') || 'all';
+    const orderType = searchParams.get('orderType') || 'all';
+    const sortField = searchParams.get('sortField') || 'createdAt';
+    const sortDirection = searchParams.get('sortDirection') || 'desc';
 
     const skip = (page - 1) * limit;
 
@@ -183,6 +187,118 @@ export async function GET(req: Request) {
       }
     }
 
+    // Add delivery date filtering
+    if (deliveryDate !== 'all') {
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+      const dayOfWeek = now.getDay();
+
+      switch (deliveryDate) {
+        case 'today':
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+          );
+          endDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1
+          );
+          break;
+        case 'tomorrow':
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1
+          );
+          endDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 2
+          );
+          break;
+        case 'yesterday':
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - 1
+          );
+          endDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+          );
+          break;
+        case 'this_week':
+          // Start of current week (Monday)
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() - daysToMonday
+          );
+          endDate = new Date(
+            startDate.getFullYear(),
+            startDate.getMonth(),
+            startDate.getDate() + 7
+          );
+          break;
+        case 'next_week':
+          // Start of next week (Monday)
+          const daysToNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + daysToNextMonday
+          );
+          endDate = new Date(
+            startDate.getFullYear(),
+            startDate.getMonth(),
+            startDate.getDate() + 7
+          );
+          break;
+        case 'this_month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          break;
+        case 'next_month':
+          startDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+          break;
+        default:
+          startDate = new Date(0);
+          endDate = new Date(8640000000000000); // Max date
+      }
+
+      const deliveryDateClause = {
+        deliveryStartTime: {
+          gte: startDate,
+          lt: endDate,
+        },
+      };
+
+      if (whereClause.AND) {
+        whereClause.AND.push(deliveryDateClause);
+      } else {
+        whereClause.AND = [deliveryDateClause];
+      }
+    }
+
+    // Add order type filtering
+    if (orderType !== 'all') {
+      const orderTypeClause = {
+        isExpressService: orderType === 'express' ? true : false,
+      };
+
+      if (whereClause.AND) {
+        whereClause.AND.push(orderTypeClause);
+      } else {
+        whereClause.AND = [orderTypeClause];
+      }
+    }
+
     // Add search functionality
     if (search) {
       const searchClause = {
@@ -199,6 +315,47 @@ export async function GET(req: Request) {
       } else {
         whereClause.AND = [searchClause];
       }
+    }
+
+    // Build orderBy clause based on sortField and sortDirection
+    let orderByClause: any = {};
+    
+    switch (sortField) {
+      case 'priority':
+        // Priority is calculated on the frontend, so we'll sort by createdAt as fallback
+        orderByClause = { createdAt: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'orderNumber':
+        orderByClause = { orderNumber: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'customer':
+        // Sort by customer firstName, then lastName
+        orderByClause = [
+          { customerFirstName: sortDirection as 'asc' | 'desc' },
+          { customerLastName: sortDirection as 'asc' | 'desc' }
+        ];
+        break;
+      case 'status':
+        orderByClause = { status: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'processingStatus':
+        // Sort by processing status through the relation - we'll sort by createdAt as fallback
+        // since nested sorting is complex in Prisma
+        orderByClause = { createdAt: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'total':
+        orderByClause = { invoiceTotal: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'pickupTime':
+        orderByClause = { pickupStartTime: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'deliveryTime':
+        orderByClause = { deliveryStartTime: sortDirection as 'asc' | 'desc' };
+        break;
+      case 'createdAt':
+      default:
+        orderByClause = { createdAt: sortDirection as 'asc' | 'desc' };
+        break;
     }
 
     const [orders, totalCount] = await Promise.all([
@@ -276,9 +433,7 @@ export async function GET(req: Request) {
             take: 1,
           },
         },
-        orderBy: {
-          pickupStartTime: 'asc',
-        },
+        orderBy: orderByClause,
         skip,
         take: limit,
       }),

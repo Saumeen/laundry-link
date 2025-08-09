@@ -1493,3 +1493,15 @@
 2025-08-08 23:08:19:819 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
 2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
 2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-09 20:51:20:5120 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-09 20:51:20:5120 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-09 20:51:30:5130 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-09 20:51:30:5130 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-09 20:52:24:5224 [32minfo[39m: [32mProcessing Tap webhook:[39m
+2025-08-09 20:52:25:5225 [32minfo[39m: [32mPayment metadata parsed:[39m
+2025-08-09 20:52:25:5225 [32minfo[39m: [32mPayment captured in webhook - updating payment record status:[39m
+2025-08-09 20:52:25:5225 [32minfo[39m: [32mQuick slot reward applied:[39m
+2025-08-09 20:52:25:5225 [32minfo[39m: [32mWallet top-up reward applied:[39m
+2025-08-09 20:52:26:5226 [32minfo[39m: [32mWallet top-up completion notification sent to customer: psaumeen@gmail.com for amount: 10 BD[39m
+2025-08-09 20:52:26:5226 [32minfo[39m: [32mWallet top-up confirmed in webhook:[39m
+2025-08-09 20:52:26:5226 [32minfo[39m: [32mTap webhook processed successfully:[39m

@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { tapConfig } from '@/lib/config/tapConfig';
 import { ConfigurationManager } from '@/lib/utils/configuration';
 import logger from '@/lib/logger';
+import emailService from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,159 +134,188 @@ export async function POST(request: NextRequest) {
         orderId: paymentRecord.orderId || 'N/A'
       });
 
-             // Handle wallet transaction confirmation for wallet top-ups only
-       // Split payment wallet transactions are already completed in the direct payment route
-       if (paymentRecord.walletTransactionId) {
-         const walletTransaction = await prisma.walletTransaction.findUnique({
-           where: { id: paymentRecord.walletTransactionId },
-           include: { wallet: true }
-         });
+      // Handle wallet transaction confirmation for wallet top-ups only
+      // Split payment wallet transactions are already completed in the direct payment route
+      if (paymentRecord.walletTransactionId) {
+        const walletTransaction = await prisma.walletTransaction.findUnique({
+          where: { id: paymentRecord.walletTransactionId },
+          include: { 
+            wallet: { 
+              include: { 
+                customer: true 
+              } 
+            } 
+          }
+        });
 
-         if (walletTransaction && walletTransaction.status === 'PENDING') {
-           if (!isOrderPayment) {
-             // This is a wallet top-up - add money to wallet
-             const topUpAmount = amount;
-             let newBalance = walletTransaction.wallet.balance + topUpAmount;
-             let rewardAmount = 0;
-             let rewardTransaction = null;
+        if (walletTransaction && walletTransaction.status === 'PENDING') {
+          if (!isOrderPayment) {
+            // This is a wallet top-up - add money to wallet
+            const topUpAmount = amount;
+            let newBalance = walletTransaction.wallet.balance + topUpAmount;
+            let rewardAmount = 0;
+            let rewardTransaction = null;
 
-             // Check if wallet top-up reward is enabled and get reward amount
-             const rewardConfig = await ConfigurationManager.getWalletTopUpRewardConfig();
+            // Check if wallet top-up reward is enabled and get reward amount
+            const rewardConfig = await ConfigurationManager.getWalletTopUpRewardConfig();
+            
+            // Check for quick slot reward
+            const quickSlotsConfig = await ConfigurationManager.getWalletQuickSlotsConfig();
+            let quickSlotReward = 0;
+            
+            if (quickSlotsConfig.enabled && quickSlotsConfig.slots) {
+              const matchingSlot = quickSlotsConfig.slots.find(slot => 
+                slot.enabled && slot.amount === topUpAmount
+              );
+              if (matchingSlot && matchingSlot.reward > 0) {
+                quickSlotReward = matchingSlot.reward;
+                newBalance += quickSlotReward;
+                
+                logger.info('Quick slot reward applied:', {
+                  paymentRecordId: paymentRecord.id,
+                  topUpAmount,
+                  quickSlotReward,
+                  slotAmount: matchingSlot.amount
+                });
+              }
+            }
+            
+            if (rewardConfig.enabled && rewardConfig.amount > 0) {
+              rewardAmount = rewardConfig.amount;
+              newBalance += rewardAmount;
              
-             // Check for quick slot reward
-             const quickSlotsConfig = await ConfigurationManager.getWalletQuickSlotsConfig();
-             let quickSlotReward = 0;
-             
-             if (quickSlotsConfig.enabled && quickSlotsConfig.slots) {
-               const matchingSlot = quickSlotsConfig.slots.find(slot => 
-                 slot.enabled && slot.amount === topUpAmount
-               );
-               if (matchingSlot && matchingSlot.reward > 0) {
-                 quickSlotReward = matchingSlot.reward;
-                 newBalance += quickSlotReward;
-                 
-                 logger.info('Quick slot reward applied:', {
-                   paymentRecordId: paymentRecord.id,
-                   topUpAmount,
-                   quickSlotReward,
-                   slotAmount: matchingSlot.amount
-                 });
-               }
-             }
-             
-             if (rewardConfig.enabled && rewardConfig.amount > 0) {
-               rewardAmount = rewardConfig.amount;
-               newBalance += rewardAmount;
-               
-               logger.info('Wallet top-up reward applied:', {
-                 paymentRecordId: paymentRecord.id,
-                 topUpAmount,
-                 rewardAmount,
-                 totalAdded: topUpAmount + rewardAmount
-               });
-             }
-             
-             await prisma.$transaction(async (tx) => {
-               // Update wallet balance
-               await tx.wallet.update({
-                 where: { id: walletTransaction.wallet.id },
-                 data: {
-                   balance: newBalance,
-                   lastTransactionAt: new Date()
-                 }
-               });
-
-               // Confirm wallet transaction
-               await tx.walletTransaction.update({
-                 where: { id: walletTransaction.id },
-                 data: {
-                   status: 'COMPLETED',
-                   balanceAfter: newBalance,
-                   processedAt: new Date(),
-                   metadata: JSON.stringify({
-                     ...JSON.parse(walletTransaction.metadata || '{}'),
-                     confirmedAt: new Date().toISOString(),
-                     tapWebhookId: id,
-                     isOrderPayment: false,
-                     rewardAmount: rewardAmount
-                   })
-                 }
-               });
-
-               // Create reward transaction if reward was given
-               const totalReward = rewardAmount + quickSlotReward;
-               if (totalReward > 0) {
-                 rewardTransaction = await tx.walletTransaction.create({
-                   data: {
-                     walletId: walletTransaction.wallet.id,
-                     transactionType: 'DEPOSIT',
-                     amount: totalReward,
-                     balanceBefore: newBalance - totalReward,
-                     balanceAfter: newBalance,
-                     description: `Top-up reward bonus`,
-                     reference: `Reward for payment #${paymentRecord.id}`,
-                     metadata: JSON.stringify({
-                       originalPaymentId: paymentRecord.id,
-                       originalTransactionId: walletTransaction.id,
-                       rewardType: 'wallet_topup_bonus',
-                       globalReward: rewardAmount,
-                       quickSlotReward: quickSlotReward
-                     }),
-                     status: 'COMPLETED',
-                     processedAt: new Date()
-                   }
-                 });
-               }
-             });
-
-                           logger.info('Wallet top-up confirmed in webhook:', {
+              logger.info('Wallet top-up reward applied:', {
                 paymentRecordId: paymentRecord.id,
-                walletTransactionId: walletTransaction.id,
-                oldBalance: walletTransaction.wallet.balance,
-                newBalance,
-                topUpAmount: topUpAmount,
-                globalRewardAmount: rewardAmount,
-                quickSlotRewardAmount: quickSlotReward,
-                totalRewardAmount: rewardAmount + quickSlotReward,
-                totalAdded: topUpAmount + rewardAmount + quickSlotReward,
-                transactionType: 'TOP_UP',
-                rewardTransactionId: (rewardAmount + quickSlotReward) > 0 ? 'CREATED' : 'NONE'
+                topUpAmount,
+                rewardAmount,
+                totalAdded: topUpAmount + rewardAmount
               });
-           } else {
-             // This is a card-only payment - just confirm the transaction (no balance change)
-             await prisma.walletTransaction.update({
-               where: { id: walletTransaction.id },
-               data: {
-                 status: 'COMPLETED',
-                 processedAt: new Date(),
-                 metadata: JSON.stringify({
-                   ...JSON.parse(walletTransaction.metadata || '{}'),
-                   confirmedAt: new Date().toISOString(),
-                   tapWebhookId: id,
-                   isOrderPayment: true
-                 })
-               }
-             });
+            }
+            
+            await prisma.$transaction(async (tx) => {
+              // Update wallet balance
+              await tx.wallet.update({
+                where: { id: walletTransaction.wallet.id },
+                data: {
+                  balance: newBalance,
+                  lastTransactionAt: new Date()
+                }
+              });
 
-             logger.info('Card payment wallet transaction confirmed in webhook (no balance change):', {
-               paymentRecordId: paymentRecord.id,
-               walletTransactionId: walletTransaction.id,
-               currentBalance: walletTransaction.wallet.balance,
-               amount: walletTransaction.amount,
-               transactionType: 'CARD_PAYMENT'
-             });
-           }
-         } else if (walletTransaction && walletTransaction.status === 'COMPLETED') {
-           // This is a split payment - wallet portion already completed, just log
-           logger.info('Split payment wallet transaction already completed (wallet portion):', {
-             paymentRecordId: paymentRecord.id,
-             walletTransactionId: walletTransaction.id,
-             currentBalance: walletTransaction.wallet.balance,
-             amount: walletTransaction.amount,
-             transactionType: 'SPLIT_PAYMENT_WALLET_PORTION'
-           });
-         }
-       }
+              // Confirm wallet transaction
+              await tx.walletTransaction.update({
+                where: { id: walletTransaction.id },
+                data: {
+                  status: 'COMPLETED',
+                  balanceAfter: newBalance,
+                  processedAt: new Date(),
+                  metadata: JSON.stringify({
+                    ...JSON.parse(walletTransaction.metadata || '{}'),
+                    confirmedAt: new Date().toISOString(),
+                    tapWebhookId: id,
+                    isOrderPayment: false,
+                    rewardAmount: rewardAmount
+                  })
+                }
+              });
+
+              // Create reward transaction if reward was given
+              const totalReward = rewardAmount + quickSlotReward;
+              if (totalReward > 0) {
+                rewardTransaction = await tx.walletTransaction.create({
+                  data: {
+                    walletId: walletTransaction.wallet.id,
+                    transactionType: 'DEPOSIT',
+                    amount: totalReward,
+                    balanceBefore: newBalance - totalReward,
+                    balanceAfter: newBalance,
+                    description: `Top-up reward bonus`,
+                    reference: `Reward for payment #${paymentRecord.id}`,
+                    metadata: JSON.stringify({
+                      originalPaymentId: paymentRecord.id,
+                      originalTransactionId: walletTransaction.id,
+                      rewardType: 'wallet_topup_bonus',
+                      globalReward: rewardAmount,
+                      quickSlotReward: quickSlotReward
+                    }),
+                    status: 'COMPLETED',
+                    processedAt: new Date()
+                  }
+                });
+              }
+            });
+
+            // Send wallet top-up completion email notification
+            if (walletTransaction.wallet.customer) {
+              const customer = walletTransaction.wallet.customer;
+              const totalReward = rewardAmount + quickSlotReward;
+              
+              // Fetch the updated wallet balance to ensure we have the correct balance
+              const updatedWallet = await prisma.wallet.findUnique({
+                where: { id: walletTransaction.wallet.id }
+              });
+              
+              const finalBalance = updatedWallet ? updatedWallet.balance : newBalance;
+              
+              await emailService.sendWalletTopUpCompletionNotification(
+                customer.email,
+                `${customer.firstName} ${customer.lastName}`,
+                topUpAmount,
+                finalBalance,
+                'TAP_PAY',
+                id,
+                totalReward > 0 ? totalReward : undefined
+              );
+            }
+
+            logger.info('Wallet top-up confirmed in webhook:', {
+              paymentRecordId: paymentRecord.id,
+              walletTransactionId: walletTransaction.id,
+              oldBalance: walletTransaction.wallet.balance,
+              newBalance,
+              topUpAmount: topUpAmount,
+              globalRewardAmount: rewardAmount,
+              quickSlotRewardAmount: quickSlotReward,
+              totalRewardAmount: rewardAmount + quickSlotReward,
+              totalAdded: topUpAmount + rewardAmount + quickSlotReward,
+              transactionType: 'TOP_UP',
+              rewardTransactionId: (rewardAmount + quickSlotReward) > 0 ? 'CREATED' : 'NONE'
+            });
+          } else {
+            // This is a card-only payment - just confirm the transaction (no balance change)
+            await prisma.walletTransaction.update({
+              where: { id: walletTransaction.id },
+              data: {
+                status: 'COMPLETED',
+                processedAt: new Date(),
+                metadata: JSON.stringify({
+                  ...JSON.parse(walletTransaction.metadata || '{}'),
+                  confirmedAt: new Date().toISOString(),
+                  tapWebhookId: id,
+                  isOrderPayment: true
+                })
+              }
+            });
+
+            logger.info('Card payment wallet transaction confirmed in webhook (no balance change):', {
+              paymentRecordId: paymentRecord.id,
+              walletTransactionId: walletTransaction.id,
+              currentBalance: walletTransaction.wallet.balance,
+              amount: walletTransaction.amount,
+              transactionType: 'CARD_PAYMENT'
+            });
+          }
+        } else if (walletTransaction && walletTransaction.status === 'COMPLETED') {
+          // This is a split payment - wallet portion already completed, just log
+          logger.info('Split payment wallet transaction already completed (wallet portion):', {
+            paymentRecordId: paymentRecord.id,
+            walletTransactionId: walletTransaction.id,
+            currentBalance: walletTransaction.wallet.balance,
+            amount: walletTransaction.amount,
+            transactionType: 'SPLIT_PAYMENT_WALLET_PORTION'
+          });
+        }
+      }
 
       // Handle order-specific updates only for order payments
       if (isOrderPayment && orderId && order) {
@@ -342,6 +372,38 @@ export async function POST(request: NextRequest) {
             }),
           },
         });
+
+        // Send order payment completion email notification
+        const orderWithCustomer = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            customer: true,
+            orderServiceMappings: {
+              include: {
+                service: true,
+                orderItems: true,
+              },
+            },
+            address: true,
+          },
+        });
+
+        if (orderWithCustomer && orderWithCustomer.customer) {
+          // Create a properly formatted order object for the email service
+          const orderForEmail = {
+            ...orderWithCustomer,
+            customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
+          };
+
+          await emailService.sendOrderPaymentCompletionNotification(
+            orderForEmail,
+            orderWithCustomer.customer.email,
+            `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+            amount,
+            orderPaymentMethod,
+            id
+          );
+        }
 
         logger.info('Order payment status updated in webhook:', {
           orderId: orderId,

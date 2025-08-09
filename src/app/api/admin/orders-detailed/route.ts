@@ -11,57 +11,138 @@ import { OrderStatus } from '@prisma/client';
 
 const SORTABLE_FIELDS: Record<string, string> = {
   orderNumber: 'orderNumber',
-  customerName: 'customer', // special case
+  customer: 'customer', // special case for customer name
   status: 'status',
-  totalAmount: 'invoiceTotal',
+  serviceType: 'isExpressService',
+  paymentStatus: 'paymentStatus',
+  total: 'invoiceTotal',
   createdAt: 'createdAt',
-  deliveryStartTime: 'deliveryStartTime',
+  deliveryTime: 'deliveryStartTime',
+  pickupTime: 'pickupStartTime',
+  customerFirstName: 'customerFirstName',
+  customerLastName: 'customerLastName',
+  customerEmail: 'customerEmail',
+  customerPhone: 'customerPhone',
+  customerAddress: 'customerAddress',
+  specialInstructions: 'specialInstructions',
+  notes: 'notes',
+  paymentMethod: 'paymentMethod',
+  minimumOrderApplied: 'minimumOrderApplied',
+  invoiceGenerated: 'invoiceGenerated',
+  updatedAt: 'updatedAt',
 };
 
 export async function GET(req: Request) {
   try {
     const admin = await requireAuthenticatedAdmin();
     const { searchParams } = new URL(req.url);
-    const sortField = searchParams.get('sortField') || 'deliveryStartTime';
-    const sortDirection =
-      searchParams.get('sortDirection') === 'asc' ? 'asc' : 'desc';
+    
+    // Get sorting parameters
+    const sortField = searchParams.get('sortField') || 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
     const skip = (page - 1) * pageSize;
     const serviceType = searchParams.get('serviceType') || 'ALL';
+    const status = searchParams.get('status') || 'ALL';
+    const paymentStatus = searchParams.get('paymentStatus') || 'ALL';
+    const search = searchParams.get('search') || '';
+    const deliveryDateFrom = searchParams.get('deliveryDateFrom') || '';
+    const deliveryDateTo = searchParams.get('deliveryDateTo') || '';
+    const pickupDateFrom = searchParams.get('pickupDateFrom') || '';
+    const pickupDateTo = searchParams.get('pickupDateTo') || '';
 
-    // Special case for customerName sorting
-    let orderBy: Record<string, unknown> = {};
-    if (sortField === 'customerName') {
-      orderBy = {
-        customer: {
-          firstName: sortDirection,
-        },
-      };
-    } else {
-      orderBy[
-        sortField in SORTABLE_FIELDS ? SORTABLE_FIELDS[sortField] : 'deliveryStartTime'
-      ] = sortDirection;
-    }
+    // Build where clause based on filters
+    let whereClause: any = {};
 
-    // Build where clause based on admin role and filters
-    let whereClause: Record<string, unknown> = {};
-
-    // For FACILITY_TEAM role, only show orders with DROPPED_OFF status
+    // Role-based filtering
     if (admin.role === 'FACILITY_TEAM') {
       whereClause.status = OrderStatus.DROPPED_OFF;
     }
-    // For SUPER_ADMIN and OPERATION_MANAGER, show all orders (no filter needed)
 
-    // Add service type filter
-    if (serviceType !== 'ALL') {
+    // Status filter
+    if (status && status !== 'ALL') {
+      whereClause.status = status;
+    }
+
+    // Payment status filter
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      whereClause.paymentStatus = paymentStatus;
+    }
+
+    // Service type filter
+    if (serviceType && serviceType !== 'ALL') {
       whereClause.isExpressService = serviceType === 'EXPRESS';
     }
 
-    // Get total count for pagination with role-based filtering
+    // Search filter
+    if (search) {
+      whereClause.OR = [
+        { orderNumber: { contains: search, mode: 'insensitive' } },
+        { customer: { firstName: { contains: search, mode: 'insensitive' } } },
+        { customer: { lastName: { contains: search, mode: 'insensitive' } } },
+        { customer: { email: { contains: search, mode: 'insensitive' } } },
+        { customer: { phone: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    // Delivery date range filter
+    if (deliveryDateFrom || deliveryDateTo) {
+      whereClause.deliveryStartTime = {};
+      if (deliveryDateFrom) {
+        whereClause.deliveryStartTime.gte = new Date(deliveryDateFrom);
+      }
+      if (deliveryDateTo) {
+        whereClause.deliveryStartTime.lte = new Date(deliveryDateTo + 'T23:59:59.999Z');
+      }
+    }
+
+    // Pickup date range filter
+    if (pickupDateFrom || pickupDateTo) {
+      whereClause.pickupStartTime = {};
+      if (pickupDateFrom) {
+        whereClause.pickupStartTime.gte = new Date(pickupDateFrom);
+      }
+      if (pickupDateTo) {
+        whereClause.pickupStartTime.lte = new Date(pickupDateTo + 'T23:59:59.999Z');
+      }
+    }
+
+    // Build orderBy clause
+    let orderBy: Record<string, unknown> = {};
+    
+    if (sortField === 'customer') {
+      // Special case for customer name sorting - sort by firstName then lastName
+      orderBy = {
+        customer: {
+          firstName: sortOrder,
+        },
+      };
+    } else if (sortField === 'customerFirstName') {
+      orderBy.customerFirstName = sortOrder;
+    } else if (sortField === 'customerLastName') {
+      orderBy.customerLastName = sortOrder;
+    } else if (sortField === 'customerEmail') {
+      orderBy.customerEmail = sortOrder;
+    } else if (sortField === 'customerPhone') {
+      orderBy.customerPhone = sortOrder;
+    } else if (sortField === 'customerAddress') {
+      orderBy.customerAddress = sortOrder;
+    } else if (sortField === 'pickupTime') {
+      orderBy.pickupStartTime = sortOrder;
+    } else if (sortField === 'deliveryTime') {
+      orderBy.deliveryStartTime = sortOrder;
+    } else if (sortField in SORTABLE_FIELDS) {
+      orderBy[SORTABLE_FIELDS[sortField]] = sortOrder;
+    } else {
+      // Default sorting
+      orderBy.createdAt = 'desc';
+    }
+
+    // Get total count for pagination
     const total = await prisma.order.count({ where: whereClause });
 
-    // Fetch paginated orders with role-based filtering
+    // Fetch paginated orders
     const orders = await prisma.order.findMany({
       where: whereClause,
       include: {
@@ -89,21 +170,8 @@ export async function GET(req: Request) {
       take: pageSize,
     });
 
-    // Sort orders by delivery start time and completion status
-    const sortedOrders = orders.sort((a, b) => {
-      // First, prioritize non-completed orders
-      const aIsCompleted = ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(a.status);
-      const bIsCompleted = ['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(b.status);
-      
-      if (aIsCompleted && !bIsCompleted) return 1;
-      if (!aIsCompleted && bIsCompleted) return -1;
-      
-      // Then sort by delivery start time (earliest first)
-      return new Date(a.deliveryStartTime).getTime() - new Date(b.deliveryStartTime).getTime();
-    });
-
     // Transform orders to include service information
-    const transformedOrders = sortedOrders.map(order => {
+    const transformedOrders = orders.map(order => {
       // Flatten all orderItems from all services into a single array
       const orderItems =
         order.orderServiceMappings?.flatMap(

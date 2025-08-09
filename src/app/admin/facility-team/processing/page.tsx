@@ -69,6 +69,8 @@ interface ProcessingPageState {
     status: string;
     search: string;
     dateRange: string;
+    deliveryDate: string;
+    orderType: string;
   };
   pagination: {
     page: number;
@@ -76,7 +78,13 @@ interface ProcessingPageState {
     total: number;
     totalPages: number;
   };
+  sorting: {
+    field: string;
+    direction: 'asc' | 'desc';
+  };
 }
+
+type SortableField = 'priority' | 'orderNumber' | 'customer' | 'status' | 'processingStatus' | 'total' | 'pickupTime' | 'deliveryTime' | 'createdAt';
 
 export default function ProcessingPage() {
   const router = useRouter();
@@ -90,12 +98,18 @@ export default function ProcessingPage() {
       status: 'all',
       search: '',
       dateRange: 'today',
+      deliveryDate: 'today',
+      orderType: 'all',
     },
     pagination: {
       page: 1,
       limit: 20,
       total: 0,
       totalPages: 0,
+    },
+    sorting: {
+      field: 'createdAt',
+      direction: 'desc',
     },
   });
 
@@ -108,6 +122,10 @@ export default function ProcessingPage() {
         status: state.filters.status,
         search: state.filters.search,
         dateRange: state.filters.dateRange,
+        deliveryDate: state.filters.deliveryDate,
+        orderType: state.filters.orderType,
+        sortField: state.sorting.field,
+        sortDirection: state.sorting.direction,
       });
 
       const response = await fetch(`/api/admin/facility-team/orders?${params}`);
@@ -137,7 +155,7 @@ export default function ProcessingPage() {
         loading: false,
       }));
     }
-  }, [state.filters, state.pagination.page, state.pagination.limit]);
+  }, [state.filters, state.pagination.page, state.pagination.limit, state.sorting]);
 
   useEffect(() => {
     if (isAuthorized) {
@@ -161,6 +179,41 @@ export default function ProcessingPage() {
       ...prev,
       pagination: { ...prev.pagination, page },
     }));
+  };
+
+  const handleSort = (field: SortableField) => {
+    setState(prev => ({
+      ...prev,
+      sorting: {
+        field,
+        direction: prev.sorting.field === field && prev.sorting.direction === 'asc' ? 'desc' : 'asc',
+      },
+      pagination: { ...prev.pagination, page: 1 },
+    }));
+  };
+
+  const getSortIcon = (field: SortableField) => {
+    if (state.sorting.field !== field) {
+      return (
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    
+    if (state.sorting.direction === 'asc') {
+      return (
+        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+        </svg>
+      );
+    } else {
+      return (
+        <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      );
+    }
   };
 
   const handleProcessOrder = (order: Order) => {
@@ -554,7 +607,7 @@ export default function ProcessingPage() {
             <h3 className='text-lg font-medium text-gray-900'>Filters</h3>
           </div>
           <div className='px-6 py-4'>
-            <div className='grid grid-cols-1 md:grid-cols-4 gap-4'>
+            <div className='grid grid-cols-1 md:grid-cols-6 gap-4'>
               {/* Status Filter */}
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-2'>
@@ -597,7 +650,7 @@ export default function ProcessingPage() {
               {/* Date Range Filter */}
               <div>
                 <label className='block text-sm font-medium text-gray-700 mb-2'>
-                  Date Range
+                  Created Date Range
                 </label>
                 <select
                   value={state.filters.dateRange}
@@ -611,6 +664,47 @@ export default function ProcessingPage() {
                   <option value='week'>This Week</option>
                   <option value='month'>This Month</option>
                   <option value='all'>All Time</option>
+                </select>
+              </div>
+
+              {/* Delivery Date Filter */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Delivery Date
+                </label>
+                <select
+                  value={state.filters.deliveryDate}
+                  onChange={e =>
+                    handleFilterChange('deliveryDate', e.target.value)
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+                >
+                  <option value='all'>All Dates</option>
+                  <option value='today'>Today</option>
+                  <option value='tomorrow'>Tomorrow</option>
+                  <option value='yesterday'>Yesterday</option>
+                  <option value='this_week'>This Week</option>
+                  <option value='next_week'>Next Week</option>
+                  <option value='this_month'>This Month</option>
+                  <option value='next_month'>Next Month</option>
+                </select>
+              </div>
+
+              {/* Order Type Filter */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Order Type
+                </label>
+                <select
+                  value={state.filters.orderType}
+                  onChange={e =>
+                    handleFilterChange('orderType', e.target.value)
+                  }
+                  className='w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500'
+                >
+                  <option value='all'>All Types</option>
+                  <option value='express'>Express Orders</option>
+                  <option value='normal'>Normal Orders</option>
                 </select>
               </div>
 
@@ -651,32 +745,80 @@ export default function ProcessingPage() {
             <table className='min-w-full divide-y divide-gray-200'>
               <thead className='bg-gray-50'>
                 <tr>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Priority
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('priority')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Priority</span>
+                      {getSortIcon('priority')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Order
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('orderNumber')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Order</span>
+                      {getSortIcon('orderNumber')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Customer
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('customer')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Customer</span>
+                      {getSortIcon('customer')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Order Status
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Order Status</span>
+                      {getSortIcon('status')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Processing Status
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('processingStatus')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Processing Status</span>
+                      {getSortIcon('processingStatus')}
+                    </div>
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Services
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Total
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('total')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Total</span>
+                      {getSortIcon('total')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Pickup Time
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('pickupTime')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Pickup Time</span>
+                      {getSortIcon('pickupTime')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Delivery Time
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('deliveryTime')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Delivery Time</span>
+                      {getSortIcon('deliveryTime')}
+                    </div>
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Actions
@@ -795,16 +937,16 @@ export default function ProcessingPage() {
                             </div>
                           </div>
                         </td>
-                                                 <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                           <div>
-                             <div className='text-xs'>
-                               {formatUTCForDisplay(order.deliveryStartTime.toString())}
-                             </div>
-                             <div className='text-xs text-gray-400'>
-                               {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
-                             </div>
-                           </div>
-                         </td>
+                        <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                          <div>
+                            <div className='text-xs'>
+                              {formatUTCForDisplay(order.deliveryStartTime.toString())}
+                            </div>
+                            <div className='text-xs text-gray-400'>
+                              {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+                            </div>
+                          </div>
+                        </td>
                         <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                           <div className='flex flex-col space-y-1'>
                             {order.status === 'DELIVERED' ? (

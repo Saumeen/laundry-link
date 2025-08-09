@@ -66,16 +66,29 @@ export class OrdersApi {
   static async getOrders(
     filters?: OrderFilters
   ): Promise<ApiResponse<PaginatedResponse<OrderWithDetails>>> {
-    const params = filters
-      ? Object.fromEntries(
-          Object.entries(filters).filter(([, value]) => value !== undefined)
-        )
-      : {};
+    const params = new URLSearchParams();
+    
+    if (filters) {
+      // Add all filter parameters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (key === 'deliveryDateRange' && typeof value === 'object') {
+            if (value.from) params.append('deliveryDateFrom', value.from);
+            if (value.to) params.append('deliveryDateTo', value.to);
+          } else if (key === 'pickupDateRange' && typeof value === 'object') {
+            if (value.from) params.append('pickupDateFrom', value.from);
+            if (value.to) params.append('pickupDateTo', value.to);
+          } else {
+            params.append(key, String(value));
+          }
+        }
+      });
+    }
 
-    return apiClient.get<PaginatedResponse<OrderWithDetails>>(
-      '/api/admin/orders-detailed',
-      params
-    );
+    const queryString = params.toString();
+    const url = `/api/admin/orders-detailed${queryString ? `?${queryString}` : ''}`;
+    
+    return apiClient.get<PaginatedResponse<OrderWithDetails>>(url);
   }
 
   // Get single order by ID

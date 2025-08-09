@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/admin/hooks/useAdminAuth';
 import { useOrdersStore } from '@/admin/stores/ordersStore';
@@ -11,14 +11,19 @@ import {
   formatDate,
   formatCurrency,
 } from '@/admin/utils/orderUtils';
-import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
+import { 
+  formatUTCForDisplay, 
+  formatUTCForTimeDisplay, 
+  convertUTCToBahrainDateTimeLocal, 
+  convertBahrainToUTC 
+} from '@/lib/utils/timezone';
 
 import type { OrderStatus, PaymentStatus } from '@/shared/types';
 
 export default function AdminOrdersPage() {
   const router = useRouter();
   const { user, isLoading, isAuthorized, logout } = useAdminAuth();
-  const { orders, loading, filters, fetchOrders, setFilters, resetFilters } =
+  const { orders, loading, filters, fetchOrders, setFilters, resetFilters, setSorting } =
     useOrdersStore();
 
   useEffect(() => {
@@ -68,6 +73,40 @@ export default function AdminOrdersPage() {
         const isExpress = order.isExpressService || false;
         if (filters.serviceType === 'EXPRESS' && !isExpress) return false;
         if (filters.serviceType === 'REGULAR' && isExpress) return false;
+      }
+
+      // Delivery time filter
+      if (filters.deliveryDateRange?.from || filters.deliveryDateRange?.to) {
+        const deliveryTime = new Date(order.deliveryStartTime);
+        if (filters.deliveryDateRange.from) {
+          // Convert Bahrain date to UTC for comparison
+          const fromTimeUTC = convertBahrainToUTC(filters.deliveryDateRange.from, '00:00');
+          const fromTime = new Date(fromTimeUTC);
+          if (deliveryTime < fromTime) return false;
+        }
+        if (filters.deliveryDateRange.to) {
+          // Convert Bahrain date to UTC for comparison
+          const toTimeUTC = convertBahrainToUTC(filters.deliveryDateRange.to, '23:59');
+          const toTime = new Date(toTimeUTC);
+          if (deliveryTime > toTime) return false;
+        }
+      }
+
+      // Pickup time filter
+      if (filters.pickupDateRange?.from || filters.pickupDateRange?.to) {
+        const pickupTime = new Date(order.pickupStartTime);
+        if (filters.pickupDateRange.from) {
+          // Convert Bahrain date to UTC for comparison
+          const fromTimeUTC = convertBahrainToUTC(filters.pickupDateRange.from, '00:00');
+          const fromTime = new Date(fromTimeUTC);
+          if (pickupTime < fromTime) return false;
+        }
+        if (filters.pickupDateRange.to) {
+          // Convert Bahrain date to UTC for comparison
+          const toTimeUTC = convertBahrainToUTC(filters.pickupDateRange.to, '23:59');
+          const toTime = new Date(toTimeUTC);
+          if (pickupTime > toTime) return false;
+        }
       }
 
       // Search filter
@@ -134,12 +173,77 @@ export default function AdminOrdersPage() {
     setFilters({ serviceType });
   };
 
+  const handleDeliveryDateRangeChange = (field: 'from' | 'to', value: string) => {
+    setFilters({ 
+      deliveryDateRange: { 
+        ...filters.deliveryDateRange, 
+        [field]: value 
+      } 
+    });
+  };
+
+  const handlePickupDateRangeChange = (field: 'from' | 'to', value: string) => {
+    setFilters({ 
+      pickupDateRange: { 
+        ...filters.pickupDateRange, 
+        [field]: value 
+      } 
+    });
+  };
+
   const handleSearchChange = (search: string) => {
     setFilters({ search });
   };
 
   const handleClearFilters = () => {
     resetFilters();
+  };
+
+  const handleSort = (field: string) => {
+    const newOrder: 'asc' | 'desc' = filters.sortField === field && filters.sortOrder === 'asc' ? 'desc' : 'asc';
+    
+    // Update the store with new sorting parameters
+    setSorting(field, newOrder);
+    
+    // Trigger a new API call with the updated sorting parameters
+    const updatedFilters = {
+      ...filters,
+      sortField: field,
+      sortOrder: newOrder,
+    };
+    
+    // Call fetchOrders with the updated filters
+    fetchOrders(updatedFilters);
+  };
+
+  const getSortIndicator = (field: string) => {
+    const isCurrentlySorted = filters.sortField === field;
+    const isAscending = filters.sortOrder === 'asc';
+    
+    return (
+      <div className={`p-1 rounded transition-all duration-200 ${
+        isCurrentlySorted 
+          ? 'bg-blue-50 text-blue-600' 
+          : 'hover:bg-gray-50 text-gray-400 hover:text-gray-600 group-hover:text-gray-500'
+      }`}>
+        <svg
+          className={`w-4 h-4 transition-all duration-200 ${
+            isCurrentlySorted ? 'scale-110' : ''
+          } ${isCurrentlySorted && isAscending ? 'rotate-180' : ''}`}
+          fill='none'
+          stroke='currentColor'
+          viewBox='0 0 24 24'
+          aria-hidden='true'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={2}
+            d='M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4'
+          />
+        </svg>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -324,7 +428,7 @@ export default function AdminOrdersPage() {
             </h3>
           </div>
           <div className='px-6 py-4'>
-            <div className='grid grid-cols-1 md:grid-cols-5 gap-4'>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
               {/* Status Filter */}
               <div>
                 <label
@@ -444,6 +548,88 @@ export default function AdminOrdersPage() {
                 />
               </div>
 
+              {/* Delivery Date Range */}
+              <div className='md:col-span-2'>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Delivery Date Range
+                </label>
+                <div className='grid grid-cols-2 gap-3'>
+                  <div>
+                    <label
+                      htmlFor='delivery-date-from'
+                      className='block text-xs text-gray-500 mb-1'
+                    >
+                      From
+                    </label>
+                    <input
+                      id='delivery-date-from'
+                      type='date'
+                      value={filters.deliveryDateRange?.from || ''}
+                      onChange={e => handleDeliveryDateRangeChange('from', e.target.value)}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      aria-label='Delivery date from'
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor='delivery-date-to'
+                      className='block text-xs text-gray-500 mb-1'
+                    >
+                      To
+                    </label>
+                    <input
+                      id='delivery-date-to'
+                      type='date'
+                      value={filters.deliveryDateRange?.to || ''}
+                      onChange={e => handleDeliveryDateRangeChange('to', e.target.value)}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      aria-label='Delivery date to'
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Pickup Date Range */}
+              <div className='md:col-span-2'>
+                <label className='block text-sm font-medium text-gray-700 mb-2'>
+                  Pickup Date Range
+                </label>
+                <div className='grid grid-cols-2 gap-3'>
+                  <div>
+                    <label
+                      htmlFor='pickup-date-from'
+                      className='block text-xs text-gray-500 mb-1'
+                    >
+                      From
+                    </label>
+                    <input
+                      id='pickup-date-from'
+                      type='date'
+                      value={filters.pickupDateRange?.from || ''}
+                      onChange={e => handlePickupDateRangeChange('from', e.target.value)}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      aria-label='Pickup date from'
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor='pickup-date-to'
+                      className='block text-xs text-gray-500 mb-1'
+                    >
+                      To
+                    </label>
+                    <input
+                      id='pickup-date-to'
+                      type='date'
+                      value={filters.pickupDateRange?.to || ''}
+                      onChange={e => handlePickupDateRangeChange('to', e.target.value)}
+                      className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
+                      aria-label='Pickup date to'
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Clear Filters */}
               <div className='flex items-end'>
                 <button
@@ -475,51 +661,212 @@ export default function AdminOrdersPage() {
                 <tr>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group relative'
+                    onClick={() => handleSort('orderNumber')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('orderNumber');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by order number ${filters.sortField === 'orderNumber' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Order
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Order</span>
+                      {getSortIndicator('orderNumber')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('customer')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('customer');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by customer name ${filters.sortField === 'customer' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Customer
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Customer</span>
+                      {getSortIndicator('customer')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('customerEmail')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('customerEmail');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by customer email ${filters.sortField === 'customerEmail' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Status
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Email</span>
+                      {getSortIndicator('customerEmail')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('customerPhone')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('customerPhone');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by customer phone ${filters.sortField === 'customerPhone' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Service Type
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Phone</span>
+                      {getSortIndicator('customerPhone')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('status')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('status');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by status ${filters.sortField === 'status' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Payment
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Status</span>
+                      {getSortIndicator('status')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('serviceType')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('serviceType');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by service type ${filters.sortField === 'serviceType' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Total
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Service Type</span>
+                      {getSortIndicator('serviceType')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('paymentStatus')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('paymentStatus');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by payment status ${filters.sortField === 'paymentStatus' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Date
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Payment</span>
+                      {getSortIndicator('paymentStatus')}
+                    </div>
                   </th>
                   <th
                     scope='col'
-                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('total')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('total');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by total amount ${filters.sortField === 'total' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
                   >
-                    Delivery Time
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Total</span>
+                      {getSortIndicator('total')}
+                    </div>
+                  </th>
+                  <th
+                    scope='col'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('createdAt')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('createdAt');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by date ${filters.sortField === 'createdAt' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
+                  >
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Date</span>
+                      {getSortIndicator('createdAt')}
+                    </div>
+                  </th>
+                  <th
+                    scope='col'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('pickupTime')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('pickupTime');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by pickup time ${filters.sortField === 'pickupTime' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
+                  >
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Pickup Time</span>
+                      {getSortIndicator('pickupTime')}
+                    </div>
+                  </th>
+                  <th
+                    scope='col'
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group'
+                    onClick={() => handleSort('deliveryTime')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort('deliveryTime');
+                      }
+                    }}
+                    tabIndex={0}
+                    role='button'
+                    aria-label={`Sort by delivery time ${filters.sortField === 'deliveryTime' ? `(${filters.sortOrder === 'asc' ? 'ascending' : 'descending'})` : ''}`}
+                  >
+                    <div className='flex items-center space-x-1 group-hover:text-gray-700'>
+                      <span>Delivery Time</span>
+                      {getSortIndicator('deliveryTime')}
+                    </div>
                   </th>
                   <th
                     scope='col'
@@ -532,7 +879,7 @@ export default function AdminOrdersPage() {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className='px-6 py-4 text-center'>
+                    <td colSpan={12} className='px-6 py-4 text-center'>
                       <div
                         className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto'
                         aria-label='Loading orders'
@@ -542,7 +889,7 @@ export default function AdminOrdersPage() {
                 ) : filteredOrders.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={12}
                       className='px-6 py-4 text-center text-gray-500'
                     >
                       No orders found
@@ -558,6 +905,12 @@ export default function AdminOrdersPage() {
                         {order.customer
                           ? `${order.customer.firstName} ${order.customer.lastName}`
                           : 'N/A'}
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
+                        {order.customerEmail || order.customer?.email || 'N/A'}
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-900'>
+                        {order.customerPhone || order.customer?.phone || 'N/A'}
                       </td>
                       <td className='px-6 py-4 whitespace-nowrap'>
                         <span
@@ -593,16 +946,26 @@ export default function AdminOrdersPage() {
                       <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
                         {formatDate(order.createdAt)}
                       </td>
-                                             <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
-                         <div>
-                           <div className='text-xs'>
-                             {formatUTCForDisplay(order.deliveryStartTime.toString())}
-                           </div>
-                           <div className='text-xs text-gray-400'>
-                             {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
-                           </div>
-                         </div>
-                       </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                        <div>
+                          <div className='text-xs'>
+                            {formatUTCForDisplay(order.pickupStartTime.toString())}
+                          </div>
+                          <div className='text-xs text-gray-400'>
+                            {formatUTCForTimeDisplay(order.pickupStartTime.toString())}
+                          </div>
+                        </div>
+                      </td>
+                      <td className='px-6 py-4 whitespace-nowrap text-sm text-gray-500'>
+                        <div>
+                          <div className='text-xs'>
+                            {formatUTCForDisplay(order.deliveryStartTime.toString())}
+                          </div>
+                          <div className='text-xs text-gray-400'>
+                            {formatUTCForTimeDisplay(order.deliveryStartTime.toString())}
+                          </div>
+                        </div>
+                      </td>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium'>
                         <button
                           onClick={() => {

@@ -1145,4 +1145,173 @@ export default {
       'Please contact support for password'
     );
   },
+
+  /**
+   * Send order payment completion notification to customer
+   */
+  async sendOrderPaymentCompletionNotification(
+    order: OrderWithRelations,
+    customerEmail: string,
+    customerName: string,
+    paymentAmount: number,
+    paymentMethod: string,
+    transactionId: string
+  ): Promise<boolean> {
+    try {
+      const msg = {
+        to: customerEmail,
+        from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
+        subject: `✅ Payment Completed - Order #${order.orderNumber}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="${process.env.NEXT_PUBLIC_BASE_URL || 'https://laundrylink.net'}/images/toplogo.png" 
+                   alt="Laundry Link" style="max-width: 200px; height: auto;">
+            </div>
+            
+            <div style="background-color: #10b981; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+              <h2 style="margin: 0; font-size: 24px;">✅ Payment Completed Successfully</h2>
+              <p style="margin: 10px 0 0 0; font-size: 16px;">Your order payment has been processed and confirmed</p>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151;">Dear ${customerName},</p>
+            <p style="font-size: 16px; color: #374151;">Great news! Your payment for order #${order.orderNumber} has been completed successfully. Your order is now being processed and you'll receive updates as it progresses.</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #1f2937; margin-top: 0;">📋 Payment Details</h3>
+              <p><strong>Order Number:</strong> ${order.orderNumber}</p>
+              <p><strong>Payment Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${paymentAmount.toFixed(3)} BD</span></p>
+              <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+              <p><strong>Transaction ID:</strong> ${transactionId}</p>
+              <p><strong>Payment Date:</strong> ${convertToBahrainDate(new Date())}</p>
+            </div>
+            
+            <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0277bd;">
+              <h4 style="margin: 0; color: #0277bd;">📱 Next Steps</h4>
+              <p style="margin: 10px 0 0 0; color: #0277bd;">
+                Your order is now being processed. You'll receive notifications as your order progresses through our system. You can track your order status in your account dashboard.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://laundrylink.net'}/customer/dashboard" 
+                 style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                View Order Details
+              </a>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="font-size: 16px; color: #374151;">Need help? Contact us on WhatsApp:</p>
+              <a href="https://wa.me/97333440841" style="display: inline-block; background-color: #25d366; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                📱 +973 3344 0841
+              </a>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
+            </div>
+          </div>
+        `,
+      };
+
+      await sgMail.send(msg);
+      logger.info(`Order payment completion notification sent to customer: ${customerEmail} for order: ${order.orderNumber}`);
+      return true;
+    } catch (error) {
+      logger.error('Error sending order payment completion notification:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Send wallet top-up completion notification to customer
+   */
+  async sendWalletTopUpCompletionNotification(
+    customerEmail: string,
+    customerName: string,
+    topUpAmount: number,
+    newBalance: number,
+    paymentMethod: string,
+    transactionId: string,
+    rewardAmount?: number
+  ): Promise<boolean> {
+    try {
+      const totalAdded = topUpAmount + (rewardAmount || 0);
+      const hasReward = rewardAmount && rewardAmount > 0;
+
+      const msg = {
+        to: customerEmail,
+        from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
+        subject: `✅ Wallet Top-Up Completed - ${topUpAmount.toFixed(3)} BD Added`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="${process.env.NEXT_PUBLIC_BASE_URL || 'https://laundrylink.net'}/images/toplogo.png" 
+                   alt="Laundry Link" style="max-width: 200px; height: auto;">
+            </div>
+            
+            <div style="background-color: #10b981; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+              <h2 style="margin: 0; font-size: 24px;">✅ Wallet Top-Up Completed</h2>
+              <p style="margin: 10px 0 0 0; font-size: 16px;">Your wallet has been successfully topped up</p>
+            </div>
+            
+            <p style="font-size: 16px; color: #374151;">Dear ${customerName},</p>
+            <p style="font-size: 16px; color: #374151;">Great news! Your wallet top-up has been completed successfully. Your account balance has been updated and you're ready to use our services.</p>
+            
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #1f2937; margin-top: 0;">💰 Transaction Details</h3>
+              <p><strong>Top-Up Amount:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${topUpAmount.toFixed(3)} BD</span></p>
+              ${hasReward ? `<p><strong>Bonus Reward:</strong> <span style="color: #f59e0b; font-weight: bold; font-size: 16px;">+${rewardAmount!.toFixed(3)} BD</span></p>` : ''}
+              <p><strong>Total Added:</strong> <span style="color: #059669; font-weight: bold; font-size: 20px;">${totalAdded.toFixed(3)} BD</span></p>
+              <p><strong>New Balance:</strong> <span style="color: #059669; font-weight: bold; font-size: 18px;">${newBalance.toFixed(3)} BD</span></p>
+              <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+              <p><strong>Transaction ID:</strong> ${transactionId}</p>
+              <p><strong>Transaction Date:</strong> ${convertToBahrainDate(new Date())}</p>
+            </div>
+            
+            ${hasReward ? `
+            <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <h4 style="margin: 0; color: #92400e;">🎁 Bonus Reward Applied!</h4>
+              <p style="margin: 10px 0 0 0; color: #92400e;">
+                Congratulations! You've received a bonus reward of ${rewardAmount!.toFixed(3)} BD for your top-up. This has been automatically added to your wallet balance.
+              </p>
+            </div>
+            ` : ''}
+            
+            <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0277bd;">
+              <h4 style="margin: 0; color: #0277bd;">📱 What's Next?</h4>
+              <p style="margin: 10px 0 0 0; color: #0277bd;">
+                Your wallet is now ready to use! You can place new orders, pay for existing orders, or use your balance for any of our services. Your balance will be automatically deducted when you make purchases.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://laundrylink.net'}/customer/wallet" 
+                 style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                View Wallet Balance
+              </a>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="font-size: 16px; color: #374151;">Need help? Contact us on WhatsApp:</p>
+              <a href="https://wa.me/97333440841" style="display: inline-block; background-color: #25d366; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                📱 +973 3344 0841
+              </a>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px;">Thank you for choosing Laundry Link!</p>
+            </div>
+          </div>
+        `,
+      };
+
+      await sgMail.send(msg);
+      logger.info(`Wallet top-up completion notification sent to customer: ${customerEmail} for amount: ${topUpAmount} BD`);
+      return true;
+    } catch (error) {
+      logger.error('Error sending wallet top-up completion notification:', error);
+      return false;
+    }
+  },
 };
