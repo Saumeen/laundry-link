@@ -130,3 +130,4 @@
 2025-08-12 00:07:46:746 [31merror[39m: [31mOrder 2 has incomplete customer data: firstName=true, lastName=false, email=true[39m
 2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice for order 2: Order has incomplete customer information[39m
 2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-12 00:16:11:1611 [31merror[39m: [31mError fetching customer profile: Authentication required[39m

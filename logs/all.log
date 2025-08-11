@@ -1670,3 +1670,4 @@
 2025-08-12 00:07:47:747 [32minfo[39m: [32mFacility action completed: generate_invoice for order 2 by staff 1[39m
 2025-08-12 00:09:03:93 [32minfo[39m: [32mAdmin wallet adjustment:[39m
 2025-08-12 00:09:42:942 [32minfo[39m: [32mWallet payment processed for order LL37273890: 20 BHD via WALLET[39m
+2025-08-12 00:16:11:1611 [31merror[39m: [31mError fetching customer profile: Authentication required[39m
