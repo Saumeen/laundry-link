@@ -1505,3 +1505,94 @@
 2025-08-09 20:52:26:5226 [32minfo[39m: [32mWallet top-up completion notification sent to customer: psaumeen@gmail.com for amount: 10 BD[39m
 2025-08-09 20:52:26:5226 [32minfo[39m: [32mWallet top-up confirmed in webhook:[39m
 2025-08-09 20:52:26:5226 [32minfo[39m: [32mTap webhook processed successfully:[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mCreating Tap invoice for order 10[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mOrder 10 - Service mappings: 1, Has items: true[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mOrder 10 - Wallet balance: 136, Invoice total: 500, Requires payment: true[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mOrder 10 - Amount to charge: 364[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mCreating Tap invoice for order 10 with amount 364[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mCreating invoice for order: {[39m
+[32m  "id": 10,[39m
+[32m  "orderNumber": "LL66582353",[39m
+[32m  "customerId": 1,[39m
+[32m  "customer": {[39m
+[32m    "firstName": "Saumeen",[39m
+[32m    "lastName": "Prajapati",[39m
+[32m    "email": "psaumeen@gmail.com",[39m
+[32m    "phone": null[39m
+[32m  }[39m
+[32m}[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mOrder 10 - Prepared 1 items for TAP API[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mOrder 10 - Order items: [[39m
+[32m  {[39m
+[32m    "name": "Test 1",[39m
+[32m    "description": "Laundry service for Test 1",[39m
+[32m    "currency": "BHD",[39m
+[32m    "amount": 500,[39m
+[32m    "quantity": 1[39m
+[32m  }[39m
+[32m][39m
+2025-08-11 18:53:33:5333 [33mwarn[39m: [33mAmount mismatch: requested amount 364 vs items total 500, difference: 136[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mDue/Expiry date calculation: current=1754918613, due=1755005013, expiry=1755005013, difference=86400 seconds[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mDue/Expiry date in human readable: current=2025-08-11T13:23:33.000Z, due=2025-08-12T13:23:33.000Z, expiry=2025-08-12T13:23:33.000Z[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mSending invoice data to TAP API: {[39m
+[32m  "amount": 364,[39m
+[32m  "currency": "BHD",[39m
+[32m  "customer": {[39m
+[32m    "first_name": "Saumeen",[39m
+[32m    "last_name": "Prajapati",[39m
+[32m    "email": "psaumeen@gmail.com"[39m
+[32m  },[39m
+[32m  "order": {[39m
+[32m    "amount": 500,[39m
+[32m    "currency": "BHD",[39m
+[32m    "items": [[39m
+[32m      {[39m
+[32m        "name": "Test 1",[39m
+[32m        "description": "Laundry service for Test 1",[39m
+[32m        "currency": "BHD",[39m
+[32m        "amount": 500,[39m
+[32m        "quantity": 1[39m
+[32m      }[39m
+[32m    ][39m
+[32m  },[39m
+[32m  "redirect": {[39m
+[32m    "url": "http://localhost:3000/customer/orders?orderId=10"[39m
+[32m  },[39m
+[32m  "post": {[39m
+[32m    "url": "https://saumeen.loca.lt/api/payment/tap-webhook"[39m
+[32m  },[39m
+[32m  "reference": {[39m
+[32m    "invoice": "inv_LL66582353",[39m
+[32m    "order": "LL66582353"[39m
+[32m  },[39m
+[32m  "description": "Payment for order LL66582353 - Laundry Link Services",[39m
+[32m  "metadata": {[39m
+[32m    "orderId": "10",[39m
+[32m    "orderNumber": "LL66582353",[39m
+[32m    "customerId": "1"[39m
+[32m  },[39m
+[32m  "notifications": {[39m
+[32m    "dispatch": true,[39m
+[32m    "channels": [[39m
+[32m      "SMS",[39m
+[32m      "EMAIL"[39m
+[32m    ][39m
+[32m  },[39m
+[32m  "due": 1755005013000,[39m
+[32m  "expiry": 1755005013000[39m
+[32m}[39m
+2025-08-11 18:53:33:5333 [32minfo[39m: [32mCreating TAP invoice:[39m
+2025-08-11 18:53:37:5337 [32minfo[39m: [32mTAP API response status: 400[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mTAP API error for creating invoice: {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating TAP invoice: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating invoice for order 10: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating Tap invoice for order 10: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating Tap invoice: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:41:5341 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 18:53:41:5341 [32minfo[39m: [32mFacility action completed: generate_invoice for order 10 by staff 2[39m
+2025-08-11 19:27:15:2715 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 19:48:09:489 [32minfo[39m: [32mProcessing completed notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 19:48:09:489 [32minfo[39m: [32mStatus update email sent to customer: psaumeen@gmail.com for status: READY_FOR_DELIVERY[39m
+2025-08-11 19:48:09:489 [32minfo[39m: [32mFacility action completed: complete_processing for order 7 by staff 3[39m
+2025-08-11 19:49:55:4955 [32minfo[39m: [32mOperations action completed: assign_delivery_driver for order 7 by staff 2[39m
+2025-08-11 19:50:06:506 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m

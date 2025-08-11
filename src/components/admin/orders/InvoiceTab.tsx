@@ -3,12 +3,17 @@
 import React, { useState } from 'react';
 import { formatUTCForDisplay } from '@/lib/utils/timezone';
 import logger from '@/lib/logger';
+import { useToast } from '@/components/ui/Toast';
 
 interface Order {
   id: number;
   orderNumber: string;
   status: string;
   createdAt: string;
+  updatedAt?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  invoiceGenerated?: boolean;
   customer: {
     id: number;
     firstName: string;
@@ -55,6 +60,7 @@ interface InvoiceTabProps {
 
 export default function InvoiceTab({ order }: InvoiceTabProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const { showToast } = useToast();
 
   const calculateSubtotal = () => {
     if (!order.orderServiceMappings) return 0;
@@ -79,12 +85,16 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
     setIsGenerating(true);
     try {
       const response = await fetch(
-        `/api/admin/generate-invoice-pdf/${order.id}`,
+        `/api/admin/generate-invoice-pdf`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({ 
+            orderId: order.id,
+            sendEmail: false 
+          }),
         }
       );
 
@@ -98,11 +108,15 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        showToast('Invoice PDF downloaded successfully!', 'success');
       } else {
+        const errorData = await response.json() as { error?: string };
+        showToast(errorData.error || 'Failed to generate invoice', 'error');
         logger.error('Failed to generate invoice');
       }
     } catch (error) {
       logger.error('Error generating invoice:', error);
+      showToast('Error generating invoice', 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -110,22 +124,43 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
 
   const handleSendInvoice = async () => {
     try {
-      const response = await fetch(`/api/admin/send-invoice/${order.id}`, {
+      const response = await fetch(`/api/admin/generate-invoice-pdf`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ 
+          orderId: order.id,
+          sendEmail: true 
+        }),
       });
 
       if (response.ok) {
-        alert('Invoice sent successfully!');
+        const result = await response.json() as { message?: string };
+        showToast(result.message || 'Invoice sent successfully!', 'success');
+        // Refresh the order data to update the UI
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
       } else {
-        alert('Failed to send invoice');
+        const errorData = await response.json() as { error?: string };
+        showToast(errorData.error || 'Failed to send invoice', 'error');
       }
     } catch (error) {
       logger.error('Error sending invoice:', error);
-      alert('Error sending invoice');
+      showToast('Error sending invoice', 'error');
     }
+  };
+
+  // Simple utility functions for payment display
+  const getPaymentStatusDisplay = (status?: string) => {
+    if (!status) return 'Pending';
+    return status.replace('_', ' ');
+  };
+
+  const getPaymentMethodDisplay = (method?: string) => {
+    if (!method) return 'Not specified';
+    return method.replace('_', ' ');
   };
 
   return (
@@ -371,11 +406,11 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
             <div className='space-y-2 text-sm'>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Payment Status:</span>
-                <span className='font-medium'>Pending</span>
+                <span className='font-medium'>{getPaymentStatusDisplay(order.paymentStatus)}</span>
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Payment Method:</span>
-                <span className='font-medium'>Not specified</span>
+                <span className='font-medium'>{getPaymentMethodDisplay(order.paymentMethod)}</span>
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Due Date:</span>
@@ -387,16 +422,16 @@ export default function InvoiceTab({ order }: InvoiceTabProps) {
             <div className='space-y-2 text-sm'>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Invoice Generated:</span>
-                <span className='font-medium'>No</span>
+                <span className='font-medium'>{order.invoiceGenerated ? 'Yes' : 'No'}</span>
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Sent to Customer:</span>
-                <span className='font-medium'>No</span>
+                <span className='font-medium'>{order.invoiceGenerated ? 'Yes' : 'No'}</span>
               </div>
               <div className='flex justify-between'>
                 <span className='text-gray-600'>Last Updated:</span>
                 <span className='font-medium'>
-                  {formatUTCForDisplay(order.createdAt)}
+                  {formatUTCForDisplay(order.updatedAt || order.createdAt)}
                 </span>
               </div>
             </div>

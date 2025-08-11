@@ -114,3 +114,8 @@
 2025-08-08 23:08:19:819 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
 2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
 2025-08-08 23:14:57:1457 [31merror[39m: [31mError fetching wallet quick slots config: (0 , _lib_adminAuth__WEBPACK_IMPORTED_MODULE_2__.verifyAdminAuth) is not a function[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mTAP API error for creating invoice: {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating TAP invoice: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating invoice for order 10: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating Tap invoice for order 10: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating Tap invoice: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m

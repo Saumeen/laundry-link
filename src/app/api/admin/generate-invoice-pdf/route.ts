@@ -4,6 +4,8 @@ import autoTable from 'jspdf-autotable';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
+import { formatUTCForDisplay, formatUTCForDateDisplay } from '@/lib/utils/timezone';
+import emailService from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +13,7 @@ export async function POST(request: NextRequest) {
     await requireAuthenticatedAdmin();
 
     const body = await request.json();
-    const { orderId } = body as { orderId: number };
+    const { orderId, sendEmail = false } = body as { orderId: number; sendEmail?: boolean };
 
     if (!orderId) {
       return NextResponse.json(
@@ -31,6 +33,15 @@ export async function POST(request: NextRequest) {
             service: true,
             orderItems: true,
           },
+        },
+        paymentRecords: {
+          where: {
+            paymentStatus: 'PAID',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
         },
       },
     });
@@ -60,12 +71,12 @@ export async function POST(request: NextRequest) {
     doc.text(`Order #${order.orderNumber}`, 120, 30);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `Date: ${new Date(order.createdAt).toLocaleDateString('en-US', { timeZone: 'Asia/Bahrain' })}`,
+      `Date: ${formatUTCForDateDisplay(order.createdAt.toISOString())}`,
       120,
       40
     );
     doc.text(
-      `Due Date: ${new Date(order.deliveryEndTime).toLocaleDateString('en-US', { timeZone: 'Asia/Bahrain' })}`,
+      `Due Date: ${formatUTCForDateDisplay(order.deliveryEndTime.toISOString())}`,
       120,
       47
     );
@@ -102,46 +113,44 @@ export async function POST(request: NextRequest) {
     doc.setFont('helvetica', 'bold');
     doc.text('Order Details:', 20, 140);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Status: ${order.status}`, 20, 150);
-    doc.text(`Pickup: ${new Date(order.pickupStartTime).toLocaleString('en-US', { timeZone: 'Asia/Bahrain' })}`, 20, 157);
+    doc.text(`Pickup: ${formatUTCForDisplay(order.pickupStartTime.toISOString())}`, 20, 150);
     doc.text(
-      `Delivery: ${new Date(order.deliveryEndTime).toLocaleString('en-US', { timeZone: 'Asia/Bahrain' })}`,
+      `Delivery: ${formatUTCForDisplay(order.deliveryEndTime.toISOString())}`,
       20,
-      164
+      157
     );
 
-    let yPosition = 180;
-
-    // Services table
-    if (order.orderServiceMappings && order.orderServiceMappings.length > 0) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Services', 20, yPosition);
-      yPosition += 10;
-
-      const servicesData = order.orderServiceMappings.map(mapping => [
-        mapping.service.displayName,
-        mapping.quantity.toString(),
-        `${mapping.price.toFixed(3)} BD`,
-        `${(mapping.quantity * mapping.price).toFixed(3)} BD`,
-      ]);
-
-      autoTable(doc, {
-        startY: yPosition,
-        head: [['Service', 'Quantity', 'Unit Price', 'Total']],
-        body: servicesData,
-        theme: 'grid',
-        headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 10 },
-        columnStyles: {
-          0: { cellWidth: 60 },
-          1: { cellWidth: 25 },
-          2: { cellWidth: 35 },
-          3: { cellWidth: 35 },
-        },
-      });
-
-      yPosition = (doc as any).lastAutoTable.finalY + 10;
+    // Payment information
+    doc.setFont('helvetica', 'bold');
+    doc.text('Payment Information:', 20, 170);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Status: ${order.paymentStatus || 'Pending'}`, 20, 180);
+    if (order.paymentMethod) {
+      doc.text(`Method: ${order.paymentMethod}`, 20, 187);
     }
+    
+         // Add transaction details if payment is completed
+     if (order.paymentStatus === 'PAID' && order.paymentRecords && order.paymentRecords.length > 0) {
+       const paymentRecord = order.paymentRecords[0];
+       
+       // Add transaction ID if available
+       if (paymentRecord.tapTransactionId) {
+         doc.text(`Transaction ID: ${paymentRecord.tapTransactionId}`, 20, 194);
+       } else if (paymentRecord.tapChargeId) {
+         doc.text(`Charge ID: ${paymentRecord.tapChargeId}`, 20, 194);
+       }
+       
+       // Add payment source
+       if (paymentRecord.cardBrand && paymentRecord.cardLastFour) {
+         doc.text(`Payment Source: ${paymentRecord.cardBrand} ****${paymentRecord.cardLastFour}`, 20, 201);
+       } else if (paymentRecord.paymentMethod) {
+         doc.text(`Payment Source: ${paymentRecord.paymentMethod}`, 20, 201);
+       }
+     }
+
+    let yPosition = 220;
+
+
 
     // Order items table
     const allOrderItems = order.orderServiceMappings.flatMap(
@@ -153,27 +162,37 @@ export async function POST(request: NextRequest) {
       doc.text('Order Items', 20, yPosition);
       yPosition += 10;
 
-      const itemsData = allOrderItems.map(item => [
-        item.itemName,
-        item.itemType.charAt(0).toUpperCase() + item.itemType.slice(1),
-        item.quantity.toString(),
-        `${item.pricePerItem.toFixed(3)} BD`,
-        `${item.totalPrice.toFixed(3)} BD`,
-      ]);
+      const itemsData = allOrderItems.map(item => {
+        // Find the service mapping for this item
+        const serviceMapping = order.orderServiceMappings.find(mapping => 
+          mapping.orderItems.some(orderItem => orderItem.id === item.id)
+        );
+        const serviceName = serviceMapping?.service.displayName || 'N/A';
+        
+        return [
+          item.itemName,
+          serviceName,
+          item.itemType.charAt(0).toUpperCase() + item.itemType.slice(1),
+          item.quantity.toString(),
+          `${item.pricePerItem.toFixed(3)} BD`,
+          `${item.totalPrice.toFixed(3)} BD`,
+        ];
+      });
 
       autoTable(doc, {
         startY: yPosition,
-        head: [['Item', 'Type', 'Quantity', 'Unit Price', 'Total']],
+        head: [['Item', 'Service', 'Type', 'Quantity', 'Unit Price', 'Total']],
         body: itemsData,
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246] },
-        styles: { fontSize: 9 },
+        styles: { fontSize: 8 },
         columnStyles: {
-          0: { cellWidth: 50 },
-          1: { cellWidth: 25 },
+          0: { cellWidth: 40 },
+          1: { cellWidth: 35 },
           2: { cellWidth: 20 },
-          3: { cellWidth: 30 },
-          4: { cellWidth: 30 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 25 },
         },
       });
 
@@ -252,7 +271,59 @@ export async function POST(request: NextRequest) {
     // Generate PDF buffer
     const pdfBuffer = doc.output('arraybuffer');
 
-    // Return PDF as response
+    // If sendEmail is true, send the invoice via email
+    if (sendEmail) {
+      try {
+        // Prepare invoice data for email
+        const invoiceData = {
+          totalAmount: order.invoiceTotal || subtotal,
+          items: order.orderServiceMappings.flatMap(mapping => 
+            mapping.orderItems.map(item => ({
+              serviceName: mapping.service.displayName,
+              quantity: item.quantity,
+              unitPrice: item.pricePerItem,
+              totalPrice: item.totalPrice,
+              notes: item.notes || undefined,
+            }))
+          ),
+        };
+
+        // Send invoice email with PDF attachment
+        const emailSent = await emailService.sendInvoiceGeneratedNotification(
+          order,
+          order.customer.email,
+          `${order.customer.firstName} ${order.customer.lastName}`,
+          invoiceData,
+          pdfBuffer
+        );
+
+        if (emailSent) {
+          // Update order to mark invoice as generated
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { invoiceGenerated: true },
+          });
+
+          return NextResponse.json({
+            success: true,
+            message: 'Invoice sent successfully to customer',
+          });
+        } else {
+          return NextResponse.json(
+            { error: 'Failed to send invoice email' },
+            { status: 500 }
+          );
+        }
+      } catch (emailError) {
+        logger.error('Error sending invoice email:', emailError);
+        return NextResponse.json(
+          { error: 'Failed to send invoice email' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Return PDF as response for download
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {

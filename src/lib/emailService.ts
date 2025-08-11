@@ -615,20 +615,6 @@ export default {
           color: '#10b981',
           icon: '✅',
         },
-        QUALITY_CHECK: {
-          subject: 'Quality Check in Progress',
-          message:
-            'Your items are undergoing quality inspection to ensure the best results.',
-          color: '#06b6d4',
-          icon: '🔍',
-        },
-        READY_FOR_DELIVERY: {
-          subject: 'Invoice Generated - Ready for Delivery',
-          message:
-            'Your items are ready for delivery! Please check your invoice and arrange payment if not already paid.',
-          color: '#059669',
-          icon: '📦',
-        },
         DELIVERY_ASSIGNED: {
           subject: 'Delivery Driver Assigned',
           message: 'A driver has been assigned to deliver your items.',
@@ -876,7 +862,8 @@ export default {
     order: OrderWithRelations,
     customerEmail: string,
     customerName: string,
-    invoiceData: InvoiceData
+    invoiceData: InvoiceData,
+    pdfBuffer?: ArrayBuffer
   ): Promise<boolean> {
     try {
       // Get order items from the order
@@ -895,7 +882,7 @@ export default {
         0
       );
 
-      const msg = {
+      const msg: any = {
         to: customerEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
         subject: `🧾 Invoice Generated - Order #${order.orderNumber}`,
@@ -988,6 +975,18 @@ export default {
           </div>
         `,
       };
+
+      // Add PDF attachment if provided
+      if (pdfBuffer) {
+        msg.attachments = [
+          {
+            content: Buffer.from(pdfBuffer).toString('base64'),
+            filename: `invoice-${order.orderNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
+          }
+        ];
+      }
 
       await sgMail.send(msg);
       logger.info(`Invoice generation notification sent to customer: ${customerEmail}`
