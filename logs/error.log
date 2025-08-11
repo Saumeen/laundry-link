@@ -131,3 +131,26 @@
 2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice for order 2: Order has incomplete customer information[39m
 2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
 2025-08-12 00:16:11:1611 [31merror[39m: [31mError fetching customer profile: Authentication required[39m
+2025-08-12 01:43:52:4352 [31merror[39m: [31mOrder 3 has incomplete customer data: firstName=true, lastName=false, email=true[39m
+2025-08-12 01:43:52:4352 [31merror[39m: [31mError creating Tap invoice for order 3: Order has incomplete customer information[39m
+2025-08-12 01:43:52:4352 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
