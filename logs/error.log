@@ -122,3 +122,12 @@
 2025-08-11 21:05:21:521 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
 2025-08-11 21:07:34:734 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
 2025-08-11 21:09:11:911 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
+2025-08-11 23:38:52:3852 [31merror[39m: [31mOrder 1 has incomplete customer data: firstName=true, lastName=false, email=true[39m
+2025-08-11 23:38:52:3852 [31merror[39m: [31mError creating Tap invoice for order 1: Order has incomplete customer information[39m
+2025-08-11 23:38:52:3852 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-11 23:46:48:4648 [31merror[39m: [31mError creating Tap refund: Tap refund creation failed: Bad Request[39m
+2025-08-11 23:46:48:4648 [31merror[39m: [31mError processing Tap refund: Failed to create Tap refund[39m
+2025-08-12 00:07:46:746 [31merror[39m: [31mOrder 2 has incomplete customer data: firstName=true, lastName=false, email=true[39m
+2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice for order 2: Order has incomplete customer information[39m
+2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-12 00:16:11:1611 [31merror[39m: [31mError fetching customer profile: Authentication required[39m
