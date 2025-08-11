@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
 import emailService from '@/lib/emailService';
+import { OrderTrackingService } from '@/lib/orderTracking';
 import logger from '@/lib/logger';
 import {
   OrderStatus,
@@ -182,21 +183,21 @@ export async function PUT(
 
     // Update order status if provided
     if (status) {
-      await prisma.order.update({
-        where: { id: parseInt(orderId) },
-        data: { status: status as OrderStatus },
+      // Use OrderTrackingService to ensure email notifications are sent
+      const result = await OrderTrackingService.updateOrderStatusWithEmail({
+        orderId: parseInt(orderId),
+        newStatus: status as OrderStatus,
+        staffId: admin.id,
+        notes,
+        shouldSendEmail: true,
       });
 
-      // Create order update record
-      await prisma.orderUpdate.create({
-        data: {
-          orderId: parseInt(orderId),
-          staffId: admin.id,
-          oldStatus: currentOrder.status,
-          newStatus: status as OrderStatus,
-          notes,
-        },
-      });
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.message || 'Failed to update order status' },
+          { status: 400 }
+        );
+      }
     }
 
     // Update payment status if provided
