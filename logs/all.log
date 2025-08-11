@@ -1596,3 +1596,9 @@
 2025-08-11 19:48:09:489 [32minfo[39m: [32mFacility action completed: complete_processing for order 7 by staff 3[39m
 2025-08-11 19:49:55:4955 [32minfo[39m: [32mOperations action completed: assign_delivery_driver for order 7 by staff 2[39m
 2025-08-11 19:50:06:506 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 21:05:21:521 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
+2025-08-11 21:07:34:734 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
+2025-08-11 21:09:11:911 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
+2025-08-11 21:10:42:1042 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 21:22:49:2249 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 21:28:16:2816 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m

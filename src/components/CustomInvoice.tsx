@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWalletStore } from '@/customer/stores/walletStore';
 import { formatCurrency } from '@/lib/utils/formatCurrency';
 import DirectPaymentModal from './DirectPaymentModal';
+import { InvoiceApi } from '@/customer/api/invoice';
 
 interface CustomInvoiceProps {
   order: {
@@ -30,6 +31,7 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
   const { balance } = useWalletStore();
   const [showDirectPaymentModal, setShowDirectPaymentModal] = useState(false);
   const [refreshingPayment, setRefreshingPayment] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   const canPayWithWallet = balance >= order.invoiceTotal;
   const isAlreadyPaid = order.paymentStatus === 'PAID';
@@ -94,10 +96,34 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
     }
   };
 
+  const handleDownloadInvoice = async () => {
+    if (!order.invoiceGenerated) return;
+    
+    setDownloadingInvoice(true);
+    try {
+      const blob = await InvoiceApi.downloadInvoice(order.id);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${order.orderNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      // You can add toast notification here if needed
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Invoice Status Notice */}
-      {!paymentRequired && (
+      {!order.invoiceGenerated && (
         <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
           <div className="flex items-center">
             <span className="text-gray-600 mr-2">📋</span>
@@ -106,6 +132,34 @@ export default function CustomInvoice({ order, onPayNow }: CustomInvoiceProps) {
           <p className="text-sm text-gray-700 mt-1">
             Invoice has not been generated yet. Payment options will be available once the invoice is ready.
           </p>
+        </div>
+      )}
+
+      {/* Download Invoice Button - Show when invoice is generated */}
+      {order.invoiceGenerated && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <span className="text-green-600 mr-2">📄</span>
+              <div>
+                <h3 className="text-sm font-semibold text-green-900">Invoice Ready</h3>
+                <p className="text-sm text-green-700 mt-1">
+                  Your invoice has been generated and is ready for download.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleDownloadInvoice}
+              disabled={downloadingInvoice}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                downloadingInvoice
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {downloadingInvoice ? '⏳ Downloading...' : '📥 Download PDF'}
+            </button>
+          </div>
         </div>
       )}
 

@@ -77,6 +77,7 @@ interface OrderWithRelations {
   deliveryEndTime: Date;
   specialInstructions?: string | null;
   customerAddress: string;
+  paymentStatus?: string;
   customer: {
     firstName: string;
     lastName: string;
@@ -881,10 +882,14 @@ export default {
         0
       );
 
+      const isPaymentCompleted = order.paymentStatus === 'PAID';
+      
       const msg: any = {
         to: customerEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
-        subject: `🧾 Invoice Generated - Order #${order.orderNumber}`,
+        subject: isPaymentCompleted 
+          ? `✅ Payment Confirmed - Order #${order.orderNumber}` 
+          : `🧾 Invoice Generated - Order #${order.orderNumber}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
             <div style="text-align: center; margin-bottom: 30px;">
@@ -892,13 +897,15 @@ export default {
                    alt="Laundry Link" style="max-width: 200px; height: auto;">
             </div>
             
-            <div style="background-color: #3b82f6; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-              <h2 style="margin: 0; font-size: 24px;">🧾 Invoice Generated</h2>
-              <p style="margin: 10px 0 0 0; font-size: 16px;">Your invoice has been prepared and is ready for review</p>
+            <div style="background-color: ${isPaymentCompleted ? '#059669' : '#3b82f6'}; color: white; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+              <h2 style="margin: 0; font-size: 24px;">${isPaymentCompleted ? '✅ Payment Confirmed' : '🧾 Invoice Generated'}</h2>
+              <p style="margin: 10px 0 0 0; font-size: 16px;">${isPaymentCompleted ? 'Your payment has been received and confirmed' : 'Your invoice has been prepared and is ready for review'}</p>
             </div>
             
             <p style="font-size: 16px; color: #374151;">Dear ${customerName},</p>
-            <p style="font-size: 16px; color: #374151;">Great news! Your invoice has been generated and is ready for review. Please take a moment to review the details below and ensure your account balance is maintained.</p>
+            <p style="font-size: 16px; color: #374151;">${isPaymentCompleted 
+              ? 'Excellent! Your payment has been successfully processed and confirmed. Your order is now being prepared for processing.' 
+              : 'Great news! Your invoice has been generated and is ready for review. Please take a moment to review the details below and ensure your account balance is maintained.'}</p>
             
             <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h3 style="color: #1f2937; margin-top: 0;">📋 Order Summary</h3>
@@ -940,17 +947,28 @@ export default {
                 : ''
             }
             
+            ${!isPaymentCompleted ? `
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h4 style="margin: 0; color: #92400e;">💰 Account Balance Reminder</h4>
               <p style="margin: 10px 0 0 0; color: #92400e;">
                 Please ensure your account balance is maintained to avoid any delays in service. You can add funds to your account through our customer portal.
               </p>
             </div>
+            ` : `
+            <div style="background-color: #d1fae5; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+              <h4 style="margin: 0; color: #065f46;">✅ Payment Confirmed</h4>
+              <p style="margin: 10px 0 0 0; color: #065f46;">
+                Your payment of ${totalAmount.toFixed(3)} BD has been successfully processed. Your order is now confirmed and will be processed according to your selected service timeline.
+              </p>
+            </div>
+            `}
             
             <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #0277bd;">
               <h4 style="margin: 0; color: #0277bd;">📱 Next Steps</h4>
               <p style="margin: 10px 0 0 0; color: #0277bd;">
-                Your order is being processed. We'll notify you once it's ready for delivery. You can track your order status in your account dashboard.
+                ${isPaymentCompleted 
+                  ? 'Your order has been confirmed and is now in our processing queue. We\'ll notify you at each stage of the process, from pickup to delivery. You can track your order status in your account dashboard.'
+                  : 'Your order is being processed. We\'ll notify you once it\'s ready for delivery. You can track your order status in your account dashboard.'}
               </p>
             </div>
             

@@ -119,3 +119,6 @@
 2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating invoice for order 10: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
 2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating Tap invoice for order 10: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
 2025-08-11 18:53:37:5337 [31merror[39m: [31mError creating Tap invoice: Failed to create TAP invoice: 400 {"errors":[{"code":"3119","description":"Your account is pending approval."}],"http_code":"400 BAD_REQUEST"}[39m
+2025-08-11 21:05:21:521 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
+2025-08-11 21:07:34:734 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m
+2025-08-11 21:09:11:911 [31merror[39m: [31mError generating invoice PDF: doc.autoTable is not a function[39m

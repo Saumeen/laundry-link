@@ -298,7 +298,7 @@ const DashboardContent: React.FC = () => {
                       {formatCurrency(order.invoiceTotal || 0)}
                     </div>
                     <div className='text-sm text-gray-500'>
-                      {order.items?.length || 0} services
+                      {order.orderServiceMappings?.length || 0} services
                     </div>
                     {requiresPayment(order) && (
                       <div className='mt-2 space-y-1'>
