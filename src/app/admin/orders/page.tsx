@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/admin/hooks/useAdminAuth';
 import { useOrdersStore } from '@/admin/stores/ordersStore';
@@ -33,7 +33,7 @@ export default function AdminOrdersPage() {
   }, [isAuthorized, fetchOrders]);
 
   // Get the appropriate dashboard URL based on user role
-  const getDashboardUrl = () => {
+  const getDashboardUrl = useCallback(() => {
     if (!user?.role?.name) return '/admin';
 
     switch (user.role.name) {
@@ -48,12 +48,12 @@ export default function AdminOrdersPage() {
       default:
         return '/admin';
     }
-  };
+  }, [user?.role?.name]);
 
   // Handle back button click
-  const handleBackClick = () => {
+  const handleBackClick = useCallback(() => {
     router.push(getDashboardUrl());
-  };
+  }, [router, getDashboardUrl]);
 
   // Memoized stats calculations
   const stats = useMemo(
@@ -84,25 +84,25 @@ export default function AdminOrdersPage() {
   );
 
   // Navigation handlers
-  const handleNavigateToOrderDetails = (orderId: number) => {
+  const handleNavigateToOrderDetails = useCallback((orderId: number) => {
     router.push(`/admin/orders/${orderId}`);
-  };
+  }, [router]);
 
-  const handleStatusFilterChange = (status: OrderStatus | 'ALL') => {
+  const handleStatusFilterChange = useCallback((status: OrderStatus | 'ALL') => {
     setFilters({ status, page: 1 });
-  };
+  }, [setFilters]);
 
-  const handlePaymentStatusFilterChange = (
+  const handlePaymentStatusFilterChange = useCallback((
     paymentStatus: PaymentStatus | 'ALL'
   ) => {
     setFilters({ paymentStatus, page: 1 });
-  };
+  }, [setFilters]);
 
-  const handleServiceTypeFilterChange = (serviceType: 'EXPRESS' | 'REGULAR' | 'ALL') => {
+  const handleServiceTypeFilterChange = useCallback((serviceType: 'EXPRESS' | 'REGULAR' | 'ALL') => {
     setFilters({ serviceType, page: 1 });
-  };
+  }, [setFilters]);
 
-  const handleDeliveryDateRangeChange = (field: 'from' | 'to', value: string) => {
+  const handleDeliveryDateRangeChange = useCallback((field: 'from' | 'to', value: string) => {
     setFilters({ 
       deliveryDateRange: { 
         ...filters.deliveryDateRange, 
@@ -110,9 +110,9 @@ export default function AdminOrdersPage() {
       },
       page: 1
     });
-  };
+  }, [setFilters, filters]);
 
-  const handlePickupDateRangeChange = (field: 'from' | 'to', value: string) => {
+  const handlePickupDateRangeChange = useCallback((field: 'from' | 'to', value: string) => {
     setFilters({ 
       pickupDateRange: { 
         ...filters.pickupDateRange, 
@@ -120,17 +120,22 @@ export default function AdminOrdersPage() {
       },
       page: 1
     });
-  };
+  }, [setFilters, filters]);
 
-  const handleSearchChange = (search: string) => {
+  const handleSearchChange = useCallback((search: string) => {
     setFilters({ search, page: 1 });
-  };
+  }, [setFilters]);
 
-  const handleClearFilters = () => {
+  const handleSubmitFilters = useCallback(() => {
+    // Trigger a new search with current filters
+    fetchOrders(filters);
+  }, [fetchOrders, filters]);
+
+  const handleClearFilters = useCallback(() => {
     resetFilters();
-  };
+  }, [resetFilters]);
 
-  const handleSort = (field: string) => {
+  const handleSort = useCallback((field: string) => {
     const newOrder: 'asc' | 'desc' = filters.sortField === field && filters.sortOrder === 'asc' ? 'desc' : 'asc';
     
     // Update the store with new sorting parameters
@@ -146,27 +151,27 @@ export default function AdminOrdersPage() {
     
     // Call fetchOrders with the updated filters
     fetchOrders(updatedFilters);
-  };
+  }, [filters, setSorting, fetchOrders]);
 
   // Pagination handlers
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     const updatedFilters = {
       ...filters,
       page,
     };
     fetchOrders(updatedFilters);
-  };
+  }, [filters, fetchOrders]);
 
-  const handleLimitChange = (limit: number) => {
+  const handleLimitChange = useCallback((limit: number) => {
     const updatedFilters = {
       ...filters,
       limit,
       page: 1, // Reset to first page when changing limit
     };
     fetchOrders(updatedFilters);
-  };
+  }, [filters, fetchOrders]);
 
-  const getSortIndicator = (field: string) => {
+  const getSortIndicator = useCallback((field: string) => {
     const isCurrentlySorted = filters.sortField === field;
     const isAscending = filters.sortOrder === 'asc';
     
@@ -194,7 +199,7 @@ export default function AdminOrdersPage() {
         </svg>
       </div>
     );
-  };
+  }, [filters.sortField, filters.sortOrder]);
 
   if (isLoading) {
     return (
@@ -580,14 +585,21 @@ export default function AdminOrdersPage() {
                 </div>
               </div>
 
-              {/* Clear Filters */}
-              <div className='flex items-end'>
+              {/* Submit and Clear Filters */}
+              <div className='flex items-end gap-3'>
+                <button
+                  onClick={handleSubmitFilters}
+                  className='flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500'
+                  aria-label='Search with current filters'
+                >
+                  Search
+                </button>
                 <button
                   onClick={handleClearFilters}
-                  className='w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500'
+                  className='flex-1 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500'
                   aria-label='Clear all filters'
                 >
-                  Clear Filters
+                  Clear
                 </button>
               </div>
             </div>

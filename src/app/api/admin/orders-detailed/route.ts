@@ -38,8 +38,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     
     // Get sorting parameters
-    const sortField = searchParams.get('sortField') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const sortField = searchParams.get('sortField') || 'deliveryTime';
+    const sortOrder = searchParams.get('sortOrder') || 'asc';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
     const skip = (page - 1) * limit;
@@ -135,8 +135,8 @@ export async function GET(req: Request) {
     } else if (sortField in SORTABLE_FIELDS) {
       orderBy[SORTABLE_FIELDS[sortField]] = sortOrder;
     } else {
-      // Default sorting
-      orderBy.createdAt = 'desc';
+      // Default sorting - for facility team, sort by delivery time (earliest first)
+      orderBy.deliveryStartTime = 'asc';
     }
 
     // Get total count for pagination

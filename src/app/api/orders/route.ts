@@ -211,7 +211,7 @@ async function handleLoggedInCustomerOrder(
         email: customer.email,
         phone: address.contactNumber || body.contactNumber || '',
         address: address.address || address.addressLine1,
-        services: body.services.map(id => id.toString()),
+        services: orderWithRelations!.orderServiceMappings.map(mapping => mapping.service.displayName),
       });
     } catch (emailError) {
       logger.error('Email sending failed:', emailError);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFacilityTeamAuth } from '@/admin/hooks/useAdminAuth';
 import { useDashboardStore } from '@/admin/stores/dashboardStore';
@@ -16,6 +16,9 @@ import {
 import { formatUTCForDisplay, formatUTCForTimeDisplay } from '@/lib/utils/timezone';
 import type { OrderWithDetails } from '@/admin/api/orders';
 
+type SortField = 'orderNumber' | 'customer' | 'status' | 'total' | 'date' | 'deliveryTime';
+type SortDirection = 'asc' | 'desc';
+
 export default function FacilityTeamDashboard() {
   const router = useRouter();
   const { user, isLoading, isAuthorized, logout } = useFacilityTeamAuth();
@@ -24,14 +27,76 @@ export default function FacilityTeamDashboard() {
     loading: statsLoading,
     fetchFacilityTeamStats,
   } = useDashboardStore();
-  const { orders, loading: ordersLoading, fetchOrders } = useOrdersStore();
+  const { orders, loading: ordersLoading, fetchOrders, setSorting } = useOrdersStore();
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('deliveryTime');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   useEffect(() => {
     if (isAuthorized) {
       fetchFacilityTeamStats();
-      fetchOrders();
+      // Fetch orders with default sorting by delivery date (earliest first)
+      fetchOrders({
+        sortField: 'deliveryTime',
+        sortOrder: 'asc',
+        limit: 10
+      });
     }
   }, [isAuthorized, fetchFacilityTeamStats, fetchOrders]);
+
+  // Handle column header click for sorting
+  const handleSort = useCallback((field: SortField) => {
+    let newSortDirection: SortDirection = 'asc';
+    
+    if (sortField === field) {
+      newSortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    }
+    
+    setSortField(field);
+    setSortDirection(newSortDirection);
+    
+    // Map frontend field names to backend field names
+    const backendFieldMap: Record<SortField, string> = {
+      orderNumber: 'orderNumber',
+      customer: 'customer',
+      status: 'status',
+      total: 'total',
+      date: 'createdAt',
+      deliveryTime: 'deliveryTime'
+    };
+    
+    // Update backend sorting
+    setSorting(backendFieldMap[field], newSortDirection);
+    
+    // Fetch orders with new sorting
+    fetchOrders({
+      sortField: backendFieldMap[field],
+      sortOrder: newSortDirection,
+      limit: 10
+    });
+  }, [sortField, sortDirection, setSorting, fetchOrders]);
+
+  // Get sort indicator for column headers
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) {
+      return (
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    
+    return sortDirection === 'asc' ? (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
+    ) : (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    );
+  };
 
   // Navigation handlers
   const handleNavigateToProcessing = useCallback(() => {
@@ -218,23 +283,59 @@ export default function FacilityTeamDashboard() {
             <table className='min-w-full divide-y divide-gray-200'>
               <thead className='bg-gray-50'>
                 <tr>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Order
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('orderNumber')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Order</span>
+                      {getSortIndicator('orderNumber')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Customer
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('customer')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Customer</span>
+                      {getSortIndicator('customer')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Status
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Status</span>
+                      {getSortIndicator('status')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Total
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('total')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Total</span>
+                      {getSortIndicator('total')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Date
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Date</span>
+                      {getSortIndicator('date')}
+                    </div>
                   </th>
-                  <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
-                    Delivery Time
+                  <th 
+                    className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'
+                    onClick={() => handleSort('deliveryTime')}
+                  >
+                    <div className='flex items-center space-x-1'>
+                      <span>Delivery Time</span>
+                      {getSortIndicator('deliveryTime')}
+                    </div>
                   </th>
                   <th className='px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'>
                     Actions
@@ -258,7 +359,7 @@ export default function FacilityTeamDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  orders.slice(0, 10).map(order => (
+                  orders.map(order => (
                     <tr key={order.id} className='hover:bg-gray-50'>
                       <td className='px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900'>
                         <div className='flex items-center space-x-2'>
