@@ -34,7 +34,8 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   PAID: 'Paid',
   PARTIAL_REFUND: 'Partial Refund',
   FAILED: 'Failed',
-  REFUNDED: 'Refunded',
+  REFUNDED: 'Refunded', 
+  IN_PROGRESS: 'In Progress',
 };
 
 const DashboardContent: React.FC = () => {
@@ -361,6 +362,7 @@ const getPaymentColor = (status: PaymentStatus) => {
     PARTIAL_REFUND: 'bg-red-100 text-red-800',
     FAILED: 'bg-red-100 text-red-800',
     REFUNDED: 'bg-gray-100 text-gray-800',
+    IN_PROGRESS: 'bg-blue-100 text-blue-800',
   };
   return paymentColors[status] || 'bg-gray-100 text-gray-800';
 };
