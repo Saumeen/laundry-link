@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import logger from '@/lib/logger';
 import { processWalletPayment } from '@/lib/utils/walletUtils';
+import emailService from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
       include: {
         customer: true,
         address: true,
+         orderServiceMappings: {
+          include: {
+            service: true,
+            orderItems: true,
+          },
+        },
       },
     });
 
@@ -117,6 +124,22 @@ export async function POST(request: NextRequest) {
         notes: `Wallet payment received via ${paymentMethod}. Reference: ${paymentReference}`,
       },
     });
+
+    // Send payment completion email to customer
+    try {
+      await emailService.sendOrderPaymentCompletionNotification(
+        order,
+        order.customer.email,
+        `${order.customer.firstName} ${order.customer.lastName}`,
+        amount,
+        paymentMethod,
+        transaction.id.toString(),
+      );
+      logger.info(`Payment completion email sent to customer for order ${order.orderNumber}`);
+    } catch (emailError) {
+      logger.error('Failed to send payment completion email:', emailError);
+      // Continue with payment processing even if email fails
+    }
 
     logger.info(`Wallet payment processed for order ${order.orderNumber}: ${amount} BHD via ${paymentMethod}`);
 
