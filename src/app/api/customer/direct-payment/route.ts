@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedCustomer } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { PaymentStatus, PaymentMethod } from '@prisma/client';
+import emailService from '@/lib/emailService';
 import logger from '@/lib/logger';
-import { processTapPayment, processCardPayment } from '@/lib/utils/tapPaymentUtils';
-import { processWalletPayment } from '@/lib/utils/walletUtils';
+import prisma from '@/lib/prisma';
+import { processCardPayment } from '@/lib/utils/tapPaymentUtils';
+import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
 
 interface CustomerData {
   firstName: string;
@@ -360,11 +360,56 @@ export async function POST(request: NextRequest) {
           result.tapResponse = cardResult.tapResponse;
           result.redirectUrl = cardResult.redirectUrl;
 
-          logger.info('Card portion of split payment processed:', {
-            paymentRecordId: cardResult.paymentRecord.id,
-            tapTransactionId: cardResult.tapResponse?.id,
-            status: cardResult.tapResponse?.status
-          });
+                     logger.info('Card portion of split payment processed:', {
+             paymentRecordId: cardResult.paymentRecord.id,
+             tapTransactionId: cardResult.tapResponse?.id,
+             status: cardResult.tapResponse?.status
+           });
+
+           // Note: Email notification for split payments will be handled by webhook
+           // since the card portion goes through the webhook process
+        } else {
+          // Wallet-only payment - send email notification immediately
+          try {
+            const orderWithCustomer = await prisma.order.findUnique({
+              where: { id: order.id },
+              include: {
+                customer: true,
+                orderServiceMappings: {
+                  include: {
+                    service: true,
+                    orderItems: true,
+                  },
+                },
+                address: true,
+              },
+            });
+
+            if (orderWithCustomer && orderWithCustomer.customer) {
+              const orderForEmail = {
+                ...orderWithCustomer,
+                customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
+              };
+
+              await emailService.sendOrderPaymentCompletionNotification(
+                orderForEmail,
+                orderWithCustomer.customer.email,
+                `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                amount,
+                'WALLET',
+                `WALLET-${result.walletTransaction?.id || 'DIRECT'}`
+              );
+
+              logger.info('Email notification sent for wallet-only payment:', {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                customerEmail: orderWithCustomer.customer.email
+              });
+            }
+          } catch (emailError) {
+            logger.error('Failed to send email notification for wallet-only payment:', emailError);
+            // Don't fail the payment if email fails
+          }
         }
       } else {
         // Original card-only payment - no wallet transaction needed
@@ -382,6 +427,51 @@ export async function POST(request: NextRequest) {
           amount,
           paymentRecordId: result.paymentRecord.id
         });
+
+        // Send email notification for card-only payment if captured immediately
+        if (result.tapResponse && result.tapResponse.status === 'CAPTURED') {
+          try {
+            const orderWithCustomer = await prisma.order.findUnique({
+              where: { id: order.id },
+              include: {
+                customer: true,
+                orderServiceMappings: {
+                  include: {
+                    service: true,
+                    orderItems: true,
+                  },
+                },
+                address: true,
+              },
+            });
+
+            if (orderWithCustomer && orderWithCustomer.customer) {
+              const orderForEmail = {
+                ...orderWithCustomer,
+                customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
+              };
+
+              await emailService.sendOrderPaymentCompletionNotification(
+                orderForEmail,
+                orderWithCustomer.customer.email,
+                `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                amount,
+                'TAP_PAY',
+                result.tapResponse.id
+              );
+
+              logger.info('Email notification sent for card-only payment:', {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                customerEmail: orderWithCustomer.customer.email,
+                tapTransactionId: result.tapResponse.id
+              });
+            }
+          } catch (emailError) {
+            logger.error('Failed to send email notification for card-only payment:', emailError);
+            // Don't fail the payment if email fails
+          }
+        }
       }
 
       const { paymentRecord, tapResponse, redirectUrl } = result;
@@ -435,6 +525,52 @@ export async function POST(request: NextRequest) {
            tapTransactionId: tapResponse?.id,
            orderId: order.id,
          });
+
+                   // Send email notification for captured payment (only for card-only payments)
+          // Split payments will be handled by webhook
+          if (!isSplitPayment) {
+            try {
+              const orderWithCustomer = await prisma.order.findUnique({
+                where: { id: order.id },
+                include: {
+                  customer: true,
+                  orderServiceMappings: {
+                    include: {
+                      service: true,
+                      orderItems: true,
+                    },
+                  },
+                  address: true,
+                },
+              });
+
+              if (orderWithCustomer && orderWithCustomer.customer) {
+                const orderForEmail = {
+                  ...orderWithCustomer,
+                  customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
+                };
+
+                await emailService.sendOrderPaymentCompletionNotification(
+                  orderForEmail,
+                  orderWithCustomer.customer.email,
+                  `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                  amount,
+                  'TAP_PAY',
+                  tapResponse?.id
+                );
+
+                logger.info('Email notification sent for captured card-only payment:', {
+                  orderId: order.id,
+                  orderNumber: order.orderNumber,
+                  customerEmail: orderWithCustomer.customer.email,
+                  tapTransactionId: tapResponse?.id
+                });
+              }
+            } catch (emailError) {
+              logger.error('Failed to send email notification for captured payment:', emailError);
+              // Don't fail the payment if email fails
+            }
+          }
 
          return NextResponse.json({
            success: true,

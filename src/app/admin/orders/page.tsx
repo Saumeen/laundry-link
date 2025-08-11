@@ -133,7 +133,9 @@ export default function AdminOrdersPage() {
 
   const handleClearFilters = useCallback(() => {
     resetFilters();
-  }, [resetFilters]);
+    // Fetch orders with cleared filters
+    fetchOrders();
+  }, [resetFilters, fetchOrders]);
 
   const handleSort = useCallback((field: string) => {
     const newOrder: 'asc' | 'desc' = filters.sortField === field && filters.sortOrder === 'asc' ? 'desc' : 'asc';
