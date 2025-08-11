@@ -651,12 +651,11 @@ export default {
         },
       };
 
-      const statusInfo = statusMessages[newStatus] || {
-        subject: 'Order Status Update',
-        message: `Your order status has been updated to: ${newStatus.replace(/_/g, ' ')}`,
-        color: '#6b7280',
-        icon: '📋',
-      };
+      const statusInfo = statusMessages[newStatus] ;
+
+      if (!statusInfo) {
+        return false;
+      }
 
       const msg = {
         to: customerEmail,
@@ -1154,10 +1153,11 @@ export default {
     customerName: string,
     paymentAmount: number,
     paymentMethod: string,
-    transactionId: string
+    transactionId: string,
+    pdfBuffer?: ArrayBuffer
   ): Promise<boolean> {
     try {
-      const msg = {
+      const msg: any = {
         to: customerEmail,
         from: process.env.EMAIL_FROM || 'orders@laundrylink.net',
         subject: `✅ Payment Completed - Order #${order.orderNumber}`,
@@ -1213,8 +1213,20 @@ export default {
         `,
       };
 
+      // Add PDF attachment if provided
+      if (pdfBuffer) {
+        msg.attachments = [
+          {
+            content: Buffer.from(pdfBuffer).toString('base64'),
+            filename: `invoice-${order.orderNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
+          }
+        ];
+      }
+
       await sgMail.send(msg);
-      logger.info(`Order payment completion notification sent to customer: ${customerEmail} for order: ${order.orderNumber}`);
+      logger.info(`Order payment completion notification sent to customer: ${customerEmail} for order: ${order.orderNumber}${pdfBuffer ? ' with PDF attachment' : ''}`);
       return true;
     } catch (error) {
       logger.error('Error sending order payment completion notification:', error);

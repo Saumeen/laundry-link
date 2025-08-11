@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { processCardPayment } from '@/lib/utils/tapPaymentUtils';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
+import { generateInvoicePDF } from '@/lib/utils/invoiceUtils';
 
 interface CustomerData {
   firstName: string;
@@ -391,14 +392,30 @@ export async function POST(request: NextRequest) {
                 customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
               };
 
-              await emailService.sendOrderPaymentCompletionNotification(
-                orderForEmail,
-                orderWithCustomer.customer.email,
-                `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
-                amount,
-                'WALLET',
-                `WALLET-${result.walletTransaction?.id || 'DIRECT'}`
-              );
+              // Generate PDF invoice for attachment
+              const pdfResult = await generateInvoicePDF(order.id);
+              
+              if (pdfResult) {
+                await emailService.sendOrderPaymentCompletionNotification(
+                  orderForEmail,
+                  orderWithCustomer.customer.email,
+                  `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                  amount,
+                  'WALLET',
+                  `WALLET-${result.walletTransaction?.id || 'DIRECT'}`,
+                  pdfResult.pdfBuffer
+                );
+              } else {
+                // Fallback to email without PDF if generation fails
+                await emailService.sendOrderPaymentCompletionNotification(
+                  orderForEmail,
+                  orderWithCustomer.customer.email,
+                  `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                  amount,
+                  'WALLET',
+                  `WALLET-${result.walletTransaction?.id || 'DIRECT'}`
+                );
+              }
 
               logger.info('Email notification sent for wallet-only payment:', {
                 orderId: order.id,
@@ -451,14 +468,30 @@ export async function POST(request: NextRequest) {
                 customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
               };
 
-              await emailService.sendOrderPaymentCompletionNotification(
-                orderForEmail,
-                orderWithCustomer.customer.email,
-                `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
-                amount,
-                'TAP_PAY',
-                result.tapResponse.id
-              );
+              // Generate PDF invoice for attachment
+              const pdfResult = await generateInvoicePDF(order.id);
+              
+              if (pdfResult) {
+                await emailService.sendOrderPaymentCompletionNotification(
+                  orderForEmail,
+                  orderWithCustomer.customer.email,
+                  `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                  amount,
+                  'TAP_PAY',
+                  result.tapResponse.id,
+                  pdfResult.pdfBuffer
+                );
+              } else {
+                // Fallback to email without PDF if generation fails
+                await emailService.sendOrderPaymentCompletionNotification(
+                  orderForEmail,
+                  orderWithCustomer.customer.email,
+                  `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                  amount,
+                  'TAP_PAY',
+                  result.tapResponse.id
+                );
+              }
 
               logger.info('Email notification sent for card-only payment:', {
                 orderId: order.id,
@@ -550,14 +583,30 @@ export async function POST(request: NextRequest) {
                   customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
                 };
 
-                await emailService.sendOrderPaymentCompletionNotification(
-                  orderForEmail,
-                  orderWithCustomer.customer.email,
-                  `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
-                  amount,
-                  'TAP_PAY',
-                  tapResponse?.id
-                );
+                // Generate PDF invoice for attachment
+                const pdfResult = await generateInvoicePDF(order.id);
+                
+                if (pdfResult) {
+                  await emailService.sendOrderPaymentCompletionNotification(
+                    orderForEmail,
+                    orderWithCustomer.customer.email,
+                    `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                    amount,
+                    'TAP_PAY',
+                    tapResponse?.id,
+                    pdfResult.pdfBuffer
+                  );
+                } else {
+                  // Fallback to email without PDF if generation fails
+                  await emailService.sendOrderPaymentCompletionNotification(
+                    orderForEmail,
+                    orderWithCustomer.customer.email,
+                    `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+                    amount,
+                    'TAP_PAY',
+                    tapResponse?.id
+                  );
+                }
 
                 logger.info('Email notification sent for captured card-only payment:', {
                   orderId: order.id,

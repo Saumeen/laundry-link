@@ -4,6 +4,7 @@ import { tapConfig } from '@/lib/config/tapConfig';
 import { ConfigurationManager } from '@/lib/utils/configuration';
 import logger from '@/lib/logger';
 import emailService from '@/lib/emailService';
+import { generateInvoicePDF } from '@/lib/utils/invoiceUtils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -373,7 +374,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Send order payment completion email notification
+        // Send order payment completion email notification with PDF attachment
         const orderWithCustomer = await prisma.order.findUnique({
           where: { id: orderId },
           include: {
@@ -395,14 +396,30 @@ export async function POST(request: NextRequest) {
             customerAddress: orderWithCustomer.address?.addressLine1 || 'Address not available',
           };
 
-          await emailService.sendOrderPaymentCompletionNotification(
-            orderForEmail,
-            orderWithCustomer.customer.email,
-            `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
-            amount,
-            orderPaymentMethod,
-            id
-          );
+          // Generate PDF invoice for attachment
+          const pdfResult = await generateInvoicePDF(orderId);
+          
+          if (pdfResult) {
+            await emailService.sendOrderPaymentCompletionNotification(
+              orderForEmail,
+              orderWithCustomer.customer.email,
+              `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+              amount,
+              orderPaymentMethod,
+              id,
+              pdfResult.pdfBuffer
+            );
+          } else {
+            // Fallback to email without PDF if generation fails
+            await emailService.sendOrderPaymentCompletionNotification(
+              orderForEmail,
+              orderWithCustomer.customer.email,
+              `${orderWithCustomer.customer.firstName} ${orderWithCustomer.customer.lastName}`,
+              amount,
+              orderPaymentMethod,
+              id
+            );
+          }
         }
 
         logger.info('Order payment status updated in webhook:', {
