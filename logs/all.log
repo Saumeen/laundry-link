@@ -1753,3 +1753,5 @@
 2025-08-12 02:03:31:331 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
 2025-08-12 02:03:31:331 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
 2025-08-12 02:03:31:331 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 19:42:58:4258 [32minfo[39m: [32mOrder creation email sent to customer: gameapp486@gmail.com[39m
+2025-08-12 19:42:59:4259 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
