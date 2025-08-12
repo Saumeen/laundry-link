@@ -5,6 +5,7 @@ import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import logger from '@/lib/logger';
 import { processWalletPayment } from '@/lib/utils/walletUtils';
 import emailService from '@/lib/emailService';
+import { generateInvoicePDF } from '@/lib/utils/invoiceUtils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -125,17 +126,34 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Send payment completion email to customer
+    // Send payment completion email to customer with PDF attachment
     try {
-      await emailService.sendOrderPaymentCompletionNotification(
-        order,
-        order.customer.email,
-        `${order.customer.firstName} ${order.customer.lastName}`,
-        amount,
-        paymentMethod,
-        transaction.id.toString(),
-      );
-      logger.info(`Payment completion email sent to customer for order ${order.orderNumber}`);
+      // Generate PDF invoice for attachment
+      const pdfResult = await generateInvoicePDF(order.id);
+      
+      if (pdfResult) {
+        await emailService.sendOrderPaymentCompletionNotification(
+          order,
+          order.customer.email,
+          `${order.customer.firstName} ${order.customer.lastName}`,
+          amount,
+          paymentMethod,
+          transaction.id.toString(),
+          pdfResult.pdfBuffer
+        );
+        logger.info(`Payment completion email sent to customer for order ${order.orderNumber} with PDF attachment`);
+      } else {
+        // Fallback to email without PDF if generation fails
+        await emailService.sendOrderPaymentCompletionNotification(
+          order,
+          order.customer.email,
+          `${order.customer.firstName} ${order.customer.lastName}`,
+          amount,
+          paymentMethod,
+          transaction.id.toString()
+        );
+        logger.info(`Payment completion email sent to customer for order ${order.orderNumber} without PDF attachment (generation failed)`);
+      }
     } catch (emailError) {
       logger.error('Failed to send payment completion email:', emailError);
       // Continue with payment processing even if email fails
