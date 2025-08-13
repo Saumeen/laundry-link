@@ -54,6 +54,7 @@ export interface TapInvoiceRequest {
   reference: {
     invoice: string;
     order: string;
+    isOrderPayment: boolean;
   };
   description: string;
   metadata: Record<string, any>;
@@ -626,7 +627,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
         items: orderItems,
       },
       redirect: {
-        url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/orders?orderId=${order.id}`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/customer/orders/${order.id}`,
       },
       post: {
         url: `${process.env.WEBHOOK_URL}/api/payment/tap-webhook`,
@@ -634,6 +635,7 @@ export const createInvoiceForOrder = async (order: any, amount: number): Promise
       reference: {
         invoice: `inv_${order.orderNumber.trim()}`,
         order: order.orderNumber.trim(),
+        isOrderPayment: true,
       },
       description: `Payment for order ${order.orderNumber.trim()} - Laundry Link Services`,
       metadata: {
