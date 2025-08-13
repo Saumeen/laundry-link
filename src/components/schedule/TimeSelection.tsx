@@ -182,11 +182,6 @@ export default function TimeSelection({
       slot => !isTimeSlotInPast(slot, deliveryDate)
     );
 
-    // If delivery date is different from pickup date, show all available delivery slots
-    if (pickupDate !== deliveryDate) {
-      return deliveryTimeSlots;
-    }
-
     // If no pickup slot selected, show all available delivery slots
     if (!pickupTimeSlot) return deliveryTimeSlots;
 
@@ -196,14 +191,13 @@ export default function TimeSelection({
 
     if (!pickupSlot) return deliveryTimeSlots;
 
-    // Same day delivery - filter out slots that are before pickup time
+    // Calculate minimum delivery time (18 hours after pickup)
+    const pickupStart = new Date(`${pickupDate}T${pickupSlot.startTime}`);
+    const minDeliveryTime = new Date(pickupStart.getTime() + 18 * 60 * 60 * 1000); // 18 hours in milliseconds
+
+    // Filter delivery slots to only show those at least 18 hours after pickup
     return deliveryTimeSlots.filter(slot => {
-      const pickupStart = new Date(`${pickupDate}T${pickupSlot.startTime}`);
       const deliveryStart = new Date(`${deliveryDate}T${slot.startTime}`);
-
-      // Delivery must be after pickup (minimum 1 hour gap)
-      const minDeliveryTime = new Date(pickupStart.getTime() + 60 * 60 * 1000);
-
       return deliveryStart >= minDeliveryTime;
     });
   };
@@ -337,7 +331,27 @@ export default function TimeSelection({
 
         {/* Delivery Section */}
         <div className='space-y-4'>
-          <h3 className='text-lg font-semibold text-gray-900'>Delivery</h3>
+          <h3 className='text-lg font-semibold text-gray-900 flex items-center gap-2'>
+            Delivery
+            <div className='relative group'>
+              <svg
+                className='w-5 h-5 text-gray-400 cursor-help'
+                fill='currentColor'
+                viewBox='0 0 20 20'
+                xmlns='http://www.w3.org/2000/svg'
+              >
+                <path
+                  fillRule='evenodd'
+                  d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z'
+                  clipRule='evenodd'
+                />
+              </svg>
+              <div className='absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10'>
+                Delivery must be scheduled at least 18 hours after pickup time
+                <div className='absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900'></div>
+              </div>
+            </div>
+          </h3>
 
           <div>
             <label className='block text-sm font-medium text-gray-700 mb-2'>
@@ -347,7 +361,30 @@ export default function TimeSelection({
               type='date'
               value={deliveryDate}
               onChange={e => onTimeChange('deliveryDate', e.target.value)}
-              min={pickupDate || getCurrentBahrainDate()}
+              min={(() => {
+                if (!pickupDate || !pickupTimeSlot) {
+                  return getCurrentBahrainDate();
+                }
+                
+                const pickupSlot = availableTimeSlots.find(
+                  slot => slot.id === pickupTimeSlot
+                );
+                
+                if (!pickupSlot) {
+                  return pickupDate;
+                }
+                
+                // Calculate minimum delivery date (18 hours after pickup)
+                const pickupStart = new Date(`${pickupDate}T${pickupSlot.startTime}`);
+                const minDeliveryTime = new Date(pickupStart.getTime() + 18 * 60 * 60 * 1000);
+                
+                // If 18 hours would be on the same day, allow same day
+                // Otherwise, require next day or later
+                const minDeliveryDate = new Date(minDeliveryTime);
+                const minDateString = minDeliveryDate.toISOString().split('T')[0];
+                
+                return minDateString;
+              })()}
               className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
             />
           </div>
@@ -357,20 +394,31 @@ export default function TimeSelection({
               Time Slot *
             </label>
             <div className='grid grid-cols-1 gap-2'>
-              {availableDeliverySlots.map(slot => (
-                <button
-                  key={slot.id}
-                  type='button'
-                  onClick={() => handleTimeSlotChange('delivery', slot.id)}
-                  className={`p-3 text-left border-2 rounded-lg transition-all ${
-                    deliveryTimeSlot === slot.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-blue-300'
-                  }`}
-                >
-                  <div className='font-medium'>{slot.label}</div>
-                </button>
-              ))}
+              {availableDeliverySlots.length > 0 ? (
+                availableDeliverySlots.map(slot => (
+                  <button
+                    key={slot.id}
+                    type='button'
+                    onClick={() => handleTimeSlotChange('delivery', slot.id)}
+                    className={`p-3 text-left border-2 rounded-lg transition-all ${
+                      deliveryTimeSlot === slot.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-300 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className='font-medium'>{slot.label}</div>
+                  </button>
+                ))
+              ) : (
+                                 <div className='p-3 border-2 border-gray-300 rounded-lg bg-gray-50'>
+                   <p className='text-sm text-gray-600'>
+                     {pickupTimeSlot 
+                       ? 'Please select a delivery date to continue.'
+                       : 'Please select a pickup time slot first to see available delivery options.'
+                     }
+                   </p>
+                 </div>
+              )}
             </div>
           </div>
         </div>

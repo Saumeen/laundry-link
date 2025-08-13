@@ -1603,3 +1603,155 @@
 2025-08-11 21:22:49:2249 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
 2025-08-11 21:28:16:2816 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
 2025-08-11 21:42:44:4244 [32minfo[39m: [32mInvoice generation notification sent to customer: psaumeen@gmail.com[39m
+2025-08-11 23:23:56:2356 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-11 23:23:56:2356 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-11 23:24:06:246 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-11 23:24:06:246 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-11 23:26:13:2613 [32minfo[39m: [32mProcessing Tap webhook:[39m
+2025-08-11 23:26:13:2613 [32minfo[39m: [32mPayment metadata parsed:[39m
+2025-08-11 23:26:13:2613 [32minfo[39m: [32mPayment captured in webhook - updating payment record status:[39m
+2025-08-11 23:26:13:2613 [32minfo[39m: [32mQuick slot reward applied:[39m
+2025-08-11 23:26:13:2613 [32minfo[39m: [32mWallet top-up reward applied:[39m
+2025-08-11 23:26:15:2615 [32minfo[39m: [32mWallet top-up completion notification sent to customer: gameapp486@gmail.com for amount: 10 BD[39m
+2025-08-11 23:26:15:2615 [32minfo[39m: [32mWallet top-up confirmed in webhook:[39m
+2025-08-11 23:26:15:2615 [32minfo[39m: [32mTap webhook processed successfully:[39m
+2025-08-11 23:30:13:3013 [32minfo[39m: [32mOrder creation email sent to customer: gameapp486@gmail.com[39m
+2025-08-11 23:30:13:3013 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
+2025-08-11 23:34:12:3412 [32minfo[39m: [32mOrder update email sent to customer: gameapp486@gmail.com[39m
+2025-08-11 23:35:45:3545 [32minfo[39m: [32mOperations action completed: assign_pickup_driver for order 1 by staff 1[39m
+2025-08-11 23:36:31:3631 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_IN_PROGRESS[39m
+2025-08-11 23:36:46:3646 [32minfo[39m: [32mPhoto saved for assignment 1 by driver 4[39m
+2025-08-11 23:36:47:3647 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_COMPLETED[39m
+2025-08-11 23:37:38:3738 [32minfo[39m: [32mPhoto saved for assignment 1 by driver 4[39m
+2025-08-11 23:37:38:3738 [32minfo[39m: [32mOrder #LL35211371 marked as dropped off by driver Driver Team for pickup[39m
+2025-08-11 23:38:52:3852 [32minfo[39m: [32mCreating Tap invoice for order 1[39m
+2025-08-11 23:38:52:3852 [31merror[39m: [31mOrder 1 has incomplete customer data: firstName=true, lastName=false, email=true[39m
+2025-08-11 23:38:52:3852 [31merror[39m: [31mError creating Tap invoice for order 1: Order has incomplete customer information[39m
+2025-08-11 23:38:52:3852 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-11 23:38:53:3853 [32minfo[39m: [32mInvoice generation notification sent to customer: gameapp486@gmail.com[39m
+2025-08-11 23:38:53:3853 [32minfo[39m: [32mFacility action completed: generate_invoice for order 1 by staff 3[39m
+2025-08-11 23:39:51:3951 [32minfo[39m: [32mIssue report created/updated for processing item detail 1 by staff 3[39m
+2025-08-11 23:41:10:4110 [32minfo[39m: [32mProcessing wallet portion of split payment:[39m
+2025-08-11 23:41:10:4110 [32minfo[39m: [32mWallet portion of split payment completed immediately:[39m
+2025-08-11 23:41:10:4110 [32minfo[39m: [32mProcessing card portion of split payment:[39m
+2025-08-11 23:41:10:4110 [32minfo[39m: [32mCreating Tap charge for card payment:[39m
+2025-08-11 23:41:10:4110 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-11 23:41:13:4113 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-11 23:41:13:4113 [32minfo[39m: [32mTap charge created successfully for card payment:[39m
+2025-08-11 23:41:13:4113 [32minfo[39m: [32mCard portion of split payment processed:[39m
+2025-08-11 23:41:13:4113 [32minfo[39m: [32mSplit payment requires redirect for order LL35211371[39m
+2025-08-11 23:42:02:422 [32minfo[39m: [32mProcessing Tap webhook:[39m
+2025-08-11 23:42:02:422 [32minfo[39m: [32mPayment metadata parsed:[39m
+2025-08-11 23:42:02:422 [32minfo[39m: [32mPayment captured in webhook - updating payment record status:[39m
+2025-08-11 23:42:04:424 [32minfo[39m: [32mOrder payment completion notification sent to customer: gameapp486@gmail.com for order: LL35211371 with PDF attachment[39m
+2025-08-11 23:42:04:424 [32minfo[39m: [32mOrder payment status updated in webhook:[39m
+2025-08-11 23:42:04:424 [32minfo[39m: [32mTap webhook processed successfully:[39m
+2025-08-11 23:43:01:431 [32minfo[39m: [32mProcessing completed notification sent to customer: gameapp486@gmail.com[39m
+2025-08-11 23:43:01:431 [32minfo[39m: [32mFacility action completed: complete_processing for order 1 by staff 3[39m
+2025-08-11 23:43:01:431 [32minfo[39m: [32mProcessing completed notification sent to customer: gameapp486@gmail.com[39m
+2025-08-11 23:44:32:4432 [32minfo[39m: [32mOperations action completed: assign_delivery_driver for order 1 by staff 2[39m
+2025-08-11 23:46:48:4648 [31merror[39m: [31mError creating Tap refund: Tap refund creation failed: Bad Request[39m
+2025-08-11 23:46:48:4648 [31merror[39m: [31mError processing Tap refund: Failed to create Tap refund[39m
+2025-08-11 23:48:35:4835 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: DELIVERY_IN_PROGRESS[39m
+2025-08-11 23:48:39:4839 [32minfo[39m: [32mPhoto saved for assignment 2 by driver 4[39m
+2025-08-11 23:48:40:4840 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: DELIVERED[39m
+2025-08-11 23:48:40:4840 [32minfo[39m: [32mDelivery confirmation email with invoice sent to customer: gameapp486@gmail.com[39m
+2025-08-11 23:48:40:4840 [32minfo[39m: [32mDelivery confirmation email sent for order #LL35211371[39m
+2025-08-12 00:04:35:435 [32minfo[39m: [32mOrder creation email sent to customer: gameapp486@gmail.com[39m
+2025-08-12 00:04:35:435 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
+2025-08-12 00:05:34:534 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: CONFIRMED[39m
+2025-08-12 00:06:13:613 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_IN_PROGRESS[39m
+2025-08-12 00:06:17:617 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_COMPLETED[39m
+2025-08-12 00:07:46:746 [32minfo[39m: [32mCreating Tap invoice for order 2[39m
+2025-08-12 00:07:46:746 [31merror[39m: [31mOrder 2 has incomplete customer data: firstName=true, lastName=false, email=true[39m
+2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice for order 2: Order has incomplete customer information[39m
+2025-08-12 00:07:46:746 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-12 00:07:47:747 [32minfo[39m: [32mInvoice generation notification sent to customer: gameapp486@gmail.com[39m
+2025-08-12 00:07:47:747 [32minfo[39m: [32mFacility action completed: generate_invoice for order 2 by staff 1[39m
+2025-08-12 00:09:03:93 [32minfo[39m: [32mAdmin wallet adjustment:[39m
+2025-08-12 00:09:42:942 [32minfo[39m: [32mWallet payment processed for order LL37273890: 20 BHD via WALLET[39m
+2025-08-12 00:16:11:1611 [31merror[39m: [31mError fetching customer profile: Authentication required[39m
+2025-08-12 01:36:50:3650 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-12 01:36:50:3650 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 01:36:54:3654 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-12 01:36:54:3654 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-12 01:37:34:3734 [32minfo[39m: [32mUpdated pending TAP payment 7 to COMPLETED. Charge ID: chg_TS07A4920252006Na341108864[39m
+2025-08-12 01:39:50:3950 [32minfo[39m: [32mOrder creation email sent to customer: gameapp486@gmail.com[39m
+2025-08-12 01:39:50:3950 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
+2025-08-12 01:41:14:4114 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: CONFIRMED[39m
+2025-08-12 01:43:07:437 [32minfo[39m: [32mOperations action completed: assign_pickup_driver for order 3 by staff 1[39m
+2025-08-12 01:43:52:4352 [32minfo[39m: [32mCreating Tap invoice for order 3[39m
+2025-08-12 01:43:52:4352 [31merror[39m: [31mOrder 3 has incomplete customer data: firstName=true, lastName=false, email=true[39m
+2025-08-12 01:43:52:4352 [31merror[39m: [31mError creating Tap invoice for order 3: Order has incomplete customer information[39m
+2025-08-12 01:43:52:4352 [31merror[39m: [31mError creating Tap invoice: Order has incomplete customer information[39m
+2025-08-12 01:43:54:4354 [32minfo[39m: [32mInvoice generation notification sent to customer: gameapp486@gmail.com[39m
+2025-08-12 01:43:54:4354 [32minfo[39m: [32mFacility action completed: generate_invoice for order 3 by staff 1[39m
+2025-08-12 01:44:26:4426 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_IN_PROGRESS[39m
+2025-08-12 01:44:32:4432 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_COMPLETED[39m
+2025-08-12 01:45:51:4551 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_COMPLETED[39m
+2025-08-12 01:46:16:4616 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PROCESSING_STARTED[39m
+2025-08-12 01:46:25:4625 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PROCESSING_COMPLETED[39m
+2025-08-12 01:47:37:4737 [32minfo[39m: [32mOperations action completed: assign_delivery_driver for order 3 by staff 1[39m
+2025-08-12 01:47:52:4752 [32minfo[39m: [32mInvoice generation notification sent to customer: gameapp486@gmail.com[39m
+2025-08-12 01:48:15:4815 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: DELIVERY_IN_PROGRESS[39m
+2025-08-12 01:48:55:4855 [32minfo[39m: [32mOrder payment completion notification sent to customer: gameapp486@gmail.com for order: LL42988558[39m
+2025-08-12 01:48:55:4855 [32minfo[39m: [32mPayment completion email sent to customer for order LL42988558[39m
+2025-08-12 01:48:55:4855 [32minfo[39m: [32mWallet payment processed for order LL42988558: 10 BHD via WALLET[39m
+2025-08-12 01:50:09:509 [32minfo[39m: [32mOrder creation email sent to customer: gameapp486@gmail.com[39m
+2025-08-12 01:50:09:509 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
+2025-08-12 01:51:05:515 [32minfo[39m: [32mInvoice generation notification sent to customer: gameapp486@gmail.com[39m
+2025-08-12 01:52:10:5210 [32minfo[39m: [32mProcessing wallet portion of split payment:[39m
+2025-08-12 01:52:10:5210 [32minfo[39m: [32mWallet portion of split payment completed immediately:[39m
+2025-08-12 01:52:10:5210 [32minfo[39m: [32mProcessing card portion of split payment:[39m
+2025-08-12 01:52:10:5210 [32minfo[39m: [32mCreating Tap charge for card payment:[39m
+2025-08-12 01:52:10:5210 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 01:52:15:5215 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-12 01:52:15:5215 [32minfo[39m: [32mTap charge created successfully for card payment:[39m
+2025-08-12 01:52:15:5215 [32minfo[39m: [32mCard portion of split payment processed:[39m
+2025-08-12 01:52:15:5215 [32minfo[39m: [32mSplit payment requires redirect for order LL43607697[39m
+2025-08-12 01:55:20:5520 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: CONFIRMED[39m
+2025-08-12 01:56:25:5625 [32minfo[39m: [32mOperations action completed: assign_pickup_driver for order 4 by staff 1[39m
+2025-08-12 01:57:29:5729 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_IN_PROGRESS[39m
+2025-08-12 01:57:34:5734 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PICKUP_COMPLETED[39m
+2025-08-12 01:57:50:5750 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: PROCESSING_STARTED[39m
+2025-08-12 01:58:14:5814 [32minfo[39m: [32mOperations action completed: assign_delivery_driver for order 4 by staff 1[39m
+2025-08-12 01:58:25:5825 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: DELIVERY_IN_PROGRESS[39m
+2025-08-12 01:58:58:5858 [32minfo[39m: [32mCreating Tap charge for card payment:[39m
+2025-08-12 01:58:58:5858 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 01:59:03:593 [32minfo[39m: [32mTap charge created successfully:[39m
+2025-08-12 01:59:03:593 [32minfo[39m: [32mTap charge created successfully for card payment:[39m
+2025-08-12 01:59:03:593 [32minfo[39m: [32mCard-only payment processed (no wallet transaction):[39m
+2025-08-12 01:59:03:593 [32minfo[39m: [32mDirect card payment requires redirect for order LL43607697[39m
+2025-08-12 02:00:00:00 [32minfo[39m: [32mStatus update email sent to customer: gameapp486@gmail.com for status: DELIVERED[39m
+2025-08-12 02:02:46:246 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-12 02:02:46:246 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:47:247 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:51:251 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-12 02:02:51:251 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:52:252 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:54:254 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-12 02:02:54:254 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:02:54:254 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:22:322 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-12 02:03:22:322 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:23:323 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:31:331 [32minfo[39m: [32mCreating Tap charge for payment record:[39m
+2025-08-12 02:03:31:331 [32minfo[39m: [32mCreating Tap charge with data:[39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mTap charge creation failed with error data:[39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mError creating Tap charge: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mError processing Tap payment: Tap charge creation failed: [object Object][39m
+2025-08-12 02:03:31:331 [31merror[39m: [31mError processing wallet top-up: Tap charge creation failed: [object Object][39m
+2025-08-12 19:42:58:4258 [32minfo[39m: [32mOrder creation email sent to customer: gameapp486@gmail.com[39m
+2025-08-12 19:42:59:4259 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
