@@ -5,6 +5,7 @@ interface SocialLoginButtonProps {
   onClick: () => void;
   children: React.ReactNode;
   className?: string;
+  isDisabled?: boolean;
 }
 
 const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
@@ -12,6 +13,7 @@ const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
   onClick,
   children,
   className = '',
+  isDisabled = false,
 }) => {
   const getLogoSrc = () => {
     switch (provider) {
@@ -84,6 +86,7 @@ const SocialLoginButton: React.FC<SocialLoginButtonProps> = ({
       type='button'
       onClick={onClick}
       className={`w-full flex items-center justify-center px-4 py-3 border-2 border-gray-200 rounded-xl shadow-sm bg-white/80 backdrop-blur-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-[1.02] ${getProviderColors()} ${className}`}
+      disabled={isDisabled}
     >
       {getProviderIcon()}
       <span className='font-medium text-sm'>{children}</span>

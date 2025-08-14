@@ -184,10 +184,18 @@ export default function Footer() {
         </div>
 
         <div className='mt-8 border-t border-gray-700 pt-8 flex flex-col md:flex-row justify-between'>
-          <p className='text-base text-gray-400'>
-            &copy; {new Date().getFullYear()} Laundry Link. All rights reserved.
-            Subsidiary of OVO W.L.L
-          </p>
+          <div className='flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6'>
+            <p className='text-base text-gray-400'>
+              &copy; {new Date().getFullYear()} Laundry Link. All rights reserved.
+              Subsidiary of OVO W.L.L
+            </p>
+            <Link
+              href='/privacy-policy'
+              className='text-base text-gray-400 hover:text-gray-300'
+            >
+              Privacy Policy
+            </Link>
+          </div>
           <div className='flex space-x-6 mt-4 md:mt-0'>
             <a href='#' className='text-gray-400 hover:text-gray-300'>
               <span className='sr-only'>Facebook</span>

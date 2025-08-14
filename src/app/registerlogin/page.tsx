@@ -542,6 +542,7 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
                     signIn('apple', { callbackUrl: '/customer/dashboard' })
                   }
                   className='flex-1'
+                  isDisabled={true}
                 >
                   Apple
                 </SocialLoginButton>
