@@ -195,6 +195,12 @@ export default function Footer() {
             >
               Privacy Policy
             </Link>
+            <Link
+              href='/terms-and-conditions'
+              className='text-base text-gray-400 hover:text-gray-300'
+            >
+              Terms & Conditions
+            </Link>
           </div>
           <div className='flex space-x-6 mt-4 md:mt-0'>
             <a href='#' className='text-gray-400 hover:text-gray-300'>

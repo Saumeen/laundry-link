@@ -14,6 +14,7 @@ export async function middleware(request: NextRequest) {
     path === '/login' ||
     path === '/admin/login' ||
     path === '/privacy-policy' ||
+    path === '/terms-and-conditions' ||
     path.startsWith('/api/') ||
     path.startsWith('/_next/') ||
     path.startsWith('/favicon.ico') ||

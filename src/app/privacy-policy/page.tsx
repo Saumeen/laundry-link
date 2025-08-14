@@ -11,102 +11,138 @@ export default function PrivacyPolicyPage() {
               Privacy Policy
             </h1>
             <p className="text-blue-100 text-center mt-2">
-              Last Updated: {new Date().toLocaleDateString()}
+              Last Updated: 14/08/2025
             </p>
           </div>
 
           {/* Content */}
           <div className="px-6 py-8 prose prose-lg max-w-none">
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
               <p className="text-gray-700 leading-relaxed">
-                Laundry Link is a laundry service application that connects customers with professional laundry services in Bahrain. This Privacy Policy explains how we collect, use, store, and protect your personal information when you use our application and services.
+                TOP LINK LAUNDRY W.L.L. ("we," "our," "us" or "Laundry Link") is committed to protecting the privacy of all users of our website and mobile application (together, the "Sites"). This privacy policy explains how we collect, use, and protect your information. Laundry Link is the "data controller" of the information you provide.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Information We Collect</h2>
-              <p className="text-gray-700 mb-3">We collect the following information to provide our laundry services:</p>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Contact Details</h2>
+              <p className="text-gray-700 mb-3">If you have any questions or requests about this privacy policy or how we handle your data, contact us:</p>
               <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li><strong>Account Information:</strong> Full name, email address, phone number, and password</li>
-                <li><strong>Address Information:</strong> Delivery and pickup addresses, including GPS coordinates when using location services</li>
-                <li><strong>Order Information:</strong> Service preferences, special instructions, pickup and delivery schedules</li>
-                <li><strong>Payment Information:</strong> Payment method preferences and transaction history</li>
-                <li><strong>Device Information:</strong> Basic device information for app functionality</li>
+                <li>Customer Service Whatsapp: +97333440841</li>
+                <li>Data Protection Contact: info@ovobh.com</li>
               </ul>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. How We Use Your Information</h2>
-              <p className="text-gray-700 mb-3">We use your information for the following purposes:</p>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">How We Collect Your Information</h2>
+              <p className="text-gray-700 mb-3">We collect information when you:</p>
               <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>Process and fulfill your laundry orders</li>
-                <li>Coordinate pickup and delivery services</li>
-                <li>Send order confirmations and status updates</li>
-                <li>Provide customer support and resolve issues</li>
-                <li>Manage your account and payment transactions</li>
-                <li>Improve our services and user experience</li>
+                <li>Create or update an account</li>
+                <li>Place an order through our platform</li>
+                <li>Contact us by email, phone, or chat</li>
+                <li>Browse our website or mobile app</li>
+              </ul>
+              <p className="text-gray-700">We also gather data from advertising platforms and fraud detection partners.</p>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">What Information We Collect</h2>
+              <p className="text-gray-700 mb-3">We may collect:</p>
+              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
+                <li>Name, contact details, and delivery address</li>
+                <li>Payment info (e.g., debit/credit card details)</li>
+                <li>Order history and preferences</li>
+                <li>Communications with our team</li>
+                <li>Technical info like device type, browser, OS, IP address, and location data</li>
+                <li>Usage behavior on our Sites</li>
+                <li>Allergies or health-related notes if voluntarily provided</li>
               </ul>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. How We Store and Protect Your Information</h2>
-              <p className="text-gray-700 mb-3">We take the security of your information seriously:</p>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Why We Use Your Information</h2>
+              <p className="text-gray-700 mb-3">We use your information to:</p>
               <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>Your information is stored securely using industry-standard encryption</li>
-                <li>All data transmission is encrypted using secure protocols</li>
-                <li>Access to your data is restricted to authorized personnel only</li>
-                <li>We regularly review and update our security practices</li>
-                <li>We retain your information only as long as necessary for service provision</li>
+                <li>Provide services and fulfill orders</li>
+                <li>Process payments securely</li>
+                <li>Contact you about your orders or account</li>
+                <li>Improve our services and tailor your experience</li>
+                <li>Send marketing (only with your permission or under legal basis)</li>
+                <li>Analyze site usage and prevent fraud</li>
+                <li>Enforce our terms and comply with legal obligations</li>
               </ul>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">5. Data Sharing Policy</h2>
-              <p className="text-gray-700 mb-4">
-                <strong>We do not sell, rent, or trade your personal information to third parties.</strong>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Marketing & Profiling</h2>
+              <p className="text-gray-700">
+                We may contact you (with or without your consent or under legitimate interest) to inform you about promotions, services, or offers. You may opt out anytime by updating your marketing preferences or contacting us.
               </p>
-              <p className="text-gray-700 mb-3">We may share your information only in the following limited circumstances:</p>
-              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>With trusted service providers who assist us in payment processing and email delivery</li>
-                <li>When required by law, court order, or government regulation</li>
-                <li>With our delivery partners to fulfill your orders (limited to necessary information only)</li>
-              </ul>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Your Rights and Data Deletion</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Cookies</h2>
+              <p className="text-gray-700">
+                We use cookies to enhance your experience. You can control cookie settings in your browser.
+              </p>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Fraud Prevention</h2>
+              <p className="text-gray-700">
+                We use automated systems to detect and prevent fraudulent activities. This may involve profiling and scoring of transactions. You can request a review of any decision or further details by contacting us.
+              </p>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Retention of Data</h2>
+              <p className="text-gray-700 mb-3">We only retain your information for as long as needed to:</p>
+              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
+                <li>Fulfill services</li>
+                <li>Comply with legal obligations</li>
+                <li>Resolve disputes</li>
+                <li>Improve our services</li>
+              </ul>
+              <p className="text-gray-700">When data is no longer required, it is securely deleted.</p>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Who We Share Your Data With</h2>
+              <p className="text-gray-700 mb-3">We share your data with:</p>
+              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
+                <li>Payment processors</li>
+                <li>Cloud and IT service providers</li>
+                <li>Delivery partners</li>
+                <li>Customer support providers</li>
+                <li>Marketing platforms (when permitted)</li>
+              </ul>
+              <p className="text-gray-700">All partners are contractually obligated to protect your data.</p>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">International Transfers</h2>
+              <p className="text-gray-700">
+                If data is transferred outside Bahrain, we ensure it's protected by appropriate safeguards, such as data protection agreements and secure protocols.
+              </p>
+            </section>
+
+            <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Your Rights</h2>
               <p className="text-gray-700 mb-3">You have the right to:</p>
               <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>Access your personal information stored in our system</li>
-                <li>Update or correct your account information</li>
-                <li>Request deletion of your personal information</li>
-                <li>Opt out of marketing communications</li>
+                <li>Access your data</li>
+                <li>Correct inaccurate information</li>
+                <li>Delete your data</li>
+                <li>Limit how we process your data</li>
+                <li>Object to processing or marketing</li>
+                <li>Withdraw consent at any time</li>
+                <li>File a complaint with a local data authority</li>
               </ul>
-              <p className="text-gray-700 mb-3">To request data deletion, please:</p>
-              <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
-                <li>Contact us using the email address below</li>
-                <li>Provide your account email address for verification</li>
-                <li>Specify which data you want deleted</li>
-              </ul>
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                <p className="text-yellow-800">
-                  <strong>Note:</strong> Deleting your account will permanently remove your order history and wallet balance. Please ensure you have no pending orders or wallet funds before requesting deletion.
-                </p>
-              </div>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">7. Contact Information</h2>
-              <p className="text-gray-700 mb-4">
-                For privacy-related inquiries, data deletion requests, or questions about this Privacy Policy, please contact us:
-              </p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700"><strong>Email:</strong> laundrylink2@gmail.com</p>
-                <p className="text-gray-700"><strong>Phone:</strong> +973 33440841</p>
-              </div>
-              <p className="text-gray-700 mt-4">
-                We will respond to your inquiry within 30 days of receipt.
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Changes to This Policy</h2>
+              <p className="text-gray-700">
+                We may update this policy. When we do, we will post the new version and notify you when required.
               </p>
             </section>
 
