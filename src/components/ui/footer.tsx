@@ -10,7 +10,7 @@ export default function Footer() {
         <div className='grid grid-cols-1 md:grid-cols-4 gap-8'>
           <div className='md:col-span-1'>
             <div className='flex items-center'>
-              <Logo width={60} height={60} className='mr-2' />
+              <Logo width={60} height={60} className='mr-2' src='/laundry-link-logo.png' />
               <span className='text-xl font-bold'>Laundry Link</span>
             </div>
             <p className='mt-4 text-sm text-gray-300'>
