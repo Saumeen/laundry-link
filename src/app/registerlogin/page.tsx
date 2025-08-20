@@ -653,14 +653,6 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
                 )}
               </button>
 
-              <div className='text-center'>
-                <a
-                  href='/forgot-password'
-                  className='text-sm text-blue-600 hover:text-blue-500 font-medium transition-colors duration-200'
-                >
-                  Forgot your password?
-                </a>
-              </div>
             </form>
           )}
 
