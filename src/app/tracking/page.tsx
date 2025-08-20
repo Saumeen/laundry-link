@@ -63,6 +63,18 @@ interface Order {
     apartment?: string;
     contactNumber?: string;
   };
+  processing?: {
+    issueReports: Array<{
+      issueType: string;
+      status: string;
+      description: string;
+      resolution?: string;
+      severity: string;
+      images: string[];
+      reportedAt: string;
+      staffName: string;
+    }>;
+  };
 }
 
 interface TimelineEvent {
@@ -71,6 +83,8 @@ interface TimelineEvent {
   completed: boolean;
   icon: string;
   description: string;
+  images?: string[];
+  issueType?: string;
 }
 
 export default function Tracking() {
@@ -121,8 +135,54 @@ export default function Tracking() {
       const response = await fetch(`/api/tracking/${trackingId.trim()}`);
 
       if (response.ok) {
-        const data = (await response.json()) as { order: Order };
-        setOrder(data.order);
+        const data = (await response.json()) as any;
+        // Transform the API response to match our Order interface
+        const transformedOrder: Order = {
+          id: 0, // Not provided by API
+          orderNumber: data.orderNumber,
+          status: data.status,
+          invoiceTotal: data.invoiceTotal,
+          pickupStartTime: data.pickupTime || '',
+          pickupEndTime: data.pickupTime || '',
+          deliveryStartTime: data.deliveryTime || '',
+          deliveryEndTime: data.deliveryTime || '',
+          pickupTimeSlot: data.pickupTime || '',
+          deliveryTimeSlot: data.deliveryTime || '',
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          customerFirstName: data.customerName?.split(' ')[0] || '',
+          customerLastName: data.customerName?.split(' ').slice(1).join(' ') || '',
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          customerAddress: '',
+          specialInstructions: data.specialInstructions,
+          paymentStatus: data.paymentStatus,
+          orderServiceMappings: data.services?.map((service: any) => ({
+            id: 0,
+            service: {
+              id: 0,
+              name: service.serviceName,
+              displayName: service.serviceName,
+              description: '',
+              price: service.price,
+            },
+            quantity: service.quantity,
+            price: service.price,
+            orderItems: service.items?.map((item: any) => ({
+              id: 0,
+              itemName: item.itemName,
+              itemType: item.itemType,
+              quantity: item.quantity,
+              pricePerItem: item.pricePerItem,
+              totalPrice: item.totalPrice,
+              notes: item.notes,
+            })) || [],
+          })) || [],
+          processing: data.processing ? {
+            issueReports: data.processing.issueReports || [],
+          } : undefined,
+        };
+        setOrder(transformedOrder);
       } else {
         const errorData = (await response.json()) as { error?: string };
         setError(errorData.error || 'Order not found');
@@ -283,6 +343,29 @@ export default function Tracking() {
         description: 'Your order has been successfully delivered',
       });
     }
+
+    // Add issue reports to timeline
+    if (order.processing?.issueReports && order.processing.issueReports.length > 0) {
+      order.processing.issueReports.forEach(report => {
+        const reportDate = new Date(report.reportedAt);
+        const icon = report.issueType === 'damage' ? '⚠️' : 
+                    report.issueType === 'stain' ? '💧' : 
+                    report.issueType === 'missing_item' ? '❓' : '🚨';
+        
+        timeline.push({
+          status: `Issue Reported - ${report.issueType.replace('_', ' ').toUpperCase()}`,
+          time: reportDate.toLocaleString(),
+          completed: report.status === 'RESOLVED',
+          icon: icon,
+          description: report.description,
+          images: report.images,
+          issueType: report.issueType,
+        });
+      });
+    }
+
+    // Sort timeline by time
+    timeline.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
     return timeline;
   };
@@ -501,6 +584,30 @@ export default function Tracking() {
                           {event.description}
                         </p>
                         <p className='text-xs text-gray-500'>{event.time}</p>
+                        
+                        {/* Display issue images if available */}
+                        {event.images && event.images.length > 0 && (
+                          <div className='mt-3'>
+                            <p className='text-xs text-gray-500 mb-2'>
+                              Issue Images:
+                            </p>
+                            <div className='flex flex-wrap gap-2'>
+                              {event.images.map((imageUrl, imageIndex) => (
+                                <div key={imageIndex} className='relative'>
+                                  <img
+                                    src={imageUrl}
+                                    alt={`Issue ${event.issueType} image ${imageIndex + 1}`}
+                                    className='w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity'
+                                    onClick={() => {
+                                      // Open image in modal or new tab
+                                      window.open(imageUrl, '_blank');
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
