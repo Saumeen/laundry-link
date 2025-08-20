@@ -16,9 +16,9 @@ export default function CustomerDashboardPage() {
     <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
       <CustomerNavigation
         currentPage='dashboard'
-        title='Dashboard'
+        
         subtitle={`Welcome back, ${profile?.firstName} ${profile?.lastName}`}
-        icon='📊'
+        
       />
 
       {/* Main Content */}

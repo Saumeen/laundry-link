@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useProfileStore } from '@/customer';
 import { useLogout } from '@/hooks/useAuth';
 import { useEffect } from 'react';
+import Logo from './ui/Logo';
 
 interface CustomerNavigationProps {
   currentPage:
@@ -15,16 +16,16 @@ interface CustomerNavigationProps {
     | 'addresses'
     | 'profile'
     | 'faq';
-  title: string;
+  
   subtitle: string;
-  icon: string;
+
 }
 
 export default function CustomerNavigation({
   currentPage,
-  title,
+ 
   subtitle,
-  icon,
+  
 }: CustomerNavigationProps) {
   const { profile } = useProfileStore();
   const balance = profile?.wallet?.balance || 0;
@@ -91,15 +92,14 @@ export default function CustomerNavigation({
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='flex items-center justify-between h-16'>
             <div className='flex items-center space-x-3 sm:space-x-4'>
-              <div className='w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-lg flex items-center justify-center'>
+              <div className=' rounded-lg flex items-center justify-center'>
                 <span className='text-white font-bold text-sm sm:text-lg'>
-                  {icon}
+                  <Logo width={60} height={10} className='mr-2' src='/laundry-link-logo.png' />
+                 
                 </span>
               </div>
               <div className='min-w-0 flex-1'>
-                <h1 className='text-lg sm:text-2xl font-bold text-gray-900 truncate'>
-                  {title}
-                </h1>
+                <Logo width={120} height={100} className='mr-2' src='/laundry-link-main.png' />
                 <p className='text-xs sm:text-sm text-gray-600 truncate'>
                   {subtitle}
                 </p>
