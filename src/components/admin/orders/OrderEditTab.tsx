@@ -474,9 +474,11 @@ export default function OrderEditTab({ order, onUpdate }: OrderEditTabProps) {
                 className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
               >
                 <option value=''>Select collection method</option>
-                <option value='Reception'>Reception</option>
-                <option value='Directly'>Directly</option>
-                <option value='Security'>Security</option>
+                <option value='From Reception'>From Reception</option>
+                <option value='From Concierge'>From Concierge</option>
+                <option value='Directly from Room'>Directly from Room</option>
+                <option value='Collect directly from me'>Collect directly from me</option>
+                <option value="I'll leave it outside">I'll leave it outside</option>
               </select>
             </div>
           </div>

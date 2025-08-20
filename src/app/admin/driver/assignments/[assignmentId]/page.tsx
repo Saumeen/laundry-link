@@ -841,6 +841,18 @@ export default function DriverAssignmentDetailPage() {
                             </p>
                           </div>
                         )}
+
+                        {/* Collection Method */}
+                        {assignment.order.address.collectionMethod && (
+                          <div className='bg-blue-50 p-3 rounded-lg border border-blue-200'>
+                            <p className='text-sm font-medium text-blue-700 mb-1'>
+                              Collection Method
+                            </p>
+                            <p className='text-base font-medium text-blue-900'>
+                              {assignment.order.address.collectionMethod}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       /* Fallback to customer address */
