@@ -19,6 +19,7 @@ interface CreateOrderRequest {
   customerPhone: string;
   customerAddress: string;
   isExpressService?: boolean;
+  collectionMethod?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
       customerPhone,
       customerAddress,
       isExpressService,
+      collectionMethod,
     } = body;
 
     // Validate required fields
@@ -213,6 +215,7 @@ export async function POST(request: NextRequest) {
         customerAddress,
         paymentStatus: PaymentStatus.PENDING,
         isExpressService: isExpressService || false,
+        collectionMethod: collectionMethod?.trim() || null,
       },
     });
 

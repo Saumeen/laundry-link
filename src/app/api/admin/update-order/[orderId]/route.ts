@@ -37,6 +37,7 @@ interface UpdateOrderRequest {
   apartment?: string;
   contactNumber?: string;
   locationType?: string;
+  collectionMethod?: string;
   // Email notification control
   sendEmailNotification?: boolean;
 }
@@ -72,6 +73,7 @@ export async function PUT(
       apartment,
       contactNumber,
       locationType,
+      collectionMethod,
       sendEmailNotification,
     } = body;
 
@@ -286,7 +288,8 @@ export async function PUT(
         floor !== undefined ||
         apartment !== undefined ||
         contactNumber !== undefined ||
-        locationType !== undefined)
+        locationType !== undefined ||
+        collectionMethod !== undefined)
     ) {
       const addressUpdateData: any = {};
 
@@ -304,6 +307,8 @@ export async function PUT(
         addressUpdateData.contactNumber = contactNumber;
       if (locationType !== undefined)
         addressUpdateData.locationType = locationType;
+      if (collectionMethod !== undefined)
+        addressUpdateData.collectionMethod = collectionMethod;
 
       await prisma.address.update({
         where: { id: currentOrder.addressId },
@@ -387,7 +392,9 @@ export async function PUT(
             (contactNumber !== undefined &&
               contactNumber !== currentOrder.address?.contactNumber) ||
             (locationType !== undefined &&
-              locationType !== currentOrder.address?.locationType)
+              locationType !== currentOrder.address?.locationType) ||
+            (collectionMethod !== undefined &&
+              collectionMethod !== currentOrder.address?.collectionMethod)
           ) {
             changes.push('Address details updated');
           }

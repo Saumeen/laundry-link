@@ -61,6 +61,7 @@ export async function GET(
             apartment: order.address.apartment || '',
             contactNumber:
               order.address.contactNumber || order.customerPhone || '',
+            collectionMethod: order.address.collectionMethod || null,
           }
         : {
             // Fallback to customer address if no specific address is linked
@@ -88,6 +89,7 @@ export async function GET(
             apartment: order.address.apartment || '',
             contactNumber:
               order.address.contactNumber || order.customerPhone || '',
+            collectionMethod: order.address.collectionMethod || null,
           }
         : {
             // Fallback to customer address if no specific address is linked

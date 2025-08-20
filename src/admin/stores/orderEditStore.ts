@@ -21,6 +21,7 @@ interface OrderEditState {
   apartment: string;
   contactNumber: string;
   locationType: string;
+  collectionMethod: string;
 
   // Actions
   setPickupStartTime: (time: string) => void;
@@ -40,6 +41,7 @@ interface OrderEditState {
   setApartment: (apartment: string) => void;
   setContactNumber: (number: string) => void;
   setLocationType: (type: string) => void;
+  setCollectionMethod: (method: string) => void;
 
   // Initialize form with order data
   initializeForm: (order: any) => void;
@@ -70,6 +72,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
   apartment: '',
   contactNumber: '',
   locationType: 'flat',
+  collectionMethod: '',
 
   // Actions
   setPickupStartTime: (time: string) => set({ pickupStartTime: time }),
@@ -91,6 +94,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
   setApartment: (apartment: string) => set({ apartment }),
   setContactNumber: (number: string) => set({ contactNumber: number }),
   setLocationType: (type: string) => set({ locationType: type }),
+  setCollectionMethod: (method: string) => set({ collectionMethod: method }),
 
   initializeForm: (order: any) =>
     set({
@@ -119,6 +123,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
       apartment: order.address?.apartment || '',
       contactNumber: order.address?.contactNumber || '',
       locationType: order.address?.locationType || 'flat',
+      collectionMethod: order.address?.collectionMethod || '',
     }),
 
   resetForm: () =>
@@ -140,6 +145,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
       apartment: '',
       contactNumber: '',
       locationType: 'flat',
+      collectionMethod: '',
     }),
 
   getFormData: () => {
@@ -162,6 +168,7 @@ export const useOrderEditStore = create<OrderEditState>((set, get) => ({
       apartment: state.apartment,
       contactNumber: state.contactNumber,
       locationType: state.locationType,
+      collectionMethod: state.collectionMethod,
     };
   },
 }));

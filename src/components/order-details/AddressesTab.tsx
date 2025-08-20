@@ -11,6 +11,7 @@ interface Address {
   contactNumber?: string;
   googleAddress?: string;
   locationType?: string;
+  collectionMethod?: string;
 }
 
 interface OrderDetails {
@@ -77,6 +78,13 @@ const AddressCard = ({
           <div className='p-3 bg-green-50 rounded-lg'>
             <p className='text-gray-700 font-medium'>
               📞 {address.contactNumber}
+            </p>
+          </div>
+        )}
+        {address.collectionMethod && (
+          <div className='p-3 bg-purple-50 rounded-lg'>
+            <p className='text-gray-700 font-medium'>
+              📦 Collection: {address.collectionMethod}
             </p>
           </div>
         )}

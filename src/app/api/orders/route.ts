@@ -148,6 +148,7 @@ async function handleLoggedInCustomerOrder(
           customerAddress: address.address || address.addressLine1,
           paymentStatus: PaymentStatus.PENDING,
           isExpressService: body.isExpressService || false,
+          collectionMethod: address.collectionMethod || null,
         },
       });
 

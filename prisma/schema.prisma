@@ -171,6 +171,7 @@ model Address {
   locationType String?  @default("flat")
   latitude     Float?
   longitude    Float?
+  collectionMethod String? // e.g., "reception", "directly", "security"
   
   // Relations
   customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -218,6 +219,7 @@ model Order {
   notes               String?       // General order notes
   createdByStaffId    Int?          // Track which staff member created the order
   isExpressService    Boolean       @default(false) // Track if this is an express service order
+  collectionMethod    String? // e.g., "reception", "directly", "security"
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
   

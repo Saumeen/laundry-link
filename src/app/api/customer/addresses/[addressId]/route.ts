@@ -87,9 +87,6 @@ export async function PUT(
             );
           }
           addressLine1 = `${body.hotelName as string}, Room ${body.roomNumber as string}`;
-          if (body.collectionMethod) {
-            addressLine1 += ` (${body.collectionMethod as string})`;
-          }
           break;
 
         case 'home':
@@ -163,6 +160,7 @@ export async function PUT(
         apartment: (body.officeNumber as string)?.trim() || null,
         latitude: body.latitude as number || null,
         longitude: body.longitude as number || null,
+        collectionMethod: (body.collectionMethod as string)?.trim() || null,
       },
     });
 

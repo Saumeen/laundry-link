@@ -158,11 +158,8 @@ export async function POST(req: Request) {
         buildingData = body.hotelName?.trim() || '';
         floorData = body.roomNumber?.trim() || '';
         if (buildingData && floorData) {
-          addressLine2Data = `${buildingData}, Room ${floorData}`;
-          if (body.collectionMethod) {
-            addressLine2Data += ` (${body.collectionMethod})`;
-          }
-        }
+           addressLine2Data = `${buildingData}, Room ${floorData}`;
+         }
         break;
 
       case 'home':
@@ -231,6 +228,7 @@ export async function POST(req: Request) {
         googleAddress: body.googleAddress?.trim() || null,
         latitude: body.latitude || null,
         longitude: body.longitude || null,
+        collectionMethod: body.collectionMethod?.trim() || body.homeCollectionMethod?.trim() || null,
         isDefault: isFirstAddress,
       },
     });

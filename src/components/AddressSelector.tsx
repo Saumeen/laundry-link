@@ -80,12 +80,12 @@ export default function AddressSelector({
     // Hotel fields
     hotelName: '',
     roomNumber: '',
-    collectionMethod: 'reception',
+    collectionMethod: 'From Reception',
     // Home fields
     house: '',
     road: '',
     block: '',
-    homeCollectionMethod: 'directly',
+    homeCollectionMethod: 'Collect directly from me',
     // Flat fields
     flatNumber: '',
     // Office fields
@@ -192,12 +192,12 @@ export default function AddressSelector({
       // Hotel fields
       hotelName: '',
       roomNumber: '',
-      collectionMethod: 'reception',
+      collectionMethod: 'From Reception',
       // Home fields
       house: '',
       road: '',
       block: '',
-      homeCollectionMethod: 'directly',
+      homeCollectionMethod: 'Collect directly from me',
       // Flat fields
       flatNumber: '',
       // Office fields

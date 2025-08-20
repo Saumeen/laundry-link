@@ -35,6 +35,7 @@ export interface DriverAssignment {
       apartment: string | null;
       landmark: string | null;
       locationType: string | null;
+      collectionMethod: string | null;
       latitude: number | null;
       longitude: number | null;
     } | null;

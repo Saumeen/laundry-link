@@ -35,6 +35,8 @@ export default function OrderSummary({
   onSpecialInstructionsChange,
   isExpressService = false,
 }: OrderSummaryProps) {
+
+
   // Get time slot display text
   const getTimeSlotDisplay = (slotId: string) => {
     // Parse the slot ID format: "09-00-12-00" -> "09:00 - 12:00"
@@ -98,6 +100,12 @@ export default function OrderSummary({
               <div>
                 <span className='text-gray-600'>Contact:</span>{' '}
                 {selectedAddress.contactNumber}
+              </div>
+            )}
+            {(selectedAddress?.collectionMethod || selectedAddress?.homeCollectionMethod) && (
+              <div>
+                <span className='text-gray-600'>Collection Method:</span>{' '}
+                {selectedAddress.collectionMethod || selectedAddress.homeCollectionMethod}
               </div>
             )}
           </div>

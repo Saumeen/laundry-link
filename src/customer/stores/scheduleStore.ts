@@ -62,7 +62,7 @@ const initialFormData: ScheduleFormData = {
   house: '',
   road: '',
   block: '',
-  homeCollectionMethod: '',
+  homeCollectionMethod: 'Collect directly from me',
   building: '',
   flatNumber: '',
   officeNumber: '',

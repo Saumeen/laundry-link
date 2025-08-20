@@ -314,6 +314,12 @@ export const DriverAssignments = memo(() => {
                     ? formatUTCForTimeDisplay(assignment.estimatedTime)
                     : 'Time TBD'}
                 </p>
+                {assignment.order.address?.collectionMethod && (
+                  <p className='flex items-center'>
+                    <span className='mr-1'>📦</span>
+                    Collection: {assignment.order.address.collectionMethod}
+                  </p>
+                )}
               </div>
 
               {assignment.order.specialInstructions && (

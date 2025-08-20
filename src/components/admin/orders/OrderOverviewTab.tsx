@@ -36,6 +36,7 @@ interface Order {
     apartment?: string;
     contactNumber?: string;
     locationType?: string;
+    collectionMethod?: string;
     latitude?: number;
     longitude?: number;
   };
@@ -204,6 +205,11 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
             {order.address.locationType && (
               <p className='text-gray-600 text-sm'>
                 Type: {order.address.locationType}
+              </p>
+            )}
+            {order.address.collectionMethod && (
+              <p className='text-gray-600 text-sm'>
+                Collection Method: {order.address.collectionMethod}
               </p>
             )}
           </div>
