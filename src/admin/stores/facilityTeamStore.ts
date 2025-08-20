@@ -82,6 +82,7 @@ export interface Order {
     phone: string;
   };
   status: string;
+  specialInstructions?: string;
   invoiceGenerated?: boolean;
   orderServiceMappings: OrderServiceMapping[];
   orderProcessing?: {
