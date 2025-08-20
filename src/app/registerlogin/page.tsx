@@ -9,6 +9,7 @@ import PhoneVerification from '@/components/PhoneVerification';
 import SocialLoginButton from '@/components/ui/SocialLoginButton';
 import PhoneInput from '@/components/PhoneInput';
 import logger from '@/lib/logger';
+import Logo from '@/components/ui/Logo';
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -285,20 +286,8 @@ const AuthForm = ({ searchParams }: { searchParams: URLSearchParams }) => {
           {/* Header */}
           <div className='text-center mb-8'>
             <div className='mb-6'>
-              <div className='w-16 h-16 bg-gradient-to-r from-blue-600 to-teal-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg'>
-                <svg
-                  className='w-8 h-8 text-white'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'
-                  />
-                </svg>
+              <div className='w-18 h-18  mx-auto flex items-center justify-center'>
+                <Logo width={60} height={60} className='mr-2' src='/laundry-link-logo.png' />
               </div>
             </div>
             <h1 className='text-3xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent mb-2'>
