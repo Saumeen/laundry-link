@@ -17,7 +17,7 @@ export default function Footer() {
               Your trusted laundry service in Bahrain. We provide quality
               laundry and dry cleaning with free pickup and delivery.
             </p>
-            <Logo width={60} height={60} className='mr-2' src='/laundry-link-logo.png' />
+            <Logo width={120} height={120} className='m-auto' src='/laundry-link-logo.png' />
           </div>
 
           <div>
