@@ -23,7 +23,10 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/schedule') ||
     path.startsWith('/tracking') ||
     path.startsWith('/faq') ||
-    path.startsWith('/order-success/');
+    path.startsWith('/order-success/') ||
+    path.startsWith('/images/') ||
+    path.startsWith('/laundry-link-logo.png') ||
+    path.startsWith('/laundry-link-main.png');
 
   // Check if the path is public
   if (isPublicPath) {
