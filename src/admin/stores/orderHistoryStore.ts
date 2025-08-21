@@ -82,7 +82,7 @@ export interface IssueReport {
   severity: string;
   status: string;
   resolution: string | null;
-  photoUrl: string | null;
+  images: string[]; // Array of image URLs for issue photos
   reportedAt: string;
   resolvedAt: string | null;
   staff?: {
@@ -177,7 +177,12 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
         try {
           const response = await fetch(`/api/admin/order-history/${orderId}`);
           if (response.ok) {
-            const data = await response.json();
+            const data = await response.json() as {
+              history: OrderHistoryEntry[];
+              driverAssignments: DriverAssignment[];
+              orderProcessing: OrderProcessing[];
+              issueReports: IssueReport[];
+            };
 
             // Transform the data into timeline events
             const timeline = createTimelineFromData(data);
@@ -191,7 +196,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
               loading: false,
             });
           } else {
-            const errorData = await response.json();
+            const errorData = await response.json() as { error?: string };
             set({
               error: errorData.error || 'Failed to fetch order history',
               loading: false,
@@ -233,7 +238,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
           });
 
           if (response.ok) {
-            const newEntry = await response.json();
+            const newEntry = await response.json() as OrderHistoryEntry;
             set(state => ({
               history: [newEntry, ...state.history],
               addHistoryForm: { loading: false, error: null, success: true },
@@ -249,7 +254,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             });
             set({ timeline: newTimeline });
           } else {
-            const errorData = await response.json();
+            const errorData = await response.json() as { error?: string };
             set(state => ({
               addHistoryForm: {
                 loading: false,
@@ -300,7 +305,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
           });
 
           if (response.ok) {
-            const result = await response.json();
+            const result = await response.json() as { photo: DriverPhoto };
 
             // Update driver assignments with new photo
             set(state => ({
@@ -331,7 +336,7 @@ export const useOrderHistoryStore = create<OrderHistoryState>()(
             });
             set({ timeline: newTimeline });
           } else {
-            const errorData = await response.json();
+            const errorData = await response.json() as { error?: string };
             set(state => ({
               uploadPhotoForm: {
                 loading: false,

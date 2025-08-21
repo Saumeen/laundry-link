@@ -315,7 +315,7 @@ export default function OrderItemsTab({
     description: string,
     severity: string
   ): Promise<void> => {
-    const response = await fetch('/api/admin/facility-team/issue-reports', {
+    const response = await fetch('/api/admin/facility-team/issue-images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

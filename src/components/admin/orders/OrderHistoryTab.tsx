@@ -363,21 +363,18 @@ export default function OrderHistoryTab({ order }: OrderHistoryTabProps) {
                               <p className='text-xs text-red-600 mt-1'>
                                 Severity: {event.issueReport.severity}
                               </p>
-                              {event.issueReport.photoUrl && (
+                              {event.issueReport?.images && event.issueReport.images.length > 0 && (
                                 <div className='mt-2'>
                                   <ImageGallery
-                                    images={[
-                                      {
-                                        id: event.issueReport.id,
-                                        photoUrl: event.issueReport.photoUrl,
-                                        photoType: 'issue_photo',
-                                        description:
-                                          event.issueReport.description,
-                                        createdAt: event.issueReport.reportedAt,
-                                      },
-                                    ]}
-                                    title='Issue Photo'
-                                    maxDisplay={1}
+                                    images={event.issueReport.images.map((imageUrl, index) => ({
+                                      id: (event.issueReport?.id || 0) * 1000 + index, // Generate unique numeric ID
+                                      photoUrl: imageUrl,
+                                      photoType: 'issue_photo',
+                                      description: event.issueReport?.description || '',
+                                      createdAt: event.issueReport?.reportedAt || '',
+                                    }))}
+                                    title='Issue Photos'
+                                    maxDisplay={3}
                                   />
                                 </div>
                               )}

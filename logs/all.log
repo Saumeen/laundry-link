@@ -1,1 +1,4 @@
 2025-08-20 22:18:36:1836 [31merror[39m: [31mError fetching pricing data: Dynamic server usage: Route /pricing couldn't be rendered statically because it used revalidate: 0 fetch http://localhost:3000/api/pricing /pricing. See more info here: https://nextjs.org/docs/messages/dynamic-server-error[39m
+2025-08-21 09:41:33:4133 [32minfo[39m: [32mIssue report created/updated for processing item detail 15 by staff 1[39m
+2025-08-21 10:02:25:225 [32minfo[39m: [32mOrder creation email sent to customer: psaumeen@gmail.com[39m
+2025-08-21 10:02:26:226 [32minfo[39m: [32mOrder notification email sent to admin: laundrylink2@gmail.com[39m
