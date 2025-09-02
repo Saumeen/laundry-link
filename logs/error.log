@@ -1,1 +1,0 @@
-2025-08-20 22:18:36:1836 [31merror[39m: [31mError fetching pricing data: Dynamic server usage: Route /pricing couldn't be rendered statically because it used revalidate: 0 fetch http://localhost:3000/api/pricing /pricing. See more info here: https://nextjs.org/docs/messages/dynamic-server-error[39m

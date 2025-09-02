@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import MainLayout from '@/components/layouts/main-layout';
@@ -39,76 +42,94 @@ interface PricingData {
   categories: PricingCategory[];
 }
 
-async function getPricingData(): Promise<PricingData> {
-  try {
-    // Use absolute URL for server-side rendering
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-      (process.env.NODE_ENV === 'production' ? 'https://laundrylink.net' : 'http://localhost:3000');
-    
-    // Debug logging
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('Base URL:', baseUrl);
-    console.log('Full API URL:', `${baseUrl}/api/pricing`);
-    
-    const response = await fetch(`/api/pricing`);
+export default function PricingPage() {
+  const [pricingData, setPricingData] = useState<PricingData>({
+    header: {
+      id: 1,
+      title: 'Laundry Link',
+      subtitle: 'NORMAL SERVICE (24HRS)',
+      subtitleAr: 'الخدمة العادية (٢٤ ساعة)',
+      priceListTitle: 'PRICE LIST',
+      priceListTitleAr: 'قائمة الأسعار',
+      contactInfo: 'TEL: +973 33440841',
+      isActive: true,
+    },
+    categories: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    if (!response.ok) {
-      console.error('API Response not OK:', response.status, response.statusText);
-      throw new Error(`Failed to fetch pricing data: ${response.status} - ${response.statusText}`);
+  useEffect(() => {
+    async function getPricingData() {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Fetching pricing data...');
+        const response = await fetch('/api/pricing');
+
+        if (!response.ok) {
+          console.error('API Response not OK:', response.status, response.statusText);
+          throw new Error(`Failed to fetch pricing data: ${response.status} - ${response.statusText}`);
+        }
+
+        const result = (await response.json()) as {
+          success: boolean;
+          data: PricingData;
+        };
+        
+        if (result.success) {
+          setPricingData(result.data);
+        } else {
+          throw new Error('API returned unsuccessful response');
+        }
+      } catch (error) {
+        logger.error('Error fetching pricing data:', error);
+        console.error('Pricing API error:', error);
+        setError(error instanceof Error ? error.message : 'Failed to fetch pricing data');
+        // Keep fallback data
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const result = (await response.json()) as {
-      success: boolean;
-      data: PricingData;
-    };
-    return result.data;
-  } catch (error) {
-    logger.error('Error fetching pricing data:', error);
-    // Return fallback data if API fails
-    console.error('Pricing API error:', error);
-    return {
-      header: {
-        id: 1,
-        title: 'Laundry Link',
-        subtitle: 'NORMAL SERVICE (24HRS)',
-        subtitleAr: 'الخدمة العادية (٢٤ ساعة)',
-        priceListTitle: 'PRICE LIST',
-        priceListTitleAr: 'قائمة الأسعار',
-        contactInfo: 'TEL: +973 33440841',
-        isActive: true,
-      },
-      categories: [],
-    };
-  }
-}
-
-// Enable static generation with revalidation every hour
-export const revalidate = 3600;
-
-export default async function PricingPage() {
-  let pricingData: PricingData;
-
-  try {
-    pricingData = await getPricingData();
-  } catch (error) {
-    logger.error('Failed to load pricing data, using fallback:', error);
-    // Use fallback data if API fails
-    pricingData = {
-      header: {
-        id: 1,
-        title: 'Laundry Link',
-        subtitle: 'NORMAL SERVICE (24HRS)',
-        subtitleAr: 'الخدمة العادية (٢٤ ساعة)',
-        priceListTitle: 'PRICE LIST',
-        priceListTitleAr: 'قائمة الأسعار',
-        contactInfo: 'TEL: +973 33440841',
-        isActive: true,
-      },
-      categories: [],
-    };
-  }
+    getPricingData();
+  }, []);
 
   const { header, categories } = pricingData;
+
+  if (loading) {
+    return (
+      <MainLayout>
+        <div className='bg-white py-12'>
+          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+            <div className='text-center'>
+              <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto'></div>
+              <p className='mt-4 text-lg text-gray-600'>Loading pricing information...</p>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className='bg-white py-12'>
+          <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+            <div className='text-center'>
+              <div className='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4'>
+                <p className='font-bold'>Error loading pricing data</p>
+                <p className='text-sm'>{error}</p>
+              </div>
+              <p className='text-gray-600'>Showing fallback pricing information.</p>
+            </div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
