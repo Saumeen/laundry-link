@@ -42,16 +42,19 @@ interface PricingData {
 async function getPricingData(): Promise<PricingData> {
   try {
     // Use absolute URL for server-side rendering
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/pricing`, {
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+      (process.env.NODE_ENV === 'production' ? 'https://laundrylink.net' : 'http://localhost:3000');
+    
+    // Debug logging
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Base URL:', baseUrl);
+    console.log('Full API URL:', `${baseUrl}/api/pricing`);
+    
+    const response = await fetch(`/api/pricing`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch pricing data: ${response.status}`);
+      console.error('API Response not OK:', response.status, response.statusText);
+      throw new Error(`Failed to fetch pricing data: ${response.status} - ${response.statusText}`);
     }
 
     const result = (await response.json()) as {
@@ -62,6 +65,7 @@ async function getPricingData(): Promise<PricingData> {
   } catch (error) {
     logger.error('Error fetching pricing data:', error);
     // Return fallback data if API fails
+    console.error('Pricing API error:', error);
     return {
       header: {
         id: 1,
@@ -77,6 +81,9 @@ async function getPricingData(): Promise<PricingData> {
     };
   }
 }
+
+// Enable static generation with revalidation every hour
+export const revalidate = 3600;
 
 export default async function PricingPage() {
   let pricingData: PricingData;
