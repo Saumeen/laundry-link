@@ -1,4 +1,4 @@
-import Navbar from '@/components/ui/Navbar';
+import Header from '@/components/landing/Header';
 import Footer from '@/components/ui/footer';
 
 export default function MainLayout({
@@ -8,7 +8,7 @@ export default function MainLayout({
 }>) {
   return (
     <>
-      <Navbar />
+      <Header />
       <main className='min-h-screen'>{children}</main>
       <Footer />
     </>

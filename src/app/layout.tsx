@@ -17,9 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang='en'>
-      <body className={inter.className}>
+      <body className={`${inter.className} gradient-bg`}>
         <Providers>
-          <div className='min-h-screen bg-gray-50'>{children}</div>
+          <div className='min-h-screen'>{children}</div>
         </Providers>
       </body>
     </html>

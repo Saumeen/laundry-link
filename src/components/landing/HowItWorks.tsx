@@ -10,19 +10,16 @@ const HowItWorks = () => {
       number: 1,
       title: "Book Your Pickup",
       description: "Use our app or website to schedule a convenient pickup time.",
-      icon: "📱",
     },
     {
       number: 2,
       title: "We Collect & Clean",
       description: "Our team collects your laundry and treats it with expert care.",
-      icon: "🧺",
     },
     {
       number: 3,
       title: "Swift Delivery",
       description: "We deliver your fresh, clean clothes back within 24 hours.",
-      icon: "🚚",
     },
   ];
 
@@ -87,7 +84,6 @@ interface StepCardProps {
     number: number;
     title: string;
     description: string;
-    icon: string;
   };
   index: number;
 }
@@ -153,7 +149,7 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
         delay: index * 0.2,
         ease: "easeOut"
       }}
-      className="group relative flex cursor-pointer items-start gap-6 rounded-2xl bg-white p-6 shadow-lg transition-all duration-700 hover:scale-102 hover:bg-[var(--primary-color)] hover:shadow-2xl"
+      className="group flex cursor-pointer items-start gap-6 rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-[var(--primary-color)]"
       whileHover={{
         y: -2,
         transition: {
@@ -167,18 +163,9 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
       {/* Glow effect on hover */}
       <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[var(--primary-color)] to-[var(--secondary-color)] opacity-0 blur transition-opacity duration-500 group-hover:opacity-20"></div>
       
-      <motion.div 
-        variants={numberVariants}
-        transition={{
-          duration: 0.6,
-          delay: index * 0.2 + 0.3,
-          ease: "easeOut"
-        }}
-        className="relative z-10 flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-4xl font-bold text-[var(--primary-color)] transition-all duration-700 group-hover:bg-white group-hover:scale-105 group-hover:rotate-5"
-      >
-        <span className="text-2xl">{step.icon}</span>
-        <span className="absolute text-sm font-bold">{step.number}</span>
-      </motion.div>
+      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-4xl font-bold text-[var(--primary-color)] transition-colors duration-300 group-hover:bg-white">
+        {step.number}
+      </div>
       
       <motion.div 
         variants={contentVariants}

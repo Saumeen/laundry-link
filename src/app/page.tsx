@@ -24,32 +24,15 @@ export default function HomePage() {
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
       />
-      <div className="gradient-bg">
-        <div
-          className="group/design-root relative flex flex-col text-[#111618]"
-          style={{ fontFamily: 'Inter, "Noto Sans", sans-serif' }}
-        >
-          <div className="layout-container flex flex-col">
-            <Header />
-            <main>
-              <Hero />
-              <AnimatedInView direction="up" type="spring" stiffness={80} damping={20}>
-                <HowItWorks />
-              </AnimatedInView>
-              <AnimatedInView direction="scale" type="spring" stiffness={100} damping={15}>
-                <Services />
-              </AnimatedInView>
-              <AnimatedInView direction="fade" type="tween" duration={1}>
-                <Testimonials />
-              </AnimatedInView>
-              <AnimatedInView direction="left" type="spring" stiffness={120} damping={18}>
-                <WhyChooseUs />
-              </AnimatedInView>
-            </main>
-            <Footer />
-          </div>
-        </div>
-      </div>
+      <Header />
+      <main>
+        <Hero />
+        <HowItWorks />
+        <Services />
+        <Testimonials />
+        <WhyChooseUs />
+        <Footer />
+      </main>
     </>
   );
 }
