@@ -4,6 +4,7 @@ import Hero from "@/components/landing/Hero";
 import HowItWorks from "@/components/landing/HowItWorks";
 import Services from "@/components/landing/Services";
 import Testimonials from "@/components/landing/Testimonials";
+import Trust from "@/components/landing/Trust";
 import WhyChooseUs from "@/components/landing/WhyChooseUs";
 import Footer from "@/components/landing/Footer";
 import { AnimatedInView } from "@/components/shared/AnimatedInView";
@@ -30,6 +31,7 @@ export default function HomePage() {
         <HowItWorks />
         <Services />
         <Testimonials />
+        <Trust />
         <WhyChooseUs />
         <Footer />
       </main>

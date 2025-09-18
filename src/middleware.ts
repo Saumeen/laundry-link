@@ -26,7 +26,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/order-success/') ||
     path.startsWith('/images/') ||
     path.startsWith('/laundry-link-logo.png') ||
-    path.startsWith('/laundry-link-main.png');
+    path.startsWith('/laundry-link-main.png') ||
+    path.startsWith('/image-r-1.png');
 
   // Check if the path is public
   if (isPublicPath) {

@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Logo from "../ui/Logo";
+import Image from "next/image";
 
 const Footer = () => {
   return (
@@ -135,6 +137,15 @@ const Footer = () => {
                   ></path>
                 </svg>
               </a>
+            </div>
+            <div className="mt-6 flex justify-center md:justify-start" id="efada-container">
+             <Image
+                src='/image-r-1.png'
+                alt='Government Seal'
+                width={120}
+                height={120}
+                className="h-16 w-auto rounded-lg shadow-md"
+              />
             </div>
           </div>
         </div>
