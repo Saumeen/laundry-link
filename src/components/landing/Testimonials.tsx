@@ -46,13 +46,13 @@ const Testimonials = () => {
   };
 
   return (
-    <section className="bg-white/60 px-4 py-16 backdrop-blur-md sm:px-6 sm:py-20 lg:px-10 lg:py-24">
+    <section className="bg-white/60 px-3 py-12 backdrop-blur-md sm:px-4 sm:py-16 md:px-6 md:py-20 lg:px-10 lg:py-24">
       <div className="mx-auto max-w-7xl text-center">
-        <h2 className="mb-4 text-4xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-6 sm:text-5xl">
+        <h2 className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
           What Our Customers Say
         </h2>
-        <p className="mx-auto mb-12 max-w-3xl text-lg text-[var(--medium-blue)] sm:mb-16 sm:text-xl">
-          We&apos;re proud to be trusted by our community. Here’s what they
+        <p className="mx-auto mb-8 max-w-3xl text-base text-[var(--medium-blue)] sm:mb-12 sm:text-lg lg:text-xl">
+          We&apos;re proud to be trusted by our community. Here's what they
           think about Laundry Link.
         </p>
         <motion.div
@@ -60,30 +60,30 @@ const Testimonials = () => {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
-          className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-4 sm:gap-6 md:gap-8 md:grid-cols-2 lg:grid-cols-3"
         >
           {testimonials.map((testimonial, index) => (
             <motion.div
               key={index}
               variants={itemVariants}
-              className="flex flex-col items-start gap-6 rounded-3xl bg-white p-6 text-left shadow-xl shadow-blue-200/50 transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-300/50 sm:p-8"
+              className="flex flex-col items-start gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 lg:p-8 text-left shadow-lg sm:shadow-xl shadow-blue-200/50 transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-300/50"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <img
-                  className="h-14 w-14 rounded-full object-cover sm:h-16 sm:w-16"
+                  className="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14 lg:h-16 lg:w-16"
                   src={testimonial.avatarUrl}
                   alt={`Avatar of ${testimonial.name}`}
                 />
                 <div>
-                  <p className="text-lg font-bold text-gray-800 sm:text-xl">
+                  <p className="text-base font-bold text-gray-800 sm:text-lg lg:text-xl">
                     {testimonial.name}
                   </p>
-                  <p className="text-sm text-gray-500 sm:text-md">
+                  <p className="text-xs text-gray-500 sm:text-sm lg:text-base">
                     {testimonial.role}
                   </p>
                 </div>
               </div>
-              <p className="text-base italic text-gray-700 sm:text-lg">
+              <p className="text-sm italic text-gray-700 sm:text-base lg:text-lg">
                 &quot;{testimonial.quote}&quot;
               </p>
             </motion.div>

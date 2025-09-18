@@ -73,12 +73,12 @@ const Services = () => {
 
 
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-10 lg:py-24 relative overflow-hidden">
+    <section className="px-3 py-12 sm:px-4 sm:py-16 md:px-6 md:py-20 lg:px-10 lg:py-24 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-blue-200/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-40 h-40 bg-purple-200/20 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-cyan-200/20 rounded-full blur-xl animate-pulse delay-500"></div>
+        <div className="absolute top-20 left-4 sm:left-10 w-24 h-24 sm:w-32 sm:h-32 bg-blue-200/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-4 sm:right-10 w-32 h-32 sm:w-40 sm:h-40 bg-purple-200/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/6 sm:left-1/4 w-20 h-20 sm:w-24 sm:h-24 bg-cyan-200/20 rounded-full blur-xl animate-pulse delay-500"></div>
       </div>
 
       <div className="mx-auto max-w-7xl text-center">
@@ -93,11 +93,11 @@ const Services = () => {
             damping: 12,
           }}
         >
-          <h2 className="mb-4 text-4xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-6 sm:text-5xl">
+          <h2 className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
             Our Services
           </h2>
           <motion.div
-            className="mx-auto mb-12 max-w-3xl text-lg text-[var(--medium-blue)] sm:mb-16 sm:text-xl"
+            className="mx-auto mb-8 max-w-3xl text-base text-[var(--medium-blue)] sm:mb-12 sm:text-lg lg:text-xl"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -117,7 +117,7 @@ const Services = () => {
             staggerChildren: 0.15,
             delayChildren: 0.3,
           }}
-          className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4"
+          className="grid grid-cols-1 gap-4 sm:gap-6 md:gap-8 sm:grid-cols-2 lg:grid-cols-4"
         >
           {services.map((service, index) => (
             <motion.div
@@ -125,7 +125,7 @@ const Services = () => {
               variants={itemVariants}
               onHoverStart={() => setHoveredCard(index)}
               onHoverEnd={() => setHoveredCard(null)}
-              className="group relative flex flex-col gap-5 rounded-3xl bg-white p-6 shadow-xl shadow-blue-200/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-300/30 cursor-pointer"
+              className="group relative flex flex-col gap-3 sm:gap-4 lg:gap-5 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-5 lg:p-6 shadow-lg sm:shadow-xl shadow-blue-200/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-300/30 cursor-pointer"
               whileHover={{
                 y: -2,
                 transition: {
@@ -151,7 +151,7 @@ const Services = () => {
 
               {/* Icon badge */}
               <motion.div
-                className="absolute -top-3 -right-3 z-10 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-2xl"
+                className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-lg sm:text-2xl"
                 initial={{ scale: 0, rotate: -180 }}
                 whileInView={{ scale: 1, rotate: 0 }}
                 viewport={{ once: true }}
@@ -169,7 +169,7 @@ const Services = () => {
                 {service.icon}
               </motion.div>
 
-              <div className="relative h-56 w-full overflow-hidden rounded-2xl sm:h-64">
+              <div className="relative h-48 w-full overflow-hidden rounded-xl sm:h-56 sm:rounded-2xl lg:h-64">
                 <Image
                   src={service.imageUrl}
                   alt={service.title}
@@ -186,21 +186,21 @@ const Services = () => {
 
               <div className="text-left relative z-10">
                 <motion.h3 
-                  className="text-xl font-bold text-gray-800 sm:text-2xl"
+                  className="text-lg font-bold text-gray-800 sm:text-xl lg:text-2xl"
                   whileHover={{ color: "var(--primary-color)" }}
                   transition={{ duration: 0.2 }}
                 >
                   {service.title}
                 </motion.h3>
                 <motion.p 
-                  className="mt-2 text-base text-gray-600 sm:text-lg"
+                  className="mt-1 sm:mt-2 text-sm text-gray-600 sm:text-base lg:text-lg"
                   initial={{ opacity: 0.8 }}
                   whileHover={{ opacity: 1 }}
                 >
                   {service.description}
                 </motion.p>
                 <motion.div
-                  className="mt-4"
+                  className="mt-3 sm:mt-4"
                   whileHover={{
                     scale: 1.02,
                     transition: {
@@ -211,7 +211,7 @@ const Services = () => {
                   }}
                 >
                   <motion.p 
-                    className="text-lg font-bold text-[var(--primary-color)] sm:text-xl inline-block"
+                    className="text-base font-bold text-[var(--primary-color)] sm:text-lg lg:text-xl inline-block"
                     animate={{
                       backgroundPosition: hoveredCard === index ? "200% center" : "0% center"
                     }}

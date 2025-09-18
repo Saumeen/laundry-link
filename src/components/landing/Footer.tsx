@@ -12,27 +12,27 @@ const Footer = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5 }}
-      className="bg-white/70 px-4 py-12 sm:px-6 sm:py-16 lg:px-10"
+      className="bg-white/70 px-3 py-8 sm:px-4 sm:py-12 md:px-6 lg:px-10 lg:py-16"
     >
       <div className="mx-auto max-w-7xl">
-        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
-          <div className="col-span-1 flex flex-col gap-5 text-center md:col-span-2 md:text-left lg:col-span-1">
-            <div className="flex items-center justify-center gap-3 text-3xl font-bold md:justify-start">
-              <span className="material-symbols-outlined text-5xl text-[var(--primary-color)]">
+        <div className="grid grid-cols-1 gap-8 sm:gap-10 md:gap-12 md:grid-cols-2 lg:grid-cols-4">
+          <div className="col-span-1 flex flex-col gap-4 sm:gap-5 text-center md:col-span-2 md:text-left lg:col-span-1">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 text-2xl sm:text-3xl font-bold md:justify-start">
+              <span className="material-symbols-outlined text-4xl sm:text-5xl text-[var(--primary-color)]">
                 local_laundry_service
               </span>
               <h2 className="tracking-tighter text-[#111618]">Laundry Link</h2>
             </div>
-            <p className="text-lg text-gray-600">
+            <p className="text-base sm:text-lg text-gray-600">
               Your partner for pristine laundry and dry cleaning in Bahrain.
             </p>
           </div>
           <div className="text-center md:text-left lg:ml-12">
-            <h4 className="mb-6 text-xl font-bold text-gray-800">Services</h4>
-            <ul className="space-y-3">
+            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Services</h4>
+            <ul className="space-y-2 sm:space-y-3">
               <li>
                 <Link
-                  className="text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
+                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
                   href="/services"
                 >
                   Wash &amp; Iron
@@ -40,7 +40,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  className="text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
+                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
                   href="/services"
                 >
                   Dry Cleaning
@@ -48,7 +48,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  className="text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
+                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
                   href="/services"
                 >
                   Express Service
@@ -56,7 +56,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  className="text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
+                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
                   href="/services"
                 >
                   Bedding &amp; Linens
@@ -65,22 +65,22 @@ const Footer = () => {
             </ul>
           </div>
           <div className="text-center md:text-left">
-            <h4 className="mb-6 text-xl font-bold text-gray-800">Contact Us</h4>
-            <ul className="space-y-4 text-gray-600">
-              <li className="flex items-center justify-center gap-3 text-lg md:justify-start">
-                <span className="material-symbols-outlined text-2xl text-[var(--primary-color)]">
+            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Contact Us</h4>
+            <ul className="space-y-3 sm:space-y-4 text-gray-600">
+              <li className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]">
                   call
                 </span>
                 +973 1234 5678
               </li>
-              <li className="flex items-center justify-center gap-3 text-lg md:justify-start">
-                <span className="material-symbols-outlined text-2xl text-[var(--primary-color)]">
+              <li className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]">
                   mark_email_read
                 </span>
                 hello@laundrylink.bh
               </li>
-              <li className="flex items-center justify-center gap-3 text-lg md:justify-start">
-                <span className="material-symbols-outlined text-2xl text-[var(--primary-color)]">
+              <li className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]">
                   nest_clock_farsight_analog
                 </span>
                 8am - 10pm, Mon-Sun
@@ -88,15 +88,15 @@ const Footer = () => {
             </ul>
           </div>
           <div className="text-center md:text-left">
-            <h4 className="mb-6 text-xl font-bold text-gray-800">Follow Us</h4>
-            <div className="flex justify-center gap-5 md:justify-start">
+            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Follow Us</h4>
+            <div className="flex justify-center gap-4 sm:gap-5 md:justify-start">
               <a
                 className="text-gray-500 transition-colors hover:text-[var(--primary-color)]"
                 href="#"
               >
                 <svg
                   aria-hidden="true"
-                  className="h-8 w-8"
+                  className="h-6 w-6 sm:h-8 sm:w-8"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -113,7 +113,7 @@ const Footer = () => {
               >
                 <svg
                   aria-hidden="true"
-                  className="h-8 w-8"
+                  className="h-6 w-6 sm:h-8 sm:w-8"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -126,7 +126,7 @@ const Footer = () => {
               >
                 <svg
                   aria-hidden="true"
-                  className="h-8 w-8"
+                  className="h-6 w-6 sm:h-8 sm:w-8"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -138,18 +138,18 @@ const Footer = () => {
                 </svg>
               </a>
             </div>
-            <div className="mt-6 flex justify-center md:justify-start" id="efada-container">
+            <div className="mt-4 sm:mt-6 flex justify-center md:justify-start" id="efada-container">
              <Image
                 src='/image-r-1.png'
                 alt='Government Seal'
                 width={120}
                 height={120}
-                className="h-16 w-auto rounded-lg shadow-md"
+                className="h-12 w-auto sm:h-16 rounded-lg shadow-md"
               />
             </div>
           </div>
         </div>
-        <div className="mt-12 border-t border-gray-200 pt-8 text-center text-base text-gray-500 sm:mt-16 sm:pt-10 sm:text-lg">
+        <div className="mt-8 border-t border-gray-200 pt-6 text-center text-sm text-gray-500 sm:mt-12 sm:pt-8 sm:text-base lg:text-lg">
           <p>
             © 2025 Laundry Link. All Rights Reserved. Crafted with care in
             Bahrain.

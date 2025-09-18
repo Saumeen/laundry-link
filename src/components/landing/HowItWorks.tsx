@@ -24,24 +24,24 @@ const HowItWorks = () => {
   ];
 
   return (
-    <section className="bg-white/60 px-4 py-16 backdrop-blur-md sm:px-6 sm:py-20 lg:px-10 lg:py-24">
+    <section className="bg-white/60 px-3 py-12 backdrop-blur-md sm:px-4 sm:py-16 md:px-6 md:py-20 lg:px-10 lg:py-24">
       <div className="mx-auto max-w-7xl">
         <AnimatedInView direction="up" amount={30}>
-          <div className="mb-12 text-center sm:mb-20">
-            <h2 className="mb-4 text-4xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-6 sm:text-5xl">
+          <div className="mb-8 text-center sm:mb-12 lg:mb-20">
+            <h2 className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
               How It Works
             </h2>
-            <p className="mx-auto max-w-3xl text-lg text-[var(--medium-blue)] sm:text-xl">
+            <p className="mx-auto max-w-3xl text-base text-[var(--medium-blue)] sm:text-lg lg:text-xl">
               Experience seamless laundry service in three simple steps. We handle
               the rest, so you can enjoy your day.
             </p>
           </div>
         </AnimatedInView>
         
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-20">
-          <div className="relative flex flex-col gap-8">
+        <div className="grid grid-cols-1 items-center gap-8 sm:gap-12 lg:grid-cols-2 lg:gap-20">
+          <div className="relative flex flex-col gap-6 sm:gap-8">
             {/* Connecting lines */}
-            <div className="absolute left-8 top-16 h-full w-0.5 bg-gradient-to-b from-[var(--secondary-color)] via-[var(--primary-color)] to-[var(--secondary-color)] opacity-30 lg:left-8"></div>
+            <div className="absolute left-6 top-12 h-full w-0.5 bg-gradient-to-b from-[var(--secondary-color)] via-[var(--primary-color)] to-[var(--secondary-color)] opacity-30 sm:left-8 sm:top-16"></div>
             
             {steps.map((step, index) => (
               <StepCard key={step.number} step={step} index={index} />
@@ -49,7 +49,7 @@ const HowItWorks = () => {
           </div>
           
           <AnimatedInView direction="left" amount={50} delay={0.6}>
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center mt-6 lg:mt-0">
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 whileInView={{ scale: 1, opacity: 1 }}
@@ -64,10 +64,10 @@ const HowItWorks = () => {
                 }}
                 className="relative"
               >
-                <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-[var(--primary-color)] to-[var(--secondary-color)] opacity-20 blur-xl"></div>
+                <div className="absolute -inset-3 sm:-inset-4 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[var(--primary-color)] to-[var(--secondary-color)] opacity-20 blur-xl"></div>
                 <img
                   alt="Laundry Link process visualization"
-                  className="relative h-auto w-full max-w-sm rounded-3xl object-cover shadow-2xl"
+                  className="relative h-auto w-full max-w-xs sm:max-w-sm rounded-2xl sm:rounded-3xl object-cover shadow-xl sm:shadow-2xl"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgOE90kaFAPm69T9BvHJyq8kOF90vb_vY8GI48t7lPt6okwKyVIhXp0AQvbyY7380sRFaZK1aAff_hP5EkTfDZIvLqbITE2R2joS6m-qcR7F5UT-5WRTfvDJrxqNaU9ynmc0Ny-G_btd4nFF1PprRAEHffArbq4_Ld25xtRKznG6H3suTg9oSBJSFQK7wPIfOJeYwGFOxcmInjx40TU72A3BDyo-eDqDGibNHhNVGbsU7cFNDW7Dzd4TzsNbyaEFhsiE9drbF0rrc"
                 />
               </motion.div>
@@ -149,7 +149,7 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
         delay: index * 0.2,
         ease: "easeOut"
       }}
-      className="group flex cursor-pointer items-start gap-6 rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-[var(--primary-color)]"
+      className="group flex cursor-pointer items-start gap-4 sm:gap-6 rounded-xl sm:rounded-2xl bg-white p-4 sm:p-6 shadow-lg transition-all duration-300 hover:scale-105 hover:bg-[var(--primary-color)]"
       whileHover={{
         y: -2,
         transition: {
@@ -161,9 +161,9 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
       }}
     >
       {/* Glow effect on hover */}
-      <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-[var(--primary-color)] to-[var(--secondary-color)] opacity-0 blur transition-opacity duration-500 group-hover:opacity-20"></div>
+      <div className="absolute -inset-1 rounded-xl sm:rounded-2xl bg-gradient-to-r from-[var(--primary-color)] to-[var(--secondary-color)] opacity-0 blur transition-opacity duration-500 group-hover:opacity-20"></div>
       
-      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-4xl font-bold text-[var(--primary-color)] transition-colors duration-300 group-hover:bg-white">
+      <div className="flex h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-2xl sm:text-4xl font-bold text-[var(--primary-color)] transition-colors duration-300 group-hover:bg-white">
         {step.number}
       </div>
       
@@ -176,10 +176,10 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
         }}
         className="relative z-10"
       >
-        <h3 className="text-2xl font-bold text-gray-800 transition-colors duration-500 group-hover:text-white">
+        <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 transition-colors duration-500 group-hover:text-white">
           {step.title}
         </h3>
-        <p className="mt-2 text-lg text-gray-600 transition-colors duration-500 group-hover:text-blue-100">
+        <p className="mt-1 sm:mt-2 text-sm sm:text-base lg:text-lg text-gray-600 transition-colors duration-500 group-hover:text-blue-100">
           {step.description}
         </p>
       </motion.div>

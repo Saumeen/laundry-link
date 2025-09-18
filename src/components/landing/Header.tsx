@@ -169,7 +169,7 @@ const Header = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
-                    className='absolute right-0 mt-2 w-64 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/50 z-50'
+                    className='absolute right-0 mt-2 w-56 sm:w-64 bg-white/90 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-xl border border-white/50 z-50'
                   >
                     <div className='p-4 border-b border-gray-200/50'>
                       <p className='font-semibold text-gray-900'>
@@ -292,40 +292,40 @@ const Header = () => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="lg:hidden fixed top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-lg"
+          className="lg:hidden fixed top-16 sm:top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-lg"
         >
-          <div className="px-4 py-6 space-y-4">
+          <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-3 sm:space-y-4">
             <Link
               href="/"
-              className="block py-3 text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
+              className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
               onClick={() => setIsMenuOpen(false)}
             >
               Home
             </Link>
             <Link
               href="/services"
-              className="block py-3 text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
+              className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
               onClick={() => setIsMenuOpen(false)}
             >
               Services
             </Link>
             <Link
               href="/pricing"
-              className="block py-3 text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
+              className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
               onClick={() => setIsMenuOpen(false)}
             >
               Pricing
             </Link>
             <Link
               href="/customer/schedule"
-              className="block py-3 text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
+              className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
               onClick={() => setIsMenuOpen(false)}
             >
               Schedule Pickup
             </Link>
             <Link
               href="/tracking"
-              className="block py-3 text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
+              className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
               onClick={() => setIsMenuOpen(false)}
             >
               Track Order
@@ -333,29 +333,29 @@ const Header = () => {
 
             {isAuthenticated && customer ? (
               <>
-                <div className="border-t border-gray-200/50 pt-4 mt-4">
-                  <p className="py-2 text-sm font-medium text-gray-600">👤 {customerName}</p>
-                  <p className="text-xs text-[#1a28c2] font-medium mb-4">
+                <div className="border-t border-gray-200/50 pt-3 mt-3 sm:pt-4 sm:mt-4">
+                  <p className="py-1 sm:py-2 text-xs sm:text-sm font-medium text-gray-600">👤 {customerName}</p>
+                  <p className="text-xs text-[#1a28c2] font-medium mb-3 sm:mb-4">
                     Wallet: {customer.wallet?.balance ? `${customer.wallet.currency} ${customer.wallet.balance.toFixed(3)}` : 'No wallet'}
                   </p>
                 </div>
                 <Link
                   href="/customer/dashboard"
-                  className="block py-3 text-lg font-medium text-[#1a28c2] hover:text-[#190dad] transition-colors"
+                  className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-[#1a28c2] hover:text-[#190dad] transition-colors"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/customer/dashboard?tab=orders"
-                  className="block py-3 text-lg font-medium text-[#1a28c2] hover:text-[#190dad] transition-colors"
+                  className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-[#1a28c2] hover:text-[#190dad] transition-colors"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   My Orders
                 </Link>
                 <Link
                   href="/customer/dashboard?tab=addresses"
-                  className="block py-3 text-lg font-medium text-[#1a28c2] hover:text-[#190dad] transition-colors"
+                  className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-[#1a28c2] hover:text-[#190dad] transition-colors"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Addresses
@@ -365,16 +365,16 @@ const Header = () => {
                     handleLogout();
                     setIsMenuOpen(false);
                   }}
-                  className="block w-full text-left py-3 text-lg font-medium text-red-600 hover:text-red-800 transition-colors"
+                  className="block w-full text-left py-2 sm:py-3 text-base sm:text-lg font-medium text-red-600 hover:text-red-800 transition-colors"
                 >
                   Logout
                 </button>
               </>
             ) : (
-              <div className="border-t border-gray-200/50 pt-4 mt-4">
+              <div className="border-t border-gray-200/50 pt-3 mt-3 sm:pt-4 sm:mt-4">
                 <Link
                   href="/registerlogin"
-                  className="block py-3 text-lg font-bold text-[#1a28c2] hover:text-[#190dad] transition-colors"
+                  className="block py-2 sm:py-3 text-base sm:text-lg font-bold text-[#1a28c2] hover:text-[#190dad] transition-colors"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Sign In
