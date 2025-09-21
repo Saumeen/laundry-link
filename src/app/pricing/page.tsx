@@ -101,11 +101,11 @@ export default function PricingPage() {
   if (loading) {
     return (
       <MainLayout>
-        <div className='bg-white py-12'>
+        <div className='bg-gradient-to-br from-blue-50 to-indigo-100 py-12'>
           <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
             <div className='text-center'>
-              <div className='animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto'></div>
-              <p className='mt-4 text-lg text-gray-600'>Loading pricing information...</p>
+              <div className='animate-spin rounded-full h-16 w-16 border-b-4 border-[#1a28c2] mx-auto'></div>
+              <p className='mt-4 text-lg text-[#1f6cc7]'>Loading pricing information...</p>
             </div>
           </div>
         </div>
@@ -116,7 +116,7 @@ export default function PricingPage() {
   if (error) {
     return (
       <MainLayout>
-        <div className='bg-white py-12'>
+        <div className='bg-gradient-to-br from-blue-50 to-indigo-100 py-12'>
           <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
             <div className='text-center'>
               <div className='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4'>
@@ -133,29 +133,29 @@ export default function PricingPage() {
 
   return (
     <MainLayout>
-      <div className='bg-white py-12'>
+      <div className='bg-gradient-to-br from-blue-50 to-indigo-100 py-12'>
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
           <div className='text-center'>
-            <h1 className='text-3xl font-extrabold text-blue-600 sm:text-4xl brand-name'>
+            <h1 className='text-3xl font-extrabold text-[#1a28c2] sm:text-4xl brand-name'>
               {header.title}
             </h1>
             {header.subtitle && (
-              <p className='mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4'>
+              <p className='mt-3 max-w-2xl mx-auto text-xl text-[#1f6cc7] sm:mt-4'>
                 {header.subtitle}
               </p>
             )}
             {header.subtitleAr && (
-              <p className='mt-1 max-w-2xl mx-auto text-lg text-gray-500 sm:mt-2 mb-8'>
+              <p className='mt-1 max-w-2xl mx-auto text-lg text-[#1f6cc7] sm:mt-2 mb-8'>
                 {header.subtitleAr}
               </p>
             )}
             {header.priceListTitle && (
-              <h2 className='text-3xl font-extrabold text-blue-600 sm:text-4xl mb-8 brand-name'>
+              <h2 className='text-3xl font-extrabold text-[#1a28c2] sm:text-4xl mb-8 brand-name'>
                 {header.priceListTitle}
               </h2>
             )}
             {header.priceListTitleAr && (
-              <p className='text-2xl text-blue-600 mb-12'>
+              <p className='text-2xl text-[#1a28c2] mb-12'>
                 {header.priceListTitleAr}
               </p>
             )}
@@ -183,7 +183,7 @@ export default function PricingPage() {
                       key={category.id}
                       className='bg-white rounded-lg shadow-lg overflow-hidden'
                     >
-                      <div className='bg-blue-800 text-white text-center py-3 text-xl font-semibold'>
+                      <div className='bg-[#190dad] text-white text-center py-3 text-xl font-semibold'>
                         {category.name}
                       </div>
                       <div className='p-6'>
@@ -198,10 +198,10 @@ export default function PricingPage() {
                                     : 'border-b'
                                 }
                               >
-                                <td className='py-3 text-left text-blue-800 font-medium'>
+                                <td className='py-3 text-left text-[#1a28c2] font-medium'>
                                   {item.displayName}
                                 </td>
-                                <td className='py-3 text-right text-blue-800 font-medium'>
+                                <td className='py-3 text-right text-[#1a28c2] font-medium'>
                                   BD {item.price.toFixed(3)}
                                 </td>
                               </tr>
@@ -220,7 +220,7 @@ export default function PricingPage() {
                       key={category.id}
                       className='bg-white rounded-lg shadow-lg overflow-hidden'
                     >
-                      <div className='bg-blue-800 text-white text-center py-3 text-xl font-semibold'>
+                      <div className='bg-[#190dad] text-white text-center py-3 text-xl font-semibold'>
                         {category.name}
                       </div>
                       <div className='p-6'>
@@ -235,10 +235,10 @@ export default function PricingPage() {
                                     : 'border-b'
                                 }
                               >
-                                <td className='py-3 text-left text-blue-800 font-medium'>
+                                <td className='py-3 text-left text-[#1a28c2] font-medium'>
                                   {item.displayName}
                                 </td>
-                                <td className='py-3 text-right text-blue-800 font-medium'>
+                                <td className='py-3 text-right text-[#1a28c2] font-medium'>
                                   BD {item.price.toFixed(3)}
                                 </td>
                               </tr>
@@ -253,7 +253,7 @@ export default function PricingPage() {
                 {/* Third row - WASH AND FOLD (centered) */}
                 {categories.length > 4 && (
                   <div className='bg-white rounded-lg shadow-lg overflow-hidden max-w-md mx-auto'>
-                    <div className='bg-blue-800 text-white text-center py-3 text-xl font-semibold'>
+                    <div className='bg-[#190dad] text-white text-center py-3 text-xl font-semibold'>
                       {categories[4].name}
                     </div>
                     <div className='p-6'>
@@ -268,10 +268,10 @@ export default function PricingPage() {
                                   : 'border-b'
                               }
                             >
-                              <td className='py-3 text-left text-blue-800 font-medium'>
+                              <td className='py-3 text-left text-[#1a28c2] font-medium'>
                                 {item.displayName}
                               </td>
-                              <td className='py-3 text-right text-blue-800 font-medium'>
+                              <td className='py-3 text-right text-[#1a28c2] font-medium'>
                                 BD {item.price.toFixed(3)}
                               </td>
                             </tr>
@@ -287,14 +287,14 @@ export default function PricingPage() {
 
           <div className='mt-12 text-center'>
             {header.contactInfo && (
-              <p className='text-2xl text-blue-800 font-bold'>
+              <p className='text-2xl text-[#190dad] font-bold'>
                 {header.contactInfo}
               </p>
             )}
             <div className='mt-6'>
               <Link
                 href='/schedule'
-                className='inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700'
+                className='inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[#1a28c2] hover:bg-[#190dad] transition-colors'
               >
                 Schedule a Pickup
               </Link>

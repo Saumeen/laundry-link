@@ -2,10 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Performance optimizations for animations */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* GPU acceleration for smooth animations */
+.animate-gpu {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+/* Enhanced smooth animations */
+* {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000px;
+  perspective: 1000px;
+}
+
+/* Smooth hover transitions */
+.hover-smooth {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Optimize animation performance */
+@media (prefers-reduced-motion: no-preference) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Ultra-smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth scroll momentum */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Optimize for 60fps animations */
+@media (prefers-reduced-motion: no-preference) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom scrollbar - transparent */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
 /* Custom font for the app */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+html {
+  height: 100%;
+}
+
 body {
+  overflow-x: hidden;
+  min-height: 100vh;
+  scroll-behavior: smooth;
   font-family: 'Inter', sans-serif;
 }
 
@@ -179,5 +264,31 @@ body {
   /* Hide scrollbars */
   .print\\:overflow-visible {
     overflow: visible !important;
+  }
+}
+
+:root {
+  --primary-color: #1a28c2;
+  --secondary-color: #e3f2fd;
+  --dark-blue: #190dad;
+  --medium-blue: #1f6cc7;
+  --light-blue: #5cc4e4;
+  --cyan-aqua: #63dbe2;
+  --white: #ffffff;
+}
+.gradient-bg {
+  background: linear-gradient(300deg, #e3f2fd, var(--white), #d4eaf7);
+  background-size: 180% 180%;
+  animation: gradient-animation 12s ease infinite;
+}
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 }
