@@ -13,7 +13,7 @@ const Services = () => {
       description: 'Crisp and clean everyday wear.',
       price: 'From BD 0.600',
       imageUrl:
-        'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2074&auto=format&fit=crop&ixlib=rb-4.0.3',
       icon: '🧺',
       color: 'from-blue-500 to-cyan-500',
     },
@@ -31,7 +31,7 @@ const Services = () => {
       description: "Laundry in a hurry? We've got you.",
       price: '+50% surcharge',
       imageUrl:
-        'https://images.unsplash.com/photo-1581578731548-c6a0c3f2fcc0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2074&auto=format&fit=crop&ixlib=rb-4.0.3',
       icon: '⚡',
       color: 'from-yellow-500 to-orange-500',
     },
@@ -40,7 +40,7 @@ const Services = () => {
       description: 'Fresh, clean and hygienic bedding.',
       price: 'From BD 3.000',
       imageUrl:
-        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=2058&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2074&auto=format&fit=crop&ixlib=rb-4.0.3',
       icon: '🛏️',
       color: 'from-green-500 to-emerald-500',
     },

@@ -17,11 +17,22 @@ const Footer = () => {
       <div className="mx-auto max-w-7xl">
         <div className="grid grid-cols-1 gap-8 sm:gap-10 md:gap-12 md:grid-cols-2 lg:grid-cols-4">
           <div className="col-span-1 flex flex-col gap-4 sm:gap-5 text-center md:col-span-2 md:text-left lg:col-span-1">
-            <div className="flex items-center justify-center gap-2 sm:gap-3 text-2xl sm:text-3xl font-bold md:justify-start">
-              <span className="material-symbols-outlined text-4xl sm:text-5xl text-[var(--primary-color)]">
-                local_laundry_service
-              </span>
-              <h2 className="tracking-tighter text-[#111618]">Laundry Link</h2>
+            <div className="flex items-center justify-center gap-3 sm:gap-4 md:justify-start">
+              {/* Circular Logo */}
+              <Logo 
+                src="/laundry-link-logo.png"
+                width={50} 
+                height={50} 
+                className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" 
+              />
+              
+              {/* Main Text Logo */}
+              <Logo 
+                src="/laundry-link-main.png"
+                width={140} 
+                height={40} 
+                className="h-8 w-auto sm:h-10 object-contain" 
+              />
             </div>
             <p className="text-base sm:text-lg text-gray-600">
               Your partner for pristine laundry and dry cleaning in Bahrain.
@@ -91,7 +102,7 @@ const Footer = () => {
             <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Follow Us</h4>
             <div className="flex justify-center gap-4 sm:gap-5 md:justify-start">
               <a
-                className="text-gray-500 transition-colors hover:text-[var(--primary-color)]"
+                className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110"
                 href="#"
               >
                 <svg
@@ -108,7 +119,7 @@ const Footer = () => {
                 </svg>
               </a>
               <a
-                className="text-gray-500 transition-colors hover:text-[var(--primary-color)]"
+                className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110"
                 href="#"
               >
                 <svg
@@ -121,7 +132,7 @@ const Footer = () => {
                 </svg>
               </a>
               <a
-                className="text-gray-500 transition-colors hover:text-[var(--primary-color)]"
+                className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110"
                 href="#"
               >
                 <svg
