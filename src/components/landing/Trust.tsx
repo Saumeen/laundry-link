@@ -93,12 +93,12 @@ const Trust = () => {
                 <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-400/20 via-cyan-400/10 to-indigo-400/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
                 
                 {/* Icon Container */}
-                <div className="relative flex h-16 w-16 sm:h-18 sm:w-18 lg:h-16 lg:w-16 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[var(--primary-color)] to-blue-600 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/50">
-                  <span className="material-symbols-outlined text-2xl sm:text-3xl lg:text-2xl">
+                <div className="relative flex h-16 w-16 sm:h-18 sm:w-18 lg:h-16 lg:w-16 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[var(--primary-color)] to-blue-600 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/50 group-hover:from-orange-500 group-hover:to-red-500">
+                  <span className="material-symbols-outlined text-2xl sm:text-3xl lg:text-2xl transition-colors duration-300 group-hover:text-white">
                     {stat.icon}
                   </span>
                   {/* Icon glow effect */}
-                  <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[var(--primary-color)]/50 to-blue-600/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+                  <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-400/50 to-red-500/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
                 </div>
                 
                 {/* Content */}

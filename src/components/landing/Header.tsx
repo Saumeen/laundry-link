@@ -292,7 +292,7 @@ const Header = () => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="lg:hidden fixed top-16 sm:top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-lg"
+          className="lg:hidden sticky top-16 sm:top-20 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-lg"
         >
           <div className="px-3 py-4 sm:px-4 sm:py-6 space-y-3 sm:space-y-4">
             <Link
