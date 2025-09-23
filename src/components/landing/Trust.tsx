@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
 
 const Trust = () => {
   const stats = [
@@ -42,26 +43,32 @@ const Trust = () => {
   };
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-cyan-50/60 to-indigo-50/80 px-3 py-12 sm:px-4 sm:py-16 md:px-6 md:py-20 lg:px-10 lg:py-24">
+    <section 
+      className="relative overflow-hidden bg-gradient-to-br from-blue-50/80 via-cyan-50/60 to-indigo-50/80 px-3 py-12 sm:px-4 sm:py-16 md:px-6 md:py-20 lg:px-10 lg:py-24"
+      aria-labelledby="trust-heading"
+    >
+      <ScreenReaderOnly>
+        Trust indicators and statistics for Laundry Link laundry service in Bahrain
+      </ScreenReaderOnly>
       {/* Background Elements */}
-      <div className="absolute inset-0 opacity-30">
+      <div className="absolute inset-0 opacity-30" aria-hidden="true">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-100/10 via-transparent to-cyan-100/10"></div>
       </div>
       
       <div className="relative mx-auto max-w-7xl">
-        <motion.div
+        <motion.header
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10 sm:mb-16 lg:mb-20"
         >
-          <h2 className="mb-4 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl">
-            Trusted by Our Community
+          <h2 id="trust-heading" className="mb-4 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl">
+            Trusted by Our Community in Bahrain
           </h2>
           <p className="mx-auto max-w-3xl text-base text-[var(--medium-blue)] sm:text-lg md:text-xl lg:text-2xl">
-            See what our customers say and the trust we've built in Bahrain
+            See what our customers say and the trust we've built as the leading laundry service in Bahrain
           </p>
-        </motion.div>
+        </motion.header>
 
         {/* Horizontal Stats Container */}
         <motion.div
@@ -77,9 +84,11 @@ const Trust = () => {
             whileInView="visible"
             viewport={{ once: true }}
             className="flex flex-col gap-4 sm:gap-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-white/30 via-white/20 to-white/30 p-4 sm:p-6 lg:p-8 backdrop-blur-lg lg:flex-row lg:items-center lg:justify-between lg:gap-12"
+            role="list"
+            aria-label="Trust indicators and statistics"
           >
             {stats.map((stat, index) => (
-              <motion.div
+              <motion.article
                 key={index}
                 variants={itemVariants}
                 whileHover={{ 
@@ -88,12 +97,14 @@ const Trust = () => {
                   transition: { type: "spring" as const, stiffness: 300, damping: 20 }
                 }}
                 className="group relative flex flex-1 flex-col items-center gap-3 sm:gap-4 rounded-xl sm:rounded-2xl bg-white/40 p-4 sm:p-5 lg:p-6 shadow-lg sm:shadow-xl shadow-blue-200/30 backdrop-blur-md transition-all duration-300 hover:bg-white/60 hover:shadow-2xl hover:shadow-blue-300/40 lg:flex-row lg:gap-6"
+                role="listitem"
+                aria-label={`${stat.label}: ${stat.number}`}
               >
                 {/* Animated Background Glow */}
-                <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-400/20 via-cyan-400/10 to-indigo-400/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
+                <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-400/20 via-cyan-400/10 to-indigo-400/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" aria-hidden="true"></div>
                 
                 {/* Icon Container */}
-                <div className="relative flex h-16 w-16 sm:h-18 sm:w-18 lg:h-16 lg:w-16 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[var(--primary-color)] to-blue-600 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/50 group-hover:from-orange-500 group-hover:to-red-500">
+                <div className="relative flex h-16 w-16 sm:h-18 sm:w-18 lg:h-16 lg:w-16 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-[var(--primary-color)] to-blue-600 text-white shadow-lg shadow-blue-500/30 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-blue-500/50 group-hover:from-orange-500 group-hover:to-red-500" aria-hidden="true">
                   <span className="material-symbols-outlined text-2xl sm:text-3xl lg:text-2xl transition-colors duration-300 group-hover:text-white">
                     {stat.icon}
                   </span>
@@ -112,8 +123,8 @@ const Trust = () => {
                 </div>
 
                 {/* Decorative elements */}
-                <div className="absolute -right-1 -top-1 h-4 w-4 sm:h-6 sm:w-6 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 opacity-0 transition-all duration-300 group-hover:opacity-100 lg:-right-1 lg:-top-1 lg:h-4 lg:w-4"></div>
-              </motion.div>
+                <div className="absolute -right-1 -top-1 h-4 w-4 sm:h-6 sm:w-6 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 opacity-0 transition-all duration-300 group-hover:opacity-100 lg:-right-1 lg:-top-1 lg:h-4 lg:w-4" aria-hidden="true"></div>
+              </motion.article>
             ))}
           </motion.div>
         </motion.div>

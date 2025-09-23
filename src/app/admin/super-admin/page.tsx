@@ -6,7 +6,6 @@ import { useSuperAdminAuth } from '@/admin/hooks/useAdminAuth';
 import { useDashboardStore } from '@/admin/stores/dashboardStore';
 import { DashboardStats } from '@/admin/components/DashboardStats';
 import { QuickActionButton } from '@/admin/components/QuickActionButton';
-import CronJobMonitor from '@/components/admin/CronJobMonitor';
 import PageTransition from '@/components/ui/PageTransition';
 
 export default function SuperAdminDashboard() {
@@ -49,8 +48,9 @@ export default function SuperAdminDashboard() {
     router.push('/admin/super-admin/configurations');
   };
 
-  const handleNavigateToCronMonitor = () => {
-    router.push('/admin/super-admin/cron-monitor');
+
+  const handleNavigateToLandingPage = () => {
+    router.push('/admin/super-admin/landing-page');
   };
 
   // Stats card click handlers
@@ -230,6 +230,26 @@ export default function SuperAdminDashboard() {
                 }
               />
 
+              <QuickActionButton
+                title='Landing Page'
+                onClick={handleNavigateToLandingPage}
+                bgColor='bg-pink-600 hover:bg-pink-700'
+                icon={
+                  <svg
+                    className='w-4 h-4'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z'
+                    />
+                  </svg>
+                }
+              />
 
             </div>
           </div>
@@ -288,41 +308,6 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
 
-          {/* Cron Job Monitor Section */}
-          <div className='mt-8'>
-            <h2 className='text-lg font-medium text-gray-900 mb-4'>
-              System Monitoring
-            </h2>
-            <div className='bg-white rounded-lg shadow p-6'>
-              <h3 className='text-lg font-medium text-gray-900 mb-4'>
-                Cron Job Monitor
-              </h3>
-              <p className='text-gray-600 mb-4'>
-                Monitor and control automated payment status checking jobs.
-                View execution history and payment statistics.
-              </p>
-              <QuickActionButton
-                title='Open Cron Monitor'
-                onClick={handleNavigateToCronMonitor}
-                bgColor='bg-purple-600 hover:bg-purple-700'
-                icon={
-                  <svg
-                    className='w-4 h-4'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      strokeWidth={2}
-                      d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
-                    />
-                  </svg>
-                }
-              />
-            </div>
-          </div>
         </div>
       </div>
     </PageTransition>

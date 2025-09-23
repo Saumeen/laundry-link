@@ -707,4 +707,15 @@ model Review {
   @@map("reviews")
 }
 
+// ===== LANDING PAGE CMS SYSTEM =====
+model LandingPage {
+  id          Int      @id @default(autoincrement())
+  pageName    String   @unique @default("default") // e.g., "default", "home", etc.
+  content     Json     // Structured JSON content for all landing page sections
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("landing_pages")
+}
+
 

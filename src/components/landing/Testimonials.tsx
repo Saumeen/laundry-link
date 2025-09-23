@@ -1,28 +1,32 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
 
-interface Review {
+interface Testimonial {
   id: number;
   rating: number;
-  title?: string;
+  title: string | null;
   comment: string;
   isVerified: boolean;
   createdAt: string;
   customer: {
-    firstName: string;
-    lastName: string;
-  };
-  order?: {
-    orderNumber: string;
+    name: string;
   };
 }
 
-const Testimonials = () => {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+interface TestimonialsContent {
+  title: string;
+  displayMode: "auto" | "manual";
+  selectedReviewIds: number[];
+}
+
+interface TestimonialsProps {
+  content: TestimonialsContent;
+  testimonials: Testimonial[];
+}
+
+const Testimonials = ({ content, testimonials }: TestimonialsProps) => {
 
   // Fallback testimonials in case API fails or no reviews exist
   const fallbackTestimonials = [
@@ -92,37 +96,16 @@ const Testimonials = () => {
     },
   ];
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const response = await fetch('/api/reviews?limit=8');
-        if (response.ok) {
-          const data = await response.json() as { reviews: Review[] };
-          setReviews(data.reviews || []);
-        } else {
-          console.error('Failed to fetch reviews');
-        }
-      } catch (err) {
-        console.error('Error fetching reviews:', err);
-        setError('Failed to load reviews');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReviews();
-  }, []);
-
-  // Convert reviews to testimonials format or use fallback
-  const testimonials = reviews.length > 0 
-    ? reviews.map(review => ({
-        name: `${review.customer.firstName} ${review.customer.lastName.charAt(0)}.`,
-        role: review.isVerified ? "Verified Customer" : "Customer",
+  // Convert testimonials to display format or use fallback
+  const displayTestimonials = testimonials.length > 0 
+    ? testimonials.map(testimonial => ({
+        name: testimonial.customer.name,
+        role: testimonial.isVerified ? "Verified Customer" : "Customer",
         avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAlGiSkZMTII6wK8S-DDU6Z4mkN-JYGEpaDOQllMDodQ7GYkNzIecVIxip0ZZ4bi39-iMyUySleGLjop6Nf1gspy_a0xnmF1pjvamdEUUpZOBKJIsjfi5hbBKwbQWfVz-DSnmNh0sScEGpx6GA5TNgQytwzDByS0bwJJVFbcmf9GHR1TjF6Dlak83Honxc8_BNELP4H3KQT0NHc83rDifpsdoelob47ZO4jyq1cnUqDMRq1Rwr3FbZ-dDGS_s0TpNqFRU1DxuPKffU",
-        quote: review.comment,
-        rating: review.rating,
-        isVerified: review.isVerified,
-        orderNumber: review.order?.orderNumber,
+        quote: testimonial.comment,
+        rating: testimonial.rating,
+        isVerified: testimonial.isVerified,
+        orderNumber: undefined,
       }))
     : fallbackTestimonials.map(testimonial => ({
         ...testimonial,
@@ -132,26 +115,31 @@ const Testimonials = () => {
       }));
 
   // Duplicate testimonials for seamless loop
-  const duplicatedTestimonials = [...testimonials, ...testimonials];
+  const duplicatedTestimonials = [...displayTestimonials, ...displayTestimonials];
 
   return (
-    <section className="bg-white/60 py-12 backdrop-blur-md sm:py-16 md:py-20 lg:py-24">
+    <section 
+      className="bg-white/60 py-12 backdrop-blur-md sm:py-16 md:py-20 lg:py-24"
+      aria-labelledby="testimonials-heading"
+    >
+      <ScreenReaderOnly>
+        Customer testimonials and reviews for Laundry Link laundry service in Bahrain
+      </ScreenReaderOnly>
       <div className="mx-auto max-w-7xl text-center px-3 sm:px-4 md:px-6 lg:px-10">
-        <h2 className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
-          What Our Customers Say
+        <h2 id="testimonials-heading" className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
+          {content.title || "What Our Customers Say About Our Laundry Service"}
         </h2>
         <p className="mx-auto mb-8 max-w-3xl text-base text-[var(--medium-blue)] sm:mb-12 sm:text-lg lg:text-xl">
-          We&apos;re proud to be trusted by our community. Here's what they
-          think about Laundry Link.
+          We&apos;re proud to be trusted by our community in Bahrain. Here's what our customers think about Laundry Link's professional laundry and dry cleaning service.
         </p>
       </div>
       
       {/* Full-width sliding testimonials container */}
-      <div className="relative overflow-hidden w-full py-4">
+      <div className="relative overflow-hidden w-full py-4" aria-live="polite" aria-label="Customer testimonials carousel">
           <motion.div
             className="flex gap-4 sm:gap-6 md:gap-8"
             animate={{
-              x: [0, -(testimonials.length * 400 + (testimonials.length - 1) * 32)], // Move by exactly half the duplicated width
+              x: [0, -(displayTestimonials.length * 400 + (displayTestimonials.length - 1) * 32)], // Move by exactly half the duplicated width
             }}
             transition={{
               x: {
@@ -164,64 +152,68 @@ const Testimonials = () => {
             style={{
               width: `${duplicatedTestimonials.length * 400 + (duplicatedTestimonials.length - 1) * 32}px`, // Set explicit width for smooth animation
             }}
+            role="list"
+            aria-label="Customer testimonials"
           >
             {duplicatedTestimonials.map((testimonial, index) => (
-              <motion.div
+              <motion.article
                 key={`${testimonial.name}-${index}`}
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true, margin: "-100px" }}
                 className="flex-shrink-0 w-80 sm:w-96 md:w-[400px]"
+                role="listitem"
               >
-                <div className="flex flex-col items-start gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 lg:p-8 text-left shadow-lg sm:shadow-xl shadow-blue-200/50 transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-300/50 h-full">
-                  <div className="flex items-center gap-3 sm:gap-4 w-full">
-                    <img
-                      className="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14 lg:h-16 lg:w-16"
-                      src={testimonial.avatarUrl}
-                      alt={`Avatar of ${testimonial.name}`}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-base font-bold text-gray-800 sm:text-lg lg:text-xl">
-                          {testimonial.name}
+                <blockquote className="flex flex-col items-start gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-6 lg:p-8 text-left shadow-lg sm:shadow-xl shadow-blue-200/50 transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl hover:shadow-blue-300/50 h-full">
+                    <div className="flex items-center gap-3 sm:gap-4 w-full">
+                      <img
+                        className="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+                        src={testimonial.avatarUrl}
+                        alt={`Avatar of ${testimonial.name}, ${testimonial.role}`}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <cite className="text-base font-bold text-gray-800 sm:text-lg lg:text-xl not-italic">
+                            {testimonial.name}
+                          </cite>
+                          {testimonial.isVerified && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium" aria-label="Verified customer">
+                              ✓ Verified
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 sm:text-sm lg:text-base">
+                          {testimonial.role}
                         </p>
-                        {testimonial.isVerified && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
-                            ✓ Verified
-                          </span>
+                        {/* Star Rating */}
+                        {testimonial.rating && (
+                          <div className="flex items-center gap-1 mt-1" role="img" aria-label={`${testimonial.rating} out of 5 stars`}>
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <span
+                                key={i}
+                                className={`text-sm ${
+                                  i < testimonial.rating ? 'text-yellow-400' : 'text-gray-300'
+                                }`}
+                                aria-hidden="true"
+                              >
+                                ★
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 sm:text-sm lg:text-base">
-                        {testimonial.role}
-                      </p>
-                      {/* Star Rating */}
-                      {testimonial.rating && (
-                        <div className="flex items-center gap-1 mt-1">
-                          {Array.from({ length: 5 }, (_, i) => (
-                            <span
-                              key={i}
-                              className={`text-sm ${
-                                i < testimonial.rating ? 'text-yellow-400' : 'text-gray-300'
-                              }`}
-                            >
-                              ★
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                  <p className="text-sm italic text-gray-700 sm:text-base lg:text-lg">
-                    &quot;{testimonial.quote}&quot;
-                  </p>
-                  {/* Order Number if available */}
-                  {testimonial.orderNumber && (
-                    <p className="text-xs text-gray-500 mt-auto">
-                      Order #{testimonial.orderNumber}
+                    <p className="text-sm italic text-gray-700 sm:text-base lg:text-lg">
+                      &quot;{testimonial.quote}&quot;
                     </p>
-                  )}
-                </div>
-              </motion.div>
+                    {/* Order Number if available */}
+                    {testimonial.orderNumber && (
+                      <p className="text-xs text-gray-500 mt-auto">
+                        Order #{testimonial.orderNumber}
+                      </p>
+                    )}
+                  </blockquote>
+              </motion.article>
             ))}
           </motion.div>
         </div>

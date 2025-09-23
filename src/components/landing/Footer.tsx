@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Logo from "../ui/Logo";
 import Image from "next/image";
+import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
 
 const Footer = () => {
   return (
@@ -13,7 +14,12 @@ const Footer = () => {
       viewport={{ once: true }}
       transition={{ duration: 0.5 }}
       className="bg-white/70 px-3 py-8 sm:px-4 sm:py-12 md:px-6 lg:px-10 lg:py-16"
+      role="contentinfo"
+      aria-label="Site footer"
     >
+      <ScreenReaderOnly>
+        Footer with company information, services, contact details, and social media links for Laundry Link
+      </ScreenReaderOnly>
       <div className="mx-auto max-w-7xl">
         <div className="grid grid-cols-1 gap-8 sm:gap-10 md:gap-12 md:grid-cols-2 lg:grid-cols-4">
           <div className="col-span-1 flex flex-col gap-4 sm:gap-5 text-center md:col-span-2 md:text-left lg:col-span-1">
@@ -35,76 +41,99 @@ const Footer = () => {
               />
             </div>
             <p className="text-base sm:text-lg text-gray-600">
-              Your partner for pristine laundry and dry cleaning in Bahrain.
+              Your trusted partner for pristine laundry and dry cleaning services in Bahrain. Professional, reliable, and eco-friendly.
             </p>
           </div>
           <div className="text-center md:text-left lg:ml-12">
-            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Services</h4>
-            <ul className="space-y-2 sm:space-y-3">
-              <li>
-                <Link
-                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
-                  href="/services"
-                >
-                  Wash &amp; Iron
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
-                  href="/services"
-                >
-                  Dry Cleaning
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
-                  href="/services"
-                >
-                  Express Service
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)]"
-                  href="/services"
-                >
-                  Bedding &amp; Linens
-                </Link>
-              </li>
-            </ul>
+            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Our Services</h4>
+            <nav aria-label="Service links">
+              <ul className="space-y-2 sm:space-y-3" role="list">
+                <li>
+                  <Link
+                    className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                    href="/services"
+                    aria-label="Learn about our wash and iron service"
+                  >
+                    Wash &amp; Iron
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                    href="/services"
+                    aria-label="Learn about our dry cleaning service"
+                  >
+                    Dry Cleaning
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                    href="/services"
+                    aria-label="Learn about our express laundry service"
+                  >
+                    Express Service
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="text-base sm:text-lg text-gray-600 transition-colors hover:text-[var(--primary-color)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                    href="/services"
+                    aria-label="Learn about our bedding and linens service"
+                  >
+                    Bedding &amp; Linens
+                  </Link>
+                </li>
+              </ul>
+            </nav>
           </div>
           <div className="text-center md:text-left">
-            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Contact Us</h4>
-            <ul className="space-y-3 sm:space-y-4 text-gray-600">
-              <li className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
-                <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]">
-                  call
-                </span>
-                +973 1234 5678
-              </li>
-              <li className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
-                <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]">
-                  mark_email_read
-                </span>
-                hello@laundrylink.bh
-              </li>
-              <li className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
-                <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]">
-                  nest_clock_farsight_analog
-                </span>
-                8am - 10pm, Mon-Sun
-              </li>
-            </ul>
+            <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Contact Information</h4>
+            <address className="space-y-3 sm:space-y-4 text-gray-600 not-italic">
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                      <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]" aria-hidden="true">
+                        call
+                      </span>
+                      <a href="tel:+97333440841" className="hover:text-[var(--primary-color)] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded">
+                        +973 33440841
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                      <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]" aria-hidden="true">
+                        mark_email_read
+                      </span>
+                      <a href="mailto:info@ovobh.com" className="hover:text-[var(--primary-color)] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded">
+                        info@ovobh.com
+                      </a>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                      <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]" aria-hidden="true">
+                        location_on
+                      </span>
+                      <span>Juffair 341, Road 4101, Building 20, Shop 33, Bahrain</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg md:justify-start">
+                      <span className="material-symbols-outlined text-xl sm:text-2xl text-[var(--primary-color)]" aria-hidden="true">
+                        nest_clock_farsight_analog
+                      </span>
+                      <div className="text-left">
+                        <div>Saturday - Thursday: 09:00 - 00:00</div>
+                        <div>Friday: 10:00 - 22:00</div>
+                      </div>
+                    </div>
+            </address>
           </div>
           <div className="text-center md:text-left">
             <h4 className="mb-4 sm:mb-6 text-lg sm:text-xl font-bold text-gray-800">Follow Us</h4>
-            <div className="flex justify-center gap-4 sm:gap-5 md:justify-start">
-              <a
-                className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110"
-                href="#"
-              >
+            <nav aria-label="Social media links">
+              <div className="flex justify-center gap-4 sm:gap-5 md:justify-start">
+                <a
+                  className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                  href="https://www.facebook.com/laundrylinkbh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Follow us on Facebook"
+                >
                 <svg
                   aria-hidden="true"
                   className="h-6 w-6 sm:h-8 sm:w-8"
@@ -118,23 +147,29 @@ const Footer = () => {
                   ></path>
                 </svg>
               </a>
-              <a
-                className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110"
-                href="#"
-              >
-                <svg
-                  aria-hidden="true"
-                  className="h-6 w-6 sm:h-8 sm:w-8"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
+                <a
+                  className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                  href="https://www.twitter.com/laundrylinkbh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Follow us on Twitter"
                 >
-                  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.71v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"></path>
-                </svg>
-              </a>
-              <a
-                className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110"
-                href="#"
-              >
+                  <svg
+                    aria-hidden="true"
+                    className="h-6 w-6 sm:h-8 sm:w-8"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.71v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"></path>
+                  </svg>
+                </a>
+                <a
+                  className="text-gray-600 transition-colors hover:text-[var(--primary-color)] hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+                  href="https://www.instagram.com/laundrylinkbh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Follow us on Instagram"
+                >
                 <svg
                   aria-hidden="true"
                   className="h-6 w-6 sm:h-8 sm:w-8"
@@ -149,23 +184,23 @@ const Footer = () => {
                 </svg>
               </a>
             </div>
-            <div className="mt-4 sm:mt-6 flex justify-center md:justify-start" id="efada-container">
-             <Image
-                src='/image-r-1.png'
-                alt='Government Seal'
-                width={120}
-                height={120}
-                className="h-12 w-auto sm:h-16 rounded-lg shadow-md"
-              />
-            </div>
+              <div className="mt-4 sm:mt-6 flex justify-center md:justify-start" id="efada-container">
+               <Image
+                  src='/image-r-1.png'
+                  alt='Government certification seal for Laundry Link'
+                  width={120}
+                  height={120}
+                  className="h-12 w-auto sm:h-16 rounded-lg shadow-md"
+                />
+              </div>
+            </nav>
           </div>
         </div>
-        <div className="mt-8 border-t border-gray-200 pt-6 text-center text-sm text-gray-500 sm:mt-12 sm:pt-8 sm:text-base lg:text-lg">
-          <p>
-            © 2025 Laundry Link. All Rights Reserved. Crafted with care in
-            Bahrain.
-          </p>
-        </div>
+              <div className="mt-8 border-t border-gray-200 pt-6 text-center text-sm text-gray-500 sm:mt-12 sm:pt-8 sm:text-base lg:text-lg">
+                <p>
+                  © 2025 Laundry Link. All rights reserved. Subsidiary of OVO W.L.L
+                </p>
+              </div>
       </div>
     </motion.footer>
   );

@@ -1,21 +1,62 @@
 import type { Metadata } from "next";
-import Header from "@/components/landing/Header";
-import Hero from "@/components/landing/Hero";
-import HowItWorks from "@/components/landing/HowItWorks";
-import Services from "@/components/landing/Services";
-import Testimonials from "@/components/landing/Testimonials";
-import Trust from "@/components/landing/Trust";
-import WhyChooseUs from "@/components/landing/WhyChooseUs";
-import Footer from "@/components/landing/Footer";
-import { AnimatedInView } from "@/components/shared/AnimatedInView";
+import CompleteLandingPage from "@/components/seo/CompleteLandingPage";
+import { getLandingPageContent, getTestimonials } from "@/lib/data/landing";
 
 export const metadata: Metadata = {
-  title: "Laundry Link",
+  title: "Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain | 24 Hour Delivery",
+  description: "Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning.",
+  keywords: "laundry service Bahrain, dry cleaning Bahrain, laundry pickup delivery, express laundry service, professional laundry, eco-friendly laundry, 24 hour laundry service, laundry service Manama, dry cleaning service Bahrain",
+  openGraph: {
+    title: "Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain",
+    description: "Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning.",
+    images: ["/laundry-link-main.png"],
+    url: "https://laundrylink.net",
+    siteName: "Laundry Link",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain",
+    description: "Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning.",
+    images: ["/laundry-link-main.png"],
+    creator: "@laundrylinkbh",
+    site: "@laundrylinkbh",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "your-google-verification-code", // Add your actual Google verification code
+  },
+  alternates: {
+    canonical: "https://laundrylink.net",
+    languages: {
+      "en-US": "https://laundrylink.net",
+      "ar-BH": "https://laundrylink.net/ar",
+    },
+  },
 };
 
-export default function HomePage() {
+// Configure for static generation with revalidation
+export const revalidate = 60; // Revalidate every 60 seconds
+
+export default async function HomePage() {
+  // Fetch landing page content and testimonials directly from database
+  const content = await getLandingPageContent();
+  const testimonials = await getTestimonials(content.testimonials);
+
   return (
     <>
+      {/* Font Preconnects for Performance */}
       <link rel="preconnect" href="https://fonts.gstatic.com/" crossOrigin="" />
       <link
         rel="stylesheet"
@@ -25,16 +66,17 @@ export default function HomePage() {
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
       />
-      <Header />
-      <main>
-        <Hero />
-        <HowItWorks />
-        <Services />
-        <Testimonials />
-        <Trust />
-        <WhyChooseUs />
-        <Footer />
-      </main>
+      
+      {/* Complete Landing Page with SEO, Accessibility & Performance */}
+      <CompleteLandingPage 
+        heroContent={content.hero}
+        servicesContent={content.services}
+        testimonialsContent={content.testimonials}
+        whyChooseUsContent={content.whyChooseUs}
+        howItWorksContent={content.howItWorks}
+        testimonials={testimonials}
+        canonicalUrl="https://laundrylink.net"
+      />
     </>
   );
 }
