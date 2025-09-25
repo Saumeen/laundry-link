@@ -73,7 +73,7 @@ const Services = ({ content }: ServicesProps) => {
         <div className="absolute top-1/2 left-1/6 sm:left-1/4 w-20 h-20 sm:w-24 sm:h-24 bg-cyan-200/20 rounded-full blur-xl animate-pulse delay-500"></div>
       </div>
 
-      <div className="mx-auto max-w-7xl text-center">
+       <div className="mx-auto w-full text-center">
         <motion.header
           variants={titleVariants}
           initial="hidden"
@@ -99,19 +99,59 @@ const Services = ({ content }: ServicesProps) => {
           </motion.div>
         </motion.header>
 
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{
-            staggerChildren: 0.15,
-            delayChildren: 0.3,
-          }}
-          className="grid grid-cols-1 gap-4 sm:gap-6 md:gap-8 sm:grid-cols-2 lg:grid-cols-4"
-          role="list"
-          aria-label="Our laundry and dry cleaning services"
-        >
+        <div className="relative">
+          {/* Scroll buttons for horizontal mode */}
+          {((content.items && content.items.length > 4) || (!content.items && 4 > 4)) && (
+            <>
+              <button
+                onClick={() => {
+                  const container = document.getElementById('services-scroll-container');
+                  if (container) {
+                    container.scrollBy({ left: -320, behavior: 'smooth' });
+                  }
+                }}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200"
+                aria-label="Scroll left"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  const container = document.getElementById('services-scroll-container');
+                  if (container) {
+                    container.scrollBy({ left: 320, behavior: 'smooth' });
+                  }
+                }}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white hover:shadow-xl transition-all duration-200"
+                aria-label="Scroll right"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </>
+          )}
+          
+          <motion.div
+            id="services-scroll-container"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{
+              staggerChildren: 0.15,
+              delayChildren: 0.3,
+            }}
+            className={`${
+              (content.items && content.items.length > 4) || (!content.items && 4 > 4)
+                ? "flex gap-4 sm:gap-6 overflow-x-auto pt-8 pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                : "grid grid-cols-1 gap-4 sm:gap-6 md:gap-8 sm:grid-cols-2 lg:grid-cols-4"
+            }`}
+            role="list"
+            aria-label="Our laundry and dry cleaning services"
+          >
           {(content.items && content.items.length > 0 ? content.items : [
             { id: "1", name: "Wash & Iron", description: "Professional washing and ironing service for everyday wear with crisp, clean results.", image: "" },
             { id: "2", name: "Dry Cleaning", description: "Expert dry cleaning for delicate garments and formal wear with gentle care.", image: "" },
@@ -123,7 +163,11 @@ const Services = ({ content }: ServicesProps) => {
               variants={itemVariants}
               onHoverStart={() => setHoveredCard(index)}
               onHoverEnd={() => setHoveredCard(null)}
-              className="group relative flex flex-col gap-3 sm:gap-4 lg:gap-5 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-5 lg:p-6 shadow-lg sm:shadow-xl shadow-blue-200/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-300/30 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+              className={`group relative flex flex-col gap-3 sm:gap-4 lg:gap-5 rounded-2xl sm:rounded-3xl bg-white p-4 sm:p-5 lg:p-6 shadow-lg sm:shadow-xl shadow-blue-200/50 transition-all duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-300/30 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 ${
+                (content.items && content.items.length > 4) || (!content.items && 4 > 4)
+                  ? "flex-shrink-0 w-full sm:w-1/2 lg:w-1/4"
+                  : ""
+              }`}
               whileHover={{
                 y: -2,
                 transition: {
@@ -233,7 +277,8 @@ const Services = ({ content }: ServicesProps) => {
 
             </motion.article>
           ))}
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
     </section>
   );

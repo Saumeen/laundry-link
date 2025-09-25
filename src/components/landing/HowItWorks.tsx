@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { AnimatedInView } from "@/components/shared/AnimatedInView";
 import Image from "next/image";
 import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
+import { IconRenderer } from '@/components/ui/IconRenderer';
 
 interface HowItWorksContent {
   title: string;
@@ -48,8 +49,8 @@ const HowItWorks = ({ content }: HowItWorksProps) => {
             <div className="absolute left-6 top-12 h-full w-0.5 bg-gradient-to-b from-[var(--secondary-color)] via-[var(--primary-color)] to-[var(--secondary-color)] opacity-30 sm:left-8 sm:top-16" aria-hidden="true"></div>
             
             {(content.steps && content.steps.length > 0 ? content.steps : [
-              { id: "1", title: "Book Your Pickup", description: "Use our app or website to schedule a convenient pickup time that works for you.", icon: "schedule" },
-              { id: "2", title: "We Collect & Clean", description: "Our professional team collects your laundry and treats it with expert care using eco-friendly methods.", icon: "local_shipping" },
+              { id: "1", title: "Book Your Pickup", description: "Use our app or website to schedule a convenient pickup time that works for you.", icon: "calendar" },
+              { id: "2", title: "We Collect & Clean", description: "Our professional team collects your laundry and treats it with expert care using eco-friendly methods.", icon: "truck" },
               { id: "3", title: "Swift Delivery", description: "We deliver your fresh, clean clothes back within 24 hours, right to your doorstep.", icon: "home" }
             ]).map((step, index) => (
               <StepCard key={step.id} step={step} index={index} />
@@ -183,9 +184,11 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
       
       <div className="flex h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-2xl sm:text-4xl font-bold text-[var(--primary-color)] transition-colors duration-300 group-hover:bg-white" aria-hidden="true">
         {step.icon ? (
-          <span className="material-symbols-outlined text-2xl sm:text-3xl">
-            {step.icon}
-          </span>
+          <IconRenderer 
+            iconName={step.icon} 
+            className="text-2xl sm:text-3xl" 
+            size={24}
+          />
         ) : (
           index + 1
         )}

@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedAdmin } from '@/lib/adminAuth';
 import prisma from '@/lib/prisma';
-import { Review, Customer, Order } from '@prisma/client';
-import { requireAdminRole } from '@/lib/adminAuth';
 
-// GET /api/admin/reviews/approved - Fetch approved reviews for admin panel selection
+// GET - Fetch approved reviews for testimonials management
 export async function GET(request: NextRequest) {
   try {
-    // Check admin authentication
-    await requireAdminRole('SUPER_ADMIN');
+    const admin = await getAuthenticatedAdmin();
+    
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Get approved reviews with customer information
-    const approvedReviews = await prisma.review.findMany({
+    const reviews = await prisma.review.findMany({
       where: {
         isApproved: true,
         isPublic: true
@@ -36,31 +37,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Format the response
-    const formattedReviews = approvedReviews.map((review) => ({
-      id: review.id,
-      rating: review.rating,
-      title: review.title,
-      comment: review.comment,
-      isVerified: review.isVerified,
-      createdAt: review.createdAt,
-      customer: {
-        id: review.customerId,
-        name: `${review.customer.firstName} ${review.customer.lastName.charAt(0)}.`,
-        email: review.customer.email
-      },
-      order: review.order ? {
-        id: review.order.id,
-        orderNumber: review.order.orderNumber
-      } : null
-    }));
-
-    return NextResponse.json({ reviews: formattedReviews });
+    return NextResponse.json({ reviews });
   } catch (error) {
     console.error('Error fetching approved reviews:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch approved reviews' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch approved reviews' }, { status: 500 });
   }
 }

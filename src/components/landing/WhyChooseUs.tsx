@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { AnimatedInView } from "@/components/shared/AnimatedInView";
 import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
+import { IconRenderer } from '@/components/ui/IconRenderer';
 
 interface WhyChooseUsContent {
   title: string;
@@ -65,9 +66,9 @@ const WhyChooseUs = ({ content }: WhyChooseUsProps) => {
             aria-label="Reasons to choose Laundry Link"
           >
             {(content.reasons && content.reasons.length > 0 ? content.reasons : [
-              { id: "1", title: "Free Collection & Delivery", description: "No hidden fees, no hassle. We come to you.", icon: "inventory_2" },
-              { id: "2", title: "Dedicated Support", description: "Our customer service team is always here to help.", icon: "headset_mic" },
-              { id: "3", title: "Live Order Tracking", description: "Stay updated every step of the way with real-time tracking.", icon: "notifications_active" }
+              { id: "1", title: "Free Collection & Delivery", description: "No hidden fees, no hassle. We come to you.", icon: "truck" },
+              { id: "2", title: "Dedicated Support", description: "Our customer service team is always here to help.", icon: "phone" },
+              { id: "3", title: "Live Order Tracking", description: "Stay updated every step of the way with real-time tracking.", icon: "check-circle" }
             ]).map((feature, index) => (
               <motion.article
                 key={index}
@@ -77,9 +78,11 @@ const WhyChooseUs = ({ content }: WhyChooseUsProps) => {
               >
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-[var(--secondary-color)] text-[var(--primary-color)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" aria-hidden="true">
                   {feature.icon ? (
-                    <span className="material-symbols-outlined text-2xl sm:text-3xl lg:text-4xl">
-                      {feature.icon}
-                    </span>
+                    <IconRenderer 
+                      iconName={feature.icon} 
+                      className="text-2xl sm:text-3xl lg:text-4xl" 
+                      size={32}
+                    />
                   ) : (
                     <span className="text-2xl sm:text-3xl lg:text-4xl">⭐</span>
                   )}

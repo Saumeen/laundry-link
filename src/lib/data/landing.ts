@@ -44,7 +44,7 @@ export interface LandingPageContent {
 }
 
 export interface Testimonial {
-  id: number;
+  id: string;
   rating: number;
   title: string | null;
   comment: string;
@@ -161,6 +161,12 @@ export async function getTestimonials(testimonialsConfig: LandingPageContent['te
             firstName: true,
             lastName: true
           }
+        },
+        order: {
+          select: {
+            id: true,
+            orderNumber: true
+          }
         }
       },
       orderBy: {
@@ -173,7 +179,7 @@ export async function getTestimonials(testimonialsConfig: LandingPageContent['te
 
     // Format the response
     return testimonials.map(review => ({
-      id: review.id,
+      id: review.id.toString(),
       rating: review.rating,
       title: review.title,
       comment: review.comment,
