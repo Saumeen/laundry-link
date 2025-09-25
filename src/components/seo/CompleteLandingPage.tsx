@@ -151,6 +151,30 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
           sideImage: ""
         }} />
         
+        <HowItWorks content={howItWorksContent || {
+          title: "How Our Laundry Service Works",
+          steps: [
+            {
+              id: "1",
+              title: "Book Your Pickup",
+              description: "Use our app or website to schedule a convenient pickup time that works for you.",
+              icon: "schedule"
+            },
+            {
+              id: "2",
+              title: "We Collect & Clean",
+              description: "Our professional team collects your laundry and treats it with expert care using eco-friendly methods.",
+              icon: "local_shipping"
+            },
+            {
+              id: "3",
+              title: "Swift Delivery",
+              description: "We deliver your fresh, clean clothes back within 24 hours, right to your doorstep.",
+              icon: "home"
+            }
+          ]
+        }} />
+        
         <Services content={servicesContent || {
           title: "Professional Laundry & Dry Cleaning Services in Bahrain",
           items: [
@@ -181,6 +205,15 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
           ]
         }} />
         
+        <Testimonials 
+          content={testimonialsContent || {
+            title: "What Our Customers Say About Our Laundry Service",
+            displayMode: "auto",
+            selectedReviewIds: []
+          }}
+          testimonials={testimonials}
+        />
+        
         <WhyChooseUs content={whyChooseUsContent || {
           title: "Why Choose Laundry Link for Your Laundry Needs?",
           reasons: [
@@ -204,39 +237,6 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
             }
           ]
         }} />
-        
-        <HowItWorks content={howItWorksContent || {
-          title: "How Our Laundry Service Works",
-          steps: [
-            {
-              id: "1",
-              title: "Book Your Pickup",
-              description: "Use our app or website to schedule a convenient pickup time that works for you.",
-              icon: "schedule"
-            },
-            {
-              id: "2",
-              title: "We Collect & Clean",
-              description: "Our professional team collects your laundry and treats it with expert care using eco-friendly methods.",
-              icon: "local_shipping"
-            },
-            {
-              id: "3",
-              title: "Swift Delivery",
-              description: "We deliver your fresh, clean clothes back within 24 hours, right to your doorstep.",
-              icon: "home"
-            }
-          ]
-        }} />
-        
-        <Testimonials 
-          content={testimonialsContent || {
-            title: "What Our Customers Say About Our Laundry Service",
-            displayMode: "auto",
-            selectedReviewIds: []
-          }}
-          testimonials={testimonials}
-        />
         
         <Trust />
         
