@@ -151,11 +151,11 @@ function ToastContainer() {
   };
 
   return (
-    <div className='fixed top-4 right-4 z-50 space-y-2'>
+    <div className='fixed top-4 right-4 z-[99999] space-y-3 max-w-sm pointer-events-none'>
       {toasts.map(toast => (
         <div
           key={toast.id}
-          className={`${getToastStyles(toast.type)} px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 min-w-80 max-w-md transform transition-all duration-300 ease-in-out`}
+          className={`${getToastStyles(toast.type)} px-4 py-3 rounded-lg shadow-xl flex items-center space-x-3 w-full transform transition-all duration-300 ease-in-out hover:shadow-2xl animate-in slide-in-from-right-full pointer-events-auto backdrop-blur-sm`}
         >
           {getIcon(toast.type)}
           <span className='flex-1 text-sm font-medium'>{toast.message}</span>

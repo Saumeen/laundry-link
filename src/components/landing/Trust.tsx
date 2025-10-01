@@ -3,23 +3,51 @@
 import { motion } from "framer-motion";
 import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
 
-const Trust = () => {
-  const stats = [
+interface TrustProps {
+  content?: {
+    title: string;
+    subtitle: string;
+    stats: Array<{
+      id: string;
+      icon: string;
+      number: string;
+      label: string;
+    }>;
+    indicators: Array<{
+      id: string;
+      icon: string;
+      label: string;
+      color: string;
+    }>;
+  };
+}
+
+const Trust: React.FC<TrustProps> = ({ content }) => {
+  const stats = content?.stats || [
     {
+      id: "1",
       icon: "groups",
       number: "5,000+",
       label: "Trusted Customers"
     },
     {
+      id: "2",
       icon: "local_shipping", 
       number: "30,000+",
       label: "Pickups Completed"
     },
     {
+      id: "3",
       icon: "verified",
       number: "Efada",
       label: "Certified Partner"
     }
+  ];
+
+  const indicators = content?.indicators || [
+    { id: "1", icon: "security", label: "Secure & Reliable", color: "green-600" },
+    { id: "2", icon: "schedule", label: "24/7 Service", color: "blue-600" },
+    { id: "3", icon: "eco", label: "Eco-Friendly", color: "purple-600" }
   ];
 
   const containerVariants = {
@@ -63,10 +91,10 @@ const Trust = () => {
           className="text-center mb-10 sm:mb-16 lg:mb-20"
         >
           <h2 id="trust-heading" className="mb-4 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-6 sm:text-4xl md:text-5xl lg:text-6xl">
-            Trusted by Our Community in Bahrain
+            {content?.title || "Trusted by Our Community in Bahrain"}
           </h2>
           <p className="mx-auto max-w-3xl text-base text-[var(--medium-blue)] sm:text-lg md:text-xl lg:text-2xl">
-            See what our customers say and the trust we've built as the leading laundry service in Bahrain
+            {content?.subtitle || "See what our customers say and the trust we've built as the leading laundry service in Bahrain"}
           </p>
         </motion.header>
 
@@ -87,9 +115,9 @@ const Trust = () => {
             role="list"
             aria-label="Trust indicators and statistics"
           >
-            {stats.map((stat, index) => (
+            {stats.map((stat) => (
               <motion.article
-                key={index}
+                key={stat.id}
                 variants={itemVariants}
                 whileHover={{ 
                   scale: 1.05, 
@@ -135,31 +163,29 @@ const Trust = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="mt-8 flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-6 sm:mt-12 lg:mt-16"
+          className="mt-6 sm:mt-8 flex justify-center items-center overflow-x-auto"
         >
-          <div className="flex items-center gap-2 sm:gap-3 rounded-full bg-white/30 px-4 py-2 sm:px-6 sm:py-3 backdrop-blur-md">
-            <span className="material-symbols-outlined text-green-600 text-lg sm:text-xl">
-              security
-            </span>
-            <span className="text-xs sm:text-sm font-medium text-[var(--dark-blue)]">
-              Secure & Reliable
-            </span>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 rounded-full bg-white/30 px-4 py-2 sm:px-6 sm:py-3 backdrop-blur-md">
-            <span className="material-symbols-outlined text-blue-600 text-lg sm:text-xl">
-              schedule
-            </span>
-            <span className="text-xs sm:text-sm font-medium text-[var(--dark-blue)]">
-              24/7 Service
-            </span>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 rounded-full bg-white/30 px-4 py-2 sm:px-6 sm:py-3 backdrop-blur-md">
-            <span className="material-symbols-outlined text-purple-600 text-lg sm:text-xl">
-              eco
-            </span>
-            <span className="text-xs sm:text-sm font-medium text-[var(--dark-blue)]">
-              Eco-Friendly
-            </span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            {indicators.map((indicator) => {
+              // Check if color is a hex code or Tailwind class
+              const isHexColor = indicator.color.startsWith('#');
+              const colorClass = isHexColor ? '' : `text-${indicator.color}`;
+              const colorStyle = isHexColor ? { color: indicator.color } : {};
+              
+              return (
+                <div key={indicator.id} className="flex items-center gap-1.5 rounded-full bg-white/30 px-3 py-1.5 backdrop-blur-md whitespace-nowrap">
+                  <span 
+                    className={`material-symbols-outlined ${colorClass} text-base`}
+                    style={colorStyle}
+                  >
+                    {indicator.icon}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--dark-blue)]">
+                    {indicator.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </motion.div>
       </div>

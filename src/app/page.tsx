@@ -72,6 +72,7 @@ export default async function HomePage() {
         heroContent={content.hero}
         servicesContent={content.services}
         testimonialsContent={content.testimonials}
+        trustContent={content.trust}
         whyChooseUsContent={content.whyChooseUs}
         howItWorksContent={content.howItWorks}
         testimonials={testimonials}

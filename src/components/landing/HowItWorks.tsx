@@ -9,6 +9,7 @@ import { IconRenderer } from '@/components/ui/IconRenderer';
 
 interface HowItWorksContent {
   title: string;
+  image: string;
   steps: Array<{
     id: string;
     title: string;
@@ -77,7 +78,7 @@ const HowItWorks = ({ content }: HowItWorksProps) => {
                 <Image
                   alt="Laundry Link process visualization showing the three-step laundry service workflow"
                   className="relative h-auto w-full max-w-xs sm:max-w-sm rounded-2xl sm:rounded-3xl object-cover shadow-xl sm:shadow-2xl"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgOE90kaFAPm69T9BvHJyq8kOF90vb_vY8GI48t7lPt6okwKyVIhXp0AQvbyY7380sRFaZK1aAff_hP5EkTfDZIvLqbITE2R2joS6m-qcR7F5UT-5WRTfvDJrxqNaU9ynmc0Ny-G_btd4nFF1PprRAEHffArbq4_Ld25xtRKznG6H3suTg9oSBJSFQK7wPIfOJeYwGFOxcmInjx40TU72A3BDyo-eDqDGibNHhNVGbsU7cFNDW7Dzd4TzsNbyaEFhsiE9drbF0rrc"
+                  src={content.image || "https://lh3.googleusercontent.com/aida-public/AB6AXuDgOE90kaFAPm69T9BvHJyq8kOF90vb_vY8GI48t7lPt6okwKyVIhXp0AQvbyY7380sRFaZK1aAff_hP5EkTfDZIvLqbITE2R2joS6m-qcR7F5UT-5WRTfvDJrxqNaU9ynmc0Ny-G_btd4nFF1PprRAEHffArbq4_Ld25xtRKznG6H3suTg9oSBJSFQK7wPIfOJeYwGFOxcmInjx40TU72A3BDyo-eDqDGibNHhNVGbsU7cFNDW7Dzd4TzsNbyaEFhsiE9drbF0rrc"}
                   width={400}
                   height={300}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

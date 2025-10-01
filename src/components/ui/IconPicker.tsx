@@ -2,28 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Shirt, 
-  Truck, 
-  Clock, 
-  Shield, 
-  Star, 
-  Users, 
-  Phone, 
-  MapPin, 
-  CreditCard, 
-  CheckCircle, 
-  Zap, 
-  Heart, 
-  Award, 
-  RefreshCw, 
-  Home, 
-  Calendar, 
-  MessageCircle, 
-  Settings, 
-  Lock, 
-  Sparkles 
-} from 'lucide-react';
 
 interface IconPickerProps {
   value: string;
@@ -31,28 +9,38 @@ interface IconPickerProps {
   placeholder?: string;
 }
 
-// Curated list of business and laundry-related icons
+// Curated list of Material Symbols icons for laundry and business services
 const ICON_OPTIONS = [
-  { name: 'shirt', component: Shirt, label: 'Shirt/Clothing' },
-  { name: 'truck', component: Truck, label: 'Delivery' },
-  { name: 'clock', component: Clock, label: 'Time/Schedule' },
-  { name: 'shield', component: Shield, label: 'Security/Trust' },
-  { name: 'star', component: Star, label: 'Quality/Rating' },
-  { name: 'users', component: Users, label: 'Team/Service' },
-  { name: 'phone', component: Phone, label: 'Contact/Support' },
-  { name: 'map-pin', component: MapPin, label: 'Location' },
-  { name: 'credit-card', component: CreditCard, label: 'Payment' },
-  { name: 'check-circle', component: CheckCircle, label: 'Success/Complete' },
-  { name: 'zap', component: Zap, label: 'Fast/Quick' },
-  { name: 'heart', component: Heart, label: 'Care/Love' },
-  { name: 'award', component: Award, label: 'Excellence' },
-  { name: 'refresh-cw', component: RefreshCw, label: 'Refresh/Cycle' },
-  { name: 'home', component: Home, label: 'Home Service' },
-  { name: 'calendar', component: Calendar, label: 'Schedule' },
-  { name: 'message-circle', component: MessageCircle, label: 'Communication' },
-  { name: 'settings', component: Settings, label: 'Customization' },
-  { name: 'lock', component: Lock, label: 'Security' },
-  { name: 'sparkles', component: Sparkles, label: 'Premium/Quality' }
+  { name: 'local_laundry_service', label: 'Laundry Service' },
+  { name: 'dry_cleaning', label: 'Dry Cleaning' },
+  { name: 'iron', label: 'Ironing' },
+  { name: 'wash', label: 'Washing' },
+  { name: 'bolt', label: 'Fast Service' },
+  { name: 'king_bed', label: 'Bedding' },
+  { name: 'shirt', label: 'Shirt' },
+  { name: 'checkroom', label: 'Wardrobe' },
+  { name: 'home', label: 'Home Service' },
+  { name: 'schedule', label: 'Schedule' },
+  { name: 'delivery_truck', label: 'Delivery' },
+  { name: 'star', label: 'Quality' },
+  { name: 'security', label: 'Security' },
+  { name: 'phone', label: 'Contact' },
+  { name: 'location_on', label: 'Location' },
+  { name: 'payment', label: 'Payment' },
+  { name: 'check_circle', label: 'Success' },
+  { name: 'speed', label: 'Fast' },
+  { name: 'favorite', label: 'Care' },
+  { name: 'emoji_events', label: 'Excellence' },
+  { name: 'refresh', label: 'Refresh' },
+  { name: 'calendar_today', label: 'Calendar' },
+  { name: 'chat', label: 'Support' },
+  { name: 'settings', label: 'Settings' },
+  { name: 'lock', label: 'Security' },
+  { name: 'auto_awesome', label: 'Premium' },
+  { name: 'cleaning_services', label: 'Cleaning' },
+  { name: 'local_shipping', label: 'Shipping' },
+  { name: 'access_time', label: 'Time' },
+  { name: 'support_agent', label: 'Support' }
 ];
 
 export function IconPicker({ value, onChange, placeholder = "Select an icon" }: IconPickerProps) {
@@ -61,6 +49,7 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectedIcon = ICON_OPTIONS.find(icon => icon.name === value);
   const filteredIcons = ICON_OPTIONS.filter(icon => 
@@ -72,6 +61,12 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
     onChange(iconName);
     setIsOpen(false);
     setSearchTerm('');
+  };
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOpen(!isOpen);
   };
 
   const updateDropdownPosition = () => {
@@ -87,16 +82,32 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
 
   useEffect(() => {
     if (isOpen) {
+      // Store current scroll position to prevent scroll on open
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
+      
       updateDropdownPosition();
+      
+      // Focus the search input without scrolling
+      requestAnimationFrame(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus({ preventScroll: true });
+        }
+        // Restore scroll position if it changed
+        if (window.scrollY !== scrollY || window.scrollX !== scrollX) {
+          window.scrollTo(scrollX, scrollY);
+        }
+      });
+      
       const handleResize = () => updateDropdownPosition();
       const handleScroll = () => updateDropdownPosition();
       
       window.addEventListener('resize', handleResize);
-      window.addEventListener('scroll', handleScroll);
+      window.addEventListener('scroll', handleScroll, true);
       
       return () => {
         window.removeEventListener('resize', handleResize);
-        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('scroll', handleScroll, true);
       };
     }
   }, [isOpen]);
@@ -106,13 +117,19 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
+        onMouseDown={(e) => {
+          // Prevent default behavior that might cause scrolling
+          e.preventDefault();
+        }}
         className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
       >
         <div className="flex items-center space-x-2">
           {selectedIcon ? (
             <>
-              <selectedIcon.component className="h-4 w-4 text-gray-700" />
+              <span className="material-symbols-outlined text-gray-700 text-lg">
+                {selectedIcon.name}
+              </span>
               <span className="text-sm text-gray-700">{selectedIcon.label}</span>
             </>
           ) : (
@@ -142,12 +159,12 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
           >
             <div className="p-2 border-b border-gray-200 bg-white">
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Search icons..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                autoFocus
               />
             </div>
             <div className="max-h-48 overflow-y-auto bg-white">
@@ -156,10 +173,16 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
                   <button
                     key={icon.name}
                     type="button"
-                    onClick={() => handleIconSelect(icon.name)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleIconSelect(icon.name);
+                    }}
                     className="w-full flex items-center space-x-3 px-3 py-2 text-sm hover:bg-gray-50 focus:bg-gray-50 focus:outline-none bg-white"
                   >
-                    <icon.component className="h-4 w-4 text-gray-700" />
+                    <span className="material-symbols-outlined text-gray-700 text-lg">
+                      {icon.name}
+                    </span>
                     <span className="text-gray-700">{icon.label}</span>
                   </button>
                 ))
@@ -171,7 +194,11 @@ export function IconPicker({ value, onChange, placeholder = "Select an icon" }: 
           {/* Backdrop to close dropdown */}
           <div
             className="fixed inset-0 z-[9998]"
-            onClick={() => setIsOpen(false)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
           />
         </>,
         document.body

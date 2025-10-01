@@ -32,6 +32,22 @@ interface LandingPageProps {
     displayMode: "auto" | "manual";
     selectedReviewIds: number[];
   };
+  trustContent?: {
+    title: string;
+    subtitle: string;
+    stats: Array<{
+      id: string;
+      icon: string;
+      number: string;
+      label: string;
+    }>;
+    indicators: Array<{
+      id: string;
+      icon: string;
+      label: string;
+      color: string;
+    }>;
+  };
   whyChooseUsContent?: {
     title: string;
     reasons: Array<{
@@ -43,6 +59,7 @@ interface LandingPageProps {
   };
   howItWorksContent?: {
     title: string;
+    image: string;
     steps: Array<{
       id: string;
       title: string;
@@ -68,6 +85,7 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
   heroContent,
   servicesContent,
   testimonialsContent,
+  trustContent,
   whyChooseUsContent,
   howItWorksContent,
   testimonials = [],
@@ -153,6 +171,7 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
         
         <HowItWorks content={howItWorksContent || {
           title: "How Our Laundry Service Works",
+          image: "https://lh3.googleusercontent.com/aida-public/AB6AXuDgOE90kaFAPm69T9BvHJyq8kOF90vb_vY8GI48t7lPt6okwKyVIhXp0AQvbyY7380sRFaZK1aAff_hP5EkTfDZIvLqbITE2R2joS6m-qcR7F5UT-5WRTfvDJrxqNaU9ynmc0Ny-G_btd4nFF1PprRAEHffArbq4_Ld25xtRKznG6H3suTg9oSBJSFQK7wPIfOJeYwGFOxcmInjx40TU72A3BDyo-eDqDGibNHhNVGbsU7cFNDW7Dzd4TzsNbyaEFhsiE9drbF0rrc",
           steps: [
             {
               id: "1",
@@ -238,7 +257,20 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
           ]
         }} />
         
-        <Trust />
+        <Trust content={trustContent || {
+          title: "Trusted by Our Community in Bahrain",
+          subtitle: "See what our customers say and the trust we've built as the leading laundry service in Bahrain",
+          stats: [
+            { id: "1", icon: "groups", number: "5,000+", label: "Trusted Customers" },
+            { id: "2", icon: "local_shipping", number: "30,000+", label: "Pickups Completed" },
+            { id: "3", icon: "verified", number: "Efada", label: "Certified Partner" }
+          ],
+          indicators: [
+            { id: "1", icon: "security", label: "Secure & Reliable", color: "green-600" },
+            { id: "2", icon: "schedule", label: "24/7 Service", color: "blue-600" },
+            { id: "3", icon: "eco", label: "Eco-Friendly", color: "purple-600" }
+          ]
+        }} />
         
         <Footer />
       </main>

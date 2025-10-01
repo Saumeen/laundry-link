@@ -7,11 +7,18 @@ import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
 
 interface ServicesContent {
   title: string;
+  description?: string;
   items: Array<{
     id: string;
     name: string;
     description: string;
     image: string;
+    icon?: string;
+    learnMore?: {
+      enabled: boolean;
+      text: string;
+      link: string;
+    };
   }>;
 }
 
@@ -30,7 +37,7 @@ const Services = ({ content }: ServicesProps) => {
     'from-green-500 to-emerald-500',
   ];
 
-  const defaultIcons = ['🧺', '👔', '⚡', '🛏️'];
+  const defaultIcons = ['local_laundry_service', 'dry_cleaning', 'bolt', 'king_bed'];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -95,7 +102,7 @@ const Services = ({ content }: ServicesProps) => {
             viewport={{ once: true }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            From everyday laundry to special care items, we offer a comprehensive range of professional services to meet all your laundry needs in Bahrain.
+            {content.description || "From everyday laundry to special care items, we offer a comprehensive range of professional services to meet all your laundry needs in Bahrain."}
           </motion.div>
         </motion.header>
 
@@ -153,10 +160,38 @@ const Services = ({ content }: ServicesProps) => {
             aria-label="Our laundry and dry cleaning services"
           >
           {(content.items && content.items.length > 0 ? content.items : [
-            { id: "1", name: "Wash & Iron", description: "Professional washing and ironing service for everyday wear with crisp, clean results.", image: "" },
-            { id: "2", name: "Dry Cleaning", description: "Expert dry cleaning for delicate garments and formal wear with gentle care.", image: "" },
-            { id: "3", name: "Express Service", description: "Fast 24-hour laundry service for urgent cleaning needs.", image: "" },
-            { id: "4", name: "Bedding & Linens", description: "Fresh, clean and hygienic bedding and household linens service.", image: "" }
+            { 
+              id: "1", 
+              name: "Wash & Iron", 
+              description: "Professional washing and ironing service for everyday wear with crisp, clean results.", 
+              image: "",
+              icon: "local_laundry_service",
+              learnMore: { enabled: true, text: "Learn More", link: "/services" }
+            },
+            { 
+              id: "2", 
+              name: "Dry Cleaning", 
+              description: "Expert dry cleaning for delicate garments and formal wear with gentle care.", 
+              image: "",
+              icon: "dry_cleaning",
+              learnMore: { enabled: true, text: "Learn More", link: "/services" }
+            },
+            { 
+              id: "3", 
+              name: "Express Service", 
+              description: "Fast 24-hour laundry service for urgent cleaning needs.", 
+              image: "",
+              icon: "bolt",
+              learnMore: { enabled: true, text: "Learn More", link: "/services" }
+            },
+            { 
+              id: "4", 
+              name: "Bedding & Linens", 
+              description: "Fresh, clean and hygienic bedding and household linens service.", 
+              image: "",
+              icon: "king_bed",
+              learnMore: { enabled: true, text: "Learn More", link: "/services" }
+            }
           ]).map((service, index) => (
             <motion.article
               key={index}
@@ -194,24 +229,29 @@ const Services = ({ content }: ServicesProps) => {
                 className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${defaultColors[index % defaultColors.length]} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
               />
 
-              {/* Icon badge */}
+              {/* Icon badge - using Material Symbols like Trust.tsx */}
               <motion.div
-                className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-lg sm:text-2xl"
+                className={`absolute -top-2 -right-2 sm:-top-3 sm:-right-3 z-10 w-12 h-12 sm:w-14 sm:h-14 rounded-full shadow-lg sm:shadow-xl flex items-center justify-center bg-gradient-to-br ${defaultColors[index % defaultColors.length]} transition-all duration-300 group-hover:shadow-2xl`}
                 initial={{ scale: 0, rotate: -180 }}
                 whileInView={{ scale: 1, rotate: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 + 0.5, type: "spring", stiffness: 200 }}
                 whileHover={{
-                  scale: 1.1,
-                  rotate: 5,
+                  scale: 1.15,
+                  rotate: 10,
                   transition: {
                     type: "spring",
                     stiffness: 400,
                     damping: 25
                   }
                 }}
+                aria-hidden="true"
               >
-                {defaultIcons[index % defaultIcons.length]}
+                <span className="material-symbols-outlined text-white text-xl sm:text-2xl font-bold transition-transform duration-300 group-hover:scale-110">
+                  {service.icon || defaultIcons[index % defaultIcons.length]}
+                </span>
+                {/* Icon glow effect like Trust.tsx */}
+                <div className="absolute inset-0 rounded-full bg-white/30 opacity-0 transition-opacity duration-300 group-hover:opacity-100"></div>
               </motion.div>
 
               <div className="relative h-48 w-full overflow-hidden rounded-xl sm:h-56 sm:rounded-2xl lg:h-64">
@@ -245,34 +285,51 @@ const Services = ({ content }: ServicesProps) => {
                 >
                   {service.description}
                 </motion.p>
-                <motion.div
-                  className="mt-3 sm:mt-4"
-                  whileHover={{
-                    scale: 1.02,
-                    transition: {
-                      type: "spring",
-                      stiffness: 400,
-                      damping: 25
-                    }
-                  }}
-                >
-                  <motion.p 
-                    className="text-base font-bold text-[var(--primary-color)] sm:text-lg lg:text-xl inline-block"
-                    animate={{
-                      backgroundPosition: hoveredCard === index ? "200% center" : "0% center"
-                    }}
-                    transition={{ duration: 0.5 }}
-                    style={{
-                      background: "linear-gradient(90deg, var(--primary-color) 0%, #ff6b6b 50%, var(--primary-color) 100%)",
-                      backgroundSize: "200% auto",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text"
+                {(service.learnMore?.enabled !== false) && (
+                  <motion.div
+                    className="mt-3 sm:mt-4"
+                    whileHover={{
+                      scale: 1.02,
+                      transition: {
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 25
+                      }
                     }}
                   >
-                    Learn More
-                  </motion.p>
-                </motion.div>
+                    <motion.a
+                      href={service.learnMore?.link || '/services'}
+                      className="inline-flex items-center gap-2 text-base font-bold sm:text-lg lg:text-xl group/link"
+                      animate={{
+                        backgroundPosition: hoveredCard === index ? "200% center" : "0% center"
+                      }}
+                      transition={{ duration: 0.5 }}
+                      aria-label={`Learn more about ${service.name}`}
+                    >
+                      <span
+                        style={{
+                          background: "linear-gradient(90deg, var(--primary-color) 0%, #ff6b6b 50%, var(--primary-color) 100%)",
+                          backgroundSize: "200% auto",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                          backgroundClip: "text"
+                        }}
+                      >
+                        {service.learnMore?.text || 'Learn More'}
+                      </span>
+                      <span 
+                        className="material-symbols-outlined text-lg sm:text-xl transition-transform duration-300"
+                        style={{
+                          color: 'var(--primary-color)',
+                          transform: hoveredCard === index ? 'translateX(4px)' : 'translateX(0)'
+                        }}
+                        aria-hidden="true"
+                      >
+                        arrow_forward
+                      </span>
+                    </motion.a>
+                  </motion.div>
+                )}
               </div>
 
             </motion.article>

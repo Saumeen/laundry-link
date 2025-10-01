@@ -15,14 +15,14 @@ export default function Toast({ message, type = 'info', onClose }: ToastProps) {
 
   if (!message) return null;
 
-  const bg = 'bg-gray-800',
-    text = 'text-white';
+  let bg = 'bg-gray-800';
+  const text = 'text-white';
   if (type === 'success') bg = 'bg-green-600';
   if (type === 'error') bg = 'bg-red-600';
 
   return (
     <div
-      className={`fixed bottom-28 left-1/2 transform -translate-x-1/2 z-50 px-4 py-3 rounded-lg shadow-lg ${bg} ${text} flex items-center min-w-[200px] max-w-[90vw] transition-all`}
+      className={`fixed top-4 right-4 z-[99999] px-4 py-3 rounded-lg shadow-xl ${bg} ${text} flex items-center min-w-[200px] max-w-[90vw] transition-all duration-300 ease-in-out hover:shadow-2xl`}
     >
       <span className='flex-1 text-center text-sm font-medium'>{message}</span>
       <button
