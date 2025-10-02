@@ -33,7 +33,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ reviews });
+    // Transform reviews to include combined name field
+    const transformedReviews = reviews.map(review => ({
+      ...review,
+      customer: {
+        ...review.customer,
+        name: `${review.customer.firstName} ${review.customer.lastName}`.trim()
+      }
+    }));
+
+    return NextResponse.json({ reviews: transformedReviews });
   } catch (error) {
     console.error('Error fetching reviews:', error);
     return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
@@ -49,13 +58,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = await request.json() as {
+      customerName: string;
+      customerEmail: string;
+      rating: number;
+      title?: string;
+      comment: string;
+      imageUrl?: string;
+      isVerified?: boolean;
+      orderNumber?: string;
+    };
+    
     const { 
       customerName, 
       customerEmail, 
       rating, 
       title, 
       comment, 
+      imageUrl = null,
       isVerified = false, 
       orderNumber = null 
     } = body;
@@ -109,6 +129,7 @@ export async function POST(request: NextRequest) {
         rating,
         title: title || null,
         comment,
+        imageUrl: imageUrl || null,
         isVerified,
         isApproved: true, // Admin-created reviews are auto-approved
         isPublic: true
@@ -131,8 +152,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Transform review to include combined name field
+    const transformedReview = {
+      ...review,
+      customer: {
+        ...review.customer,
+        name: `${review.customer.firstName} ${review.customer.lastName}`.trim()
+      }
+    };
+
     return NextResponse.json({ 
-      review,
+      review: transformedReview,
       message: 'Testimonial created successfully' 
     });
   } catch (error) {

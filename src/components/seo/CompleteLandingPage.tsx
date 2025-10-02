@@ -72,6 +72,7 @@ interface LandingPageProps {
     rating: number;
     title: string | null;
     comment: string;
+    imageUrl: string | null;
     isVerified: boolean;
     createdAt: string;
     customer: {

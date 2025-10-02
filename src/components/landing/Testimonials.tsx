@@ -8,6 +8,7 @@ interface Testimonial {
   rating: number;
   title: string | null;
   comment: string;
+  imageUrl: string | null;
   isVerified: boolean;
   createdAt: string;
   customer: {
@@ -24,9 +25,11 @@ interface TestimonialsContent {
 interface TestimonialsProps {
   content: TestimonialsContent;
   testimonials: Testimonial[];
+  isLoading?: boolean;
+  error?: string;
 }
 
-const Testimonials = ({ content, testimonials }: TestimonialsProps) => {
+const Testimonials = ({ content, testimonials, isLoading = false, error }: TestimonialsProps) => {
 
   // Fallback testimonials in case API fails or no reviews exist
   const fallbackTestimonials = [
@@ -96,12 +99,53 @@ const Testimonials = ({ content, testimonials }: TestimonialsProps) => {
     },
   ];
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <section 
+        className="bg-white/60 py-12 backdrop-blur-md sm:py-16 md:py-20 lg:py-24"
+        aria-labelledby="testimonials-heading"
+      >
+        <div className="mx-auto max-w-7xl text-center px-3 sm:px-4 md:px-6 lg:px-10">
+          <h2 id="testimonials-heading" className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
+            {content.title || "What Our Customers Say About Our Laundry Service"}
+          </h2>
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600"></div>
+            <span className="ml-3 text-lg text-gray-600">Loading testimonials...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <section 
+        className="bg-white/60 py-12 backdrop-blur-md sm:py-16 md:py-20 lg:py-24"
+        aria-labelledby="testimonials-heading"
+      >
+        <div className="mx-auto max-w-7xl text-center px-3 sm:px-4 md:px-6 lg:px-10">
+          <h2 id="testimonials-heading" className="mb-3 text-3xl font-bold tracking-tighter text-[var(--dark-blue)] sm:mb-4 sm:text-4xl lg:text-5xl">
+            {content.title || "What Our Customers Say About Our Laundry Service"}
+          </h2>
+          <div className="text-center py-12">
+            <div className="text-4xl mb-4">⚠️</div>
+            <p className="text-lg text-gray-600 mb-4">Unable to load testimonials</p>
+            <p className="text-sm text-gray-500">{error}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   // Convert testimonials to display format or use fallback
   const displayTestimonials = testimonials.length > 0 
     ? testimonials.map(testimonial => ({
         name: testimonial.customer.name,
         role: testimonial.isVerified ? "Verified Customer" : "Customer",
-        avatarUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAlGiSkZMTII6wK8S-DDU6Z4mkN-JYGEpaDOQllMDodQ7GYkNzIecVIxip0ZZ4bi39-iMyUySleGLjop6Nf1gspy_a0xnmF1pjvamdEUUpZOBKJIsjfi5hbBKwbQWfVz-DSnmNh0sScEGpx6GA5TNgQytwzDByS0bwJJVFbcmf9GHR1TjF6Dlak83Honxc8_BNELP4H3KQT0NHc83rDifpsdoelob47ZO4jyq1cnUqDMRq1Rwr3FbZ-dDGS_s0TpNqFRU1DxuPKffU",
+        avatarUrl: testimonial.imageUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuAlGiSkZMTII6wK8S-DDU6Z4mkN-JYGEpaDOQllMDodQ7GYkNzIecVIxip0ZZ4bi39-iMyUySleGLjop6Nf1gspy_a0xnmF1pjvamdEUUpZOBKJIsjfi5hbBKwbQWfVz-DSnmNh0sScEGpx6GA5TNgQytwzDByS0bwJJVFbcmf9GHR1TjF6Dlak83Honxc8_BNELP4H3KQT0NHc83rDifpsdoelob47ZO4jyq1cnUqDMRq1Rwr3FbZ-dDGS_s0TpNqFRU1DxuPKffU",
         quote: testimonial.comment,
         rating: testimonial.rating,
         isVerified: testimonial.isVerified,
@@ -114,8 +158,11 @@ const Testimonials = ({ content, testimonials }: TestimonialsProps) => {
         orderNumber: undefined,
       }));
 
+  // Limit testimonials for performance (max 20 for smooth animation)
+  const limitedTestimonials = displayTestimonials.slice(0, 20);
+  
   // Duplicate testimonials for seamless loop
-  const duplicatedTestimonials = [...displayTestimonials, ...displayTestimonials];
+  const duplicatedTestimonials = [...limitedTestimonials, ...limitedTestimonials];
 
   return (
     <section 

@@ -694,6 +694,7 @@ model Review {
   rating      Int      // 1-5 stars
   title       String?  // Optional review title
   comment     String   // Review text
+  imageUrl    String?  // Optional customer image URL
   isVerified  Boolean  @default(false) // Verified purchase
   isApproved  Boolean  @default(false) // Admin approval
   isPublic    Boolean  @default(true)  // Show on public testimonials

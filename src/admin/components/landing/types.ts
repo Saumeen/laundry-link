@@ -69,12 +69,15 @@ export interface ApprovedReview {
   rating: number;
   title: string | null;
   comment: string;
+  imageUrl: string | null;
   isVerified: boolean;
   createdAt: string;
   customer: {
     id: number;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
+    name: string; // Combined name field for convenience
   };
   order: {
     id: number;
@@ -88,6 +91,7 @@ export interface NewTestimonial {
   rating: number;
   title: string;
   comment: string;
+  imageUrl?: string;
   isVerified: boolean;
   orderNumber?: string;
 }
