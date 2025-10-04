@@ -85,6 +85,8 @@ export function useLandingContent() {
 
       if (response.ok) {
         showToast('Landing page content saved successfully!', 'success');
+        // Scroll to top on successful save
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         showToast('Failed to save landing page content', 'error');
       }

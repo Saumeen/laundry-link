@@ -1,6 +1,7 @@
 import { IconPicker } from '@/components/ui/IconPicker';
 import type { LandingPageContent } from './types';
 import { SectionHeader } from './SectionHeader';
+import { useState } from 'react';
 
 interface HowItWorksEditorProps {
   content: LandingPageContent;
@@ -17,6 +18,8 @@ export function HowItWorksEditor({
   uploadProgress,
   onImageUpload
 }: HowItWorksEditorProps) {
+  const [editingStep, setEditingStep] = useState<string | null>(null);
+  const [draggedStep, setDraggedStep] = useState<string | null>(null);
 
   const addStep = () => {
     const newStep = {
@@ -25,11 +28,50 @@ export function HowItWorksEditor({
       description: '',
       icon: ''
     };
-    updateContent('howItWorks.steps', [...content.howItWorks.steps, newStep]);
+    const updatedSteps = [...content.howItWorks.steps, newStep];
+    updateContent('howItWorks.steps', updatedSteps);
+    setEditingStep(newStep.id);
   };
 
   const removeStep = (index: number) => {
-    updateContent('howItWorks.steps', content.howItWorks.steps.filter((_, i) => i !== index));
+    const updatedSteps = content.howItWorks.steps.filter((_, i) => i !== index);
+    updateContent('howItWorks.steps', updatedSteps);
+    if (editingStep === content.howItWorks.steps[index].id) {
+      setEditingStep(null);
+    }
+  };
+
+  const duplicateStep = (index: number) => {
+    const stepToDuplicate = content.howItWorks.steps[index];
+    const newStep = {
+      ...stepToDuplicate,
+      id: Date.now().toString(),
+      title: `${stepToDuplicate.title} (Copy)`
+    };
+    const updatedSteps = [
+      ...content.howItWorks.steps.slice(0, index + 1),
+      newStep,
+      ...content.howItWorks.steps.slice(index + 1)
+    ];
+    updateContent('howItWorks.steps', updatedSteps);
+    setEditingStep(newStep.id);
+  };
+
+  const moveStep = (fromIndex: number, toIndex: number) => {
+    const updatedSteps = [...content.howItWorks.steps];
+    const [movedStep] = updatedSteps.splice(fromIndex, 1);
+    updatedSteps.splice(toIndex, 0, movedStep);
+    updateContent('howItWorks.steps', updatedSteps);
+  };
+
+  const updateStep = (index: number, field: string, value: string) => {
+    const updatedSteps = [...content.howItWorks.steps];
+    updatedSteps[index] = { ...updatedSteps[index], [field]: value };
+    updateContent('howItWorks.steps', updatedSteps);
+  };
+
+  const toggleStepEdit = (stepId: string) => {
+    setEditingStep(editingStep === stepId ? null : stepId);
   };
 
   return (
@@ -120,10 +162,10 @@ export function HowItWorksEditor({
 
       {/* Steps Section */}
       <div className="border border-gray-200 rounded-lg">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
           <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
             📋 Process Steps
-            <span className="bg-cyan-100 text-cyan-700 text-xs font-medium px-2 py-0.5 rounded">
+            <span className="bg-cyan-100 text-cyan-700 text-xs font-medium px-2 py-0.5 rounded-full">
               {content.howItWorks.steps.length}
             </span>
           </h4>
@@ -147,127 +189,220 @@ export function HowItWorksEditor({
                 e.preventDefault();
                 addStep();
               }}
-              className="flex items-center gap-1 bg-cyan-600 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-cyan-700 transition-colors"
+              className="flex items-center gap-1 bg-cyan-600 text-gray-900 px-3 py-1.5 rounded text-xs font-medium hover:bg-cyan-700 transition-colors shadow-sm border border-cyan-600"
             >
-              + Add Step
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Step
             </button>
           </div>
         </div>
         
         <div className="p-4">
           {content.howItWorks.steps.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="text-5xl text-gray-400 mb-3">📝</div>
-            <p className="text-gray-500 text-sm">No steps yet. Add your first one!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {content.howItWorks.steps.map((step, index) => (
-              <div key={step.id} className="group bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-lg p-3 hover:border-cyan-300 hover:shadow-md transition-all">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="bg-cyan-100 text-cyan-600 rounded px-2 py-0.5 font-bold text-xs">
-                    Step #{index + 1}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      removeStep(index);
-                    }}
-                    className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition-colors text-sm"
-                    title="Remove step"
-                  >
-                    🗑️
-                  </button>
-                </div>
-                
-                {/* Live Preview */}
-                {(step.title || step.description || step.icon) && (
-                  <div className="mb-3 p-4 rounded-xl bg-white shadow-lg border border-gray-200 relative overflow-hidden">
-                    <div className="flex items-start gap-4 relative z-10">
-                      {/* Icon Container - matching actual HowItWorks component */}
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-2xl font-bold text-[var(--primary-color)]" aria-hidden="true">
-                        {step.icon ? (
-                          <span className="material-symbols-outlined text-2xl">
-                            {step.icon}
-                          </span>
-                        ) : (
-                          index + 1
-                        )}
+            <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="text-5xl text-gray-400 mb-3">📝</div>
+              <p className="text-gray-500 text-sm mb-4">No steps yet. Add your first one!</p>
+              <button
+                type="button"
+                onClick={addStep}
+                className="bg-cyan-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-cyan-700 transition-colors"
+              >
+                Create First Step
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {content.howItWorks.steps.map((step, index) => (
+                <div 
+                  key={step.id} 
+                  className={`group bg-gradient-to-br from-white to-gray-50 border-2 rounded-lg transition-all duration-200 ${
+                    editingStep === step.id 
+                      ? 'border-cyan-400 shadow-lg ring-2 ring-cyan-100' 
+                      : 'border-gray-200 hover:border-cyan-300 hover:shadow-md'
+                  }`}
+                >
+                  {/* Step Header */}
+                  <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveStep(index, index - 1)}
+                          disabled={index === 0}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveStep(index, index + 1)}
+                          disabled={index === content.howItWorks.steps.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
                       </div>
-                      
-                      {/* Content */}
-                      <div className="relative">
-                        {step.title && (
-                          <h3 className="text-lg font-bold text-gray-800">
-                            {step.title}
-                          </h3>
-                        )}
-                        {step.description && (
-                          <p className="mt-1 text-sm text-gray-600">
-                            {step.description}
-                          </p>
-                        )}
+                      <div className="bg-cyan-100 text-cyan-700 rounded-full px-3 py-1 font-bold text-xs">
+                        Step #{index + 1}
                       </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Step Title
-                      </label>
-                      <input
-                        type="text"
-                        value={step.title}
-                        onChange={(e) => {
-                          const newSteps = [...content.howItWorks.steps];
-                          newSteps[index].title = e.target.value;
-                          updateContent('howItWorks.steps', newSteps);
-                        }}
-                        placeholder="e.g., Book Your Pickup"
-                        className="block w-full border-gray-300 rounded shadow-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-xs px-2 py-1.5"
-                      />
+                      {step.title && (
+                        <span className="text-sm font-medium text-gray-700 truncate max-w-xs">
+                          {step.title}
+                        </span>
+                      )}
                     </div>
                     
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Icon
-                      </label>
-                      <IconPicker
-                        value={step.icon}
-                        onChange={(iconName) => {
-                          const newSteps = [...content.howItWorks.steps];
-                          newSteps[index].icon = iconName;
-                          updateContent('howItWorks.steps', newSteps);
-                        }}
-                        placeholder="Select icon"
-                      />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => duplicateStep(index)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Duplicate step"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleStepEdit(step.id)}
+                        className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                        title={editingStep === step.id ? "Close editor" : "Edit step"}
+                      >
+                        {editingStep === step.id ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeStep(index)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Remove step"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                  
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      value={step.description}
-                      onChange={(e) => {
-                        const newSteps = [...content.howItWorks.steps];
-                        newSteps[index].description = e.target.value;
-                        updateContent('howItWorks.steps', newSteps);
-                      }}
-                      placeholder="Brief description of this step"
-                      rows={2}
-                      className="block w-full border-gray-300 rounded shadow-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-xs px-2 py-1.5 resize-none"
-                    />
-                  </div>
+
+                  {/* Live Preview */}
+                  {(step.title || step.description || step.icon) && (
+                    <div className="p-4 bg-white">
+                      <div className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Preview</div>
+                      <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 relative overflow-hidden">
+                        <div className="flex items-start gap-4 relative z-10">
+                          {/* Icon Container */}
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-cyan-100 text-2xl font-bold text-cyan-700" aria-hidden="true">
+                            {step.icon ? (
+                              <span className="material-symbols-outlined text-2xl">
+                                {step.icon}
+                              </span>
+                            ) : (
+                              index + 1
+                            )}
+                          </div>
+                          
+                          {/* Content */}
+                          <div className="relative flex-1">
+                            {step.title && (
+                              <h3 className="text-lg font-bold text-gray-800">
+                                {step.title}
+                              </h3>
+                            )}
+                            {step.description && (
+                              <p className="mt-1 text-sm text-gray-600">
+                                {step.description}
+                              </p>
+                            )}
+                            {!step.title && !step.description && (
+                              <p className="text-sm text-gray-400 italic">No content yet</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Edit Form */}
+                  {editingStep === step.id && (
+                    <div className="p-4 border-t border-gray-200 bg-gray-50 space-y-4">
+                      <div className="text-xs font-medium text-gray-700 mb-3 uppercase tracking-wide">Edit Step Content</div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-2">
+                            Step Title *
+                          </label>
+                          <input
+                            type="text"
+                            value={step.title}
+                            onChange={(e) => updateStep(index, 'title', e.target.value)}
+                            placeholder="e.g., Book Your Pickup"
+                            className="block w-full border-gray-300 rounded shadow-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-sm px-3 py-2"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-2">
+                            Icon
+                          </label>
+                          <IconPicker
+                            value={step.icon}
+                            onChange={(iconName) => updateStep(index, 'icon', iconName)}
+                            placeholder="Select icon"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-2">
+                          Description *
+                        </label>
+                        <textarea
+                          value={step.description}
+                          onChange={(e) => updateStep(index, 'description', e.target.value)}
+                          placeholder="Brief description of this step..."
+                          rows={3}
+                          className="block w-full border-gray-300 rounded shadow-sm focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-sm px-3 py-2 resize-none"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingStep(null)}
+                          className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingStep(null)}
+                          className="px-3 py-1.5 bg-cyan-600 text-gray-900 text-xs font-medium rounded hover:bg-cyan-700 transition-colors"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

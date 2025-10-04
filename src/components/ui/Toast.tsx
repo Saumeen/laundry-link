@@ -1,184 +1,118 @@
 'use client';
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  ReactNode,
-} from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 
-interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  duration?: number;
-}
-
-interface ToastContextType {
-  toasts: Toast[];
-  showToast: (message: string, type: Toast['type'], duration?: number) => void;
-  removeToast: (id: string) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
-
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  const showToast = useCallback(
-    (message: string, type: Toast['type'], duration = 5000) => {
-      const id = Math.random().toString(36).substr(2, 9);
-      const newToast: Toast = { id, message, type, duration };
-
-      setToasts(prev => [...prev, newToast]);
-
-      // Auto remove after duration
-      setTimeout(() => {
-        removeToast(id);
-      }, duration);
-    },
-    []
-  );
-
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
-
-  return (
-    <ToastContext.Provider value={{ toasts, showToast, removeToast }}>
-      {children}
-      <ToastContainer />
-    </ToastContext.Provider>
-  );
-}
-
+// Custom hook to maintain compatibility with existing code
 export function useToast() {
-  const context = useContext(ToastContext);
-  if (context === undefined) {
-    throw new Error('useToast must be used within a ToastProvider');
-  }
-  return context;
+  return {
+    showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info', duration = 5000) => {
+      const options = {
+        duration: duration,
+        style: {
+          background: getToastColor(type),
+          color: '#fff',
+          fontSize: '14px',
+          fontWeight: '500',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        },
+        icon: getToastIcon(type),
+      };
+
+      switch (type) {
+        case 'success':
+          return toast.success(message, options);
+        case 'error':
+          return toast.error(message, options);
+        case 'warning':
+          return toast(message, { ...options, icon: getToastIcon(type) });
+        case 'info':
+          return toast(message, { ...options, icon: getToastIcon(type) });
+        default:
+          return toast(message, options);
+      }
+    },
+    removeToast: (toastId: string) => {
+      toast.dismiss(toastId);
+    },
+    toasts: [], // Not used with react-hot-toast but kept for compatibility
+  };
 }
 
-function ToastContainer() {
-  const { toasts, removeToast } = useToast();
-
-  const getToastStyles = (type: Toast['type']) => {
-    switch (type) {
-      case 'success':
-        return 'bg-green-500 text-white';
-      case 'error':
-        return 'bg-red-500 text-white';
-      case 'warning':
-        return 'bg-yellow-500 text-white';
-      case 'info':
-        return 'bg-blue-500 text-white';
-      default:
-        return 'bg-gray-500 text-white';
-    }
-  };
-
-  const getIcon = (type: Toast['type']) => {
-    switch (type) {
-      case 'success':
-        return (
-          <svg
-            className='w-5 h-5'
-            fill='none'
-            stroke='currentColor'
-            viewBox='0 0 24 24'
-          >
-            <path
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth={2}
-              d='M5 13l4 4L19 7'
-            />
-          </svg>
-        );
-      case 'error':
-        return (
-          <svg
-            className='w-5 h-5'
-            fill='none'
-            stroke='currentColor'
-            viewBox='0 0 24 24'
-          >
-            <path
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth={2}
-              d='M6 18L18 6M6 6l12 12'
-            />
-          </svg>
-        );
-      case 'warning':
-        return (
-          <svg
-            className='w-5 h-5'
-            fill='none'
-            stroke='currentColor'
-            viewBox='0 0 24 24'
-          >
-            <path
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth={2}
-              d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z'
-            />
-          </svg>
-        );
-      case 'info':
-        return (
-          <svg
-            className='w-5 h-5'
-            fill='none'
-            stroke='currentColor'
-            viewBox='0 0 24 24'
-          >
-            <path
-              strokeLinecap='round'
-              strokeLinejoin='round'
-              strokeWidth={2}
-              d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-            />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
-
+// Toast provider component that renders the Toaster
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
-    <div className='fixed top-4 right-4 z-[99999] space-y-3 max-w-sm pointer-events-none'>
-      {toasts.map(toast => (
-        <div
-          key={toast.id}
-          className={`${getToastStyles(toast.type)} px-4 py-3 rounded-lg shadow-xl flex items-center space-x-3 w-full transform transition-all duration-300 ease-in-out hover:shadow-2xl animate-in slide-in-from-right-full pointer-events-auto backdrop-blur-sm`}
-        >
-          {getIcon(toast.type)}
-          <span className='flex-1 text-sm font-medium'>{toast.message}</span>
-          <button
-            onClick={() => removeToast(toast.id)}
-            className='text-white hover:text-gray-200 transition-colors'
-          >
-            <svg
-              className='w-4 h-4'
-              fill='none'
-              stroke='currentColor'
-              viewBox='0 0 24 24'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth={2}
-                d='M6 18L18 6M6 6l12 12'
-              />
-            </svg>
-          </button>
-        </div>
-      ))}
-    </div>
+    <>
+      {children}
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        gutter={12}
+        toastOptions={{
+          duration: 5000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: '500',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          },
+          success: {
+            duration: 5000,
+            style: {
+              background: '#10b981',
+              color: '#fff',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#ef4444',
+              color: '#fff',
+            },
+          },
+          loading: {
+            style: {
+              background: '#6366f1',
+              color: '#fff',
+            },
+          },
+        }}
+      />
+    </>
   );
+}
+
+// Helper functions for styling
+function getToastColor(type: string): string {
+  switch (type) {
+    case 'success':
+      return '#10b981';
+    case 'error':
+      return '#ef4444';
+    case 'warning':
+      return '#f59e0b';
+    case 'info':
+      return '#3b82f6';
+    default:
+      return '#6b7280';
+  }
+}
+
+function getToastIcon(type: string): string {
+  switch (type) {
+    case 'success':
+      return '✅';
+    case 'error':
+      return '❌';
+    case 'warning':
+      return '⚠️';
+    case 'info':
+      return 'ℹ️';
+    default:
+      return '';
+  }
 }
