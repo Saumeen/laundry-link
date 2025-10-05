@@ -71,6 +71,7 @@ export interface Testimonial {
   rating: number;
   title: string | null;
   comment: string;
+  imageUrl: string | null;
   isVerified: boolean;
   createdAt: string;
   customer: {
@@ -277,6 +278,7 @@ export async function getTestimonials(testimonialsConfig: LandingPageContent['te
       comment: review.comment,
       isVerified: review.isVerified,
       createdAt: review.createdAt.toISOString(),
+      imageUrl: review.imageUrl,
       customer: {
         name: `${review.customer.firstName} ${review.customer.lastName}`
       }
