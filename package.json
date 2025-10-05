@@ -27,6 +27,7 @@
     "@react-google-maps/api": "^2.20.7",
     "@sendgrid/mail": "^8.1.5",
     "@vercel/blob": "^2.0.0",
+    "@vercel/speed-insights": "^1.2.0",
     "bcryptjs": "^3.0.2",
     "caniuse-lite": "1.0.30001281",
     "clsx": "^2.1.1",
