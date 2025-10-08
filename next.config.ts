@@ -2,6 +2,7 @@ import { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  poweredByHeader: false, // Remove X-Powered-By header for security
   eslint: {
     ignoreDuringBuilds: true,
   },

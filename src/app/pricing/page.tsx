@@ -165,7 +165,7 @@ export default function PricingPage() {
           <div className='md:hidden mb-8'>
             <Image
               src='/images/pricing/price_list.jpg'
-              alt='Laundry Link Price List'
+              alt='Laundry Link complete price list showing laundry and dry cleaning services in Bahrain with rates for washing, ironing, dry cleaning, and bedding services'
               width={800}
               height={1200}
               className='rounded-lg shadow-lg mx-auto'

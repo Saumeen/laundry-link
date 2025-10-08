@@ -3,22 +3,22 @@ import CompleteLandingPage from "@/components/seo/CompleteLandingPage";
 import { getLandingPageContent, getTestimonials } from "@/lib/data/landing";
 
 export const metadata: Metadata = {
-  title: "Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain | 24 Hour Delivery",
-  description: "Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning.",
+  title: "Laundry Link Bahrain | 24h Laundry & Dry Cleaning Service",
+  description: "Professional laundry & dry cleaning in Bahrain. Free pickup & delivery, 24-hour service, eco-friendly. Located in Juffair. Call +973 33440841",
   keywords: "laundry service Bahrain, dry cleaning Bahrain, laundry pickup delivery, express laundry service, professional laundry, eco-friendly laundry, 24 hour laundry service, laundry service Manama, dry cleaning service Bahrain",
   openGraph: {
-    title: "Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain",
-    description: "Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning.",
+    title: "Laundry Link Bahrain | 24h Laundry & Dry Cleaning",
+    description: "Professional laundry & dry cleaning in Bahrain. Free pickup & delivery, 24-hour service. Call +973 33440841",
     images: ["/laundry-link-main.png"],
-    url: "https://laundrylink.net",
+    url: "https://www.laundrylink.net",
     siteName: "Laundry Link",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain",
-    description: "Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning.",
+    title: "Laundry Link Bahrain | 24h Laundry & Dry Cleaning",
+    description: "Professional laundry & dry cleaning in Bahrain. Free pickup & delivery, 24-hour service. Call +973 33440841",
     images: ["/laundry-link-main.png"],
     creator: "@laundrylinkbh",
     site: "@laundrylinkbh",
@@ -38,11 +38,16 @@ export const metadata: Metadata = {
     google: "your-google-verification-code", // Add your actual Google verification code
   },
   alternates: {
-    canonical: "https://laundrylink.net",
+    canonical: "https://www.laundrylink.net",
     languages: {
-      "en-US": "https://laundrylink.net",
-      "ar-BH": "https://laundrylink.net/ar",
+      "en-US": "https://www.laundrylink.net",
+      "ar-BH": "https://www.laundrylink.net/ar",
     },
+  },
+  metadataBase: new URL("https://www.laundrylink.net"),
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -76,7 +81,7 @@ export default async function HomePage() {
         whyChooseUsContent={content.whyChooseUs}
         howItWorksContent={content.howItWorks}
         testimonials={testimonials}
-        canonicalUrl="https://laundrylink.net"
+        canonicalUrl="https://www.laundrylink.net"
       />
     </>
   );

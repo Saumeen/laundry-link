@@ -90,18 +90,18 @@ const CompleteLandingPage: React.FC<LandingPageProps> = ({
   whyChooseUsContent,
   howItWorksContent,
   testimonials = [],
-  canonicalUrl = 'https://laundrylink.net'
+  canonicalUrl = 'https://www.laundrylink.net'
 }) => {
   return (
     <>
       {/* SEO Meta Tags */}
       <MetaTags
-        title="Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain | 24 Hour Delivery"
-         description="Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning."
+        title="Laundry Link Bahrain | 24h Laundry & Dry Cleaning Service"
+        description="Professional laundry & dry cleaning in Bahrain. Free pickup & delivery, 24-hour service, eco-friendly. Located in Juffair. Call +973 33440841"
         keywords="laundry service Bahrain, dry cleaning Bahrain, laundry pickup delivery, express laundry service, professional laundry, eco-friendly laundry, 24 hour laundry service, laundry service Manama, dry cleaning service Bahrain"
         canonical={canonicalUrl}
-        ogTitle="Laundry Link - Professional Laundry & Dry Cleaning Service in Bahrain"
-         ogDescription="Professional laundry and dry cleaning service in Bahrain. Located in Juffair 341, Road 4101, Building 20, Shop 33. Call +973 33440841 or email info@ovobh.com. Free pickup and delivery, 24-hour service, eco-friendly cleaning."
+        ogTitle="Laundry Link Bahrain | 24h Laundry & Dry Cleaning"
+        ogDescription="Professional laundry & dry cleaning in Bahrain. Free pickup & delivery, 24-hour service. Call +973 33440841"
         ogImage="/laundry-link-main.png"
         ogUrl={canonicalUrl}
         twitterCard="summary_large_image"

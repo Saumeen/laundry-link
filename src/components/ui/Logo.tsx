@@ -17,10 +17,11 @@ const Logo: React.FC<LogoProps> = ({
   return (
     <Image
       src={src}
-      alt='Laundry Link Logo'
+      alt='Laundry Link - Professional Laundry and Dry Cleaning Service in Bahrain'
       width={width}
       height={height}
       className={className}
+      priority={true}
     />
   );
 };
