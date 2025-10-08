@@ -8,7 +8,7 @@ export const size = {
 export const contentType = 'image/png'
 
 // Image generation
-export default function Icon() {
+export default async function Icon() {
   return new ImageResponse(
     (
       <div
@@ -21,7 +21,7 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           color: 'white',
-          fontWeight: 'bold',
+          fontWeight: 700,
           borderRadius: '22%', // Slightly rounded for iOS
         }}
       >
@@ -30,7 +30,6 @@ export default function Icon() {
     ),
     {
       ...size,
-      fonts: [], // Explicitly set empty fonts array to avoid Windows path issues
     }
   )
 }

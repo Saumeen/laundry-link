@@ -8,7 +8,7 @@ export const size = {
 export const contentType = 'image/png'
 
 // Image generation
-export default function Icon() {
+export default async function Icon() {
   return new ImageResponse(
     (
       <div
@@ -21,7 +21,7 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           color: '#1a28c2',
-          fontWeight: 'bold',
+          fontWeight: 700,
           position: 'relative',
         }}
       >
@@ -37,8 +37,8 @@ export default function Icon() {
             gap: '-2px',
           }}
         >
-          <span style={{ fontFamily: 'serif' }}>L</span>
-          <span style={{ fontFamily: 'serif', marginLeft: '-4px' }}>L</span>
+          <span>L</span>
+          <span style={{ marginLeft: '-4px' }}>L</span>
         </div>
         {/* Simple washing machine icon */}
         <div
@@ -68,7 +68,6 @@ export default function Icon() {
     ),
     {
       ...size,
-      fonts: [], // Explicitly set empty fonts array to avoid Windows path issues
     }
   )
 }
