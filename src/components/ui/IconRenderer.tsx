@@ -20,7 +20,11 @@ import {
   MessageCircle, 
   Settings, 
   Lock, 
-  Sparkles 
+  Sparkles,
+  Wand2,
+  Timer,
+  Package,
+  Wrench
 } from 'lucide-react';
 
 interface IconRendererProps {
@@ -29,7 +33,9 @@ interface IconRendererProps {
   size?: number;
 }
 
+// Icon map supporting both Lucide names and Material Symbols names
 const iconMap = {
+  // Lucide names (original)
   'shirt': Shirt,
   'truck': Truck,
   'clock': Clock,
@@ -49,7 +55,33 @@ const iconMap = {
   'message-circle': MessageCircle,
   'settings': Settings,
   'lock': Lock,
-  'sparkles': Sparkles
+  'sparkles': Sparkles,
+  
+  // Material Symbols name mappings (from IconPicker)
+  'local_laundry_service': Shirt,
+  'dry_cleaning': Shirt,
+  'iron': Wand2,
+  'wash': Shirt,
+  'bolt': Zap,
+  'king_bed': Home,
+  'checkroom': Shirt,
+  'schedule': Calendar,
+  'delivery_truck': Truck,
+  'security': Shield,
+  'location_on': MapPin,
+  'payment': CreditCard,
+  'check_circle': CheckCircle,
+  'speed': Zap,
+  'favorite': Heart,
+  'emoji_events': Award,
+  'refresh': RefreshCw,
+  'calendar_today': Calendar,
+  'chat': MessageCircle,
+  'auto_awesome': Sparkles,
+  'cleaning_services': Wand2,
+  'local_shipping': Truck,
+  'access_time': Clock,
+  'support_agent': MessageCircle
 };
 
 export function IconRenderer({ iconName, className = '', size }: IconRendererProps) {

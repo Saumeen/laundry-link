@@ -68,6 +68,7 @@ export default function Icon() {
     ),
     {
       ...size,
+      fonts: [], // Explicitly set empty fonts array to avoid Windows path issues
     }
   )
 }

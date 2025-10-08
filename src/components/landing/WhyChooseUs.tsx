@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import { AnimatedInView } from "@/components/shared/AnimatedInView";
 import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
-import { IconRenderer } from '@/components/ui/IconRenderer';
 
 interface WhyChooseUsContent {
   title: string;
@@ -78,11 +77,9 @@ const WhyChooseUs = ({ content }: WhyChooseUsProps) => {
               >
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-[var(--secondary-color)] text-[var(--primary-color)] sm:h-14 sm:w-14 lg:h-16 lg:w-16" aria-hidden="true">
                   {feature.icon ? (
-                    <IconRenderer 
-                      iconName={feature.icon} 
-                      className="text-2xl sm:text-3xl lg:text-4xl" 
-                      size={32}
-                    />
+                    <span className="material-symbols-outlined text-2xl sm:text-3xl lg:text-4xl">
+                      {feature.icon}
+                    </span>
                   ) : (
                     <span className="text-2xl sm:text-3xl lg:text-4xl">⭐</span>
                   )}

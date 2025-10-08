@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import { AnimatedInView } from "@/components/shared/AnimatedInView";
 import Image from "next/image";
 import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
-import { IconRenderer } from '@/components/ui/IconRenderer';
 
 interface HowItWorksContent {
   title: string;
@@ -185,11 +184,9 @@ const StepCard: React.FC<StepCardProps> = ({ step, index }) => {
       
       <div className="flex h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 items-center justify-center rounded-full bg-[var(--secondary-color)] text-2xl sm:text-4xl font-bold text-[var(--primary-color)] transition-colors duration-300 group-hover:bg-white" aria-hidden="true">
         {step.icon ? (
-          <IconRenderer 
-            iconName={step.icon} 
-            className="text-2xl sm:text-3xl" 
-            size={24}
-          />
+          <span className="material-symbols-outlined text-2xl sm:text-3xl">
+            {step.icon}
+          </span>
         ) : (
           index + 1
         )}
