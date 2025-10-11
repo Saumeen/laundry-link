@@ -64,7 +64,6 @@ model Customer {
   orders          Order[]
   wallet          Wallet?
   paymentRecords  PaymentRecord[]
-  reviews         Review[]
 
   @@map("customers")
 }
@@ -688,22 +687,22 @@ enum PaymentMethod {
 
 // ===== REVIEWS SYSTEM =====
 model Review {
-  id          Int      @id @default(autoincrement())
-  customerId  Int
-  orderId     Int?     // Optional - can be a general review or order-specific
-  rating      Int      // 1-5 stars
-  title       String?  // Optional review title
-  comment     String   // Review text
-  imageUrl    String?  // Optional customer image URL
-  isVerified  Boolean  @default(false) // Verified purchase
-  isApproved  Boolean  @default(false) // Admin approval
-  isPublic    Boolean  @default(true)  // Show on public testimonials
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  customerName  String   // Direct customer name storage
+  customerEmail String   // Direct customer email storage
+  orderId       Int?     // Optional - can be a general review or order-specific
+  rating        Int      // 1-5 stars
+  title         String?  // Optional review title
+  comment       String   // Review text
+  imageUrl      String?  // Optional customer image URL
+  isVerified    Boolean  @default(false) // Verified purchase
+  isApproved    Boolean  @default(false) // Admin approval
+  isPublic      Boolean  @default(true)  // Show on public testimonials
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
   // Relations
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@map("reviews")
 }

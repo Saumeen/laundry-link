@@ -248,13 +248,6 @@ export async function getTestimonials(testimonialsConfig: LandingPageContent['te
     const queryPromise = prisma.review.findMany({
       where: whereClause,
       include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true
-          }
-        },
         order: {
           select: {
             id: true,
@@ -280,7 +273,7 @@ export async function getTestimonials(testimonialsConfig: LandingPageContent['te
       createdAt: review.createdAt.toISOString(),
       imageUrl: review.imageUrl,
       customer: {
-        name: `${review.customer.firstName} ${review.customer.lastName}`
+        name: review.customerName
       }
     }));
   } catch (error) {

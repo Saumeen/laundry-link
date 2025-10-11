@@ -123,7 +123,7 @@ export function TestimonialsEditor({
   const editTestimonial = (testimonial: ApprovedReview) => {
     setEditingTestimonial(testimonial);
     setNewTestimonial({
-      customerName: testimonial.customer.name || `${testimonial.customer.firstName} ${testimonial.customer.lastName}`.trim(),
+      customerName: testimonial.customer.name,
       customerEmail: testimonial.customer.email,
       rating: testimonial.rating,
       title: testimonial.title || '',
@@ -228,7 +228,7 @@ export function TestimonialsEditor({
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(review => {
-        const fullName = review.customer.name || `${review.customer.firstName} ${review.customer.lastName}`.trim();
+        const fullName = review.customer.name;
         return fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           review.comment.toLowerCase().includes(searchTerm.toLowerCase()) ||
           review.title?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -253,8 +253,8 @@ export function TestimonialsEditor({
         break;
       case 'name':
         filtered = filtered.sort((a, b) => {
-          const nameA = a.customer.name || `${a.customer.firstName} ${a.customer.lastName}`.trim();
-          const nameB = b.customer.name || `${b.customer.firstName} ${b.customer.lastName}`.trim();
+          const nameA = a.customer.name;
+          const nameB = b.customer.name;
           return nameA.localeCompare(nameB);
         });
         break;
@@ -623,13 +623,13 @@ export function TestimonialsEditor({
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-gray-500 text-xs font-medium">
-                              {review.customer.firstName?.charAt(0)?.toUpperCase() || '?'}
+                              {review.customer.name?.charAt(0)?.toUpperCase() || '?'}
                             </span>
                           </div>
                         )}
                         <div>
                             <span className="text-sm font-semibold text-gray-900">
-                              {review.customer.name || `${review.customer.firstName} ${review.customer.lastName}`.trim() || 'Unknown Customer'}
+                              {review.customer.name || 'Unknown Customer'}
                             </span>
                           <div className="flex items-center space-x-1">
                             <div className="flex">
@@ -1159,7 +1159,7 @@ export function TestimonialsEditor({
                         ) : (
                           <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-gray-500 text-sm font-medium">
-                              {review.customer.firstName?.charAt(0)?.toUpperCase() || '?'}
+                              {review.customer.name?.charAt(0)?.toUpperCase() || '?'}
                             </span>
                           </div>
                         )}
@@ -1171,7 +1171,7 @@ export function TestimonialsEditor({
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                               <span className="text-sm font-medium text-gray-900">
-                                {review.customer.name || `${review.customer.firstName} ${review.customer.lastName}`.trim() || 'Unknown Customer'}
+                                {review.customer.name || 'Unknown Customer'}
                               </span>
                               <span className="text-xs text-gray-500">
                                 #{index + 1}

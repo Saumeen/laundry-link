@@ -16,14 +16,6 @@ export async function GET(request: NextRequest) {
         isPublic: true,
       },
       include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
         order: {
           select: {
             id: true,
@@ -38,6 +30,15 @@ export async function GET(request: NextRequest) {
       skip: offset,
     });
 
+    // Transform reviews to include customer object for backward compatibility
+    const transformedReviews = reviews.map(review => ({
+      ...review,
+      customer: {
+        name: review.customerName,
+        email: review.customerEmail
+      }
+    }));
+
     // Get total count for pagination
     const totalCount = await prisma.review.count({
       where: {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      reviews,
+      reviews: transformedReviews,
       pagination: {
         total: totalCount,
         limit,

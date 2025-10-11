@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 // PUT - Update a specific review
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await getAuthenticatedAdmin();
@@ -14,7 +14,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const reviewId = parseInt(params.id);
+    const { id } = await params;
+    const reviewId = parseInt(id);
     if (isNaN(reviewId)) {
       return NextResponse.json({ error: 'Invalid review ID' }, { status: 400 });
     }
@@ -57,43 +58,11 @@ export async function PUT(
     // Check if review exists
     const existingReview = await prisma.review.findUnique({
       where: { id: reviewId },
-      include: { customer: true, order: true }
+      include: { order: true }
     });
 
     if (!existingReview) {
       return NextResponse.json({ error: 'Review not found' }, { status: 404 });
-    }
-
-    // Update or create customer
-    let customer = await prisma.customer.findFirst({
-      where: { email: customerEmail }
-    });
-
-    if (!customer) {
-      const [firstName, ...lastNameParts] = customerName.split(' ');
-      const lastName = lastNameParts.join(' ') || '';
-      
-      customer = await prisma.customer.create({
-        data: {
-          firstName,
-          lastName,
-          email: customerEmail,
-        },
-      });
-    } else {
-      // Update existing customer name if different
-      const [firstName, ...lastNameParts] = customerName.split(' ');
-      const lastName = lastNameParts.join(' ') || '';
-      
-      if (customer.firstName !== firstName || customer.lastName !== lastName) {
-        customer = await prisma.customer.update({
-          where: { id: customer.id },
-          data: {
-            firstName,
-            lastName,
-          },
-        });
-      }
     }
 
     // Find order if orderNumber is provided
@@ -104,11 +73,12 @@ export async function PUT(
       });
     }
 
-    // Update the review
+    // Update the review with direct customer fields
     const updatedReview = await prisma.review.update({
       where: { id: reviewId },
       data: {
-        customerId: customer.id,
+        customerName,
+        customerEmail,
         orderId: order?.id || null,
         rating,
         title: title || null,
@@ -119,14 +89,6 @@ export async function PUT(
         isPublic: true, // Keep it public
       },
       include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
         order: {
           select: {
             id: true,
@@ -136,12 +98,12 @@ export async function PUT(
       },
     });
 
-    // Transform review to include combined name field
+    // Transform review to include customer object for backward compatibility
     const transformedReview = {
       ...updatedReview,
       customer: {
-        ...updatedReview.customer,
-        name: `${updatedReview.customer.firstName} ${updatedReview.customer.lastName}`.trim()
+        name: updatedReview.customerName,
+        email: updatedReview.customerEmail
       }
     };
 
@@ -159,7 +121,7 @@ export async function PUT(
 // DELETE - Delete a specific review
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await getAuthenticatedAdmin();
@@ -168,7 +130,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const reviewId = parseInt(params.id);
+    const { id } = await params;
+    const reviewId = parseInt(id);
     if (isNaN(reviewId)) {
       return NextResponse.json({ error: 'Invalid review ID' }, { status: 400 });
     }

@@ -29,12 +29,8 @@ export async function GET(request: NextRequest) {
       whereClause.OR = [
         { comment: { contains: search, mode: 'insensitive' } },
         { title: { contains: search, mode: 'insensitive' } },
-        { customer: { 
-          OR: [
-            { firstName: { contains: search, mode: 'insensitive' } },
-            { lastName: { contains: search, mode: 'insensitive' } }
-          ]
-        }}
+        { customerName: { contains: search, mode: 'insensitive' } },
+        { customerEmail: { contains: search, mode: 'insensitive' } }
       ];
     }
 
@@ -56,7 +52,7 @@ export async function GET(request: NextRequest) {
         orderBy = { rating: 'desc' };
         break;
       case 'name':
-        orderBy = { customer: { firstName: 'asc' } };
+        orderBy = { customerName: 'asc' };
         break;
       default:
         orderBy = { createdAt: 'desc' };
@@ -69,14 +65,6 @@ export async function GET(request: NextRequest) {
     const reviews = await prisma.review.findMany({
       where: whereClause,
       include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         order: {
           select: {
             id: true,
@@ -89,12 +77,12 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    // Transform reviews to include combined name field
+    // Transform reviews to include customer object for backward compatibility
     const transformedReviews = reviews.map(review => ({
       ...review,
       customer: {
-        ...review.customer,
-        name: `${review.customer.firstName} ${review.customer.lastName}`.trim()
+        name: review.customerName,
+        email: review.customerEmail
       }
     }));
 

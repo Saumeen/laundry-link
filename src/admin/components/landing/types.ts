@@ -73,11 +73,8 @@ export interface ApprovedReview {
   isVerified: boolean;
   createdAt: string;
   customer: {
-    id: number;
-    firstName: string;
-    lastName: string;
+    name: string;
     email: string;
-    name: string; // Combined name field for convenience
   };
   order: {
     id: number;

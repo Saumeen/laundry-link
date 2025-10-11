@@ -13,14 +13,6 @@ export async function GET(request: NextRequest) {
 
     const reviews = await prisma.review.findMany({
       include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         order: {
           select: {
             id: true,
@@ -33,12 +25,12 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Transform reviews to include combined name field
+    // Transform reviews to include customer object for backward compatibility
     const transformedReviews = reviews.map(review => ({
       ...review,
       customer: {
-        ...review.customer,
-        name: `${review.customer.firstName} ${review.customer.lastName}`.trim()
+        name: review.customerName,
+        email: review.customerEmail
       }
     }));
 
@@ -94,25 +86,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Find or create customer
-    let customer = await prisma.customer.findUnique({
-      where: { email: customerEmail }
-    });
-
-    if (!customer) {
-      // Create a new customer for the testimonial
-      const [firstName, ...lastNameParts] = customerName.split(' ');
-      customer = await prisma.customer.create({
-        data: {
-          firstName,
-          lastName: lastNameParts.join(' ') || '',
-          email: customerEmail,
-          phone: '', // Admin-created testimonials might not have phone
-          isActive: true
-        }
-      });
-    }
-
     // Find order if orderNumber is provided
     let order = null;
     if (orderNumber) {
@@ -121,10 +94,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create the review
+    // Create the review with direct customer fields
     const review = await prisma.review.create({
       data: {
-        customerId: customer.id,
+        customerName,
+        customerEmail,
         orderId: order?.id,
         rating,
         title: title || null,
@@ -135,14 +109,6 @@ export async function POST(request: NextRequest) {
         isPublic: true
       },
       include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
         order: {
           select: {
             id: true,
@@ -152,12 +118,12 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Transform review to include combined name field
+    // Transform review to include customer object for backward compatibility
     const transformedReview = {
       ...review,
       customer: {
-        ...review.customer,
-        name: `${review.customer.firstName} ${review.customer.lastName}`.trim()
+        name: review.customerName,
+        email: review.customerEmail
       }
     };
 

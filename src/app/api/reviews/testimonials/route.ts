@@ -24,15 +24,6 @@ export async function GET(request: NextRequest) {
     // Get testimonials with customer information
     const testimonials = await prisma.review.findMany({
       where: whereClause,
-      include: {
-        customer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc'
       },
@@ -49,7 +40,7 @@ export async function GET(request: NextRequest) {
       isVerified: review.isVerified,
       createdAt: review.createdAt,
       customer: {
-        name: `${review.customer.firstName} ${review.customer.lastName}`
+        name: review.customerName
       }
     }));
 
