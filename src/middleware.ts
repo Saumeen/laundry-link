@@ -18,6 +18,11 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/api/') ||
     path.startsWith('/_next/') ||
     path.startsWith('/favicon.ico') ||
+    path.startsWith('/favicon-16x16.png') ||
+    path.startsWith('/favicon-32x32.png') ||
+    path.startsWith('/favicon-192x192.png') ||
+    path.startsWith('/icon') ||
+    path.startsWith('/apple-icon') ||
     path.startsWith('/pricing') ||
     path.startsWith('/services') ||
     path.startsWith('/schedule') ||
@@ -72,8 +77,9 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - favicon files (favicon.ico, favicon-*.png)
+     * - icon routes (icon, apple-icon)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon|icon|apple-icon).*)',
   ],
 };
