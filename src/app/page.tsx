@@ -34,17 +34,9 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-17645502549"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
 
-  gtag('config', 'AW-17645502549');
-</script>
   verification: {
-    google: "your-google-verification-code", // Add your actual Google verification code
+    google: "your-google-verification-code", // AW-17645502549
   },
   alternates: {
     canonical: "https://www.laundrylink.net",
