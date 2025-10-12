@@ -34,8 +34,9 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+
   verification: {
-    google: "your-google-verification-code", // Add your actual Google verification code
+    google: "your-google-verification-code", // AW-17645502549
   },
   alternates: {
     canonical: "https://www.laundrylink.net",
