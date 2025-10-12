@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Logo from "../ui/Logo";
 import Image from "next/image";
+import Script from "next/script";
 import ScreenReaderOnly from '@/components/accessibility/ScreenReaderOnly';
 
 const Footer = () => {
@@ -184,13 +185,13 @@ const Footer = () => {
                 </svg>
               </a>
             </div>
-              <div className="mt-4 sm:mt-6 flex justify-center md:justify-start" id="efada-container">
-               <Image
-                  src='/image-r-1.png'
-                  alt='Government certification seal for Laundry Link'
-                  width={120}
-                  height={120}
-                  className="h-12 w-auto sm:h-16 rounded-lg shadow-md"
+              
+              {/* eFADA Badge */}
+              <div className="mt-4 sm:mt-6 flex justify-center md:justify-start">
+                <div id="efadaDiv"></div>
+                <Script 
+                  src="https://service.moic.gov.bh/newefadaapi/api/Seal/image?s=https://www.laundrylink.net&sz=1"
+                  strategy="lazyOnload"
                 />
               </div>
             </nav>

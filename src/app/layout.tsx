@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import Providers from './providers';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -88,6 +89,20 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} gradient-bg`}>
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=AW-17645502549"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'AW-17645502549');
+          `}
+        </Script>
+        
         <Providers>
           <div className='min-h-screen'>{children}</div>
         </Providers>
