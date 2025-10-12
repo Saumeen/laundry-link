@@ -16,7 +16,7 @@ export default async function Icon() {
     (
       <div
         style={{
-          fontSize: 120,
+          fontSize: 140,
           background: '#1a28c2',
           width: '100%',
           height: '100%',
@@ -24,11 +24,11 @@ export default async function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           color: 'white',
-          fontWeight: 700,
+          fontWeight: 900,
           borderRadius: '22%', // Slightly rounded for iOS
         }}
       >
-        LL
+        L
       </div>
     ),
     {

@@ -16,19 +16,19 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ['lifestyle', 'utilities', 'business'],
     icons: [
       {
-        src: '/laundry-link-logo.png',
+        src: '/favicon-192x192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any'
       },
       {
-        src: '/laundry-link-logo.png',
+        src: '/favicon-192x192.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable'
       },
       {
-        src: '/apple-touch-icon.png',
+        src: '/apple-icon',
         sizes: '180x180',
         type: 'image/png'
       }
@@ -50,7 +50,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/customer/schedule',
         icons: [
           {
-            src: '/laundry-link-logo.png',
+            src: '/favicon-192x192.png',
             sizes: '192x192'
           }
         ]
@@ -62,7 +62,7 @@ export default function manifest(): MetadataRoute.Manifest {
         url: '/tracking',
         icons: [
           {
-            src: '/laundry-link-logo.png',
+            src: '/favicon-192x192.png',
             sizes: '192x192'
           }
         ]
