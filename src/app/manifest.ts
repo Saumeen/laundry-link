@@ -55,18 +55,6 @@ export default function manifest(): MetadataRoute.Manifest {
           }
         ]
       },
-      {
-        name: 'Track Order',
-        short_name: 'Track',
-        description: 'Track your laundry order',
-        url: '/tracking',
-        icons: [
-          {
-            src: '/favicon-192x192.png',
-            sizes: '192x192'
-          }
-        ]
-      }
     ]
   }
 }

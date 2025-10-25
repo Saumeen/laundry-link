@@ -123,13 +123,6 @@ const Header = () => {
               Schedule
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#1a28c2] transition-all group-hover:w-full"></span>
             </Link>
-            <Link
-              className="text-lg font-medium text-gray-600 transition-colors hover:text-[#1a28c2] relative group"
-              href="/tracking"
-            >
-              Track Order
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#1a28c2] transition-all group-hover:w-full"></span>
-            </Link>
           </motion.nav>
           
           {/* Desktop Auth Section */}
@@ -322,13 +315,6 @@ const Header = () => {
               onClick={() => setIsMenuOpen(false)}
             >
               Schedule Pickup
-            </Link>
-            <Link
-              href="/tracking"
-              className="block py-2 sm:py-3 text-base sm:text-lg font-medium text-gray-700 hover:text-[#1a28c2] transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Track Order
             </Link>
 
             {isAuthenticated && customer ? (
