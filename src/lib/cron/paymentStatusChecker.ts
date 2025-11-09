@@ -1,5 +1,7 @@
 import { PrismaClient, PaymentStatus, TransactionStatus } from '@prisma/client';
 import { getTapCharge } from '../utils/tapPaymentUtils';
+import { getInvoice } from '../tapInvoiceManagement';
+import { recalculateOrderPaymentStatus } from '../utils/paymentUtils';
 import logger from '@/lib/logger';
 
 const prisma = new PrismaClient();
@@ -26,16 +28,20 @@ export class PaymentStatusChecker {
     try {
       logger.info('Starting payment status check...');
 
-      // Get all pending payment records with TAP charge IDs
+      // Get all pending payment records with TAP charge IDs or TAP references (for invoices)
       const pendingPayments = await prisma.paymentRecord.findMany({
         where: {
           paymentStatus: PaymentStatus.PENDING,
-          tapChargeId: {
-            not: null
-          },
+          OR: [
+            { tapChargeId: { not: null } },
+            { 
+              tapReference: { not: null },
+              paymentMethod: { in: ['TAP_PAY', 'TAP_INVOICE'] }
+            }
+          ],
           createdAt: {
-            // Only check payments from the last 24 hours to avoid checking old payments
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+            // Check payments from the last 48 hours to catch more payments
+            gte: new Date(Date.now() - 48 * 60 * 60 * 1000)
           }
         },
         include: {
@@ -78,6 +84,37 @@ export class PaymentStatusChecker {
    * Process individual payment status
    */
   private static async processPaymentStatus(payment: any): Promise<void> {
+    // For TAP_INVOICE payments, check invoice status via TAP API
+    if (payment.paymentMethod === 'TAP_INVOICE' && payment.tapReference) {
+      try {
+        logger.info(`Checking TAP invoice payment ${payment.id} with invoice ID: ${payment.tapReference}`);
+        
+        const invoice = await getInvoice(payment.tapReference);
+        
+        // Map invoice status to payment status
+        let newPaymentStatus: PaymentStatus;
+        switch (invoice.status?.toUpperCase()) {
+          case 'PAID':
+          case 'CLOSED':
+            newPaymentStatus = PaymentStatus.PAID;
+            break;
+          case 'CANCELLED':
+          case 'EXPIRED':
+            newPaymentStatus = PaymentStatus.FAILED;
+            break;
+          default:
+            newPaymentStatus = PaymentStatus.PENDING;
+        }
+
+        await this.updatePaymentStatusForInvoice(payment, newPaymentStatus, invoice);
+        return;
+      } catch (error) {
+        logger.error(`Error checking TAP invoice status for payment ${payment.id}:`, error);
+        throw error;
+      }
+    }
+
+    // For TAP_PAY payments, check charge status
     if (!payment.tapChargeId) {
       throw new Error('No TAP charge ID found');
     }
@@ -172,16 +209,38 @@ export class PaymentStatusChecker {
 
     // Update order payment status if this is an order payment
     if (payment.orderId) {
-      await prisma.order.update({
-        where: { id: payment.orderId },
-        data: {
-          paymentStatus: newPaymentStatus,
-          updatedAt: new Date()
-        }
-      });
+      // Recalculate order payment status based on all payment records
+      await recalculateOrderPaymentStatus(payment.orderId);
     }
 
     logger.info(`Updated payment ${payment.id} to status: ${newPaymentStatus}`);
+  }
+
+  /**
+   * Update payment status for TAP invoice payments
+   */
+  private static async updatePaymentStatusForInvoice(
+    payment: any, 
+    newPaymentStatus: PaymentStatus, 
+    invoice: any
+  ): Promise<void> {
+    await prisma.paymentRecord.update({
+      where: { id: payment.id },
+      data: {
+        paymentStatus: newPaymentStatus,
+        processedAt: newPaymentStatus === PaymentStatus.PAID ? new Date() : null,
+        tapResponse: JSON.stringify(invoice),
+        updatedAt: new Date()
+      }
+    });
+
+    // Update order payment status if this is an order payment
+    if (payment.orderId) {
+      // Recalculate order payment status based on all payment records
+      await recalculateOrderPaymentStatus(payment.orderId);
+    }
+
+    logger.info(`Updated invoice payment ${payment.id} to status: ${newPaymentStatus}`);
   }
 
   /**

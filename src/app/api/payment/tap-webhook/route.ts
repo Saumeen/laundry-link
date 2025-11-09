@@ -5,6 +5,7 @@ import { ConfigurationManager } from '@/lib/utils/configuration';
 import logger from '@/lib/logger';
 import emailService from '@/lib/emailService';
 import { generateInvoicePDF } from '@/lib/utils/invoiceUtils';
+import { recalculateOrderPaymentStatus } from '@/lib/utils/paymentUtils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,12 +49,45 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // If still not found, try parsing tapReference as JSON
+    // If still not found, try finding TAP_INVOICE payments by checking metadata
+    if (!paymentRecord) {
+      const invoicePaymentRecords = await prisma.paymentRecord.findMany({
+        where: { 
+          paymentMethod: 'TAP_INVOICE',
+          tapReference: { not: null }
+        },
+        include: { order: true },
+      });
+
+      for (const record of invoicePaymentRecords) {
+        try {
+          if (record.metadata) {
+            const metadata = JSON.parse(record.metadata);
+            // Check if tapInvoiceId in metadata matches the webhook ID
+            if (metadata.tapInvoiceId === id || record.tapReference === id) {
+              paymentRecord = record;
+              break;
+            }
+          } else if (record.tapReference === id) {
+            paymentRecord = record;
+            break;
+          }
+        } catch (parseError) {
+          // If metadata parsing fails, check tapReference directly
+          if (record.tapReference === id) {
+            paymentRecord = record;
+            break;
+          }
+        }
+      }
+    }
+
+    // If still not found, try parsing tapReference as JSON (for TAP_PAY)
     if (!paymentRecord) {
       const allPaymentRecords = await prisma.paymentRecord.findMany({
         where: { 
           tapReference: { not: null },
-          paymentMethod: 'TAP_PAY'
+          paymentMethod: { in: ['TAP_PAY', 'TAP_INVOICE'] }
         },
         include: { order: true },
       });
@@ -112,21 +146,76 @@ export async function POST(request: NextRequest) {
       isOrderPayment = true; // Default to order payment for backward compatibility
     }
 
-    // Update payment record status
-    await prisma.paymentRecord.update({
-      where: { id: paymentRecord.id },
-      data: {
-        paymentStatus: status === 'CAPTURED' ? 'PAID' : 'FAILED',
-        metadata: JSON.stringify({
-          ...paymentMetadata,
-          tapWebhookData: body,
-          processedAt: new Date().toISOString(),
-        }),
-      },
-    });
+    // Map webhook status to payment status
+    // For TAP_INVOICE: 'PAID', 'CLOSED' → 'PAID'; 'CANCELLED', 'EXPIRED', 'FAILED' → 'FAILED'
+    // For TAP_PAY: 'CAPTURED' → 'PAID'; 'DECLINED', 'FAILED' → 'FAILED'
+    const statusUpper = status.toUpperCase();
+    let isPaid = false;
+    let newPaymentStatus: 'PENDING' | 'PAID' | 'FAILED' = 'PENDING';
+    
+    if (paymentRecord.paymentMethod === 'TAP_INVOICE') {
+      // TAP_INVOICE specific status mapping
+      if (statusUpper === 'PAID' || statusUpper === 'CLOSED') {
+        isPaid = true;
+        newPaymentStatus = 'PAID';
+      } else if (statusUpper === 'CANCELLED' || statusUpper === 'EXPIRED' || statusUpper === 'FAILED' || statusUpper === 'DECLINED') {
+        isPaid = false;
+        newPaymentStatus = 'FAILED';
+      } else {
+        // Keep as PENDING for other statuses
+        newPaymentStatus = 'PENDING';
+      }
+    } else {
+      // TAP_PAY and other payment methods
+      if (statusUpper === 'CAPTURED') {
+        isPaid = true;
+        newPaymentStatus = 'PAID';
+      } else if (statusUpper === 'DECLINED' || statusUpper === 'FAILED') {
+        isPaid = false;
+        newPaymentStatus = 'FAILED';
+      } else {
+        newPaymentStatus = 'PENDING';
+      }
+    }
+    
+    // Check if payment status has already been updated (idempotency check)
+    const shouldUpdate = paymentRecord.paymentStatus !== newPaymentStatus;
+    
+    if (shouldUpdate) {
+      logger.info(`Updating payment record ${paymentRecord.id} from ${paymentRecord.paymentStatus} to ${newPaymentStatus}`, {
+        webhookStatus: status,
+        paymentMethod: paymentRecord.paymentMethod,
+        orderId: orderId || 'N/A'
+      });
+      
+      await prisma.paymentRecord.update({
+        where: { id: paymentRecord.id },
+        data: {
+          paymentStatus: newPaymentStatus,
+          processedAt: isPaid ? new Date() : paymentRecord.processedAt,
+          tapTransactionId: isPaid && !paymentRecord.tapTransactionId ? id : paymentRecord.tapTransactionId,
+          tapResponse: JSON.stringify(body),
+          metadata: JSON.stringify({
+            ...paymentMetadata,
+            tapWebhookData: body,
+            processedAt: isPaid ? new Date().toISOString() : paymentMetadata.processedAt,
+            lastWebhookStatus: status,
+            lastWebhookUpdate: new Date().toISOString(),
+          }),
+        },
+      });
+    } else {
+      logger.info(`Payment record ${paymentRecord.id} already has status ${newPaymentStatus}, skipping update`, {
+        webhookStatus: status,
+        paymentMethod: paymentRecord.paymentMethod
+      });
+    }
 
     // If payment is successful, handle based on payment type
-    if (status === 'CAPTURED') {
+    // Check for successful statuses: CAPTURED (TAP_PAY), PAID/CLOSED (TAP_INVOICE)
+    const isSuccessful = isPaid && newPaymentStatus === 'PAID';
+    
+    if (isSuccessful) {
       // Webhook should update payment record status, order status, and confirm wallet transactions
       logger.info('Payment captured in webhook - updating payment record status:', {
         paymentRecordId: paymentRecord.id,
@@ -320,6 +409,9 @@ export async function POST(request: NextRequest) {
 
       // Handle order-specific updates only for order payments
       if (isOrderPayment && orderId && order) {
+        // Recalculate order payment status based on all payment records
+        await recalculateOrderPaymentStatus(orderId);
+
         // Check if this is a split payment by looking for other payment records for the same order
         const allOrderPayments = await prisma.paymentRecord.findMany({
           where: { orderId: orderId },
@@ -329,19 +421,17 @@ export async function POST(request: NextRequest) {
         const isSplitPayment = allOrderPayments.length > 1;
         const walletPayment = allOrderPayments.find(p => p.paymentMethod === 'WALLET');
         const cardPayment = allOrderPayments.find(p => p.paymentMethod === 'TAP_PAY');
+        const invoicePayment = allOrderPayments.find(p => p.paymentMethod === 'TAP_INVOICE');
+        
+        // Determine payment method for email/display
+        const orderPaymentMethod = paymentRecord.paymentMethod === 'TAP_INVOICE' ? 'TAP_INVOICE' 
+          : paymentRecord.paymentMethod === 'TAP_PAY' ? 'TAP_PAY'
+          : paymentRecord.paymentMethod || 'TAP_PAY';
 
-        // Determine payment method for order
-        let orderPaymentMethod = 'TAP_PAY';
-        if (isSplitPayment) {
-          orderPaymentMethod = 'WALLET'; // Split payments are marked as wallet method
-        }
-
-        // Update order payment status
+        // Update order notes
         await prisma.order.update({
           where: { id: orderId },
           data: {
-            paymentStatus: 'PAID',
-            paymentMethod: orderPaymentMethod,
             notes: order.notes 
               ? `${order.notes}\n${isSplitPayment ? 'Split payment completed' : 'Payment completed via Tap'}: ${id}`
               : `${isSplitPayment ? 'Split payment completed' : 'Payment completed via Tap'}: ${id}`,
@@ -354,7 +444,7 @@ export async function POST(request: NextRequest) {
             orderId: orderId,
             staffId: null, // System action
             action: 'PAYMENT_COMPLETED',
-            oldValue: 'PENDING',
+            oldValue: order.paymentStatus || 'PENDING',
             newValue: 'PAID',
             description: isSplitPayment 
               ? `Split payment completed for order ${order.orderNumber}`
@@ -364,11 +454,14 @@ export async function POST(request: NextRequest) {
               amount: amount, // Amount in BHD
               currency: currency,
               isSplitPayment,
+              paymentMethod: orderPaymentMethod,
               ...(isSplitPayment && {
                 walletPaymentRecordId: walletPayment?.id,
                 cardPaymentRecordId: cardPayment?.id,
+                invoicePaymentRecordId: invoicePayment?.id,
                 walletAmount: walletPayment?.amount || 0,
                 cardAmount: cardPayment?.amount || 0,
+                invoiceAmount: invoicePayment?.amount || 0,
               }),
             }),
           },
@@ -427,12 +520,14 @@ export async function POST(request: NextRequest) {
           orderNumber: order.orderNumber,
           isSplitPayment,
           paymentMethod: orderPaymentMethod,
-          tapInvoiceId: id
+          tapInvoiceId: id,
+          webhookStatus: status
         });
       }
-    } else if (status === 'FAILED' || status === 'DECLINED') {
+    } else if (newPaymentStatus === 'FAILED') {
       // Handle failed payments - only update order for order payments
-      if (isOrderPayment && orderId && order) {
+      // Only process if we actually updated the payment record
+      if (shouldUpdate && isOrderPayment && orderId && order) {
         // Update order payment status to failed
         await prisma.order.update({
           where: { id: orderId },
@@ -457,7 +552,7 @@ export async function POST(request: NextRequest) {
               tapInvoiceId: id,
               amount: amount, // Amount in BHD
               currency: currency,
-              failureReason: (body as any).failure_reason || 'Unknown',
+              failureReason: (body as { failure_reason?: string }).failure_reason || 'Unknown',
             }),
           },
         });

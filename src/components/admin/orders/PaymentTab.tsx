@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { formatUTCForDisplay } from '@/lib/utils/timezone';
 import { formatCurrency } from '@/lib/utils/formatCurrency';
@@ -93,17 +93,13 @@ interface TapInvoiceData {
 const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const { data: session } = useSession();
   const { showToast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [refundAmount, setRefundAmount] = useState('');
-  const [refundReason, setRefundReason] = useState('');
-  const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
-  const [showRefundModal, setShowRefundModal] = useState(false);
-  const [processingRefund, setProcessingRefund] = useState(false);
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [invoiceData, setInvoiceData] = useState<TapInvoiceData | null>(null);
-  const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [resendingInvoice, setResendingInvoice] = useState(false);
-  const [cancellingInvoice, setCancellingInvoice] = useState(false);
+  const [syncingPayment, setSyncingPayment] = useState(false);
+  const [showPaymentStatusModal, setShowPaymentStatusModal] = useState(false);
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED'>(order.paymentStatus as 'PENDING' | 'PAID' | 'FAILED' || 'PENDING');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentStatusNotes, setPaymentStatusNotes] = useState('');
+  const [updatingPaymentStatus, setUpdatingPaymentStatus] = useState(false);
 
   // Check if user is super admin
   const isSuperAdmin = session?.role === 'SUPER_ADMIN';
@@ -111,11 +107,6 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   // Use backend-calculated payment summary
   const {
     totalPaid,
-    totalRefunded,
-    totalPending,
-    totalFailed,
-    availableForRefund,
-    netAmountPaid,
     outstandingAmount,
     paymentRecordsCount,
     invoiceTotal
@@ -144,97 +135,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     }
   };
 
-  const handleRefundClick = (paymentId: number, amount: number) => {
-    setSelectedPaymentId(paymentId);
-    setRefundAmount(amount.toString());
-    setRefundReason('');
-    setShowRefundModal(true);
-  };
 
-  const handleRefundSubmit = async () => {
-    if (!selectedPaymentId || !refundAmount || !refundReason) {
-      return;
-    }
-
-    setProcessingRefund(true);
-    try {
-      const response = await fetch('/api/admin/process-refund', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentId: selectedPaymentId,
-          orderId: order.id,
-          customerId: order.customer.id,
-          refundAmount: parseFloat(refundAmount),
-          refundReason,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to process refund');
-      }
-
-      // Refresh order data
-      onRefresh();
-      setShowRefundModal(false);
-      setSelectedPaymentId(null);
-      setRefundAmount('');
-      setRefundReason('');
-      
-      showToast(
-        `Successfully processed refund of ${formatCurrency(parseFloat(refundAmount))}`,
-        'success'
-      );
-    } catch (error) {
-      logger.error('Error processing refund:', error);
-      showToast(
-        error instanceof Error ? error.message : 'Failed to process refund',
-        'error'
-      );
-    } finally {
-      setProcessingRefund(false);
-    }
-  };
-
-  const handleGenerateInvoice = async () => {
-    setGeneratingInvoice(true);
-    try {
-      const response = await fetch('/api/admin/create-tap-invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: order.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to generate invoice');
-      }
-
-      const result = await response.json() as { success: boolean; tapInvoice?: any; error?: string };
-      
-      if (result.success && result.tapInvoice) {
-        showToast('Invoice generated successfully!', 'success');
-        onRefresh();
-      } else {
-        showToast('No payment required - customer has sufficient wallet balance', 'info');
-      }
-    } catch (error) {
-      logger.error('Error generating invoice:', error);
-      showToast(
-        error instanceof Error ? error.message : 'Failed to generate invoice',
-        'error'
-      );
-    } finally {
-      setGeneratingInvoice(false);
-    }
-  };
 
   const handleResendInvoice = async () => {
     if (!latestTapInvoice) return;
@@ -269,37 +170,42 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     }
   };
 
-  const handleCancelInvoice = async () => {
-    if (!latestTapInvoice) return;
-    
-    setCancellingInvoice(true);
+
+  const handleSyncPaymentStatus = async () => {
+    setSyncingPayment(true);
     try {
-      const response = await fetch('/api/admin/cancel-tap-invoice', {
+      const response = await fetch('/api/admin/sync-payment-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           orderId: order.id,
-          paymentRecordId: latestTapInvoice.id,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to cancel invoice');
+        throw new Error(errorData.error || 'Failed to sync payment status');
       }
 
-      showToast('Invoice cancelled successfully!', 'success');
+      const result = await response.json() as { success: boolean; message?: string };
+      
+      showToast(
+        result.message || 'Payment status synced successfully!',
+        'success'
+      );
+      
+      // Refresh order data to show updated payment information
       onRefresh();
     } catch (error) {
-      logger.error('Error cancelling invoice:', error);
+      logger.error('Error syncing payment status:', error);
       showToast(
-        error instanceof Error ? error.message : 'Failed to cancel invoice',
+        error instanceof Error ? error.message : 'Failed to sync payment status',
         'error'
       );
     } finally {
-      setCancellingInvoice(false);
+      setSyncingPayment(false);
     }
   };
 
@@ -314,38 +220,65 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     }
   };
 
-  const handleViewInvoiceDetails = async () => {
-    if (!latestTapInvoice) return;
-    
-    setLoading(true);
+
+  const handleUpdatePaymentStatus = async () => {
+    if (!selectedPaymentStatus || !paymentAmount) {
+      showToast('Please enter payment amount and select status', 'error');
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showToast('Please enter a valid payment amount', 'error');
+      return;
+    }
+
+    if (amount > Math.abs(outstandingAmount)) {
+      showToast(`Payment amount cannot exceed outstanding amount of ${formatCurrency(Math.abs(outstandingAmount))}`, 'error');
+      return;
+    }
+
+    setUpdatingPaymentStatus(true);
     try {
-      const response = await fetch('/api/admin/get-tap-invoice', {
+      const response = await fetch('/api/admin/update-payment-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           orderId: order.id,
-          paymentRecordId: latestTapInvoice.id,
+          paymentStatus: selectedPaymentStatus,
+          amount: amount,
+          notes: paymentStatusNotes || undefined,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json() as { error?: string };
-        throw new Error(errorData.error || 'Failed to fetch invoice details');
+        throw new Error(errorData.error || 'Failed to add payment');
       }
 
-      const result = await response.json() as { success: boolean; invoice: TapInvoiceData; error?: string };
-      setInvoiceData(result.invoice);
-      setShowInvoiceModal(true);
-    } catch (error) {
-      logger.error('Error fetching invoice details:', error);
+      const result = await response.json() as { success: boolean; message?: string };
+      
       showToast(
-        error instanceof Error ? error.message : 'Failed to fetch invoice details',
+        result.message || `Payment of ${formatCurrency(amount)} added successfully!`,
+        'success'
+      );
+      
+      setShowPaymentStatusModal(false);
+      setPaymentAmount('');
+      setPaymentStatusNotes('');
+      
+      // Refresh order data
+      onRefresh();
+    } catch (error) {
+      logger.error('Error adding payment:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to add payment',
         'error'
       );
     } finally {
-      setLoading(false);
+      setUpdatingPaymentStatus(false);
     }
   };
 
@@ -430,388 +363,264 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
 
   return (
     <div className="space-y-6">
-      {/* Enhanced Payment Summary */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Payment Summary
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Order Total</div>
-            <div className="text-xl font-bold text-gray-900">
-              {formatCurrency(invoiceTotal)}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Total Paid</div>
-            <div className="text-xl font-bold text-green-600">
-              {formatCurrency(totalPaid)}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Total Refunded</div>
-            <div className="text-xl font-bold text-blue-600">
-              {formatCurrency(totalRefunded)}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Net Amount</div>
-            <div className="text-xl font-bold text-purple-600">
-              {formatCurrency(netAmountPaid)}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Outstanding</div>
-            <div className={`text-xl font-bold ${outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCurrency(Math.abs(outstandingAmount))}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Available for Refund</div>
-            <div className="text-xl font-bold text-orange-600">
-              {formatCurrency(availableForRefund)}
-            </div>
+      {/* Simple Payment Summary */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-gray-900">
+            Payment Status
+          </h3>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleSyncPaymentStatus}
+              disabled={syncingPayment}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {syncingPayment ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Sync
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedPaymentStatus(order.paymentStatus as 'PENDING' | 'PAID' | 'FAILED' || 'PENDING');
+                setPaymentAmount(Math.abs(outstandingAmount).toString());
+                setPaymentStatusNotes('');
+                setShowPaymentStatusModal(true);
+              }}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Update Status
+            </button>
           </div>
         </div>
         
-        {/* Payment Status Breakdown */}
-        <div className="mt-4 pt-4 border-t border-blue-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Pending Payments</div>
-              <div className="text-lg font-semibold text-yellow-600">
-                {formatCurrency(totalPending)}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Failed Payments</div>
-              <div className="text-lg font-semibold text-red-600">
-                {formatCurrency(totalFailed)}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Payment Records</div>
-              <div className="text-lg font-semibold text-gray-900">
-                {paymentRecordsCount}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Invoice Management Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Invoice Management
-          </h3>
-          <div className="flex space-x-2">
-            {/* {!latestTapInvoice && (
-              <button
-                onClick={handleGenerateInvoice}
-                disabled={generatingInvoice}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {generatingInvoice ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Generate Invoice
-                  </>
-                )}
-              </button>
-            )} */}
-            {latestTapInvoice && (
-              <>
-                <button
-                  onClick={handleViewInvoice}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  View Invoice
-                </button>
-                <button
-                  onClick={handleViewInvoiceDetails}
-                  disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Details
-                </button>
-                <button
-                  onClick={handleResendInvoice}
-                  disabled={resendingInvoice}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                >
-                  {resendingInvoice ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Resending...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      Resend
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleCancelInvoice}
-                  disabled={cancellingInvoice}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-                >
-                  {cancellingInvoice ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Cancelling...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Cancel
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {latestTapInvoice && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gray-50 rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm text-gray-600">Invoice Status</div>
-                <div className={`font-semibold ${getInvoiceStatusColor(latestTapInvoice.paymentStatus)}`}>
-                  {latestTapInvoice.paymentStatus}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Invoice Amount</div>
-                <div className="font-semibold text-gray-900">
-                  {formatCurrency(latestTapInvoice.amount)}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Created</div>
-                <div className="font-semibold text-gray-900">
-                  {formatUTCForDisplay(latestTapInvoice.createdAt)}
-                </div>
-              </div>
+            <div className="text-sm text-gray-600 mb-1">Required Amount</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {formatCurrency(invoiceTotal)}
             </div>
           </div>
-        )}
-      </div>
+          <div className="bg-green-50 rounded-lg p-4">
+            <div className="text-sm text-gray-600 mb-1">Paid Amount</div>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(totalPaid)}
+            </div>
+          </div>
+          <div className={`rounded-lg p-4 ${outstandingAmount > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+            <div className="text-sm text-gray-600 mb-1">Outstanding</div>
+            <div className={`text-2xl font-bold ${outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(Math.abs(outstandingAmount))}
+            </div>
+          </div>
+        </div>
 
-      {/* Customer Wallet Info */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Customer Wallet Information
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="text-sm text-gray-600">Customer Name</div>
-            <div className="font-semibold text-gray-900">
-              {order.customer.firstName} {order.customer.lastName}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-600">Current Wallet Balance</div>
-            <div className="font-semibold text-gray-900">
-              {formatCurrency(order.customer.wallet?.balance || 0)}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-gray-600">Current Payment Status</div>
+              <div className="mt-1">
+                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadgeColor(order.paymentStatus)}`}>
+                  {order.paymentStatus}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Payment Records */}
-      <div className="bg-white border border-gray-200 rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Payment Records ({paymentRecordsCount})
+      {/* TAP Invoice Section - Only show if invoice exists */}
+      {latestTapInvoice && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              TAP Invoice
+            </h3>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleViewInvoice}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                View
+              </button>
+              <button
+                onClick={handleResendInvoice}
+                disabled={resendingInvoice}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+              >
+                {resendingInvoice ? 'Sending...' : 'Resend'}
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <div className="text-sm text-gray-600">Status</div>
+              <div className={`font-semibold ${getInvoiceStatusColor(latestTapInvoice.paymentStatus)}`}>
+                {latestTapInvoice.paymentStatus}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Amount</div>
+              <div className="font-semibold text-gray-900">
+                {formatCurrency(latestTapInvoice.amount)}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-600">Created</div>
+              <div className="font-semibold text-gray-900">
+                {formatUTCForDisplay(latestTapInvoice.createdAt)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Records - Simplified */}
+      {order.paymentRecords && order.paymentRecords.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Payment History ({paymentRecordsCount})
           </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {(order.paymentRecords || []).length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No payment records found for this order.
-                  </td>
-                </tr>
-              ) : (
-                (order.paymentRecords || []).map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-3">
-                          {getPaymentMethodIcon(payment.paymentMethod, payment.metadata)}
-                        </span>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {payment.paymentMethod.toUpperCase()}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {payment.description || 'Order payment'}
-                          </div>
-                          {payment.tapTransactionId && (
-                            <div className="text-xs text-gray-400">
-                              TAP ID: {payment.tapTransactionId}
-                            </div>
-                          )}
-                          {payment.walletTransaction && (
-                            <div className="text-xs text-gray-400">
-                              Wallet TX: {payment.walletTransaction.id}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.amount)}
-                      </div>
-                      {payment.refundAmount && payment.refundAmount > 0 && (
-                        <div className="text-sm text-blue-600">
-                          Refunded: {formatCurrency(payment.refundAmount)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(payment.paymentStatus)}`}>
-                        {payment.paymentStatus}
-                      </span>
-                      {payment.refundReason && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Reason: {payment.refundReason}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
+          <div className="space-y-3">
+            {order.paymentRecords.map((payment) => (
+              <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <span className="text-xl">
+                    {getPaymentMethodIcon(payment.paymentMethod, payment.metadata)}
+                  </span>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {payment.paymentMethod.toUpperCase()}
+                    </div>
+                    <div className="text-xs text-gray-500">
                       {formatUTCForDisplay(payment.createdAt)}
-                    </td>
-                    <td className="px-6 py-4">
-                      {payment.paymentStatus === 'PAID' && availableForRefund > 0 && 
-                       !payment.metadata?.includes('"isRefund":true') && (
-                        <button
-                          onClick={() => handleRefundClick(payment.id, payment.amount)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                          Refund
-                        </button>
-                      )}
-                      {payment.metadata?.includes('"isRefund":true') && (
-                        <div className="text-xs text-green-600 font-medium">
-                          Refund Transaction
-                        </div>
-                      )}
-                      {['REFUNDED', 'PARTIAL_REFUND'].includes(payment.paymentStatus) && 
-                       !payment.metadata?.includes('"isRefund":true') && (
-                        <div className="text-xs text-gray-500">
-                          Refunded on {formatUTCForDisplay(payment.updatedAt)}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-gray-900">
+                    {formatCurrency(payment.amount)}
+                  </div>
+                  <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeColor(payment.paymentStatus)}`}>
+                    {payment.paymentStatus}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Refund Modal */}
-      {showRefundModal && (
+      {/* Manual Payment Status Update Modal */}
+      {showPaymentStatusModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Process Refund
+                Add Payment
               </h3>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Refund Amount (BD)
+                    Current Status
+                  </label>
+                  <div className="text-sm text-gray-600 mb-2">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(order.paymentStatus)}`}>
+                      {order.paymentStatus}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Outstanding Amount
+                  </label>
+                  <div className="text-lg font-bold text-red-600 mb-2">
+                    {formatCurrency(Math.abs(outstandingAmount))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount Being Paid (BHD)
                   </label>
                   <input
                     type="number"
                     step="0.001"
-                    value={refundAmount}
-                    onChange={(e) => setRefundAmount(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter refund amount"
+                    min="0.001"
+                    max={Math.abs(outstandingAmount)}
+                    value={paymentAmount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = parseFloat(value);
+                      if (value === '' || (!isNaN(numValue) && numValue > 0 && numValue <= Math.abs(outstandingAmount))) {
+                        setPaymentAmount(value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter payment amount"
                   />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Maximum: {formatCurrency(Math.abs(outstandingAmount))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Refund Reason
+                    Payment Status
+                  </label>
+                  <select
+                    value={selectedPaymentStatus}
+                    onChange={(e) => setSelectedPaymentStatus(e.target.value as 'PENDING' | 'PAID' | 'FAILED')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="PAID">PAID</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="FAILED">FAILED</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (Optional)
                   </label>
                   <textarea
-                    value={refundReason}
-                    onChange={(e) => setRefundReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    placeholder="Enter reason for refund"
+                    value={paymentStatusNotes}
+                    onChange={(e) => setPaymentStatusNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    rows={2}
+                    placeholder="Add notes (e.g., cash payment, bank transfer)"
                   />
                 </div>
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
-                    onClick={() => setShowRefundModal(false)}
+                    onClick={() => {
+                      setShowPaymentStatusModal(false);
+                      setPaymentAmount('');
+                      setPaymentStatusNotes('');
+                    }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                    disabled={processingRefund}
+                    disabled={updatingPaymentStatus}
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleRefundSubmit}
-                    disabled={processingRefund || !refundAmount || !refundReason}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleUpdatePaymentStatus}
+                    disabled={updatingPaymentStatus || !paymentAmount || parseFloat(paymentAmount) <= 0 || parseFloat(paymentAmount) > Math.abs(outstandingAmount)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {processingRefund ? 'Processing...' : 'Process Refund'}
+                    {updatingPaymentStatus ? 'Adding...' : 'Add Payment'}
                   </button>
                 </div>
               </div>
@@ -820,125 +629,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
         </div>
       )}
 
-      {/* Invoice Details Modal */}
-      {showInvoiceModal && invoiceData && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Invoice Details
-                </h3>
-                <button
-                  onClick={() => setShowInvoiceModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-sm text-gray-600">Invoice ID</div>
-                    <div className="font-semibold text-gray-900">{invoiceData.id}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Status</div>
-                    <div className={`font-semibold ${getInvoiceStatusColor(invoiceData.status)}`}>
-                      {invoiceData.status}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Amount</div>
-                    <div className="font-semibold text-gray-900">
-                      {formatCurrency(invoiceData.amount)} {invoiceData.currency}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Created</div>
-                    <div className="font-semibold text-gray-900">
-                      {formatUTCForDisplay(new Date(invoiceData.created).toISOString())}
-                    </div>
-                  </div>
-                  {invoiceData.due && (
-                    <div>
-                      <div className="text-sm text-gray-600">Due Date</div>
-                      <div className="font-semibold text-gray-900">
-                        {formatUTCForDisplay(new Date(invoiceData.due).toISOString())}
-                      </div>
-                    </div>
-                  )}
-                  {invoiceData.expiry && (
-                    <div>
-                      <div className="text-sm text-gray-600">Expires</div>
-                      <div className="font-semibold text-gray-900">
-                        {formatUTCForDisplay(new Date(invoiceData.expiry).toISOString())}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="space-y-4">
-                  {invoiceData.track && (
-                    <div>
-                      <div className="text-sm text-gray-600">Tracking Status</div>
-                      <div className="font-semibold text-gray-900">{invoiceData.track.status}</div>
-                      {invoiceData.track.link && (
-                        <a
-                          href={invoiceData.track.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          View Tracking Details →
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  
-                  {invoiceData.transactions && invoiceData.transactions.length > 0 && (
-                    <div>
-                      <div className="text-sm text-gray-600 mb-2">Transactions</div>
-                      <div className="space-y-2">
-                        {invoiceData.transactions.map((transaction, index) => (
-                          <div key={index} className="bg-gray-50 p-3 rounded">
-                            <div className="text-sm font-medium text-gray-900">
-                              {transaction.id}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              Status: {transaction.status} | Amount: {formatCurrency(transaction.amount)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {invoiceData.url && (
-                    <div>
-                      <div className="text-sm text-gray-600 mb-2">Invoice URL</div>
-                      <a
-                        href={invoiceData.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Open Invoice
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };
