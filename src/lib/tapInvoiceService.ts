@@ -225,8 +225,46 @@ export const createTapInvoiceIfNeeded = async (orderId: number): Promise<TapInvo
           }
         } catch (invoiceCheckError) {
           logger.error(`Order ${orderId} - Error checking existing invoice status:`, invoiceCheckError);
-          // If we can't check the invoice, assume it's invalid and create a new one
-          logger.info(`Order ${orderId} - Unable to verify existing invoice, will create new invoice`);
+          
+          // If it's a network/API error, don't create duplicate invoices
+          // Check if we can still access the invoice reference
+          if (latestPayment.tapReference) {
+            // Try one more time with a simpler check
+            try {
+              const retryInvoice = await getInvoice(latestPayment.tapReference);
+              if (retryInvoice && (retryInvoice.status === 'PENDING' || retryInvoice.status === 'SENT' || retryInvoice.status === 'OPEN')) {
+                logger.info(`Order ${orderId} - Retry successful, existing invoice is still valid`);
+                let metadata: any = {};
+                try {
+                  metadata = JSON.parse(latestPayment.metadata || '{}');
+                } catch (e) {
+                  metadata = {
+                    tapInvoiceId: latestPayment.tapReference,
+                    tapInvoiceUrl: retryInvoice.url || '',
+                  };
+                }
+                
+                return {
+                  requiresPayment: true,
+                  tapInvoice: {
+                    id: latestPayment.tapReference,
+                    url: retryInvoice.url || metadata.tapInvoiceUrl || '',
+                    status: retryInvoice.status?.toUpperCase() || 'PENDING',
+                    amount: latestPayment.amount,
+                    currency: latestPayment.currency,
+                  },
+                  walletBalance,
+                  invoiceTotal,
+                  amountToCharge,
+                };
+              }
+            } catch (retryError) {
+              logger.warn(`Order ${orderId} - Retry also failed, will create new invoice:`, retryError);
+            }
+          }
+          
+          // Only create new invoice if we're certain the old one is invalid
+          logger.info(`Order ${orderId} - Unable to verify existing invoice after retry, will create new invoice`);
         }
       } else if (latestPayment.paymentStatus === 'PAID') {
         // If payment is already paid, no need to create new invoice
@@ -276,48 +314,208 @@ export const createTapInvoiceIfNeeded = async (orderId: number): Promise<TapInvo
             };
           }
         } catch (error) {
-          logger.error(`Order ${orderId} - Error checking failed invoice, creating new one:`, error);
-          // Continue to create new invoice
+          logger.error(`Order ${orderId} - Error checking failed invoice:`, error);
+          
+          // If we can't verify the failed invoice, be cautious
+          // Check if there's a valid tapReference before creating a new invoice
+          if (latestPayment.tapReference) {
+            try {
+              // One retry attempt
+              const retryInvoice = await getInvoice(latestPayment.tapReference);
+              const retryStatus = retryInvoice.status?.toUpperCase();
+              
+              if (retryStatus === 'EXPIRED' || retryStatus === 'CANCELLED') {
+                logger.info(`Order ${orderId} - Retry confirmed invoice is ${retryStatus}, creating new invoice`);
+                // Continue to create new invoice below
+              } else {
+                logger.warn(`Order ${orderId} - Retry shows invoice status is ${retryStatus}, not creating duplicate`);
+                // Return existing invoice to avoid duplicates
+                let metadata: any = {};
+                try {
+                  metadata = JSON.parse(latestPayment.metadata || '{}');
+                } catch (e) {
+                  metadata = {
+                    tapInvoiceId: latestPayment.tapReference,
+                    tapInvoiceUrl: retryInvoice.url || '',
+                  };
+                }
+                
+                return {
+                  requiresPayment: true,
+                  tapInvoice: {
+                    id: latestPayment.tapReference,
+                    url: retryInvoice.url || metadata.tapInvoiceUrl || '',
+                    status: retryStatus,
+                    amount: latestPayment.amount,
+                    currency: latestPayment.currency,
+                  },
+                  walletBalance,
+                  invoiceTotal,
+                  amountToCharge,
+                };
+              }
+            } catch (retryError) {
+              logger.error(`Order ${orderId} - Retry also failed, creating new invoice:`, retryError);
+              // Continue to create new invoice only if retry also fails
+            }
+          } else {
+            // No tapReference, safe to create new invoice
+            logger.info(`Order ${orderId} - No tapReference found, creating new invoice`);
+          }
         }
       }
     }
 
     // Create new Tap invoice (either no existing invoice or existing one is failed/expired)
+    // Use transaction to prevent race conditions and ensure atomicity
     logger.info(`Order ${orderId} - Creating new TAP invoice`);
+    
+    // Double-check for existing pending invoices right before creation (idempotency)
+    const finalCheck = await prisma.paymentRecord.findFirst({
+      where: {
+        orderId: orderId,
+        paymentMethod: 'TAP_INVOICE',
+        paymentStatus: 'PENDING',
+        tapReference: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (finalCheck && finalCheck.tapReference) {
+      // Another request might have created an invoice between our check and now
+      logger.info(`Order ${orderId} - Found pending invoice ${finalCheck.tapReference} during final check, verifying status`);
+      try {
+        const existingInvoice = await getInvoice(finalCheck.tapReference);
+        const existingStatus = existingInvoice.status?.toUpperCase();
+        
+        if (existingStatus === 'PENDING' || existingStatus === 'SENT' || existingStatus === 'OPEN') {
+          logger.info(`Order ${orderId} - Existing pending invoice is still valid, returning it`);
+          let metadata: any = {};
+          try {
+            metadata = JSON.parse(finalCheck.metadata || '{}');
+          } catch (e) {
+            metadata = {
+              tapInvoiceId: finalCheck.tapReference,
+              tapInvoiceUrl: existingInvoice.url || '',
+            };
+          }
+          
+          return {
+            requiresPayment: true,
+            tapInvoice: {
+              id: finalCheck.tapReference,
+              url: existingInvoice.url || metadata.tapInvoiceUrl || '',
+              status: existingStatus,
+              amount: finalCheck.amount,
+              currency: finalCheck.currency,
+            },
+            walletBalance,
+            invoiceTotal,
+            amountToCharge,
+          };
+        }
+      } catch (checkError) {
+        logger.warn(`Order ${orderId} - Error verifying existing invoice during final check, proceeding with new invoice:`, checkError);
+      }
+    }
+
     const tapInvoice = await createTapInvoice(order, amountToCharge);
 
-    // Update order with Tap invoice information
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        paymentStatus: 'PENDING',
-        paymentMethod: 'TAP_INVOICE',
-        notes: order.notes 
-          ? `${order.notes}\nTap Invoice ID: ${tapInvoice.id}`
-          : `Tap Invoice ID: ${tapInvoice.id}`,
-      },
-    });
+    // Use transaction to ensure atomicity of order update and payment record creation
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Final idempotency check within transaction
+        const transactionCheck = await tx.paymentRecord.findFirst({
+          where: {
+            orderId: orderId,
+            paymentMethod: 'TAP_INVOICE',
+            paymentStatus: 'PENDING',
+            tapReference: tapInvoice.id, // Check if this exact invoice was already created
+          },
+        });
 
-    // Create payment record
-    await prisma.paymentRecord.create({
-      data: {
-        orderId: orderId,
-        customerId: order.customerId,
-        amount: amountToCharge,
-        currency: 'BHD',
-        paymentMethod: 'TAP_INVOICE',
-        paymentStatus: 'PENDING',
-        tapReference: tapInvoice.id,
-        metadata: JSON.stringify({
-          tapInvoiceId: tapInvoice.id,
-          tapInvoiceUrl: tapInvoice.url,
-          walletBalance,
-          invoiceTotal,
-          amountToCharge,
-          isOrderPayment: true, // Mark as order payment for webhook handling
-        }),
-      },
-    });
+        if (transactionCheck) {
+          logger.info(`Order ${orderId} - Invoice ${tapInvoice.id} already exists in database, skipping creation`);
+          throw new Error(`Invoice ${tapInvoice.id} already exists for order ${orderId}`);
+        }
+
+        // Update order notes only (status will be recalculated)
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            notes: order.notes 
+              ? `${order.notes}\nTap Invoice ID: ${tapInvoice.id}`
+              : `Tap Invoice ID: ${tapInvoice.id}`,
+          },
+        });
+
+        // Create payment record
+        await tx.paymentRecord.create({
+          data: {
+            orderId: orderId,
+            customerId: order.customerId,
+            amount: amountToCharge,
+            currency: 'BHD',
+            paymentMethod: 'TAP_INVOICE',
+            paymentStatus: 'PENDING',
+            tapReference: tapInvoice.id,
+            metadata: JSON.stringify({
+              tapInvoiceId: tapInvoice.id,
+              tapInvoiceUrl: tapInvoice.url,
+              walletBalance,
+              invoiceTotal,
+              amountToCharge,
+              isOrderPayment: true, // Mark as order payment for webhook handling
+            }),
+          },
+        });
+      });
+    } catch (transactionError) {
+      // If invoice already exists, fetch and return it
+      if (transactionError instanceof Error && transactionError.message.includes('already exists')) {
+        logger.info(`Order ${orderId} - Invoice already exists, fetching existing payment record`);
+        const existingRecord = await prisma.paymentRecord.findFirst({
+          where: {
+            orderId: orderId,
+            paymentMethod: 'TAP_INVOICE',
+            tapReference: tapInvoice.id,
+          },
+        });
+
+        if (existingRecord) {
+          let metadata: any = {};
+          try {
+            metadata = JSON.parse(existingRecord.metadata || '{}');
+          } catch (e) {
+            metadata = {
+              tapInvoiceId: tapInvoice.id,
+              tapInvoiceUrl: tapInvoice.url || '',
+            };
+          }
+
+          return {
+            requiresPayment: true,
+            tapInvoice: {
+              id: tapInvoice.id,
+              url: tapInvoice.url || metadata.tapInvoiceUrl || '',
+              status: 'PENDING',
+              amount: existingRecord.amount,
+              currency: existingRecord.currency,
+            },
+            walletBalance,
+            invoiceTotal,
+            amountToCharge,
+          };
+        }
+      }
+      
+      // Re-throw if it's not an "already exists" error
+      throw transactionError;
+    }
+
+    // Recalculate order payment status instead of directly updating it
+    const { recalculateOrderPaymentStatus } = await import('@/lib/utils/paymentUtils');
+    await recalculateOrderPaymentStatus(orderId);
 
     logger.info(`Order ${orderId} - Tap invoice created successfully: ${tapInvoice.id}`);
 

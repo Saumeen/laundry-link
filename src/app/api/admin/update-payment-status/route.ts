@@ -62,12 +62,30 @@ export async function POST(req: Request) {
     }
 
     // Calculate current payment totals
-    const currentTotalPaid = currentOrder.paymentRecords
+    // Separate original payments from refunds
+    const originalPayments = currentOrder.paymentRecords.filter(payment => {
+      try {
+        const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
+        return !metadata.isRefund;
+      } catch {
+        return true; // If metadata parsing fails, treat as original payment
+      }
+    });
+
+    const currentTotalPaid = originalPayments
       .filter(p => p.paymentStatus === 'PAID')
       .reduce((sum, p) => sum + p.amount, 0);
     
+    // Calculate total pending payments (to account for them in outstanding calculation)
+    const totalPending = originalPayments
+      .filter(p => p.paymentStatus === 'PENDING')
+      .reduce((sum, p) => sum + p.amount, 0);
+    
     const invoiceTotal = currentOrder.invoiceTotal || 0;
-    const outstandingAmount = invoiceTotal - currentTotalPaid;
+    
+    // Outstanding amount = invoice total - (paid + pending)
+    // This prevents overpayment when there are pending invoices
+    const outstandingAmount = invoiceTotal - currentTotalPaid - totalPending;
 
     // Validate amount if provided
     if (amount) {
@@ -79,8 +97,12 @@ export async function POST(req: Request) {
       }
 
       if (amount > outstandingAmount) {
+        const warningMessage = totalPending > 0 
+          ? `Payment amount (${amount}) cannot exceed outstanding amount (${outstandingAmount}). Note: There are ${totalPending} BHD in pending payments.`
+          : `Payment amount (${amount}) cannot exceed outstanding amount (${outstandingAmount})`;
+        
         return NextResponse.json(
-          { error: `Payment amount (${amount}) cannot exceed outstanding amount (${outstandingAmount})` },
+          { error: warningMessage },
           { status: 400 }
         );
       }

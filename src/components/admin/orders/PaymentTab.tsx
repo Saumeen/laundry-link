@@ -108,6 +108,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const {
     totalPaid,
     outstandingAmount,
+    totalPending,
     paymentRecordsCount,
     invoiceTotal
   } = order.paymentSummary;
@@ -552,6 +553,11 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                   <div className="text-lg font-bold text-red-600 mb-2">
                     {formatCurrency(Math.abs(outstandingAmount))}
                   </div>
+                  {totalPending > 0 && (
+                    <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded mt-2">
+                      ⚠️ Note: There are {formatCurrency(totalPending)} in pending payments. Outstanding amount already accounts for these.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
