@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { formatUTCForDisplay } from '@/lib/utils/timezone';
 import { formatCurrency } from '@/lib/utils/formatCurrency';
@@ -103,21 +103,12 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const [invoiceData, setInvoiceData] = useState<TapInvoiceData | null>(null);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [resendingInvoice, setResendingInvoice] = useState(false);
-<<<<<<< Updated upstream
   const [cancellingInvoice, setCancellingInvoice] = useState(false);
-=======
-  const [syncingPayment, setSyncingPayment] = useState(false);
-  const [showPaymentStatusModal, setShowPaymentStatusModal] = useState(false);
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED'>(order.paymentStatus as 'PENDING' | 'PAID' | 'FAILED' || 'PENDING');
-  const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentStatusNotes, setPaymentStatusNotes] = useState('');
-  const [updatingPaymentStatus, setUpdatingPaymentStatus] = useState(false);
   const [editingPaymentRecord, setEditingPaymentRecord] = useState<PaymentRecord | null>(null);
   const [editPaymentAmount, setEditPaymentAmount] = useState('');
   const [editPaymentStatus, setEditPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIAL_REFUND'>('PAID');
   const [editPaymentNotes, setEditPaymentNotes] = useState('');
   const [updatingPaymentRecord, setUpdatingPaymentRecord] = useState(false);
->>>>>>> Stashed changes
 
   // Check if user is super admin
   const isSuperAdmin = session?.role === 'SUPER_ADMIN';
@@ -125,12 +116,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   // Use backend-calculated payment summary
   const {
     totalPaid,
-<<<<<<< Updated upstream
     totalRefunded,
-=======
-    netAmountPaid,
-    outstandingAmount,
->>>>>>> Stashed changes
     totalPending,
     totalFailed,
     availableForRefund,
@@ -522,17 +508,10 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
               {formatCurrency(invoiceTotal)}
             </div>
           </div>
-<<<<<<< Updated upstream
           <div className="text-center">
             <div className="text-sm text-gray-600">Total Paid</div>
             <div className="text-xl font-bold text-green-600">
-              {formatCurrency(totalPaid)}
-=======
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="text-sm text-gray-600 mb-1">Paid Amount</div>
-            <div className="text-2xl font-bold text-green-600">
               {formatCurrency(netAmountPaid)}
->>>>>>> Stashed changes
             </div>
             {totalPaid !== netAmountPaid && (
               <div className="text-xs text-gray-500 mt-1">
@@ -602,32 +581,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
           <h3 className="text-lg font-semibold text-gray-900">
             Invoice Management
           </h3>
-<<<<<<< Updated upstream
           <div className="flex space-x-2">
-            {/* {!latestTapInvoice && (
-              <button
-                onClick={handleGenerateInvoice}
-                disabled={generatingInvoice}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {generatingInvoice ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Generate Invoice
-                  </>
-                )}
-              </button>
-            )} */}
             {latestTapInvoice && (
               <>
                 <button
@@ -696,72 +650,34 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                 </button>
               </>
             )}
-=======
-          <div className="space-y-3">
-            {order.paymentRecords.map((payment) => {
-              // Check if this payment was manually added/updated
-              let isManuallyAdded = false;
-              try {
-                const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-                isManuallyAdded = metadata.manuallyAdded === true || metadata.manuallyUpdated === true;
-              } catch {
-                // Ignore parsing errors
-              }
-
-              return (
-                <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex items-center space-x-3 flex-1">
-                    <span className="text-xl">
-                      {getPaymentMethodIcon(payment.paymentMethod, payment.metadata)}
-                    </span>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm font-medium text-gray-900">
-                          {payment.paymentMethod.toUpperCase()}
-                        </div>
-                        {isManuallyAdded && (
-                          <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
-                            Manual
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {formatUTCForDisplay(payment.createdAt)}
-                      </div>
-                      {payment.description && (
-                        <div className="text-xs text-gray-600 mt-1">
-                          {payment.description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-gray-900">
-                        {formatCurrency(payment.amount)}
-                      </div>
-                      <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeColor(payment.paymentStatus)}`}>
-                        {payment.paymentStatus}
-                      </span>
-                    </div>
-                    {isSuperAdmin && (
-                      <button
-                        onClick={() => handleEditPaymentRecord(payment)}
-                        className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
-                        title="Edit payment record"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
-      )}
+
+        {latestTapInvoice && (
+          <div className="mt-4 bg-gray-50 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <div className="text-sm text-gray-600">Invoice Status</div>
+                <div className={`font-semibold ${getInvoiceStatusColor(latestTapInvoice.paymentStatus)}`}>
+                  {latestTapInvoice.paymentStatus}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Invoice Amount</div>
+                <div className="font-semibold text-gray-900">
+                  {formatCurrency(latestTapInvoice.amount)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Created</div>
+                <div className="font-semibold text-gray-900">
+                  {formatUTCForDisplay(latestTapInvoice.createdAt)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Edit Payment Record Modal */}
       {editingPaymentRecord && (
@@ -859,35 +775,9 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                 </div>
               </div>
             </div>
->>>>>>> Stashed changes
           </div>
         </div>
-
-        {latestTapInvoice && (
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm text-gray-600">Invoice Status</div>
-                <div className={`font-semibold ${getInvoiceStatusColor(latestTapInvoice.paymentStatus)}`}>
-                  {latestTapInvoice.paymentStatus}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Invoice Amount</div>
-                <div className="font-semibold text-gray-900">
-                  {formatCurrency(latestTapInvoice.amount)}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Created</div>
-                <div className="font-semibold text-gray-900">
-                  {formatUTCForDisplay(latestTapInvoice.createdAt)}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Customer Wallet Info */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
