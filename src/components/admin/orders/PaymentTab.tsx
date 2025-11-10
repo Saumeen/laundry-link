@@ -103,7 +103,21 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const [invoiceData, setInvoiceData] = useState<TapInvoiceData | null>(null);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [resendingInvoice, setResendingInvoice] = useState(false);
+<<<<<<< Updated upstream
   const [cancellingInvoice, setCancellingInvoice] = useState(false);
+=======
+  const [syncingPayment, setSyncingPayment] = useState(false);
+  const [showPaymentStatusModal, setShowPaymentStatusModal] = useState(false);
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED'>(order.paymentStatus as 'PENDING' | 'PAID' | 'FAILED' || 'PENDING');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentStatusNotes, setPaymentStatusNotes] = useState('');
+  const [updatingPaymentStatus, setUpdatingPaymentStatus] = useState(false);
+  const [editingPaymentRecord, setEditingPaymentRecord] = useState<PaymentRecord | null>(null);
+  const [editPaymentAmount, setEditPaymentAmount] = useState('');
+  const [editPaymentStatus, setEditPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIAL_REFUND'>('PAID');
+  const [editPaymentNotes, setEditPaymentNotes] = useState('');
+  const [updatingPaymentRecord, setUpdatingPaymentRecord] = useState(false);
+>>>>>>> Stashed changes
 
   // Check if user is super admin
   const isSuperAdmin = session?.role === 'SUPER_ADMIN';
@@ -111,7 +125,12 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   // Use backend-calculated payment summary
   const {
     totalPaid,
+<<<<<<< Updated upstream
     totalRefunded,
+=======
+    netAmountPaid,
+    outstandingAmount,
+>>>>>>> Stashed changes
     totalPending,
     totalFailed,
     availableForRefund,
@@ -349,6 +368,67 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     }
   };
 
+  const handleEditPaymentRecord = (payment: PaymentRecord) => {
+    setEditingPaymentRecord(payment);
+    setEditPaymentAmount(payment.amount.toString());
+    setEditPaymentStatus(payment.paymentStatus as 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIAL_REFUND');
+    setEditPaymentNotes(payment.description || '');
+  };
+
+  const handleUpdatePaymentRecord = async () => {
+    if (!editingPaymentRecord) return;
+
+    const amount = parseFloat(editPaymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showToast('Please enter a valid payment amount', 'error');
+      return;
+    }
+
+    setUpdatingPaymentRecord(true);
+    try {
+      const response = await fetch('/api/admin/update-payment-record', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentRecordId: editingPaymentRecord.id,
+          amount: amount,
+          paymentStatus: editPaymentStatus,
+          notes: editPaymentNotes || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to update payment record');
+      }
+
+      const result = await response.json() as { success: boolean; message?: string };
+      
+      showToast(
+        result.message || 'Payment record updated successfully!',
+        'success'
+      );
+      
+      setEditingPaymentRecord(null);
+      setEditPaymentAmount('');
+      setEditPaymentStatus('PAID');
+      setEditPaymentNotes('');
+      
+      // Refresh order data
+      onRefresh();
+    } catch (error) {
+      logger.error('Error updating payment record:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to update payment record',
+        'error'
+      );
+    } finally {
+      setUpdatingPaymentRecord(false);
+    }
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'PAID':
@@ -442,11 +522,23 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
               {formatCurrency(invoiceTotal)}
             </div>
           </div>
+<<<<<<< Updated upstream
           <div className="text-center">
             <div className="text-sm text-gray-600">Total Paid</div>
             <div className="text-xl font-bold text-green-600">
               {formatCurrency(totalPaid)}
+=======
+          <div className="bg-green-50 rounded-lg p-4">
+            <div className="text-sm text-gray-600 mb-1">Paid Amount</div>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(netAmountPaid)}
+>>>>>>> Stashed changes
             </div>
+            {totalPaid !== netAmountPaid && (
+              <div className="text-xs text-gray-500 mt-1">
+                (Gross: {formatCurrency(totalPaid)})
+              </div>
+            )}
           </div>
           <div className="text-center">
             <div className="text-sm text-gray-600">Total Refunded</div>
@@ -465,6 +557,11 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
             <div className={`text-xl font-bold ${outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(Math.abs(outstandingAmount))}
             </div>
+            {totalPending > 0 && (
+              <div className="text-xs text-amber-600 mt-1">
+                ({formatCurrency(totalPending)} pending)
+              </div>
+            )}
           </div>
           <div className="text-center">
             <div className="text-sm text-gray-600">Available for Refund</div>
@@ -505,6 +602,7 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
           <h3 className="text-lg font-semibold text-gray-900">
             Invoice Management
           </h3>
+<<<<<<< Updated upstream
           <div className="flex space-x-2">
             {/* {!latestTapInvoice && (
               <button
@@ -598,6 +696,170 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                 </button>
               </>
             )}
+=======
+          <div className="space-y-3">
+            {order.paymentRecords.map((payment) => {
+              // Check if this payment was manually added/updated
+              let isManuallyAdded = false;
+              try {
+                const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
+                isManuallyAdded = metadata.manuallyAdded === true || metadata.manuallyUpdated === true;
+              } catch {
+                // Ignore parsing errors
+              }
+
+              return (
+                <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center space-x-3 flex-1">
+                    <span className="text-xl">
+                      {getPaymentMethodIcon(payment.paymentMethod, payment.metadata)}
+                    </span>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          {payment.paymentMethod.toUpperCase()}
+                        </div>
+                        {isManuallyAdded && (
+                          <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">
+                            Manual
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {formatUTCForDisplay(payment.createdAt)}
+                      </div>
+                      {payment.description && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          {payment.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(payment.amount)}
+                      </div>
+                      <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusBadgeColor(payment.paymentStatus)}`}>
+                        {payment.paymentStatus}
+                      </span>
+                    </div>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => handleEditPaymentRecord(payment)}
+                        className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
+                        title="Edit payment record"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Payment Record Modal */}
+      {editingPaymentRecord && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Edit Payment Record
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Method
+                  </label>
+                  <div className="text-sm text-gray-600 mb-2">
+                    {editingPaymentRecord.paymentMethod.toUpperCase()}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Amount
+                  </label>
+                  <div className="text-lg font-bold text-gray-900 mb-2">
+                    {formatCurrency(editingPaymentRecord.amount)}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Amount (BHD)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    value={editPaymentAmount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = parseFloat(value);
+                      if (value === '' || (!isNaN(numValue) && numValue > 0)) {
+                        setEditPaymentAmount(value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter payment amount"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Status
+                  </label>
+                  <select
+                    value={editPaymentStatus}
+                    onChange={(e) => setEditPaymentStatus(e.target.value as 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIAL_REFUND')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="PAID">PAID</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="REFUNDED">REFUNDED</option>
+                    <option value="PARTIAL_REFUND">PARTIAL_REFUND</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={editPaymentNotes}
+                    onChange={(e) => setEditPaymentNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    rows={2}
+                    placeholder="Add notes about this update"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setEditingPaymentRecord(null);
+                      setEditPaymentAmount('');
+                      setEditPaymentStatus('PAID');
+                      setEditPaymentNotes('');
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    disabled={updatingPaymentRecord}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdatePaymentRecord}
+                    disabled={updatingPaymentRecord || !editPaymentAmount || parseFloat(editPaymentAmount) <= 0}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updatingPaymentRecord ? 'Updating...' : 'Update Payment'}
+                  </button>
+                </div>
+              </div>
+            </div>
+>>>>>>> Stashed changes
           </div>
         </div>
 
