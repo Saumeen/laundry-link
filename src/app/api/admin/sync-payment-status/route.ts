@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedAdmin, createAdminAuthErrorResponse } from '@/lib/adminAuth';
-import { recalculateOrderPaymentStatus } from '@/lib/utils/paymentUtils';
+import { recalculateOrderPaymentStatus, calculatePaymentSummary } from '@/lib/utils/paymentUtils';
 import { getInvoice } from '@/lib/tapInvoiceManagement';
 import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
@@ -113,58 +113,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate payment summary
-    const originalPayments = updatedOrder.paymentRecords.filter(payment => {
-      try {
-        const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-        return !metadata.isRefund;
-      } catch {
-        return true;
-      }
-    });
-
-    const totalPaid = originalPayments
-      .filter(payment => payment.paymentStatus === 'PAID')
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
-    const totalRefunded = updatedOrder.paymentRecords
-      .filter(payment => {
-        try {
-          const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-          return metadata.isRefund && payment.paymentStatus === 'PAID';
-        } catch {
-          return false;
-        }
-      })
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
-    const totalPending = originalPayments
-      .filter(payment => payment.paymentStatus === 'PENDING')
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
-    const totalFailed = originalPayments
-      .filter(payment => payment.paymentStatus === 'FAILED')
-      .reduce((sum, payment) => sum + payment.amount, 0);
-
+    // Calculate payment summary using standardized function
     const invoiceTotal = updatedOrder.invoiceTotal || 0;
-    const netAmountPaid = totalPaid - totalRefunded;
-    const outstandingAmount = invoiceTotal - netAmountPaid;
-    const availableForRefund = totalPaid - totalRefunded;
+    const paymentSummary = calculatePaymentSummary(updatedOrder.paymentRecords, invoiceTotal);
 
     return NextResponse.json({
       success: true,
       message: 'Payment status synced successfully',
-      paymentSummary: {
-        totalPaid,
-        totalRefunded,
-        totalPending,
-        totalFailed,
-        availableForRefund,
-        netAmountPaid,
-        outstandingAmount,
-        paymentRecordsCount: updatedOrder.paymentRecords.length,
-        invoiceTotal
-      },
+      paymentSummary,
       order: {
         id: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,
