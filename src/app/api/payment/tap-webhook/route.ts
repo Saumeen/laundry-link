@@ -35,13 +35,14 @@ export async function POST(request: NextRequest) {
 
     logger.info('Processing Tap webhook:', { id, status, amount, currency });
 
-    // Find the payment record by tapTransactionId first, then by tapReference
+    // Find payment record with prioritized exact matching
+    // Priority 1: Exact match by tapTransactionId (for TAP_PAY)
     let paymentRecord = await prisma.paymentRecord.findFirst({
       where: { tapTransactionId: id },
       include: { order: true },
     });
 
-    // If not found by tapTransactionId, try tapReference
+    // Priority 2: Exact match by tapReference (for TAP_INVOICE)
     if (!paymentRecord) {
       paymentRecord = await prisma.paymentRecord.findFirst({
         where: { tapReference: id },
@@ -49,74 +50,89 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // If still not found, try finding TAP_INVOICE payments by checking metadata
+    // Priority 3: Fallback - check metadata for TAP_INVOICE only if exact match failed
+    // This is a restricted fallback with validation
     if (!paymentRecord) {
+      logger.info('Exact match failed, attempting metadata fallback for TAP_INVOICE payments', { webhookId: id });
+      
       const invoicePaymentRecords = await prisma.paymentRecord.findMany({
         where: { 
           paymentMethod: 'TAP_INVOICE',
           tapReference: { not: null }
         },
         include: { order: true },
+        take: 50, // Limit search to prevent performance issues
       });
 
       for (const record of invoicePaymentRecords) {
         try {
           if (record.metadata) {
             const metadata = JSON.parse(record.metadata);
-            // Check if tapInvoiceId in metadata matches the webhook ID
-            if (metadata.tapInvoiceId === id || record.tapReference === id) {
+            // Only match if tapInvoiceId in metadata matches AND tapReference doesn't exist or matches
+            if (metadata.tapInvoiceId === id) {
+              // Validate: ensure tapReference matches if it exists
+              if (record.tapReference && record.tapReference !== id) {
+                logger.warn('Metadata match found but tapReference mismatch, skipping', {
+                  paymentRecordId: record.id,
+                  metadataTapInvoiceId: metadata.tapInvoiceId,
+                  tapReference: record.tapReference,
+                  webhookId: id
+                });
+                continue;
+              }
               paymentRecord = record;
-              break;
-            }
-          } else if (record.tapReference === id) {
-            paymentRecord = record;
-            break;
-          }
-        } catch (parseError) {
-          // If metadata parsing fails, check tapReference directly
-          if (record.tapReference === id) {
-            paymentRecord = record;
-            break;
-          }
-        }
-      }
-    }
-
-    // If still not found, try parsing tapReference as JSON (for TAP_PAY)
-    if (!paymentRecord) {
-      const allPaymentRecords = await prisma.paymentRecord.findMany({
-        where: { 
-          tapReference: { not: null },
-          paymentMethod: { in: ['TAP_PAY', 'TAP_INVOICE'] }
-        },
-        include: { order: true },
-      });
-
-      for (const record of allPaymentRecords) {
-        try {
-          if (record.tapReference) {
-            const parsedReference = JSON.parse(record.tapReference);
-            if (parsedReference.transaction === id || parsedReference.id === id) {
-              paymentRecord = record;
+              logger.info('Payment record found via metadata fallback', {
+                paymentRecordId: record.id,
+                webhookId: id,
+                matchingMethod: 'metadata_tapInvoiceId'
+              });
               break;
             }
           }
         } catch (parseError) {
-          // If tapReference is not JSON, check if it matches the ID directly
-          if (record.tapReference === id) {
-            paymentRecord = record;
-            break;
-          }
+          // Skip records with invalid metadata
+          logger.warn('Failed to parse metadata for payment record during fallback search', {
+            paymentRecordId: record.id,
+            error: parseError instanceof Error ? parseError.message : String(parseError)
+          });
         }
       }
     }
 
     if (!paymentRecord) {
-      logger.error('Payment record not found for Tap webhook:', { id, status });
+      logger.error('Payment record not found for Tap webhook after all matching attempts:', { id, status });
       return NextResponse.json(
         { error: 'Payment record not found' },
         { status: 404 }
       );
+    }
+
+    // Validate matched payment record
+    // Ensure the payment record's orderId matches if order information is available in webhook metadata
+    if (paymentRecord.orderId && metadata) {
+      try {
+        const webhookMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+        if (webhookMetadata && typeof webhookMetadata === 'object' && 'orderId' in webhookMetadata) {
+          const webhookOrderId = webhookMetadata.orderId;
+          if (webhookOrderId && paymentRecord.orderId !== webhookOrderId) {
+            logger.error('Payment record orderId mismatch with webhook metadata', {
+              paymentRecordId: paymentRecord.id,
+              paymentRecordOrderId: paymentRecord.orderId,
+              webhookOrderId: webhookOrderId,
+              webhookId: id
+            });
+            return NextResponse.json(
+              { error: 'Payment record order mismatch' },
+              { status: 400 }
+            );
+          }
+        }
+      } catch (parseError) {
+        // If metadata parsing fails, log but don't fail the webhook
+        logger.warn('Failed to parse webhook metadata for validation', {
+          error: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+      }
     }
 
     const orderId = paymentRecord.orderId;

@@ -4,7 +4,7 @@ import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import logger from '@/lib/logger';
 import { requireAuthenticatedAdmin } from '@/lib/adminAuth';
-import { recalculateOrderPaymentStatus } from '@/lib/utils/paymentUtils';
+import { recalculateOrderPaymentStatus, calculatePaymentSummary } from '@/lib/utils/paymentUtils';
 
 export async function POST(req: Request) {
   try {
@@ -61,31 +61,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Calculate current payment totals
-    // Separate original payments from refunds
-    const originalPayments = currentOrder.paymentRecords.filter(payment => {
-      try {
-        const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
-        return !metadata.isRefund;
-      } catch {
-        return true; // If metadata parsing fails, treat as original payment
-      }
-    });
-
-    const currentTotalPaid = originalPayments
-      .filter(p => p.paymentStatus === 'PAID')
-      .reduce((sum, p) => sum + p.amount, 0);
-    
-    // Calculate total pending payments (to account for them in outstanding calculation)
-    const totalPending = originalPayments
-      .filter(p => p.paymentStatus === 'PENDING')
-      .reduce((sum, p) => sum + p.amount, 0);
-    
+    // Calculate payment summary using standardized function
     const invoiceTotal = currentOrder.invoiceTotal || 0;
-    
-    // Outstanding amount = invoice total - (paid + pending)
-    // This prevents overpayment when there are pending invoices
-    const outstandingAmount = invoiceTotal - currentTotalPaid - totalPending;
+    const paymentSummary = calculatePaymentSummary(currentOrder.paymentRecords, invoiceTotal);
+    const outstandingAmount = paymentSummary.outstandingAmount;
 
     // Validate amount if provided
     if (amount) {
@@ -97,8 +76,8 @@ export async function POST(req: Request) {
       }
 
       if (amount > outstandingAmount) {
-        const warningMessage = totalPending > 0 
-          ? `Payment amount (${amount}) cannot exceed outstanding amount (${outstandingAmount}). Note: There are ${totalPending} BHD in pending payments.`
+        const warningMessage = paymentSummary.totalPending > 0 
+          ? `Payment amount (${amount}) cannot exceed outstanding amount (${outstandingAmount}). Note: There are ${paymentSummary.totalPending} BHD in pending payments.`
           : `Payment amount (${amount}) cannot exceed outstanding amount (${outstandingAmount})`;
         
         return NextResponse.json(
