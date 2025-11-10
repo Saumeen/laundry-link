@@ -2,6 +2,87 @@ import prisma from '@/lib/prisma';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import logger from '@/lib/logger';
 
+export interface PaymentSummary {
+  totalPaid: number;
+  totalRefunded: number;
+  totalPending: number;
+  totalFailed: number;
+  availableForRefund: number;
+  netAmountPaid: number;
+  outstandingAmount: number;
+  paymentRecordsCount: number;
+  invoiceTotal: number;
+}
+
+/**
+ * Calculate payment summary from payment records
+ * Standardized calculation: outstandingAmount = invoiceTotal - (totalPaid - totalRefunded) - totalPending
+ */
+export function calculatePaymentSummary(
+  paymentRecords: Array<{
+    metadata?: string | null;
+    paymentStatus: string;
+    amount: number;
+  }>,
+  invoiceTotal: number
+): PaymentSummary {
+  // Separate original payments from refund payments
+  const originalPayments = paymentRecords.filter(payment => {
+    try {
+      const metadata = payment.metadata ? JSON.parse(payment.metadata || '{}') : {};
+      return !metadata.isRefund;
+    } catch {
+      return true; // If metadata parsing fails, treat as original payment
+    }
+  });
+  
+  const refundPayments = paymentRecords.filter(payment => {
+    try {
+      const metadata = payment.metadata ? JSON.parse(payment.metadata || '{}') : {};
+      return metadata.isRefund;
+    } catch {
+      return false;
+    }
+  });
+
+  // Calculate total paid from original payments
+  const totalPaid = originalPayments
+    .filter(payment => payment.paymentStatus === 'PAID')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  // Calculate total refunded from refund payment records
+  const totalRefunded = refundPayments
+    .filter(payment => payment.paymentStatus === 'PAID')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  // Calculate total pending from original payments
+  const totalPending = originalPayments
+    .filter(payment => payment.paymentStatus === 'PENDING')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  // Calculate total failed from original payments
+  const totalFailed = originalPayments
+    .filter(payment => payment.paymentStatus === 'FAILED')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  const availableForRefund = totalPaid - totalRefunded;
+  const netAmountPaid = totalPaid - totalRefunded;
+  // Standardized outstanding amount calculation: accounts for refunds and pending payments
+  const outstandingAmount = invoiceTotal - netAmountPaid - totalPending;
+
+  return {
+    totalPaid,
+    totalRefunded,
+    totalPending,
+    totalFailed,
+    availableForRefund,
+    netAmountPaid,
+    outstandingAmount,
+    paymentRecordsCount: paymentRecords.length,
+    invoiceTotal
+  };
+}
+
 /**
  * Recalculate and update order payment status based on payment records
  */
@@ -44,13 +125,16 @@ export async function recalculateOrderPaymentStatus(orderId: number): Promise<vo
       const hasPendingPayments = originalPayments.some(p => p.paymentStatus === 'PENDING');
       const hasFailedPayments = originalPayments.some(p => p.paymentStatus === 'FAILED');
       
-      // If we have some payment but not enough, and no pending payments, it's partial
-      // Otherwise keep as pending if there are pending payments
+      // Fixed logic: properly distinguish between partial payment and pending payment
       if (hasPendingPayments) {
+        // There are pending payments, so status should be PENDING
         newPaymentStatus = PaymentStatus.PENDING;
       } else if (hasFailedPayments && !hasPendingPayments) {
+        // All payments failed and no pending, status is FAILED
         newPaymentStatus = PaymentStatus.FAILED;
       } else {
+        // Partial payment completed but no pending payments - keep as PENDING
+        // This represents a partially paid order waiting for remaining payment
         newPaymentStatus = PaymentStatus.PENDING;
       }
     } else {
