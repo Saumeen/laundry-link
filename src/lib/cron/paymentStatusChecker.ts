@@ -1,5 +1,7 @@
 import { PrismaClient, PaymentStatus, TransactionStatus } from '@prisma/client';
 import { getTapCharge } from '../utils/tapPaymentUtils';
+import { getInvoice } from '../tapInvoiceManagement';
+import { recalculateOrderPaymentStatus } from '../utils/paymentUtils';
 import logger from '@/lib/logger';
 
 const prisma = new PrismaClient();
@@ -26,16 +28,20 @@ export class PaymentStatusChecker {
     try {
       logger.info('Starting payment status check...');
 
-      // Get all pending payment records with TAP charge IDs
+      // Get all pending payment records with TAP charge IDs or TAP references (for invoices)
       const pendingPayments = await prisma.paymentRecord.findMany({
         where: {
           paymentStatus: PaymentStatus.PENDING,
-          tapChargeId: {
-            not: null
-          },
+          OR: [
+            { tapChargeId: { not: null } },
+            { 
+              tapReference: { not: null },
+              paymentMethod: { in: ['TAP_PAY', 'TAP_INVOICE'] }
+            }
+          ],
           createdAt: {
-            // Only check payments from the last 24 hours to avoid checking old payments
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+            // Check payments from the last 48 hours to catch more payments
+            gte: new Date(Date.now() - 48 * 60 * 60 * 1000)
           }
         },
         include: {
@@ -75,17 +81,155 @@ export class PaymentStatusChecker {
   }
 
   /**
+   * Extract TAP IDs from tapResponse JSON
+   */
+  private static extractTapIdsFromResponse(tapResponse: string | null): {
+    tapTransactionId?: string;
+    tapChargeId?: string;
+    tapReference?: string;
+  } {
+    const result: {
+      tapTransactionId?: string;
+      tapChargeId?: string;
+      tapReference?: string;
+    } = {};
+
+    if (!tapResponse) return result;
+
+    try {
+      const response = JSON.parse(tapResponse);
+      
+      // Extract transaction/charge ID
+      if (response.id) {
+        result.tapTransactionId = response.id;
+        result.tapChargeId = response.id; // For charges, both should be the same
+      }
+      
+      // Extract charge ID if different
+      if (response.charge?.id) {
+        result.tapChargeId = response.charge.id;
+      }
+      
+      // Extract reference
+      if (response.reference) {
+        if (typeof response.reference === 'string') {
+          result.tapReference = response.reference;
+        } else if (response.reference.transaction) {
+          result.tapReference = response.reference.transaction;
+        } else if (response.reference.invoice) {
+          result.tapReference = response.reference.invoice;
+        }
+      }
+    } catch (error) {
+      logger.warn(`Failed to parse tapResponse JSON for payment:`, error);
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract TAP invoice ID from metadata
+   */
+  private static extractTapInvoiceIdFromMetadata(metadata: string | null): string | null {
+    if (!metadata) return null;
+
+    try {
+      const meta = JSON.parse(metadata);
+      return meta.tapInvoiceId || meta.tapInvoice?.id || null;
+    } catch (error) {
+      logger.warn('Failed to parse metadata JSON:', error);
+      return null;
+    }
+  }
+
+  /**
    * Process individual payment status
    */
   private static async processPaymentStatus(payment: any): Promise<void> {
-    if (!payment.tapChargeId) {
-      throw new Error('No TAP charge ID found');
+    // For TAP_INVOICE payments, check invoice status via TAP API
+    if (payment.paymentMethod === 'TAP_INVOICE') {
+      // Try to get tapReference, extract from metadata if missing
+      let tapReference = payment.tapReference;
+      
+      if (!tapReference && payment.metadata) {
+        tapReference = this.extractTapInvoiceIdFromMetadata(payment.metadata);
+        
+        if (tapReference) {
+          // Update payment record with extracted reference
+          await prisma.paymentRecord.update({
+            where: { id: payment.id },
+            data: { tapReference },
+          });
+          logger.info(`Extracted tapReference for payment ${payment.id}: ${tapReference}`);
+        }
+      }
+
+      if (!tapReference) {
+        throw new Error('No TAP invoice reference found and could not extract from metadata');
+      }
+
+      try {
+        logger.info(`Checking TAP invoice payment ${payment.id} with invoice ID: ${tapReference}`);
+        
+        const invoice = await getInvoice(tapReference);
+        
+        // Map invoice status to payment status
+        let newPaymentStatus: PaymentStatus;
+        switch (invoice.status?.toUpperCase()) {
+          case 'PAID':
+          case 'CLOSED':
+            newPaymentStatus = PaymentStatus.PAID;
+            break;
+          case 'CANCELLED':
+          case 'EXPIRED':
+            newPaymentStatus = PaymentStatus.FAILED;
+            break;
+          default:
+            newPaymentStatus = PaymentStatus.PENDING;
+        }
+
+        await this.updatePaymentStatusForInvoice(payment, newPaymentStatus, invoice);
+        return;
+      } catch (error) {
+        logger.error(`Error checking TAP invoice status for payment ${payment.id}:`, error);
+        throw error;
+      }
     }
 
-    logger.info(`Checking payment ${payment.id} with TAP charge ID: ${payment.tapChargeId}`);
+    // For TAP_PAY payments, check charge status
+    // Try to extract TAP ID from tapResponse if missing
+    let tapChargeId = payment.tapChargeId || payment.tapTransactionId;
+    
+    if (!tapChargeId && payment.tapResponse) {
+      const extractedIds = this.extractTapIdsFromResponse(payment.tapResponse);
+      tapChargeId = extractedIds.tapChargeId || extractedIds.tapTransactionId;
+      
+      if (tapChargeId) {
+        // Update payment record with extracted IDs
+        const updateData: any = {};
+        if (extractedIds.tapTransactionId) {
+          updateData.tapTransactionId = extractedIds.tapTransactionId;
+        }
+        if (extractedIds.tapChargeId) {
+          updateData.tapChargeId = extractedIds.tapChargeId;
+        }
+        
+        await prisma.paymentRecord.update({
+          where: { id: payment.id },
+          data: updateData,
+        });
+        logger.info(`Extracted TAP IDs for payment ${payment.id}: ${JSON.stringify(updateData)}`);
+      }
+    }
+
+    if (!tapChargeId) {
+      throw new Error('No TAP charge ID found and could not extract from tapResponse');
+    }
+
+    logger.info(`Checking payment ${payment.id} with TAP charge ID: ${tapChargeId}`);
 
     // Get charge status from TAP API
-    const tapCharge = await getTapCharge(payment.tapChargeId);
+    const tapCharge = await getTapCharge(tapChargeId);
     
     if (!tapCharge) {
       throw new Error('Failed to retrieve TAP charge');
@@ -172,16 +316,38 @@ export class PaymentStatusChecker {
 
     // Update order payment status if this is an order payment
     if (payment.orderId) {
-      await prisma.order.update({
-        where: { id: payment.orderId },
-        data: {
-          paymentStatus: newPaymentStatus,
-          updatedAt: new Date()
-        }
-      });
+      // Recalculate order payment status based on all payment records
+      await recalculateOrderPaymentStatus(payment.orderId);
     }
 
     logger.info(`Updated payment ${payment.id} to status: ${newPaymentStatus}`);
+  }
+
+  /**
+   * Update payment status for TAP invoice payments
+   */
+  private static async updatePaymentStatusForInvoice(
+    payment: any, 
+    newPaymentStatus: PaymentStatus, 
+    invoice: any
+  ): Promise<void> {
+    await prisma.paymentRecord.update({
+      where: { id: payment.id },
+      data: {
+        paymentStatus: newPaymentStatus,
+        processedAt: newPaymentStatus === PaymentStatus.PAID ? new Date() : null,
+        tapResponse: JSON.stringify(invoice),
+        updatedAt: new Date()
+      }
+    });
+
+    // Update order payment status if this is an order payment
+    if (payment.orderId) {
+      // Recalculate order payment status based on all payment records
+      await recalculateOrderPaymentStatus(payment.orderId);
+    }
+
+    logger.info(`Updated invoice payment ${payment.id} to status: ${newPaymentStatus}`);
   }
 
   /**
