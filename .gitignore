@@ -3,9 +3,9 @@
 node_modules
 
 .next
-.env
 
 .DS_Store
 
 logs
 .playwright-mcp/*
+config.bat
