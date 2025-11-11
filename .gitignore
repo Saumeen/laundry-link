@@ -9,3 +9,4 @@ node_modules
 
 logs
 .playwright-mcp/*
+config.bat

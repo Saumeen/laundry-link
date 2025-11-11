@@ -238,8 +238,8 @@ export async function POST(request: NextRequest) {
         }, { status: 409 });
       }
       
-      // If there are pending payments, check if they're recent (within last 5 minutes)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      // If there are pending payments, check if they're recent (within last 1 minutes)
+      const fiveMinutesAgo = new Date(Date.now() - 1 * 60 * 1000);
       const recentPendingPayments = existingPaymentRecords.filter(
         payment => payment.paymentStatus === PaymentStatus.PENDING && 
         payment.createdAt > fiveMinutesAgo
