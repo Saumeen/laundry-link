@@ -446,7 +446,10 @@ export const createTapInvoiceIfNeeded = async (orderId: number): Promise<TapInvo
     }
 
     // No pending invoice found - create new TAP invoice
+    // Note: Invoice is created in Tap API before DB transaction
+    // If DB transaction fails, we'll cancel the invoice (compensation)
     tapInvoice = await createTapInvoice(order, amountToCharge);
+    let invoiceCreated = true;
 
     // Create payment record in transaction with idempotency check
     try {
@@ -513,6 +516,29 @@ export const createTapInvoiceIfNeeded = async (orderId: number): Promise<TapInvo
         });
       });
     } catch (transactionError) {
+      // Compensation: If DB transaction failed but invoice was created in Tap, cancel the invoice
+      if (invoiceCreated && tapInvoice?.id) {
+        try {
+          logger.warn(`Order ${orderId} - DB transaction failed after invoice creation, cancelling invoice ${tapInvoice.id}`);
+          const { cancelInvoice } = await import('@/lib/tapInvoiceManagement');
+          await cancelInvoice(tapInvoice.id);
+          logger.info(`Order ${orderId} - Compensated: Invoice ${tapInvoice.id} cancelled due to DB transaction failure`);
+          
+          // Alert: Compensation transaction for invoice
+          logger.warn('PAYMENT_COMPENSATION: Invoice cancelled due to DB transaction failure', {
+            type: 'COMPENSATION',
+            severity: 'MEDIUM',
+            orderId: orderId,
+            invoiceId: tapInvoice.id,
+            reason: 'DB transaction failed after invoice creation',
+            timestamp: new Date().toISOString()
+          });
+        } catch (cancelError) {
+          logger.error(`Order ${orderId} - Failed to cancel invoice ${tapInvoice.id} during compensation:`, cancelError);
+          // Log but don't throw - compensation failure is logged for manual review
+        }
+      }
+
       // If invoice already exists, fetch and return it
       if (transactionError instanceof Error && transactionError.message.includes('already exists')) {
         logger.info(`Order ${orderId} - Invoice already exists, fetching existing payment record`);

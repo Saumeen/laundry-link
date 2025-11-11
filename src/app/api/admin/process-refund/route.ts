@@ -123,24 +123,64 @@ export async function POST(request: NextRequest) {
     }
 
     // Process the refund based on payment method
+    // Use transaction to prevent concurrent refunds
     let refundResult: RefundResult;
     
     if (paymentRecord.paymentMethod === 'TAP_PAY' && paymentRecord.tapChargeId) {
-      // Process Tap refund
+      // Process Tap refund with transaction-level locking
       try {
-        const tapRefundResponse = await createTapRefund(
-          paymentRecord.tapChargeId,
-          refundAmount,
-          refundReason
-        );
+        // Re-fetch payment record inside transaction to get latest refundAmount
+        // This prevents concurrent refunds from over-refunding
+        refundResult = await prisma.$transaction(async (tx) => {
+          // Re-fetch payment record with latest data (transaction isolation prevents concurrent updates)
+          const currentPaymentRecord = await tx.paymentRecord.findUnique({
+            where: { id: paymentId },
+            include: {
+              order: true
+            }
+          });
 
-        refundResult = await processTapRefund(
-          paymentRecord,
-          refundAmount,
-          refundReason,
-          admin.id,
-          tapRefundResponse
-        );
+          if (!currentPaymentRecord) {
+            throw new Error('Payment record not found');
+          }
+
+          // Re-verify refund amount inside transaction
+          const currentAlreadyRefunded = currentPaymentRecord.refundAmount || 0;
+          const currentMaxRefundable = currentPaymentRecord.amount - currentAlreadyRefunded;
+          
+          if (refundAmount > currentMaxRefundable) {
+            // Alert: Refund validation failed
+            logger.error('PAYMENT_ANOMALY: Refund amount exceeds maximum refundable', {
+              type: 'REFUND_VALIDATION_FAILED',
+              severity: 'HIGH',
+              paymentRecordId: paymentId,
+              orderId: currentPaymentRecord.orderId,
+              requestedRefund: refundAmount,
+              maxRefundable: currentMaxRefundable,
+              alreadyRefunded: currentAlreadyRefunded,
+              originalAmount: currentPaymentRecord.amount,
+              timestamp: new Date().toISOString()
+            });
+            throw new Error(`Refund amount exceeds maximum refundable amount of ${currentMaxRefundable} BD`);
+          }
+
+          // Process Tap refund
+          const tapRefundResponse = await createTapRefund(
+            currentPaymentRecord.tapChargeId!,
+            refundAmount,
+            refundReason
+          );
+
+          return await processTapRefund(
+            currentPaymentRecord,
+            refundAmount,
+            refundReason,
+            admin.id,
+            tapRefundResponse
+          );
+        }, {
+          isolationLevel: 'Serializable' // Highest isolation level to prevent concurrent refunds
+        });
       } catch (tapError) {
         logger.error('Error processing Tap refund:', tapError);
         return NextResponse.json(
@@ -149,13 +189,42 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      // Process wallet refund (existing logic)
-      refundResult = await processWalletRefund(
-        paymentRecord,
-        refundAmount,
-        refundReason,
-        admin.id
-      );
+      // Process wallet refund with transaction-level locking
+      refundResult = await prisma.$transaction(async (tx) => {
+        // Re-fetch payment record inside transaction to get latest refundAmount
+        const currentPaymentRecord = await tx.paymentRecord.findUnique({
+          where: { id: paymentId },
+          include: {
+            order: true,
+            customer: {
+              include: {
+                wallet: true
+              }
+            }
+          }
+        });
+
+        if (!currentPaymentRecord) {
+          throw new Error('Payment record not found');
+        }
+
+        // Re-verify refund amount inside transaction
+        const currentAlreadyRefunded = currentPaymentRecord.refundAmount || 0;
+        const currentMaxRefundable = currentPaymentRecord.amount - currentAlreadyRefunded;
+        
+        if (refundAmount > currentMaxRefundable) {
+          throw new Error(`Refund amount exceeds maximum refundable amount of ${currentMaxRefundable} BD`);
+        }
+
+        return await processWalletRefund(
+          currentPaymentRecord,
+          refundAmount,
+          refundReason,
+          admin.id
+        );
+      }, {
+        isolationLevel: 'Serializable' // Highest isolation level to prevent concurrent refunds
+      });
     }
 
     // Build response based on refund type

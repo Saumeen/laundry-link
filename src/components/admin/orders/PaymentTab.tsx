@@ -109,19 +109,21 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
   const [editPaymentStatus, setEditPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIAL_REFUND'>('PAID');
   const [editPaymentNotes, setEditPaymentNotes] = useState('');
   const [updatingPaymentRecord, setUpdatingPaymentRecord] = useState(false);
+  const [showPaymentStatusModal, setShowPaymentStatusModal] = useState(false);
+  const [paymentStatusAmount, setPaymentStatusAmount] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'PENDING' | 'PAID' | 'FAILED'>('PAID');
+  const [paymentStatusNotes, setPaymentStatusNotes] = useState('');
+  const [updatingPaymentStatus, setUpdatingPaymentStatus] = useState(false);
 
   // Check if user is super admin
   const isSuperAdmin = session?.role === 'SUPER_ADMIN';
 
   // Use backend-calculated payment summary
   const {
-    totalPaid,
-    totalRefunded,
     totalPending,
-    totalFailed,
-    availableForRefund,
     netAmountPaid,
     outstandingAmount,
+    availableForRefund,
     paymentRecordsCount,
     invoiceTotal
   } = order.paymentSummary;
@@ -415,6 +417,72 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
     }
   };
 
+  const handleUpdatePaymentStatus = async () => {
+    if (!paymentStatusAmount || paymentStatusAmount === '') {
+      showToast('Please enter a payment amount', 'error');
+      return;
+    }
+
+    const amount = parseFloat(paymentStatusAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showToast('Please enter a valid payment amount', 'error');
+      return;
+    }
+
+    // Validate amount doesn't exceed outstanding amount
+    if (amount > Math.abs(outstandingAmount) + totalPending) {
+      showToast(
+        `Payment amount cannot exceed outstanding amount (${formatCurrency(Math.abs(outstandingAmount) + totalPending)})`,
+        'error'
+      );
+      return;
+    }
+
+    setUpdatingPaymentStatus(true);
+    try {
+      const response = await fetch('/api/admin/update-payment-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          paymentStatus: paymentStatus,
+          amount: amount,
+          notes: paymentStatusNotes || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json() as { error?: string };
+        throw new Error(errorData.error || 'Failed to update payment status');
+      }
+
+      const result = await response.json() as { message?: string };
+      
+      showToast(
+        result.message || 'Payment status updated successfully!',
+        'success'
+      );
+      
+      setShowPaymentStatusModal(false);
+      setPaymentStatusAmount('');
+      setPaymentStatus('PAID');
+      setPaymentStatusNotes('');
+      
+      // Refresh order data
+      onRefresh();
+    } catch (error) {
+      logger.error('Error updating payment status:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to update payment status',
+        'error'
+      );
+    } finally {
+      setUpdatingPaymentStatus(false);
+    }
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'PAID':
@@ -496,12 +564,30 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
 
   return (
     <div className="space-y-6">
-      {/* Enhanced Payment Summary */}
+      {/* Simplified Payment Summary */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Payment Summary
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Payment Summary
+          </h3>
+          {isSuperAdmin && (
+            <button
+              onClick={() => {
+                setPaymentStatusAmount('');
+                setPaymentStatus('PAID');
+                setPaymentStatusNotes('');
+                setShowPaymentStatusModal(true);
+              }}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Update Payment Status
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center">
             <div className="text-sm text-gray-600">Order Total</div>
             <div className="text-xl font-bold text-gray-900">
@@ -513,57 +599,11 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
             <div className="text-xl font-bold text-green-600">
               {formatCurrency(netAmountPaid)}
             </div>
-            {totalPaid !== netAmountPaid && (
-              <div className="text-xs text-gray-500 mt-1">
-                (Gross: {formatCurrency(totalPaid)})
-              </div>
-            )}
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-600">Total Refunded</div>
-            <div className="text-xl font-bold text-blue-600">
-              {formatCurrency(totalRefunded)}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Outstanding</div>
-            <div className={`text-xl font-bold ${outstandingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCurrency(Math.abs(outstandingAmount))}
-            </div>
-            {totalPending > 0 && (
-              <div className="text-xs text-amber-600 mt-1">
-                ({formatCurrency(totalPending)} pending)
-              </div>
-            )}
-          </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Available for Refund</div>
-            <div className="text-xl font-bold text-orange-600">
-              {formatCurrency(availableForRefund)}
-            </div>
-          </div>
-        </div>
-        
-        {/* Payment Status Breakdown */}
-        <div className="mt-4 pt-4 border-t border-blue-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Pending Payments</div>
-              <div className="text-lg font-semibold text-yellow-600">
-                {formatCurrency(totalPending)}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Failed Payments</div>
-              <div className="text-lg font-semibold text-red-600">
-                {formatCurrency(totalFailed)}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-sm text-gray-600">Payment Records</div>
-              <div className="text-lg font-semibold text-gray-900">
-                {paymentRecordsCount}
-              </div>
+            <div className="text-sm text-gray-600">Total Pending</div>
+            <div className="text-xl font-bold text-yellow-600">
+              {formatCurrency(totalPending)}
             </div>
           </div>
         </div>
@@ -797,6 +837,93 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
         </div>
       )}
 
+      {/* Payment Status Update Modal */}
+      {showPaymentStatusModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Update Payment Status
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Amount (BHD) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    value={paymentStatusAmount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = parseFloat(value);
+                      if (value === '' || (!isNaN(numValue) && numValue > 0)) {
+                        setPaymentStatusAmount(value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter payment amount"
+                  />
+                  {outstandingAmount > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Outstanding: {formatCurrency(Math.abs(outstandingAmount) + totalPending)}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Status *
+                  </label>
+                  <select
+                    value={paymentStatus}
+                    onChange={(e) => setPaymentStatus(e.target.value as 'PENDING' | 'PAID' | 'FAILED')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="PAID">PAID</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="FAILED">FAILED</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes (Optional)
+                  </label>
+                  <textarea
+                    value={paymentStatusNotes}
+                    onChange={(e) => setPaymentStatusNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    rows={2}
+                    placeholder="Add notes about this payment"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowPaymentStatusModal(false);
+                      setPaymentStatusAmount('');
+                      setPaymentStatus('PAID');
+                      setPaymentStatusNotes('');
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    disabled={updatingPaymentStatus}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdatePaymentStatus}
+                    disabled={updatingPaymentStatus || !paymentStatusAmount || parseFloat(paymentStatusAmount) <= 0}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updatingPaymentStatus ? 'Updating...' : 'Update Status'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Customer Wallet Info */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -854,7 +981,19 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                   </td>
                 </tr>
               ) : (
-                (order.paymentRecords || []).map((payment) => (
+                (order.paymentRecords || []).map((payment) => {
+                  // Check if this payment was manually added/updated
+                  let isManuallyAdded = false;
+                  let isManuallyUpdated = false;
+                  try {
+                    const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
+                    isManuallyAdded = metadata.manuallyAdded === true;
+                    isManuallyUpdated = metadata.manuallyUpdated === true;
+                  } catch {
+                    // Ignore parsing errors
+                  }
+
+                  return (
                   <tr key={payment.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
@@ -862,8 +1001,15 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                           {getPaymentMethodIcon(payment.paymentMethod, payment.metadata)}
                         </span>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {payment.paymentMethod.toUpperCase()}
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm font-medium text-gray-900">
+                              {payment.paymentMethod.toUpperCase()}
+                            </div>
+                            {(isManuallyAdded || isManuallyUpdated) && (
+                              <span className="text-xs text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full font-semibold">
+                                Manual
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-gray-500">
                             {payment.description || 'Order payment'}
@@ -941,7 +1087,8 @@ const PaymentTab: React.FC<PaymentTabProps> = ({ order, onRefresh }) => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

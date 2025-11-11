@@ -7,6 +7,111 @@ import { PaymentMethod, PaymentStatus } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateInvoicePDF } from '@/lib/utils/invoiceUtils';
 
+/**
+ * Compensate split payment - rollback wallet transaction if card payment fails
+ */
+async function compensateSplitPayment(
+  walletPaymentRecordId: number,
+  walletTransactionId: number,
+  customerId: number,
+  walletAmount: number
+): Promise<void> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Get wallet payment record and transaction
+      const walletPayment = await tx.paymentRecord.findUnique({
+        where: { id: walletPaymentRecordId },
+        include: {
+          walletTransaction: {
+            include: {
+              wallet: true
+            }
+          }
+        }
+      });
+
+      if (!walletPayment || !walletPayment.walletTransaction) {
+        logger.error('Cannot compensate: wallet payment or transaction not found', {
+          walletPaymentRecordId,
+          walletTransactionId
+        });
+        return;
+      }
+
+      const wallet = walletPayment.walletTransaction.wallet;
+      const currentBalance = wallet.balance;
+      const newBalance = currentBalance + walletAmount;
+
+      // Create compensation transaction
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          transactionType: 'REFUND',
+          amount: walletAmount,
+          balanceBefore: currentBalance,
+          balanceAfter: newBalance,
+          description: `Compensation: Split payment rollback for failed card portion`,
+          reference: `COMPENSATION_${walletPaymentRecordId}`,
+          metadata: JSON.stringify({
+            compensationFor: walletPaymentRecordId,
+            originalTransactionId: walletTransactionId,
+            reason: 'Card payment failed in split payment',
+            isCompensation: true
+          }),
+          status: 'COMPLETED',
+          processedAt: new Date()
+        }
+      });
+
+      // Restore wallet balance
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: {
+          balance: newBalance,
+          lastTransactionAt: new Date()
+        }
+      });
+
+      // Update payment record status to FAILED
+      await tx.paymentRecord.update({
+        where: { id: walletPaymentRecordId },
+        data: {
+          paymentStatus: PaymentStatus.FAILED,
+          metadata: JSON.stringify({
+            ...(walletPayment.metadata ? JSON.parse(walletPayment.metadata) : {}),
+            compensationApplied: true,
+            compensationReason: 'Card payment failed in split payment',
+            compensatedAt: new Date().toISOString()
+          })
+        }
+      });
+
+      logger.info('Split payment compensation applied:', {
+        walletPaymentRecordId,
+        walletTransactionId,
+        walletAmount,
+        oldBalance: currentBalance,
+        newBalance
+      });
+      
+      // Alert: Compensation transaction applied
+      logger.warn('PAYMENT_COMPENSATION: Split payment rollback applied', {
+        type: 'COMPENSATION',
+        severity: 'MEDIUM',
+        walletPaymentRecordId,
+        walletTransactionId,
+        customerId,
+        walletAmount,
+        reason: 'Card payment failed in split payment',
+        timestamp: new Date().toISOString()
+      });
+    });
+  } catch (error) {
+    logger.error('Error compensating split payment:', error);
+    throw error;
+  }
+}
+
 interface CustomerData {
   firstName: string;
   lastName: string;
@@ -157,19 +262,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check wallet balance if split payment with wallet portion
-    if (isSplitPayment && walletAmount && walletAmount > 0) {
-      const wallet = await prisma.wallet.findUnique({
-        where: { customerId: customer.id }
-      });
-
-      if (!wallet || wallet.balance < walletAmount) {
-        return NextResponse.json(
-          { error: 'Insufficient wallet balance for split payment' },
-          { status: 400 }
-        );
-      }
-    }
+    // Note: Wallet balance check moved inside transaction to prevent race condition
 
     try {
       let result: any;
@@ -184,7 +277,7 @@ export async function POST(request: NextRequest) {
           
           // Process wallet payment if amount > 0
           if (walletAmount && walletAmount > 0) {
-            // Get or create wallet
+            // Get or create wallet (balance check moved inside transaction to prevent race condition)
             const wallet = await tx.wallet.findUnique({
               where: { customerId: customer.id }
             }) || await tx.wallet.create({
@@ -196,9 +289,14 @@ export async function POST(request: NextRequest) {
               }
             });
 
-            // Verify wallet has sufficient balance
-            if (wallet.balance < walletAmount) {
-              throw new Error('Insufficient wallet balance');
+            // Verify wallet has sufficient balance (inside transaction to prevent race condition)
+            // Re-fetch wallet to get latest balance within transaction
+            const currentWallet = await tx.wallet.findUnique({
+              where: { id: wallet.id }
+            });
+            
+            if (!currentWallet || currentWallet.balance < walletAmount) {
+              throw new Error('Insufficient wallet balance for split payment');
             }
 
             logger.info('Processing wallet portion of split payment:', {
@@ -221,8 +319,8 @@ export async function POST(request: NextRequest) {
               }
             });
 
-            // Calculate balance changes
-            const balanceBefore = wallet.balance;
+            // Calculate balance changes (use currentWallet balance from transaction)
+            const balanceBefore = currentWallet.balance;
             const balanceAfter = balanceBefore - walletAmount;
 
                          // Create wallet transaction record for audit (COMPLETED immediately for split payments)
@@ -256,24 +354,31 @@ export async function POST(request: NextRequest) {
               }
             });
 
-                         logger.info('Wallet portion of split payment completed immediately:', {
-               orderId: order.id,
-               walletAmount,
-               balanceBefore,
-               balanceAfter,
-               walletTransactionId: walletTransaction.id,
-               paymentRecordId: walletPaymentRecord.id
-             });
+            logger.info('Wallet portion of split payment deducted (pending card confirmation):', {
+              orderId: order.id,
+              walletAmount,
+              balanceBefore,
+              balanceAfter,
+              walletTransactionId: walletTransaction.id,
+              paymentRecordId: walletPaymentRecord.id
+            });
 
-                         // Update payment record with transaction link (wallet portion is COMPLETED immediately)
-             walletPaymentRecord = await tx.paymentRecord.update({
-               where: { id: walletPaymentRecord.id },
-               data: {
-                 walletTransactionId: walletTransaction.id,
-                 paymentStatus: PaymentStatus.PAID, // Wallet portion is completed immediately
-                 processedAt: new Date() // Processed immediately since money is already deducted
-               }
-             });
+            // Update payment record with transaction link (mark as PENDING until card portion succeeds)
+            // Status will be updated to PAID when card payment succeeds, or FAILED if card fails
+            walletPaymentRecord = await tx.paymentRecord.update({
+              where: { id: walletPaymentRecord.id },
+              data: {
+                walletTransactionId: walletTransaction.id,
+                paymentStatus: PaymentStatus.PENDING, // Will be updated to PAID when card succeeds
+                metadata: JSON.stringify({
+                  isSplitPayment: true,
+                  totalOrderAmount: amount,
+                  walletAmount,
+                  cardAmount: cardAmount || 0,
+                  waitingForCardPayment: true
+                })
+              }
+            });
           }
 
           // Process card payment if amount > 0
@@ -324,7 +429,25 @@ export async function POST(request: NextRequest) {
               tokenId
             };
           } else {
-            // Wallet-only payment
+            // Wallet-only payment (no card portion) - mark wallet payment as PAID immediately
+            if (walletPaymentRecord && walletTransaction) {
+              await tx.paymentRecord.update({
+                where: { id: walletPaymentRecord.id },
+                data: {
+                  paymentStatus: PaymentStatus.PAID,
+                  processedAt: new Date(),
+                  metadata: JSON.stringify({
+                    isSplitPayment: true,
+                    totalOrderAmount: amount,
+                    walletAmount,
+                    cardAmount: 0,
+                    waitingForCardPayment: false,
+                    walletOnlyPayment: true
+                  })
+                }
+              });
+            }
+            
             return {
               paymentRecord: walletPaymentRecord,
               tapResponse: null,
@@ -347,28 +470,112 @@ export async function POST(request: NextRequest) {
             totalAmount: amount
           });
 
-          const cardResult = await processCardPayment(
-            customer.id,
-            order.id,
-            result.cardAmount,
-            result.customerData,
-            result.tokenId,
-            `Split payment card portion for order ${order.orderNumber}`
-          );
+          try {
+            const cardResult = await processCardPayment(
+              customer.id,
+              order.id,
+              result.cardAmount,
+              result.customerData,
+              result.tokenId,
+              `Split payment card portion for order ${order.orderNumber}`
+            );
 
-          // Update the result with card payment details
-          result.paymentRecord = cardResult.paymentRecord;
-          result.tapResponse = cardResult.tapResponse;
-          result.redirectUrl = cardResult.redirectUrl;
+            // Update the result with card payment details
+            result.paymentRecord = cardResult.paymentRecord;
+            result.tapResponse = cardResult.tapResponse;
+            result.redirectUrl = cardResult.redirectUrl;
 
-                     logger.info('Card portion of split payment processed:', {
-             paymentRecordId: cardResult.paymentRecord.id,
-             tapTransactionId: cardResult.tapResponse?.id,
-             status: cardResult.tapResponse?.status
-           });
+            logger.info('Card portion of split payment processed:', {
+              paymentRecordId: cardResult.paymentRecord.id,
+              tapTransactionId: cardResult.tapResponse?.id,
+              status: cardResult.tapResponse?.status
+            });
 
-           // Note: Email notification for split payments will be handled by webhook
-           // since the card portion goes through the webhook process
+            // Check if card payment succeeded or failed
+            const cardStatus = cardResult.tapResponse?.status;
+            const isCardSuccess = cardStatus === 'CAPTURED';
+            const isCardFailed = cardStatus === 'DECLINED' || cardStatus === 'FAILED';
+
+            if (result.walletPaymentRecord && result.walletTransaction) {
+              if (isCardSuccess) {
+                // Card payment succeeded - update wallet payment to PAID
+                await prisma.paymentRecord.update({
+                  where: { id: result.walletPaymentRecord.id },
+                  data: {
+                    paymentStatus: PaymentStatus.PAID,
+                    processedAt: new Date(),
+                    metadata: JSON.stringify({
+                      ...(result.walletPaymentRecord.metadata ? JSON.parse(result.walletPaymentRecord.metadata) : {}),
+                      waitingForCardPayment: false,
+                      cardPaymentSucceeded: true,
+                      cardPaymentRecordId: cardResult.paymentRecord.id
+                    })
+                  }
+                });
+
+                logger.info('Split payment completed: wallet and card portions both succeeded', {
+                  orderId: order.id,
+                  walletPaymentRecordId: result.walletPaymentRecord.id,
+                  cardPaymentRecordId: cardResult.paymentRecord.id
+                });
+              } else if (isCardFailed) {
+                // Card payment failed - compensate (rollback wallet transaction)
+                logger.warn('Card payment failed in split payment, compensating wallet portion:', {
+                  orderId: order.id,
+                  walletPaymentRecordId: result.walletPaymentRecord.id,
+                  cardStatus
+                });
+
+                await compensateSplitPayment(
+                  result.walletPaymentRecord.id,
+                  result.walletTransaction.id,
+                  customer.id,
+                  walletAmount || 0
+                );
+
+                // Return error response
+                return NextResponse.json(
+                  {
+                    error: 'Card payment failed. Wallet portion has been refunded.',
+                    walletRefunded: true,
+                    cardError: true
+                  },
+                  { status: 400 }
+                );
+              }
+              // If card payment is pending (redirect required), wallet payment stays PENDING
+              // Webhook will handle final status update
+            }
+
+            // Note: Email notification for split payments will be handled by webhook
+            // since the card portion goes through the webhook process
+          } catch (cardError) {
+            // Card payment processing failed - compensate wallet portion
+            logger.error('Error processing card portion of split payment, compensating wallet:', cardError);
+
+            if (result.walletPaymentRecord && result.walletTransaction) {
+              try {
+                await compensateSplitPayment(
+                  result.walletPaymentRecord.id,
+                  result.walletTransaction.id,
+                  customer.id,
+                  walletAmount || 0
+                );
+              } catch (compensationError) {
+                logger.error('Error compensating split payment:', compensationError);
+                // Log but don't fail - compensation is critical
+              }
+            }
+
+            return NextResponse.json(
+              {
+                error: 'Card payment processing failed. Wallet portion has been refunded.',
+                walletRefunded: true,
+                cardError: true
+              },
+              { status: 400 }
+            );
+          }
         } else {
           // Wallet-only payment - send email notification immediately
           try {

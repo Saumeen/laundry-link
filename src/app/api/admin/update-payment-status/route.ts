@@ -87,34 +87,72 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create new payment record instead of updating existing ones
+    // Create new payment record with database-level validation in transaction
+    // This prevents concurrent overpayments
     let newPaymentRecord = null;
     if (amount && amount > 0) {
-      // Use CASH as payment method for manual entries
-      // Payment method will be stored in metadata for reference
-      const paymentMethodType = PaymentMethod.CASH;
-      
-      newPaymentRecord = await prisma.paymentRecord.create({
-        data: {
-          orderId: orderId,
-          customerId: currentOrder.customerId,
-          amount: amount,
-          currency: 'BHD',
-          paymentMethod: paymentMethodType,
-          paymentStatus: paymentStatus,
-          description: notes || `Manual payment entry - ${paymentStatus}`,
-          processedAt: paymentStatus === PaymentStatus.PAID ? new Date() : null,
-          metadata: JSON.stringify({
-            manuallyAdded: true,
-            addedBy: admin.id,
-            addedAt: new Date().toISOString(),
-            notes: notes || null,
-            entryType: 'MANUAL',
-          }),
-        },
-      });
+      // Use transaction to prevent concurrent overpayments
+      newPaymentRecord = await prisma.$transaction(async (tx) => {
+        // Re-fetch order with payment records inside transaction to get latest state
+        const currentOrderState = await tx.order.findUnique({
+          where: { id: orderId },
+          include: {
+            paymentRecords: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
 
-      logger.info(`Created new payment record ${newPaymentRecord.id} for order ${orderId}: ${amount} BHD, status: ${paymentStatus}`);
+        if (!currentOrderState) {
+          throw new Error('Order not found');
+        }
+
+        // Calculate current payment summary inside transaction
+        const invoiceTotal = currentOrderState.invoiceTotal || 0;
+        const currentPaymentSummary = calculatePaymentSummary(
+          currentOrderState.paymentRecords,
+          invoiceTotal
+        );
+        const currentOutstanding = currentPaymentSummary.outstandingAmount;
+
+        // Validate amount doesn't exceed outstanding (with tolerance for pending payments)
+        const maxAllowed = Math.abs(currentOutstanding) + currentPaymentSummary.totalPending;
+        if (amount > maxAllowed) {
+          throw new Error(
+            `Payment amount (${amount}) cannot exceed outstanding amount (${maxAllowed}). ` +
+            `Current outstanding: ${currentOutstanding}, Pending: ${currentPaymentSummary.totalPending}`
+          );
+        }
+
+        // Use CASH as payment method for manual entries
+        // Payment method will be stored in metadata for reference
+        const paymentMethodType = PaymentMethod.CASH;
+        
+        const paymentRecord = await tx.paymentRecord.create({
+          data: {
+            orderId: orderId,
+            customerId: currentOrderState.customerId,
+            amount: amount,
+            currency: 'BHD',
+            paymentMethod: paymentMethodType,
+            paymentStatus: paymentStatus,
+            description: notes || `Manual payment entry - ${paymentStatus}`,
+            processedAt: paymentStatus === PaymentStatus.PAID ? new Date() : null,
+            metadata: JSON.stringify({
+              manuallyAdded: true,
+              addedBy: admin.id,
+              addedAt: new Date().toISOString(),
+              notes: notes || null,
+              entryType: 'MANUAL',
+            }),
+          },
+        });
+
+        logger.info(`Created new payment record ${paymentRecord.id} for order ${orderId}: ${amount} BHD, status: ${paymentStatus}`);
+        return paymentRecord;
+      }, {
+        isolationLevel: 'Serializable' // Highest isolation to prevent concurrent overpayments
+      });
     }
 
     // Recalculate order payment status based on all payment records (including the new one)

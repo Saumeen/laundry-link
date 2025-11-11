@@ -5,7 +5,8 @@ import { ConfigurationManager } from '@/lib/utils/configuration';
 import logger from '@/lib/logger';
 import emailService from '@/lib/emailService';
 import { generateInvoicePDF } from '@/lib/utils/invoiceUtils';
-import { recalculateOrderPaymentStatus } from '@/lib/utils/paymentUtils';
+import { recalculateOrderPaymentStatus, calculatePaymentSummary } from '@/lib/utils/paymentUtils';
+import { PaymentStatus } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,22 +56,24 @@ export async function POST(request: NextRequest) {
     if (!paymentRecord) {
       logger.info('Exact match failed, attempting metadata fallback for TAP_INVOICE payments', { webhookId: id });
       
+      // Only search for TAP_INVOICE records with pending status to reduce scope
       const invoicePaymentRecords = await prisma.paymentRecord.findMany({
         where: { 
           paymentMethod: 'TAP_INVOICE',
-          tapReference: { not: null }
+          tapReference: { not: null },
+          paymentStatus: { in: ['PENDING', 'IN_PROGRESS'] } // Only pending invoices
         },
         include: { order: true },
-        take: 50, // Limit search to prevent performance issues
+        take: 20, // Reduced limit for better performance
       });
 
       for (const record of invoicePaymentRecords) {
         try {
           if (record.metadata) {
             const metadata = JSON.parse(record.metadata);
-            // Only match if tapInvoiceId in metadata matches AND tapReference doesn't exist or matches
+            // Only match if tapInvoiceId in metadata matches
             if (metadata.tapInvoiceId === id) {
-              // Validate: ensure tapReference matches if it exists
+              // Strict validation: ensure tapReference matches if it exists
               if (record.tapReference && record.tapReference !== id) {
                 logger.warn('Metadata match found but tapReference mismatch, skipping', {
                   paymentRecordId: record.id,
@@ -80,11 +83,35 @@ export async function POST(request: NextRequest) {
                 });
                 continue;
               }
+
+              // Additional validation: check amount matches (if available in webhook)
+              if (amount && Math.abs(amount - record.amount) > 0.01) {
+                logger.warn('Metadata match found but amount mismatch, skipping', {
+                  paymentRecordId: record.id,
+                  webhookAmount: amount,
+                  recordAmount: record.amount,
+                  webhookId: id
+                });
+                continue;
+              }
+
+              // Additional validation: check orderId matches if available in metadata
+              if (metadata.orderId && record.orderId && metadata.orderId !== record.orderId.toString()) {
+                logger.warn('Metadata match found but orderId mismatch, skipping', {
+                  paymentRecordId: record.id,
+                  metadataOrderId: metadata.orderId,
+                  recordOrderId: record.orderId,
+                  webhookId: id
+                });
+                continue;
+              }
+
               paymentRecord = record;
-              logger.info('Payment record found via metadata fallback', {
+              logger.info('Payment record found via metadata fallback with strict validation', {
                 paymentRecordId: record.id,
                 webhookId: id,
-                matchingMethod: 'metadata_tapInvoiceId'
+                matchingMethod: 'metadata_tapInvoiceId',
+                amountMatch: amount ? Math.abs(amount - record.amount) <= 0.01 : 'N/A'
               });
               break;
             }
@@ -104,6 +131,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Payment record not found' },
         { status: 404 }
+      );
+    }
+
+    // Validate webhook amount matches payment record amount (with tolerance for rounding)
+    const amountTolerance = 0.01; // Allow 0.01 BHD tolerance for rounding differences
+    const amountDifference = Math.abs(amount - paymentRecord.amount);
+    
+    if (amountDifference > amountTolerance) {
+      // Alert: Amount mismatch - critical payment anomaly
+      logger.error('PAYMENT_ANOMALY: Webhook amount mismatch', {
+        type: 'AMOUNT_MISMATCH',
+        severity: 'HIGH',
+        webhookId: id,
+        webhookAmount: amount,
+        paymentRecordId: paymentRecord.id,
+        paymentRecordAmount: paymentRecord.amount,
+        difference: amountDifference,
+        tolerance: amountTolerance,
+        orderId: paymentRecord.orderId,
+        customerId: paymentRecord.customerId,
+        paymentMethod: paymentRecord.paymentMethod,
+        timestamp: new Date().toISOString()
+      });
+      return NextResponse.json(
+        { error: `Amount mismatch: webhook amount (${amount}) does not match payment record amount (${paymentRecord.amount})` },
+        { status: 400 }
       );
     }
 
@@ -194,10 +247,69 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Check if payment status has already been updated (idempotency check)
-    const shouldUpdate = paymentRecord.paymentStatus !== newPaymentStatus;
+    // Enhanced idempotency check: verify webhook hasn't been processed before
+    let shouldUpdate = paymentRecord.paymentStatus !== newPaymentStatus;
+    let webhookAlreadyProcessed = false;
     
-    if (shouldUpdate) {
+    try {
+      const existingMetadata = paymentRecord.metadata ? JSON.parse(paymentRecord.metadata) : {};
+      const processedWebhooks = existingMetadata.processedWebhooks || [];
+      
+      // Check if this webhook ID was already processed
+      if (Array.isArray(processedWebhooks) && processedWebhooks.includes(id)) {
+        webhookAlreadyProcessed = true;
+        shouldUpdate = false;
+        logger.info('Webhook already processed (idempotency check):', {
+          paymentRecordId: paymentRecord.id,
+          webhookId: id,
+          currentStatus: paymentRecord.paymentStatus,
+          webhookStatus: status
+        });
+      }
+    } catch (parseError) {
+      logger.warn('Failed to parse metadata for idempotency check:', {
+        paymentRecordId: paymentRecord.id,
+        error: parseError instanceof Error ? parseError.message : String(parseError)
+      });
+    }
+    
+    if (shouldUpdate && !webhookAlreadyProcessed) {
+      // Check if order is already fully paid to prevent overpayment
+      if (isOrderPayment && orderId && order) {
+        const invoiceTotal = order.invoiceTotal || 0;
+        
+        // Calculate current payment summary to check if order is already paid
+        const allPaymentRecords = await prisma.paymentRecord.findMany({
+          where: { orderId: orderId }
+        });
+        const paymentSummary = calculatePaymentSummary(allPaymentRecords, invoiceTotal);
+        
+        // If order is already PAID and this payment would cause overpayment, log and skip
+        if (order.paymentStatus === PaymentStatus.PAID && isPaid && newPaymentStatus === 'PAID') {
+          const wouldOverpay = paymentSummary.netAmountPaid + amount > invoiceTotal;
+          if (wouldOverpay) {
+            const overpaymentAmount = (paymentSummary.netAmountPaid + amount) - invoiceTotal;
+            // Alert: Overpayment detected - critical payment anomaly
+            logger.error('PAYMENT_ANOMALY: Webhook would cause overpayment', {
+              type: 'OVERPAYMENT',
+              severity: 'HIGH',
+              paymentRecordId: paymentRecord.id,
+              orderId: orderId,
+              orderNumber: order.orderNumber,
+              currentNetPaid: paymentSummary.netAmountPaid,
+              webhookAmount: amount,
+              invoiceTotal: invoiceTotal,
+              overpaymentAmount: overpaymentAmount,
+              customerId: paymentRecord.customerId,
+              paymentMethod: paymentRecord.paymentMethod,
+              timestamp: new Date().toISOString()
+            });
+            // Still update payment record status but log the overpayment
+            // Don't skip entirely as the payment did occur
+          }
+        }
+      }
+      
       logger.info(`Updating payment record ${paymentRecord.id} from ${paymentRecord.paymentStatus} to ${newPaymentStatus}`, {
         webhookStatus: status,
         paymentMethod: paymentRecord.paymentMethod,
@@ -217,6 +329,12 @@ export async function POST(request: NextRequest) {
             processedAt: isPaid ? new Date().toISOString() : paymentMetadata.processedAt,
             lastWebhookStatus: status,
             lastWebhookUpdate: new Date().toISOString(),
+            // Track processed webhook IDs for idempotency
+            processedWebhooks: [
+              ...(Array.isArray(paymentMetadata.processedWebhooks) ? paymentMetadata.processedWebhooks : []),
+              id
+            ],
+            lastWebhookId: id
           }),
         },
       });
