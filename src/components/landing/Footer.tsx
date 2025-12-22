@@ -185,7 +185,31 @@ const Footer = () => {
                 </svg>
               </a>
             </div>
-              
+
+              <footer className="bg-gray-100 text-center py-6 border-t mt-8">
+  <div className="container mx-auto text-gray-600 text-sm space-x-4">
+    <a
+      href="https://www.laundrylink.net/terms-and-conditions"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-blue-600 transition"
+    >
+      Terms & Conditions
+    </a>
+    <span>|</span>
+    <a
+      href="https://www.laundrylink.net/privacy-policy"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:text-blue-600 transition"
+    >
+      Privacy Policy
+    </a>
+  </div>
+  <p className="text-gray-500 text-xs mt-3">
+      Laundry Link. All rights reserved.
+  </p>
+</footer>
               {/* eFADA Badge */}
               <div className="mt-4 sm:mt-6 flex justify-center md:justify-start">
                 <div id="efadaDiv"></div>
