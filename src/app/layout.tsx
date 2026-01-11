@@ -82,18 +82,7 @@ export default function RootLayout({
   return (
     <html lang='en'>
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
-        <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
-        <link rel="icon" href="/favicon-192x192.png" type="image/png" sizes="192x192" />
-        <link rel="apple-touch-icon" href="/apple-icon" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-        />
-      </head>
-      <body className={`${inter.className} gradient-bg`}>
-        {/* Google Analytics */}
+                {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=AW-17645502549"
           strategy="afterInteractive"
@@ -106,7 +95,18 @@ export default function RootLayout({
             gtag('config', 'AW-17645502549');
           `}
         </Script>
-        
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />
+        <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+        <link rel="icon" href="/favicon-192x192.png" type="image/png" sizes="192x192" />
+        <link rel="apple-touch-icon" href="/apple-icon" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+        />
+      </head>
+      <body className={`${inter.className} gradient-bg`}>
+
         <Providers>
           <div className='min-h-screen'>{children}</div>
         </Providers>
