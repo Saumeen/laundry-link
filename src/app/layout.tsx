@@ -106,7 +106,15 @@ export default function RootLayout({
             gtag('config', 'AW-17645502549');
           `}
         </Script>
-        
+        <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NTLD2LRFZF"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-NTLD2LRFZF');
+</script>
         <Providers>
           <div className='min-h-screen'>{children}</div>
         </Providers>
