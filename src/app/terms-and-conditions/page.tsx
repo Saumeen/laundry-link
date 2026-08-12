@@ -11,7 +11,7 @@ export default function TermsAndConditionsPage() {
               Terms and Conditions
             </h1>
             <p className="text-blue-100 text-center mt-2">
-              Laundry Link, officially registered as TOP LINK LAUNDRY W.L.L
+              Laundry Link, officially registered as Laundry Link W.L.L
             </p>
             <p className="text-blue-100 text-center mt-1">
               Effective as of 1st August 2025
@@ -45,7 +45,7 @@ export default function TermsAndConditionsPage() {
                 <li><strong>Order:</strong> Your request for our Services</li>
                 <li><strong>Services:</strong> Laundry and dry-cleaning services picked up and delivered to you</li>
                 <li><strong>Service Providers:</strong> Third parties we engage to help provide our Services</li>
-                <li><strong>We/Us/Our:</strong> Laundry Link, officially registered as TOP LINK LAUNDRY W.L.L</li>
+                <li><strong>We/Us/Our:</strong> Laundry Link, officially registered as Laundry Link W.L.L</li>
               </ul>
             </section>
 
